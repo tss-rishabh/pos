@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import { boundedJson } from '../../domain/http-json.js';
+import { tracedFetch } from '../../observability/context.js';
 
 const flag = z.preprocess(
   (value) =>
@@ -46,7 +47,7 @@ const campaignResponse = z.object({
 export function appCashbackCampaign(
   config: Config,
   options = customerBenefitOptions(),
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = tracedFetch,
   clock: () => number = Date.now,
 ): AppCashbackCampaign {
   let cached: { value: boolean | null; until: number } | undefined;

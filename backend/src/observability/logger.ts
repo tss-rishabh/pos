@@ -87,13 +87,16 @@ export function traceMixin(fallback: {
   module: string;
   resource: string;
 }) {
-  return () => {
+  return (event: object) => {
     const trace = currentRequestTrace(),
       module = trace?.module ?? fallback.module,
       resource = trace?.resource ?? fallback.resource,
-      requestId = trace?.requestId ?? fallback.requestId;
+      requestId = trace?.requestId ?? fallback.requestId,
+      // An event that names its request (job records, request events) keeps traceId equal to it.
+      explicit =
+        'requestId' in event && typeof event.requestId === 'string' ? event.requestId : null;
     return {
-      traceId: requestId,
+      traceId: explicit ?? requestId,
       requestId,
       module,
       resource,

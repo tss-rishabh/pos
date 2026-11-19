@@ -3,6 +3,7 @@ import { boundedText } from '../../domain/http-json.js';
 import { issueCustomerToken } from '../checkout/crypto.js';
 import type { LegacyFulfillmentEnvironment } from './options.js';
 import { pythonJsonDumps } from './python-text.js';
+import { tracedFetch } from '../../observability/context.js';
 
 /** Outcome of one legacy `requests.post`. `status` 0 = no response (network error/timeout). */
 export interface GatewayResponse {
@@ -95,7 +96,7 @@ export function slackEndpoint(
 export function hyperlocalGateway(
   config: Pick<Config, 'NODE_ENV' | 'DEMO_MODE'>,
   options: LegacyFulfillmentEnvironment,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = tracedFetch,
   clock: () => number = Date.now,
 ): HyperlocalGateway {
   async function post(

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { Config } from '../../../config.js';
 import { AppError } from '../../../domain/errors.js';
 import { boundedJson } from '../../../domain/http-json.js';
-import { currentRequestTrace } from '../../../observability/context.js';
+import { currentRequestTrace, tracedFetch } from '../../../observability/context.js';
 import { stringifyNumericJson } from '../../upstream.js';
 import { wireId } from '../payloads.js';
 import { CheckoutGatewayError } from '../gateway.js';
@@ -152,7 +152,7 @@ export interface ReturnGatewayLog {
 export function returnGateway(
   config: Config,
   environment: ReturnEnvironment,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = tracedFetch,
   log?: ReturnGatewayLog,
 ): ReturnGateway {
   const endpoint = (raw: string | undefined) => {

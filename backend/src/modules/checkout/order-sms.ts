@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { JobHandler, JobHandlerRegistry, JobName, JobProducer } from '../../jobs/contract.js';
+import { tracedFetch } from '../../observability/context.js';
 
 /**
  * Order SMS, legacy Celery task `core.tasks.send_sms` (`core/tasks.py:70-81`), queued with `.delay`
@@ -37,7 +38,7 @@ const argsSchema = z
 
 export function orderSmsHandler(
   config: Pick<Config, 'TSS_API_BASE_URL'>,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = tracedFetch,
 ): JobHandler {
   return async (args, context) => {
     const { order_id: orderId } = argsSchema.parse(args);

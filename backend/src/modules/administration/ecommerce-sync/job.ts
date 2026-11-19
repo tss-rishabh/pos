@@ -5,6 +5,7 @@ import { ProductStore, Store } from '../../../db/legacy-schema.js';
 import { identifier } from '../../../domain/validation.js';
 import type { JobHandler } from '../../../jobs/contract.js';
 import type { JobLogger } from '../../../jobs/runtime.js';
+import { tracedFetch } from '../../../observability/context.js';
 
 /** Celery args of `sync_ecom_inventory(store_id)` (`core/tasks.py:181-182`). */
 const syncArgs = z.object({ store_id: identifier }).strict();
@@ -28,7 +29,7 @@ export function mysqlStockSyncerBk(db: Databases): StockSyncerBk {
 
 export function httpFullEcommerceSync(
   mainApiV2Url: string | undefined,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = tracedFetch,
   timeoutMs = 30_000,
 ): FullEcommerceSync {
   return async () => {

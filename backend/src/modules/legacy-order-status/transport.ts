@@ -1,3 +1,4 @@
+import { tracedFetch } from '../../observability/context.js';
 /** Status values the sync-repo service accepts (legacy callers pass these literals). */
 export type SyncRepoStatus = 'PACK' | 'SHIP' | 'DELIVER' | 'RTO' | (string & {});
 export interface SyncRepoStatusApiOptions {
@@ -16,7 +17,7 @@ export type SyncRepoOutcome = 'sent' | 'skipped-unconfigured' | 'failed';
  */
 export function syncRepoStatusApi(
   options: SyncRepoStatusApiOptions,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = tracedFetch,
   log: (outcome: SyncRepoOutcome, hyperlocal: boolean) => void = () => {},
 ) {
   return async function callStatusApi(

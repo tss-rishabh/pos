@@ -1,6 +1,7 @@
 import type { Config } from '../config.js';
 import { AppError, unavailable } from '../domain/errors.js';
-import {boundedJson} from '../domain/http-json.js';
+import { boundedJson } from '../domain/http-json.js';
+import { tracedFetch } from '../observability/context.js';
 
 export interface CartContext {
   storeId: number | bigint;
@@ -23,7 +24,11 @@ export function setCartPayload(c: CartContext, productId: number | bigint, quant
     payload: { operation: 'set', type: 'products', data: { prod_id: productId, quantity } },
   };
 }
-export function deleteCartPayload(c: CartContext, productId: number | bigint, giftVoucherId?: number | bigint) {
+export function deleteCartPayload(
+  c: CartContext,
+  productId: number | bigint,
+  giftVoucherId?: number | bigint,
+) {
   return {
     ...scope(c),
     payload: {
@@ -52,7 +57,7 @@ export function upstreamService(config: Config) {
       throw new AppError(503, 'INVALID_DEPENDENCY', 'Checkout API requires HTTPS.');
     let response: Response;
     try {
-      response = await fetch(new URL(path, base), {
+      response = await tracedFetch(new URL(path, base), {
         method: 'POST',
         headers: { Authorization: token, 'Content-Type': 'application/json' },
         body: stringifyNumericJson(payload),
@@ -92,7 +97,12 @@ export function upstreamService(config: Config) {
         token,
         setCartPayload(c, productId, quantity),
       ),
-    remove: (c: CartContext, token: string, productId: number | bigint, giftVoucherId?: number | bigint) =>
+    remove: (
+      c: CartContext,
+      token: string,
+      productId: number | bigint,
+      giftVoucherId?: number | bigint,
+    ) =>
       post(
         config.TSS_API_MIGRATION_V2 ? 'cart' : 'pos/cart',
         token,
@@ -106,11 +116,16 @@ export function upstreamService(config: Config) {
 }
 
 /** Node LTS emits integer JSON tokens without rounding identifiers through a double. */
-export function stringifyNumericJson(value:unknown):string{
-  const runtime=JSON as unknown as {rawJSON?:(source:string)=>unknown};
-  return JSON.stringify(value,(_key,item:unknown)=>{
-    if(typeof item!=='bigint')return item;
-    if(!runtime.rawJSON)throw new AppError(503,'UNSUPPORTED_NODE_RUNTIME','Checkout requires the configured Node LTS runtime.');
+export function stringifyNumericJson(value: unknown): string {
+  const runtime = JSON as unknown as { rawJSON?: (source: string) => unknown };
+  return JSON.stringify(value, (_key, item: unknown) => {
+    if (typeof item !== 'bigint') return item;
+    if (!runtime.rawJSON)
+      throw new AppError(
+        503,
+        'UNSUPPORTED_NODE_RUNTIME',
+        'Checkout requires the configured Node LTS runtime.',
+      );
     return runtime.rawJSON(item.toString());
   });
 }

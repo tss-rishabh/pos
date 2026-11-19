@@ -5,6 +5,7 @@ import { createProductSyncAdapter } from '../administration/product-sync.js';
 import { readAdministrationWorkerOptions } from '../administration/worker-options.js';
 import { inventoryPullBody } from './maintenance-domain.js';
 import type { CatalogMaintenanceOptions } from './maintenance-options.js';
+import { tracedFetch } from '../../observability/context.js';
 
 export interface MaintenanceTransports {
   /**
@@ -41,7 +42,7 @@ export function createCatalogMaintenanceTransports(
   config: Config,
   options: CatalogMaintenanceOptions,
   env: NodeJS.ProcessEnv = process.env,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = tracedFetch,
 ): MaintenanceTransports {
   const result: MaintenanceTransports = {};
   if (options.INVENTORY_SYNC_URL && options.INVENTORY_SYNC_API_KEY) {

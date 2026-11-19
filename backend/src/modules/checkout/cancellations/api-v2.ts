@@ -3,6 +3,7 @@ import { AppError } from '../../../domain/errors.js';
 import { boundedJson } from '../../../domain/http-json.js';
 import { identifier } from '../../../domain/validation.js';
 import type { PendingCancellationOptions } from './options.js';
+import { tracedFetch } from '../../../observability/context.js';
 
 /**
  * API-v2 `pos/cancel-pos-order`, called exactly as legacy `AjaxOrderCancelView`
@@ -47,7 +48,7 @@ export function cancelPosOrderUrl(
 
 export function apiV2CancelPosOrderClient(
   target: URL,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = tracedFetch,
   timeoutMs = 30_000,
 ): CancelPosOrderClient {
   return {
