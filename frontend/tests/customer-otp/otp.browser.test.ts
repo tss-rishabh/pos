@@ -239,9 +239,9 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
           } else if (path.endsWith('/confirmations')) {
             value.verifies++;
             const input = z
-                .object({ otp: z.string().regex(/^\d{6}$/) })
+                .object({ otp: z.string().regex(/^\d{4}$/) })
                 .parse(request.postDataJSON() as unknown),
-              valid = input.otp === '487209';
+              valid = input.otp === '4872';
             value.challenge = {
               ...value.challenge!,
               verifyOperationId: body.operationId,
@@ -404,13 +404,13 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         await browserExpect(
           page.getByText('Delivery is unconfirmed.', { exact: false }),
         ).toBeVisible();
-        await page.getByLabel('Verification code', { exact: true }).fill('487209');
+        await page.getByLabel('Verification code', { exact: true }).fill('4872');
         await page.getByRole('button', { name: 'Verify customer', exact: true }).click();
         await browserExpect(page.getByText('Customer verified.', { exact: true })).toBeVisible();
         expect(state.requests).toBe(1);
         expect(state.verifies).toBe(1);
         expect(state.reconciliations).toBe(0);
-        expect(await storedText(page)).not.toContain('"487209"');
+        expect(await storedText(page)).not.toContain('"4872"');
         expect(
           state.urls.every(
             (url) => !['code', 'otp', 'phone', 'email'].some((key) => url.searchParams.has(key)),
@@ -455,7 +455,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         await openCustomer(page);
         await deliver(page, state);
         state.dropVerify = true;
-        await page.getByLabel('Verification code', { exact: true }).fill('000000');
+        await page.getByLabel('Verification code', { exact: true }).fill('0000');
         await page.getByRole('button', { name: 'Verify customer', exact: true }).click();
         await browserExpect(
           page.getByRole('button', { name: 'Check action status', exact: true }),
@@ -476,7 +476,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         ).toBe(original);
         await openCustomer(page);
         await browserExpect(page.getByLabel('Verification code', { exact: true })).toHaveValue('');
-        await page.getByLabel('Verification code', { exact: true }).fill('487209');
+        await page.getByLabel('Verification code', { exact: true }).fill('4872');
         await page.getByRole('button', { name: 'Verify customer', exact: true }).click();
         await browserExpect(page.getByText('Customer verified.', { exact: true })).toBeVisible();
         expect(state.verifies).toBe(2);
@@ -492,7 +492,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         await openCustomer(page);
         await deliver(page, state);
         state.dropVerify = true;
-        await page.getByLabel('Verification code', { exact: true }).fill('487209');
+        await page.getByLabel('Verification code', { exact: true }).fill('4872');
         await page.getByRole('button', { name: 'Verify customer', exact: true }).click();
         await browserExpect(
           page.getByRole('button', { name: 'Check action status', exact: true }),
@@ -569,7 +569,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         expect(state.requests).toBe(1);
         expect(state.reconciliations).toBe(1);
         expect(state.verifiedUntil).toBe(state.proofUntil);
-        expect(await storedText(page)).not.toContain('"487209"');
+        expect(await storedText(page)).not.toContain('"4872"');
       } finally {
         await page.close();
       }
