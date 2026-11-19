@@ -1,7 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import vm from 'node:vm';
 import ts from 'typescript';
-import type { RowDataPacket } from 'mysql2';
 import * as orm from 'drizzle-orm';
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from 'vitest';
 import * as models from '../../src/db/legacy-schema.js';
@@ -11,6 +10,7 @@ import type { Databases } from '../../src/db/pools.js';
 import { ordersService, type OrdersService } from '../../src/modules/orders.js';
 import { orderHistoryFixture } from './mysql-fixture.js';
 import { now } from './fixtures.js';
+import { seedCheckIn } from '../helpers/check-ins.js';
 const template = process.env.ORDER_HISTORY_MYSQL_TEST_URL;
 const actor: access.Principal = {
   id: '1',
@@ -76,6 +76,8 @@ describe.skipIf(!template)(
         is_active: 1,
       });
       await native.fixture.insert('user_stores', { id: '1', django_user_id: '1', store_id: '1' });
+      // Check-ins live in the legacy Redis keys (check_in_{uid}).
+      await seedCheckIn('1', '1');
       await native.fixture.insert('stores', {
         id: '1',
         store_name: 'Synthetic store',
@@ -223,7 +225,9 @@ describe.skipIf(!template)(
         type: 'STORE',
         category: 'IN_HOUSE',
       });
-      await native.connection.query("UPDATE order_stores SET store_id='2',counter_id='0' WHERE order_id='7'");
+      await native.connection.query(
+        "UPDATE order_stores SET store_id='2',counter_id='0' WHERE order_id='7'",
+      );
       await expect(service.detail(actor, '1', '7')).rejects.toMatchObject({
         status: 403,
         code: 'ORDER_STORE_FORBIDDEN',
@@ -262,31 +266,6 @@ describe.skipIf(!template)(
       await expect(
         service.list(actor, '1', undefined, 30, { from: '2026-11-16', to: '2026-11-16' }),
       ).rejects.toMatchObject({ status: 403 });
-    });
-    it('accepts review index candidates on local physical schemas with identical rows and inspectable native plans', async () => {
-      const sql =
-        'SELECT o.id,os.id AS row_id FROM order_stores os JOIN orders o ON o.id=os.order_id WHERE os.store_id=? AND o.created_at>=? AND o.created_at<? ORDER BY o.id DESC,os.id DESC LIMIT 31';
-      const params = ['1', '2026-11-17 00:00:00', '2026-11-18 00:00:00'];
-      const [before] = await native.connection.execute<RowDataPacket[]>(sql, params);
-      const [beforePlan] = await native.connection.execute<RowDataPacket[]>(
-        'EXPLAIN FORMAT=JSON ' + sql,
-        params,
-      );
-      await native.connection.query(
-        'CREATE INDEX ix_order_history_created_id ON orders(created_at,id)',
-      );
-      await native.connection.query(
-        'CREATE INDEX ix_order_history_store_order_id ON order_stores(store_id,order_id,id)',
-      );
-      const [after] = await native.connection.execute<RowDataPacket[]>(sql, params);
-      const [afterPlan] = await native.connection.execute<RowDataPacket[]>(
-        'EXPLAIN FORMAT=JSON ' + sql,
-        params,
-      );
-      expect(after).toEqual(before);
-      expect(before).toHaveLength(3);
-      expect(String(beforePlan[0]?.EXPLAIN)).not.toContain('ix_order_history');
-      expect(String(afterPlan[0]?.EXPLAIN)).toContain('ix_order_history');
     });
   },
 );

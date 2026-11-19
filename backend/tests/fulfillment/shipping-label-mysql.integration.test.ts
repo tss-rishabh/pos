@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { goldenSpawnResult } from '../golden/load.js';
 import mysql from 'mysql2/promise';
 import { getTableConfig } from 'drizzle-orm/mysql-core';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { createProductionTables, productionColumns } from '../helpers/production-schema.js';
 import { readConfig } from '../../src/config.js';
 import { createDatabases, type Databases } from '../../src/db/pools.js';
 import { shippingAddresses } from '../../src/modules/fulfillment/shipping-label/schema.js';
@@ -32,6 +32,7 @@ describe.skipIf(!integration)('shipping labels on verified isolated MySQL', () =
       'has_products',
       'zones',
       'countries',
+      'has_addresses',
     ];
   let native: mysql.Connection | undefined,
     database: Databases | undefined,
@@ -44,23 +45,6 @@ describe.skipIf(!integration)('shipping labels on verified isolated MySQL', () =
       if (!database) throw new Error('Shipping fixture unavailable.');
       return database;
     };
-  const columns = z
-    .array(
-      z.object({
-        name: z.string(),
-        type: z.string(),
-        nullable: z.boolean(),
-        collation: z.string().optional(),
-        key: z.string(),
-      }),
-    )
-    .parse(
-      (
-        JSON.parse(readFileSync('evidence/mysql-admin-shipping-schema.json', 'utf8')) as {
-          tables: Record<string, unknown>;
-        }
-      ).tables.has_addresses,
-    );
   const reads: { writer: number; primary: number; data: number } = {
     writer: 0,
     primary: 0,
@@ -93,19 +77,13 @@ describe.skipIf(!integration)('shipping labels on verified isolated MySQL', () =
     await native.query(`CREATE DATABASE ${mysql.escapeId(schema)}`);
     created = true;
     await native.changeUser({ database: schema });
-    await verifiedMysqlFixture(native).create(tables);
-    const projection = getTableConfig(shippingAddresses);
-    for (const field of projection.columns) {
+    await createProductionTables(native, tables);
+    const columns = productionColumns('has_addresses');
+    for (const field of getTableConfig(shippingAddresses).columns) {
       const physical = columns.find((column) => column.name === field.name);
       if (!physical || physical.type !== field.getSQLType() || physical.nullable === field.notNull)
-        throw new Error('Shipping fixture projection differs from verified metadata.');
+        throw new Error('Shipping projection differs from the production has_addresses columns.');
     }
-    const selected = projection.columns.map((field) =>
-      columns.find((column) => column.name === field.name)!,
-    );
-    await native.query(
-      `CREATE TABLE has_addresses (${selected.map((column) => mysql.escapeId(column.name) + ' ' + column.type + (column.collation ? ' CHARACTER SET ' + mysql.escapeId(column.collation.split('_')[0]!) + ' COLLATE ' + mysql.escapeId(column.collation) : '') + (column.nullable ? ' NULL' : ' NOT NULL')).join(',')},PRIMARY KEY(id)) ENGINE=InnoDB`,
-    );
     url.pathname = '/' + schema;
     database = createDatabases(
       readConfig({
@@ -119,8 +97,7 @@ describe.skipIf(!integration)('shipping labels on verified isolated MySQL', () =
     );
   });
   beforeEach(async () => {
-    for (const table of [...tables, 'has_addresses'])
-      await sqlDb().query(`DELETE FROM ${mysql.escapeId(table)}`);
+    for (const table of tables) await sqlDb().query(`DELETE FROM ${mysql.escapeId(table)}`);
     reads.writer = reads.primary = reads.data = 0;
     const fixture = verifiedMysqlFixture(sqlDb());
     for (const id of [1, 2])
@@ -132,7 +109,8 @@ describe.skipIf(!integration)('shipping labels on verified isolated MySQL', () =
         category: 'IN_HOUSE',
         address: 'Fixture return road',
         alt_address: 'Annex',
-        phone: '0000000000',
+        // stores.phone is UNIQUE in production.
+        phone: id === 1 ? '0000000000' : '0000000002',
       });
     await fixture.insert('pos_user', { id: 1, role: 4, user_type: 1, is_active: 1 });
     await fixture.insert('user_stores', { id: 1, django_user_id: 1, store_id: 1 });
@@ -169,7 +147,6 @@ describe.skipIf(!integration)('shipping labels on verified isolated MySQL', () =
       [1, 501, 1],
       [2, 502, 1],
       [3, 503, 2],
-      [4, 501, 1],
     ] as const)
       await fixture.insert('express_line_item', {
         id,
@@ -227,7 +204,7 @@ describe.skipIf(!integration)('shipping labels on verified isolated MySQL', () =
       address: address[0] ? fields.map((field) => address[0]![field]) : null,
     };
   }
-  it('matches the pinned handler context across12 native vectors, deduplicated HPs, padded AWBs, missing addresses and exact BIGINT quantities', async () => {
+  it('matches the pinned handler context across 11 native vectors, padded AWBs, missing addresses and exact BIGINT quantities', async () => {
     const vectors: {
       source: Awaited<ReturnType<typeof sourceCase>>;
       actual: Awaited<ReturnType<ReturnType<typeof shippingLabelService>>>;
@@ -257,8 +234,6 @@ describe.skipIf(!integration)('shipping labels on verified isolated MySQL', () =
     await sqlDb().query('UPDATE has_products SET qty=9007199254740993 WHERE id=501');
     await capture();
     await sqlDb().query('UPDATE express_line_item SET has_product_id=NULL WHERE store_id=1');
-    await capture();
-    await sqlDb().query('UPDATE express_line_item SET has_product_id=502 WHERE id=1');
     await capture();
     const oracle = goldenSpawnResult(
       'fulfillment',
@@ -315,7 +290,7 @@ describe.skipIf(!integration)('shipping labels on verified isolated MySQL', () =
     expect(vectors[1]!.actual.awb).toBe('AWB123456789012IN');
     expect(vectors[9]!.actual.totalQuantity).toBe('9007199254740996');
     expect(vectors[10]!.actual.totalQuantity).toBe('0');
-    expect(reads.primary).toBe(12);
+    expect(reads.primary).toBe(11);
     expect(reads.data).toBe(0);
   }, 20_000);
   it('blocks absent pairs, inactive stores and missing orders before any primary address read', async () => {

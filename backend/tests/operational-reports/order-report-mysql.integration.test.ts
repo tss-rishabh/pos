@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { goldenStdout } from '../golden/load.js';
 import mysql from 'mysql2/promise';
 import { Temporal } from '@js-temporal/polyfill';
@@ -19,6 +18,8 @@ import {
   preparedOrderRecords,
 } from '../../src/modules/operational-reports/order-report-domain.js';
 import { combinedOrderQueries } from '../../src/modules/operational-reports/order-report-query.js';
+import { createProductionTables } from '../helpers/production-schema.js';
+import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
 
 /** Replays the pinned CPython 3.10 source oracles captured for this test (tests/golden). */
 function executePosSourceOracle(args: readonly string[], options: { input?: string }): string {
@@ -28,31 +29,10 @@ function executePosSourceOracle(args: readonly string[], options: { input?: stri
   ]);
 }
 const connection = process.env.MYSQL_INTEGRATION_URL;
-const columnSchema = z.object({
-  name: z.string().regex(/^[a-zA-Z_]\w*$/),
-  type: z
-    .string()
-    .regex(/^(?:[a-z]+(?:\(\d+(?:,\d+)?\))?(?: unsigned)?|enum\((?:'[^'\\;]*'(?:,)?)+\))$/i),
-  nullable: z.boolean(),
-  key: z.string(),
-  extra: z.string(),
-});
-const metadataSchema = z.object({
-  tables: z.record(z.string(), z.array(columnSchema)),
-  errors: z.array(z.unknown()),
-});
 describe.skipIf(!connection)(
   'combined store/online order reports on verified-schema local MySQL',
   () => {
     const schema = `pos_rewrite_order_report_test_${randomUUID().replaceAll('-', '').slice(0, 12)}`,
-      metadata = {
-        ...metadataSchema.parse(
-          JSON.parse(readFileSync('evidence/mysql-schema.json', 'utf8')) as unknown,
-        ).tables,
-        ...metadataSchema.parse(
-          JSON.parse(readFileSync('evidence/mysql-extra-schema.json', 'utf8')) as unknown,
-        ).tables,
-      },
       tables = [
         'orders',
         'has_products',
@@ -100,33 +80,7 @@ describe.skipIf(!connection)(
       return databases;
     }
     async function insert(table: string, overrides: Record<string, string | number | null>) {
-      const columns = metadata[table];
-      if (
-        !columns ||
-        Object.keys(overrides).some((name) => !columns.some((column) => column.name === name))
-      )
-        throw new Error('Fixture column is unverified.');
-      const selected = columns.filter(
-          (column) => !column.extra.includes('auto_increment') || column.name in overrides,
-        ),
-        values = selected.map((column) => {
-          if (column.name in overrides) return overrides[column.name];
-          if (column.nullable) return null;
-          if (/^(date|timestamp)/i.test(column.type))
-            return column.type === 'date' ? '2026-11-16' : '2026-11-16 10:00:00';
-          if (column.type.startsWith('time')) return '10:00:00';
-          if (
-            /^(bigint|int|smallint|tinyint|double|float|decimal|mediumint|bit)/i.test(column.type)
-          )
-            return 0;
-          if (column.type.startsWith('enum'))
-            return /^enum\('([^']*)'/.exec(column.type)?.[1] || '';
-          return column.type === 'json' ? '{}' : '';
-        });
-      await admin!.query(
-        `INSERT INTO ${mysql.escapeId(table)} (${selected.map((column) => mysql.escapeId(column.name)).join(',')}) VALUES (${selected.map(() => '?').join(',')})`,
-        values,
-      );
+      await verifiedMysqlFixture(admin!).insert(table, overrides);
     }
     beforeAll(async () => {
       const url = new URL(connection!);
@@ -144,16 +98,8 @@ describe.skipIf(!connection)(
       await admin.query(`CREATE DATABASE ${mysql.escapeId(schema)}`);
       created = true;
       await admin.changeUser({ database: schema });
-      for (const table of tables) {
-        const columns = metadata[table];
-        if (!columns) throw new Error('Fixture table metadata is unavailable.');
-        const keys = columns
-          .filter((column) => column.key === 'PRI')
-          .map((column) => mysql.escapeId(column.name));
-        await admin.query(
-          `CREATE TABLE ${mysql.escapeId(table)} (${columns.map((column) => mysql.escapeId(column.name) + ' ' + column.type + (column.nullable ? ' NULL' : ' NOT NULL') + (column.extra.includes('auto_increment') ? ' AUTO_INCREMENT' : '')).join(',')}${keys.length ? ',PRIMARY KEY(' + keys.join(',') + ')' : ''}) ENGINE=InnoDB`,
-        );
-      }
+      // order_attributes is read by the source report SQL but is not in the production snapshot.
+      await createProductionTables(admin, tables);
       await insert('stores', { id: 1, store_name: 'Fixture one', location_code: 'FIXTURE-1' });
       await insert('stores', { id: 2, store_name: 'Fixture two', location_code: 'FIXTURE-2' });
       await insert('users', {

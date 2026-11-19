@@ -1,11 +1,8 @@
 import mysql from 'mysql2/promise';
-import { getTableConfig } from 'drizzle-orm/mysql-core';
-import type { MySqlTable } from 'drizzle-orm/mysql-core';
 import { and, eq, sql } from 'drizzle-orm';
 import { Temporal } from '@js-temporal/polyfill';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { readFileSync } from 'node:fs';
 import { readConfig } from '../../src/config.js';
 import { createDatabases, type Databases } from '../../src/db/pools.js';
 import {
@@ -28,6 +25,7 @@ import {
 import { financePendingAlerts } from '../../src/modules/finance/alerts.js';
 import { memoryEphemeralStore } from '../../src/jobs/ephemeral.js';
 import { closeHistoryService, dayCloseCsv } from '../../src/modules/finance/history.js';
+import { createProductionTables } from '../helpers/production-schema.js';
 
 const connection = process.env.MYSQL_INTEGRATION_URL;
 describe.skipIf(!connection)('finance transactions on isolated local MySQL', () => {
@@ -48,21 +46,6 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
     if (!database) throw new Error('Fixture not initialized');
     return database;
   }
-  async function table(model: MySqlTable) {
-    const config = getTableConfig(model);
-    const columns = config.columns.map(
-      (column) =>
-        mysql.escapeId(column.name) +
-        ' ' +
-        column.getSQLType() +
-        (column.notNull ? ' NOT NULL' : ' NULL') +
-        ('autoIncrement' in column && column.autoIncrement ? ' AUTO_INCREMENT' : '') +
-        (column.primary ? ' PRIMARY KEY' : ''),
-    );
-    await admin!.query(
-      `CREATE TABLE ${mysql.escapeId(config.name)} (${columns.join(',')}) ENGINE=InnoDB`,
-    );
-  }
   beforeAll(async () => {
     const url = new URL(connection!);
     if (!['localhost', '127.0.0.1'].includes(url.hostname))
@@ -76,56 +59,39 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
     await admin.query(`CREATE DATABASE ${mysql.escapeId(schema)}`);
     created = true;
     await admin.changeUser({ database: schema });
+    await createProductionTables(admin, [
+      'stores',
+      'pos_user',
+      'orders',
+      'order_stores',
+      'amount_to_be_refunded_log',
+      'return_orders',
+      StoreDayClose,
+      StoreDayBanking,
+      StoreCashOpeningBalance,
+    ]);
     await admin.query(
-      'CREATE TABLE stores(id BIGINT PRIMARY KEY,store_name VARCHAR(100),is_active BOOLEAN,type VARCHAR(255),category VARCHAR(255))',
-    );
-    await admin.query("INSERT INTO stores VALUES(1,'Fixture store',1,'STORE','IN_HOUSE')");
-    await admin.query(
-      'CREATE TABLE pos_user(id BIGINT PRIMARY KEY,username VARCHAR(150),role SMALLINT,is_active BOOLEAN,user_type INT NOT NULL)',
-    );
-    await admin.query("INSERT INTO pos_user VALUES(900001,'fixture-operator',4,1,1)");
-    await admin.query('CREATE TABLE orders(id BIGINT PRIMARY KEY,created_at DATETIME NOT NULL)');
-    await admin.query(
-      "INSERT INTO orders VALUES(1,'2026-11-16 10:00:00'),(2,'2026-11-16 11:00:00'),(3,'2026-11-16 12:00:00'),(4,'2026-11-15 23:59:59')",
-    );
-    await admin.query(
-      'CREATE TABLE order_stores(id BIGINT PRIMARY KEY,order_id BIGINT,store_id BIGINT,counter_id BIGINT,offline_payment DECIMAL(14,2),online_payment DECIMAL(14,2),online_other_payment DECIMAL(14,2),district_transaction_id VARCHAR(255))',
-    );
-    await admin.query(
-      "INSERT INTO order_stores VALUES(1,1,1,7,100,20,30,'DISTRICT'),(2,2,1,7,0,5,10,''),(3,3,1,7,0,0,0,''),(4,4,1,7,999,999,999,'')",
+      "INSERT INTO stores(id,store_name,is_active,type,category,phone) VALUES(1,'Fixture store',1,'STORE','IN_HOUSE','9000000001')",
     );
     await admin.query(
-      'CREATE TABLE amount_to_be_refunded_log(id BIGINT PRIMARY KEY,order_id BIGINT,has_product_id BIGINT,refund_mode VARCHAR(255),is_refunded BOOLEAN,refunded_amt DOUBLE)',
+      "INSERT INTO pos_user(id,username,role,is_active,user_type) VALUES(900001,'fixture-operator',4,1,1)",
     );
     await admin.query(
-      "INSERT INTO amount_to_be_refunded_log VALUES(1,1,501,'cash',1,5.005),(2,1,502,'card',1,10),(3,1,503,'cash',0,20)",
+      "INSERT INTO orders(id,created_at) VALUES(1,'2026-11-16 10:00:00'),(2,'2026-11-16 11:00:00'),(3,'2026-11-16 12:00:00'),(4,'2026-11-15 23:59:59')",
     );
     await admin.query(
-      'CREATE TABLE return_orders(id BIGINT PRIMARY KEY,order_id BIGINT,has_product_id BIGINT,store_id INT,created_at DATETIME)',
+      "INSERT INTO order_stores(id,order_id,store_id,counter_id,offline_payment,online_payment,online_other_payment,district_transaction_id) VALUES(1,1,1,7,100,20,30,'DISTRICT'),(2,2,1,7,0,5,10,''),(3,3,1,7,0,0,0,''),(4,4,1,7,999,999,999,'')",
+    );
+    // Production refunded_amt is FLOAT; 5.004 rounds to 5.00 there (5.005 would round up).
+    await admin.query(
+      "INSERT INTO amount_to_be_refunded_log(id,order_id,has_product_id,refund_mode,is_refunded,refunded_amt) VALUES(1,1,501,'cash',1,5.004),(2,1,502,'card',1,10),(3,1,503,'cash',0,20)",
     );
     await admin.query(
-      "INSERT INTO return_orders VALUES(1,1,501,1,'2026-11-16 10:05:00'),(2,1,501,1,'2026-11-16 10:06:00')",
+      "INSERT INTO return_orders(id,order_id,has_product_id,store_id,created_at) VALUES(1,1,501,1,'2026-11-16 10:05:00'),(2,1,501,1,'2026-11-16 10:06:00')",
     );
-    await table(StoreDayClose);
-    await table(StoreDayBanking);
-    await table(StoreCashOpeningBalance);
     await admin.query(
       "INSERT INTO store_cash_opening_balance(store_id,balance_date,amount,created_at,updated_at) VALUES(1,'2026-11-16',50,'2026-11-16 10:00:00','2026-11-16 10:00:00')",
     );
-    await admin.query(
-      'ALTER TABLE store_day_close ADD UNIQUE KEY uq_close_version(store_id,close_date,version)',
-    );
-    await admin.query(
-      'ALTER TABLE store_day_banking ADD UNIQUE KEY uq_banking_day(store_id,banking_date)',
-    );
-    for (const path of [
-      'src/modules/checkout/migrations/0003_payments.sql',
-      'src/modules/checkout/payment-reversals/migration.sql',
-    ])
-      for (const statement of readFileSync(path, 'utf8')
-        .split(';')
-        .filter((value) => value.trim()))
-        await admin.query(statement);
     url.pathname = '/' + schema;
     database = createDatabases(
       readConfig({
@@ -335,7 +301,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
                 ) => {
                   entered = true;
                   await admin!.query(
-                    "INSERT INTO return_orders VALUES(9900,1,501,1,'2026-11-16 14:00:00')",
+                    "INSERT INTO return_orders(id,order_id,has_product_id,store_id,created_at) VALUES(9900,1,501,1,'2026-11-16 14:00:00')",
                   );
                   return target.transaction(async (tx) => {
                     const [rows] = await tx.execute(
@@ -372,13 +338,10 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
     } finally {
       await admin!.query('DELETE FROM return_orders');
       for (const row of originalReturns)
-        await admin!.query('INSERT INTO return_orders VALUES(?,?,?,?,?)', [
-          row.id,
-          row.order_id,
-          row.has_product_id,
-          row.store_id,
-          row.created_at,
-        ]);
+        await admin!.query(
+          'INSERT INTO return_orders(id,order_id,has_product_id,store_id,created_at) VALUES(?,?,?,?,?)',
+          [row.id, row.order_id, row.has_product_id, row.store_id, row.created_at],
+        );
     }
   });
   it('rejects a forged difference and marks a closed snapshot stale after real collection drift', async () => {
@@ -737,7 +700,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
         clock,
       ),
       commandId = crypto.randomUUID();
-    await admin!.query('ALTER TABLE stores ADD COLUMN slack_group_url VARCHAR(255) NULL');
+    // Production stores.slack_group_url (text, nullable) holds the store webhook.
     try {
       await admin!.query(
         "UPDATE stores SET slack_group_url='https://hooks.slack.com/services/FIXTURE/STORE/SECRET' WHERE id=1",
@@ -774,7 +737,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
       expect(await alerts.send(crypto.randomUUID())).toMatchObject({ pending: 0 });
       expect(posts).toHaveLength(2);
     } finally {
-      await admin!.query('ALTER TABLE stores DROP COLUMN slack_group_url');
+      await admin!.query('UPDATE stores SET slack_group_url=NULL');
     }
   });
   it('denies elevated revision permission from a stale principal when the writer role is lower', async () => {
@@ -796,7 +759,9 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
     await expect(
       service.close({ ...user, role: 1 }, '1', '2026-11-15', crypto.randomUUID(), 2, entries),
     ).rejects.toMatchObject({ code: 'DAY_CLOSE_NOT_ALLOWED' });
-    await admin!.query("INSERT INTO stores VALUES(2,'Fixture franchise',1,'STORE','FRANCHISE')");
+    await admin!.query(
+      "INSERT INTO stores(id,store_name,is_active,type,category,phone) VALUES(2,'Fixture franchise',1,'STORE','FRANCHISE','9000000002')",
+    );
     const franchiseUser = { ...user, storeIds: ['2'] };
     const mixed = financeService(
         { ...cfg, DAY_CLOSE_ENABLED_STORE_IDS: 'ALL,COCO' },

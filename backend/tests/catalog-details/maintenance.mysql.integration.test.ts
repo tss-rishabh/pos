@@ -98,6 +98,7 @@ describe.skipIf(!integration)('synchronous catalog maintenance on isolated verif
     for (const id of [1, 3])
       await fixture.insert('pos_user', {
         id,
+        username: 'fixture-operator-' + id,
         first_name: 'Fixture',
         last_name: 'Operator',
         role: 1,

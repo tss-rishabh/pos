@@ -1,8 +1,9 @@
 import mysql from 'mysql2/promise';
-import { getTableConfig, type MySqlTable } from 'drizzle-orm/mysql-core';
+import { getTableConfig } from 'drizzle-orm/mysql-core';
 import { and, eq, inArray } from 'drizzle-orm';
 import { Temporal } from '@js-temporal/polyfill';
 import { goldenStdout } from '../golden/load.js';
+import { createProductionTables } from '../helpers/production-schema.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import * as models from '../../src/db/legacy-schema.js';
@@ -92,21 +93,6 @@ describe.skipIf(!connection)('operational reports on isolated local MySQL', () =
       values,
     );
   }
-  async function table(model: MySqlTable) {
-    const cfg = getTableConfig(model),
-      columns = cfg.columns.map(
-        (column) =>
-          mysql.escapeId(column.name) +
-          ' ' +
-          column.getSQLType() +
-          (column.notNull ? ' NOT NULL' : ' NULL') +
-          ('autoIncrement' in column && column.autoIncrement ? ' AUTO_INCREMENT' : '') +
-          (column.primary ? ' PRIMARY KEY' : ''),
-      );
-    await admin!.query(
-      `CREATE TABLE ${mysql.escapeId(cfg.name)} (${columns.join(',')}) ENGINE=InnoDB`,
-    );
-  }
   beforeAll(async () => {
     const url = new URL(connection!);
     if (!['localhost', '127.0.0.1'].includes(url.hostname))
@@ -123,7 +109,9 @@ describe.skipIf(!connection)('operational reports on isolated local MySQL', () =
     await admin.query(`CREATE DATABASE ${mysql.escapeId(schema)}`);
     created = true;
     await admin.changeUser({ database: schema });
-    for (const name of [
+    // Production DDL already carries order_stores.salesperson_id/admin_user_id,
+    // tss_money_history.has_product_id, product_store.uq_product_store and the NPS tables.
+    await createProductionTables(admin, [
       'products',
       'product_store',
       'stores',
@@ -140,21 +128,23 @@ describe.skipIf(!connection)('operational reports on isolated local MySQL', () =
       'reverse_pickup_reason',
       'sub_reasons',
       'tss_money_history',
-    ])
-      await table(tables.get(name)!);
-    await admin.query(
-      'ALTER TABLE order_stores ADD COLUMN salesperson_id INT NOT NULL DEFAULT 0,ADD COLUMN admin_user_id INT NOT NULL DEFAULT 0',
-    );
-    await admin.query('ALTER TABLE tss_money_history ADD COLUMN has_product_id BIGINT NULL');
-    await admin.query(
-      'ALTER TABLE product_store ADD UNIQUE KEY uq_product_store(product_id,store_id)',
-    );
-    await admin.query(
-      'CREATE TABLE nps_feedback(id BIGINT AUTO_INCREMENT PRIMARY KEY,order_id BIGINT,question_id BIGINT,feedback_answer TEXT,created_at DATETIME)',
-    );
-    await admin.query('CREATE TABLE nps_questions(id BIGINT PRIMARY KEY,question TEXT)');
-    await insert('stores', { id: 1, store_name: 'Fixture one', type: 'STORE', is_active: 1 });
-    await insert('stores', { id: 2, store_name: 'Fixture two', type: 'STORE', is_active: 1 });
+      'nps_feedback',
+      'nps_questions',
+    ]);
+    await insert('stores', {
+      id: 1,
+      store_name: 'Fixture one',
+      phone: '9000000001',
+      type: 'STORE',
+      is_active: 1,
+    });
+    await insert('stores', {
+      id: 2,
+      store_name: 'Fixture two',
+      phone: '9000000002',
+      type: 'STORE',
+      is_active: 1,
+    });
     await insert('pos_user', {
       id: 900001,
       username: 'fixture-operator',
@@ -198,7 +188,7 @@ describe.skipIf(!connection)('operational reports on isolated local MySQL', () =
         });
     }
     await admin.query(
-      "INSERT INTO nps_questions VALUES(1,'Recommend this store?'),(2,'What worked well?')",
+      "INSERT INTO nps_questions(id,question) VALUES(1,'Recommend this store?'),(2,'What worked well?')",
     );
     await admin.query(
       "INSERT INTO nps_feedback(order_id,question_id,feedback_answer,created_at) VALUES(1001,1,'9','2026-11-16 12:00:00'),(1001,2,'Fixture feedback','2026-11-16 12:01:00'),(1002,1,'2','2026-11-16 12:00:00'),(1003,1,'7','2026-11-16 12:00:00'),(1004,1,'5','2026-11-16 12:00:00')",

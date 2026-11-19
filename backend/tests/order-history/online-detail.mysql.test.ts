@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { z } from 'zod';
 import { createServer } from 'node:net';
 import { existsSync } from 'node:fs';
@@ -11,7 +10,6 @@ import { bindCheckInRedis, checkInService } from '../../src/modules/administrati
 import { memoryRedisPort } from '../../src/redis/memory.js';
 
 import type { Principal } from '../../src/domain/access.js';
-import { splitMigration } from '../../src/db/migrations.js';
 import { testAuthRedis, testSessions } from '../helpers/auth-sessions.js';
 import { seal } from '../../src/auth/crypto.js';
 import { buildApp } from '../../src/app.js';
@@ -49,9 +47,6 @@ describe.skipIf(!connection)('native source-family order details', () => {
       'hyperlocal_fd_logs',
       'user_eav',
     ]);
-    for (const path of ['src/modules/administration/mfa-migration.sql'])
-      for (const statement of splitMigration(readFileSync(path, 'utf8')))
-        await native.connection.query(statement);
     for (const id of [1, 2]) {
       await native.fixture.insert('stores', {
         id,

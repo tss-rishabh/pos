@@ -1,5 +1,5 @@
 import mysql from 'mysql2/promise';
-import { getTableConfig, type MySqlTable } from 'drizzle-orm/mysql-core';
+import { getTableConfig } from 'drizzle-orm/mysql-core';
 import { Temporal } from '@js-temporal/polyfill';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -14,6 +14,7 @@ import {
   reconciliationPage,
   reconciliationRecords,
 } from '../../src/modules/finance/feed-domain.js';
+import { createProductionTables } from '../helpers/production-schema.js';
 
 const connection = process.env.MYSQL_INTEGRATION_URL;
 describe.skipIf(!connection)('finance reconciliation on isolated local MySQL', () => {
@@ -52,21 +53,6 @@ describe.skipIf(!connection)('finance reconciliation on isolated local MySQL', (
       values,
     );
   }
-  async function table(model: MySqlTable) {
-    const cfg = getTableConfig(model),
-      columns = cfg.columns.map(
-        (column) =>
-          mysql.escapeId(column.name) +
-          ' ' +
-          column.getSQLType() +
-          (column.notNull ? ' NOT NULL' : ' NULL') +
-          ('autoIncrement' in column && column.autoIncrement ? ' AUTO_INCREMENT' : '') +
-          (column.primary ? ' PRIMARY KEY' : ''),
-      );
-    await admin!.query(
-      `CREATE TABLE ${mysql.escapeId(cfg.name)} (${columns.join(',')}) ENGINE=InnoDB`,
-    );
-  }
   beforeAll(async () => {
     const url = new URL(connection!);
     if (!['localhost', '127.0.0.1'].includes(url.hostname))
@@ -83,7 +69,9 @@ describe.skipIf(!connection)('finance reconciliation on isolated local MySQL', (
     await admin.query(`CREATE DATABASE ${mysql.escapeId(schema)}`);
     created = true;
     await admin.changeUser({ database: schema });
-    for (const name of [
+    // Production DDL already has refund_requests and the has_products/tss_money_history columns
+    // the source SQL reads outside Django's model (hp_tss_points_used, store_disc_pg, has_product_id).
+    await createProductionTables(admin, [
       'orders',
       'has_products',
       'amount_to_be_refunded_log',
@@ -98,19 +86,8 @@ describe.skipIf(!connection)('finance reconciliation on isolated local MySQL', (
       'pos_terminal_payment_modes',
       'store_counters',
       'return_orders',
-    ]) {
-      const model = tables.get(name);
-      if (!model) throw new Error('A source fixture table has no mapping.');
-      await table(model);
-    }
-    await admin.query(
-      'CREATE TABLE refund_requests(id BIGINT PRIMARY KEY,order_id BIGINT,product_id BIGINT,has_product_id BIGINT,created_at DATETIME,is_approved VARCHAR(30),refund_method VARCHAR(30))',
-    );
-    // Source SQL references these external columns omitted from Django's model.
-    await admin.query(
-      'ALTER TABLE has_products ADD hp_tss_points_used FLOAT NOT NULL DEFAULT 0,ADD store_disc_pg FLOAT NULL',
-    );
-    await admin.query('ALTER TABLE tss_money_history ADD has_product_id BIGINT NULL');
+      'refund_requests',
+    ]);
     await insert('users', { id: 1, email: 'customer@example.test' });
     await insert('stores', { id: 1, store_name: 'Fixture store', location_code: 'FIXTURE' });
     await insert('store_counters', { id: 1, counter_name: 'Fixture counter', store_id: 1 });
@@ -181,7 +158,7 @@ describe.skipIf(!connection)('finance reconciliation on isolated local MySQL', (
         created_at: '2026-11-16 13:00:00',
       });
     await admin.query(
-      "INSERT INTO refund_requests VALUES(1,1001,102,502,'2026-11-16 14:00:00','APPROVED','tss_money')",
+      "INSERT INTO refund_requests(id,order_id,product_id,has_product_id,created_at,is_approved,refund_method) VALUES(1,1001,102,502,'2026-11-16 14:00:00','APPROVED','tss_money')",
     );
     url.pathname = '/' + schema;
     databases = createDatabases(
