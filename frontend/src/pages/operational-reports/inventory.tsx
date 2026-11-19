@@ -82,6 +82,7 @@ export function InventoryAssociationsPage({ user, storeId }: { user: Principal; 
         <button
           className="button primary"
           disabled={!online || !selected || user.role === 5 || repair.isPending}
+          aria-busy={repair.isPending}
           onClick={() => repair.mutate()}
         >
           <RefreshCw size={16} />

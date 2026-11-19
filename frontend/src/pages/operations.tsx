@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowUpRight, Building2, CheckCircle2, Search, X } from 'lucide-react';
+import { ArrowUpRight, Building2, CheckCircle2, RefreshCw, Search } from 'lucide-react';
 import type { Principal, Store } from '../api/types';
 import { useOnline, useProducts } from '../hooks/use-pos';
 import { useWorkspace } from '../state/workspace';
 import { currency } from '../lib/format';
 import { Empty, ErrorState, Loading, Metric, PageTitle } from '../components/common';
+import { SkeletonTable } from '../components/loader';
+import { Modal } from '../components/modal';
+import './order-history/order-search.css';
 import { request } from '../api/client';
 import {
   orderBrowseDetail,
@@ -84,9 +87,9 @@ export function InventoryPage({ user, storeId }: { user: Principal; storeId: str
           </div>
         </div>
         {products.isPending ? (
-          <Loading />
+          <SkeletonTable rows={6} columns={5} label="Loading inventory…" />
         ) : products.isError ? (
-          <ErrorState error={products.error} />
+          <ErrorState error={products.error} retry={() => void products.refetch()} />
         ) : (
           <div className="table-wrap">
             <table>
@@ -126,9 +129,11 @@ export function InventoryPage({ user, storeId }: { user: Principal; storeId: str
         {products.hasNextPage && (
           <button
             className="button secondary load-more"
+            disabled={products.isFetchingNextPage}
+            aria-busy={products.isFetchingNextPage}
             onClick={() => void products.fetchNextPage()}
           >
-            Load more
+            {products.isFetchingNextPage ? 'Loading more…' : 'Load more'}
           </button>
         )}
       </section>
@@ -241,8 +246,8 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
           {view === 'online' ? 'Store orders' : 'Online orders'}
         </button>
         <button className="button secondary" onClick={() => void orders.refetch()}>
+          <RefreshCw size={15} aria-hidden="true" />
           Refresh orders
-          <ArrowUpRight size={16} />
         </button>
       </PageTitle>
       {link.invalid && (
@@ -251,7 +256,7 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
         </p>
       )}
       <form
-        className="surface"
+        className="surface order-date-form"
         aria-label="Order dates"
         onSubmit={(event) => {
           event.preventDefault();
@@ -270,7 +275,7 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
         }}
       >
         <label>
-          From{' '}
+          From
           <input
             aria-label="Orders from"
             type="date"
@@ -281,7 +286,7 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
           />
         </label>
         <label>
-          To{' '}
+          To
           <input
             aria-label="Orders to"
             type="date"
@@ -340,150 +345,141 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
         />
       )}
       {selected && (
-        <div className="modal-backdrop" onClick={() => setSelected('')}>
-          <section
-            className="modal wide"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="order-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              className="icon-button modal-close"
-              aria-label="Close order"
-              onClick={() => setSelected('')}
-            >
-              <X size={20} />
-            </button>
-            <div className="eyebrow">ORDER DETAILS</div>
-            <h2 id="order-title">{detail.data?.reference || selected}</h2>
-            {confirmedCorrection?.scopeKey === cashScopeKey &&
-              confirmedCorrection.orderId === selected &&
-              (detail.isPending || detail.isError || !detail.data) && (
-                <p role="status" aria-label="Confirmed cash correction">
-                  Returned cash is recorded. Financial reference{' '}
-                  <code>{confirmedCorrection.receipt.id}</code>. Do not return cash again.
-                </p>
-              )}
-            {!online && !detail.data ? (
-              <Empty title="Connect to load order details" />
-            ) : detail.isPending ? (
-              <Loading />
-            ) : detail.isError ? (
-              <ErrorState error={detail.error} />
-            ) : (
-              <>
-                <p>
+        <Modal
+          size="lg"
+          className="order-detail"
+          title={detail.data?.reference || selected}
+          closeLabel="Close order"
+          onClose={() => setSelected('')}
+        >
+          {confirmedCorrection?.scopeKey === cashScopeKey &&
+            confirmedCorrection.orderId === selected &&
+            (detail.isPending || detail.isError || !detail.data) && (
+              <p role="status" aria-label="Confirmed cash correction">
+                Returned cash is recorded. Financial reference{' '}
+                <code>{confirmedCorrection.receipt.id}</code>. Do not return cash again.
+              </p>
+            )}
+          {!online && !detail.data ? (
+            <Empty title="Connect to load order details" />
+          ) : detail.isPending ? (
+            <Loading label="Loading order details…" />
+          ) : detail.isError ? (
+            <ErrorState error={detail.error} />
+          ) : (
+            <>
+              <div className="order-detail-meta">
+                <strong>
                   {detail.data?.status} · {currency(detail.data?.amount || 0)}
-                </p>
+                </strong>
                 <p className="muted">Placed {detail.data?.createdAt}</p>
-                {detail.data?.legacy && <StoreOrderContext legacy={detail.data.legacy} />}
-                {detail.data?.isPaid && (
-                  <InvoiceActions storeId={storeId} orderId={selected} ownerId={user.id} />
-                )}
-                <OrderInvoiceActions
-                  key={`invoices:${user.id}:${storeId}:${selected}`}
-                  user={user}
-                  storeId={storeId}
-                  orderId={selected}
-                  online={online}
-                />
-                <OrderPaymentActions
-                  key={`${user.id}:${storeId}:${selected}:${paymentRevision}`}
-                  ownerId={user.id}
-                  storeId={storeId}
-                  orderId={selected}
-                  onPaid={(receipt, origin) => {
-                    if (origin === 'action' && receipt.orderId === selected) {
-                      // Optional invoice publication cannot change a confirmed payment.
-                      try {
-                        setAutomaticInvoice(createAutomaticInvoiceRequest(user, storeId, receipt));
-                      } catch {
-                        /* The manual invoice action remains available. */
-                      }
+              </div>
+              {detail.data?.legacy && <StoreOrderContext legacy={detail.data.legacy} />}
+              {detail.data?.isPaid && (
+                <InvoiceActions storeId={storeId} orderId={selected} ownerId={user.id} />
+              )}
+              <OrderInvoiceActions
+                key={`invoices:${user.id}:${storeId}:${selected}`}
+                user={user}
+                storeId={storeId}
+                orderId={selected}
+                online={online}
+              />
+              <OrderPaymentActions
+                key={`${user.id}:${storeId}:${selected}:${paymentRevision}`}
+                ownerId={user.id}
+                storeId={storeId}
+                orderId={selected}
+                onPaid={(receipt, origin) => {
+                  if (origin === 'action' && receipt.orderId === selected) {
+                    // Optional invoice publication cannot change a confirmed payment.
+                    try {
+                      setAutomaticInvoice(createAutomaticInvoiceRequest(user, storeId, receipt));
+                    } catch {
+                      /* The manual invoice action remains available. */
                     }
-                    // A new payment action supersedes any older in-flight read. A payment read
-                    // on opening only matters when the loaded detail does not show it paid yet;
-                    // an in-flight detail read is shared rather than cancelled.
-                    if (origin === 'action') {
-                      void detail.refetch();
-                      void orders.refetch();
-                    } else if (detail.data?.isPaid !== true) {
-                      void detail.refetch({ cancelRefetch: false });
-                      void orders.refetch();
-                    }
-                  }}
-                />
-                <WholeOrderStatusActions
-                  user={user}
-                  storeId={storeId}
-                  orderId={selected}
-                  online={online}
-                />
-                {[1, 2, 3].includes(user.role) && (
-                  <PaymentReversalPanel
-                    key={`cash-correction:${cashScopeKey}:${selected}`}
-                    deferUntilOpened
-                    user={user}
-                    storeId={storeId}
-                    orderId={selected}
-                    online={online}
-                    onCorrected={async (receipt) => {
-                      if (receipt.storeId !== storeId || receipt.orderId !== selected)
-                        throw new Error('The financial receipt belongs to a different order.');
-                      setConfirmedCorrection({
-                        scopeKey: cashScopeKey,
-                        orderId: selected,
-                        receipt,
-                      });
-                      setAutomaticInvoice(null);
-                      setPaymentRevision((value) => value + 1);
-                      await detail.refetch();
-                      orders.refetch();
-                    }}
-                  />
-                )}
-                <OrderCancellationActions
-                  key={`cancel:${user.id}:${storeId}:${selected}`}
-                  ownerId={user.id}
-                  storeId={storeId}
-                  orderId={selected}
-                  onCancelled={() => {
+                  }
+                  // A new payment action supersedes any older in-flight read. A payment read
+                  // on opening only matters when the loaded detail does not show it paid yet;
+                  // an in-flight detail read is shared rather than cancelled.
+                  if (origin === 'action') {
                     void detail.refetch();
                     void orders.refetch();
+                  } else if (detail.data?.isPaid !== true) {
+                    void detail.refetch({ cancelRefetch: false });
+                    void orders.refetch();
+                  }
+                }}
+              />
+              <WholeOrderStatusActions
+                user={user}
+                storeId={storeId}
+                orderId={selected}
+                online={online}
+              />
+              {[1, 2, 3].includes(user.role) && (
+                <PaymentReversalPanel
+                  key={`cash-correction:${cashScopeKey}:${selected}`}
+                  deferUntilOpened
+                  user={user}
+                  storeId={storeId}
+                  orderId={selected}
+                  online={online}
+                  onCorrected={async (receipt) => {
+                    if (receipt.storeId !== storeId || receipt.orderId !== selected)
+                      throw new Error('The financial receipt belongs to a different order.');
+                    setConfirmedCorrection({
+                      scopeKey: cashScopeKey,
+                      orderId: selected,
+                      receipt,
+                    });
+                    setAutomaticInvoice(null);
+                    setPaymentRevision((value) => value + 1);
+                    await detail.refetch();
+                    orders.refetch();
                   }}
                 />
-                {detail.data?.legacy && <h3>Products (Items : {detail.data.legacy.totalItems})</h3>}
-                {detail.data?.lines.map((l) => (
-                  <div className="receipt-line" key={l.id}>
-                    <div>
-                      <strong>{l.name}</strong>
-                      <small>
-                        Line {l.id} · SKU {l.productId} · ERP {l.erpProduct ?? '-'} · {l.quantity}{' '}
-                        item(s) · {l.status} · GST {l.gst}%
-                      </small>
-                      {detail.data?.legacy?.giftVouchers
-                        .filter((voucher) => voucher.id === l.giftVoucherId)
-                        .map((voucher) => (
-                          <small key={voucher.id}>SR. NO {voucher.giftCardSrno}</small>
-                        ))}
-                      {detail.data?.legacy?.isShopifyOrder ? (
-                        <small>Shopify Order not eligible for return</small>
-                      ) : l.productType === '8' ? (
-                        <small>Not Applicable For Return / Exchange</small>
-                      ) : !detail.data?.legacy?.isAtStore ? (
-                        <small>Check-in first to check return/exchange status</small>
-                      ) : (
-                        <NavLink to={`/returns?orderId=${selected}`}>Return / exchange</NavLink>
-                      )}
-                    </div>
-                    <strong>{currency(l.amount)}</strong>
+              )}
+              <OrderCancellationActions
+                key={`cancel:${user.id}:${storeId}:${selected}`}
+                ownerId={user.id}
+                storeId={storeId}
+                orderId={selected}
+                onCancelled={() => {
+                  void detail.refetch();
+                  void orders.refetch();
+                }}
+              />
+              {detail.data?.legacy && <h3>Products (Items : {detail.data.legacy.totalItems})</h3>}
+              {detail.data?.lines.map((l) => (
+                <div className="receipt-line" key={l.id}>
+                  <div>
+                    <strong>{l.name}</strong>
+                    <small>
+                      Line {l.id} · SKU {l.productId} · ERP {l.erpProduct ?? '-'} · {l.quantity}{' '}
+                      item(s) · {l.status} · GST {l.gst}%
+                    </small>
+                    {detail.data?.legacy?.giftVouchers
+                      .filter((voucher) => voucher.id === l.giftVoucherId)
+                      .map((voucher) => (
+                        <small key={voucher.id}>SR. NO {voucher.giftCardSrno}</small>
+                      ))}
+                    {detail.data?.legacy?.isShopifyOrder ? (
+                      <small>Shopify Order not eligible for return</small>
+                    ) : l.productType === '8' ? (
+                      <small>Not Applicable For Return / Exchange</small>
+                    ) : !detail.data?.legacy?.isAtStore ? (
+                      <small>Check-in first to check return/exchange status</small>
+                    ) : (
+                      <NavLink to={`/returns?orderId=${selected}`}>Return / exchange</NavLink>
+                    )}
                   </div>
-                ))}
-              </>
-            )}
-          </section>
-        </div>
+                  <strong>{currency(l.amount)}</strong>
+                </div>
+              ))}
+            </>
+          )}
+        </Modal>
       )}
       {automaticInvoice &&
         automaticInvoice.ownerId === user.id &&

@@ -4,8 +4,11 @@ import { Search } from 'lucide-react';
 import { z } from 'zod';
 import { request } from '../../api/client';
 import type { Principal } from '../../api/types';
-import { Empty, ErrorState, Loading, PageTitle } from '../../components/common';
+import { Empty, ErrorState, PageTitle } from '../../components/common';
+import { SkeletonTable } from '../../components/loader';
+import { MultiSelect } from '../../components/multi-select';
 import './style.css';
+import '../order-history/table-tools.css';
 const responseSchema = z.object({
   reader: z.enum(['data', 'bigquery', 'primary']),
   data: z.array(
@@ -92,7 +95,7 @@ export function CustomerFeedbackPage({ user, storeId }: { user: Principal; store
     <>
       <PageTitle title="Customer feedback" />
       <form
-        className="surface operational-report-filters"
+        className="surface operational-report-filters form-grid"
         onSubmit={(event) => {
           event.preventDefault();
           setSubmitted({ ...filters });
@@ -121,25 +124,16 @@ export function CustomerFeedbackPage({ user, storeId }: { user: Principal; store
             onChange={(event) => update('to', event.target.value)}
           />
         </label>
-        <label>
-          Stores
-          <select
-            multiple
-            value={filters.stores}
-            onChange={(event) =>
-              update(
-                'stores',
-                Array.from(event.target.selectedOptions, (option) => option.value),
-              )
-            }
-          >
-            {stores.data?.data.map((store) => (
-              <option key={store.id} value={store.id}>
-                {store.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <MultiSelect
+          label="Stores"
+          emptyLabel={user.userType === 2 ? 'Select stores' : 'All stores'}
+          options={(stores.data?.data ?? []).map((store) => ({
+            value: store.id,
+            label: store.name,
+          }))}
+          value={filters.stores}
+          onChange={(selected) => update('stores', selected)}
+        />
         <label>
           Order IDs
           <input
@@ -162,8 +156,9 @@ export function CustomerFeedbackPage({ user, storeId }: { user: Principal; store
         <button
           className="button primary"
           disabled={report.isFetching || (user.userType === 2 && !filters.stores.length)}
+          aria-busy={report.isFetching}
         >
-          <Search size={16} />
+          {!report.isFetching && <Search size={16} aria-hidden="true" />}
           Search feedback
         </button>
       </form>
@@ -178,13 +173,11 @@ export function CustomerFeedbackPage({ user, storeId }: { user: Principal; store
           current values.
         </p>
       )}
-      {stores.isError && <ErrorState error={stores.error} />}{' '}
+      {stores.isError && <ErrorState error={stores.error} />}
       {!submitted ? (
-        <Empty title="What customers are telling us">
-          Choose the order window and stores to view feedback.
-        </Empty>
+        <Empty title="No search yet">Choose the order window and stores to view feedback.</Empty>
       ) : report.isPending ? (
-        <Loading />
+        <SkeletonTable rows={6} columns={9} label="Loading feedback…" />
       ) : report.isError ? (
         <ErrorState error={report.error} retry={() => void report.refetch()} />
       ) : report.data.data.length === 0 ? (
@@ -225,7 +218,7 @@ export function CustomerFeedbackPage({ user, storeId }: { user: Principal; store
               </tbody>
             </table>
           </div>
-          <div className="operational-report-pagination">
+          <div className="toolbar operational-report-pagination">
             <button
               className="button secondary"
               disabled={report.data.page <= 1}
@@ -236,7 +229,7 @@ export function CustomerFeedbackPage({ user, storeId }: { user: Principal; store
             <span>
               {report.data.total} response(s) · Page {report.data.page} of {report.data.totalPages}
             </span>
-            <label>
+            <label className="inline-field">
               Rows
               <select
                 value={pageSize}

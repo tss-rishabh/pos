@@ -4,7 +4,10 @@ import { ArrowDownToLine, ArrowRight } from 'lucide-react';
 import { z } from 'zod';
 import { captureOperatorScope, request, params } from '../api/client';
 import type { Principal } from '../api/types';
-import { Empty, ErrorState, Loading, Metric, PageTitle } from '../components/common';
+import { Empty, ErrorState, Metric, PageTitle } from '../components/common';
+import { SkeletonTable } from '../components/loader';
+import { MultiSelect } from '../components/multi-select';
+import './order-history/table-tools.css';
 import { currency } from '../lib/format';
 import { useOnline } from '../hooks/use-pos';
 import { dailyReportDates } from './finance/report-dates';
@@ -241,7 +244,7 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
         <p role="status">Reconnect to run a report. The last open result remains visible.</p>
       )}
       {stores.isError && <ErrorState error={stores.error} retry={() => void stores.refetch()} />}
-      <section className="surface">
+      <section className="surface daily-report-panel">
         <form
           className="daily-report-filters"
           onSubmit={(event) => {
@@ -260,27 +263,19 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
             else setSubmitted(next);
           }}
         >
-          <label>
-            Stores
-            <select
-              aria-label="Report stores"
-              multiple
-              required
+          <div className="daily-report-stores">
+            <MultiSelect
+              label="Stores"
+              emptyLabel="Select stores"
+              disabled={!availableStores.length}
+              options={availableStores.map((store) => ({ value: store.id, label: store.name }))}
               value={storeIds}
-              onChange={(event) =>
-                setStoreIds(Array.from(event.target.selectedOptions, (option) => option.value))
-              }
-            >
-              {availableStores.map((store) => (
-                <option key={store.id} value={store.id}>
-                  {store.name}
-                </option>
-              ))}
-            </select>
-            <span>
+              onChange={setStoreIds}
+            />
+            <div className="toolbar">
               <button
                 type="button"
-                className="button secondary"
+                className="text-button"
                 disabled={!availableStores.length}
                 onClick={() => setStoreIds(availableStores.map((store) => store.id))}
               >
@@ -288,16 +283,16 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
               </button>
               <button
                 type="button"
-                className="button secondary"
+                className="text-button"
                 disabled={!storeIds.length}
                 onClick={() => setStoreIds([])}
               >
                 Clear all stores
               </button>
-            </span>
-          </label>
+            </div>
+          </div>
           <label>
-            From{' '}
+            From
             <input
               aria-label="Report from date"
               type="date"
@@ -307,7 +302,7 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
             />
           </label>
           <label>
-            To{' '}
+            To
             <input
               aria-label="Report to date"
               type="date"
@@ -327,57 +322,63 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
               report.isFetching ||
               storeIds.some((id) => !availableStores.some((store) => store.id === id))
             }
+            aria-busy={report.isFetching}
           >
             View report
-            <ArrowRight size={16} />
+            {!report.isFetching && <ArrowRight size={16} aria-hidden="true" />}
           </button>
         </form>
-        <details className="daily-report-columns">
+        <details className="column-picker daily-report-columns">
           <summary>
             Columns ({columns.length} of {dailyReportFields.length})
           </summary>
-          <div className="daily-report-pagination">
-            <button
-              className="button secondary"
-              onClick={() => changeColumns(dailyReportFields.map(([key]) => key))}
-            >
-              Show all columns
-            </button>
-            <button className="button secondary" onClick={() => changeColumns(defaultColumns)}>
-              Reset columns
-            </button>
+          <div className="column-picker-panel daily-report-column-panel">
+            <div className="toolbar">
+              <button
+                className="button secondary small"
+                onClick={() => changeColumns(dailyReportFields.map(([key]) => key))}
+              >
+                Show all columns
+              </button>
+              <button
+                className="button secondary small"
+                onClick={() => changeColumns(defaultColumns)}
+              >
+                Reset columns
+              </button>
+            </div>
+            <fieldset>
+              <legend className="sr-only">Visible daily report columns</legend>
+              {dailyReportFields.map(([key, label]) => (
+                <label key={key}>
+                  <input
+                    type="checkbox"
+                    checked={columns.includes(key)}
+                    disabled={columns.length === 1 && columns.includes(key)}
+                    onChange={() => {
+                      const next = columns.includes(key)
+                        ? columns.filter((value) => value !== key)
+                        : [...columns, key];
+                      changeColumns(next);
+                    }}
+                  />
+                  {label}
+                </label>
+              ))}
+            </fieldset>
+            <p className="muted">
+              The complete CSV contains every column and result row. Visible-column CSV follows the
+              table search and sort. Both include the full report totals.
+            </p>
           </div>
-          <fieldset>
-            <legend className="sr-only">Visible daily report columns</legend>
-            {dailyReportFields.map(([key, label]) => (
-              <label key={key}>
-                <input
-                  type="checkbox"
-                  checked={columns.includes(key)}
-                  disabled={columns.length === 1 && columns.includes(key)}
-                  onChange={() => {
-                    const next = columns.includes(key)
-                      ? columns.filter((value) => value !== key)
-                      : [...columns, key];
-                    changeColumns(next);
-                  }}
-                />
-                {label}
-              </label>
-            ))}
-          </fieldset>
-          <p className="muted">
-            The complete CSV contains every column and result row. Visible-column CSV follows the
-            table search and sort. Both include the full report totals.
-          </p>
         </details>
       </section>
       {!submitted ? (
-        <Empty title="The day, by the numbers">
+        <Empty title="No report yet">
           Select a date range to view store and store-assisted online sales.
         </Empty>
       ) : report.isPending ? (
-        <Loading />
+        <SkeletonTable rows={6} columns={Math.min(8, fields.length || 1)} label="Loading report…" />
       ) : report.isError ? (
         <ErrorState error={report.error} retry={() => void report.refetch()} />
       ) : (

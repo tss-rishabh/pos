@@ -60,11 +60,15 @@ test('daily store sales run the legacy SQL for today and route history to the wa
   await enter(page, '/');
   await page.getByRole('link', { name: 'Reports', exact: true }).click();
   // Report store options come from the operator's real store scope.
-  await expect(page.getByLabel('Report stores').locator('option')).toHaveText([
-    'Bandra Flagship',
-    'Indiranagar',
-  ]);
-  await page.getByLabel('Report stores').selectOption(['1', '2']);
+  await page.getByRole('button', { name: 'Stores', exact: true }).click();
+  await expect(
+    page.getByRole('group', { name: 'Stores', exact: true }).locator('li label'),
+  ).toHaveText(['Bandra Flagship', 'Indiranagar']);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Select all stores', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Stores', exact: true }),
+  ).toHaveAccessibleDescription('Bandra Flagship, Indiranagar');
 
   // 1. Today: one bound request for the selected stores, served by the MySQL data reader.
   const response = await run(page, today, today);
@@ -204,7 +208,7 @@ test('daily store sales run the legacy SQL for today and route history to the wa
 
   // 6. A range beyond today routes to the warehouse; without one the server refuses with a
   // clear message and request reference instead of answering from another source.
-  await page.getByLabel('Report stores').selectOption(['1', '2']);
+  await page.getByRole('button', { name: 'Select all stores', exact: true }).click();
   const yesterday = new Date(Date.parse(today + 'T00:00:00Z') - 86_400_000)
     .toISOString()
     .slice(0, 10);

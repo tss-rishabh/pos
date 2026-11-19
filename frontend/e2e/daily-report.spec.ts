@@ -74,7 +74,11 @@ test('multiple-store daily reporting retains all source columns and full totals 
     });
   });
   await page.getByRole('link', { name: 'Reports', exact: true }).click();
-  await page.getByLabel('Report stores').selectOption(['1', '2']);
+  // Both of the operator's stores (W27 searchable store multi-select).
+  await page.getByRole('button', { name: 'Select all stores', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Stores', exact: true }),
+  ).toHaveAccessibleDescription('Bandra Flagship, Indiranagar');
   await page.getByLabel('Report from date').fill('2026-11-16');
   await page.getByLabel('Report to date').fill('2026-11-16');
   await page.getByRole('button', { name: 'View report' }).click();

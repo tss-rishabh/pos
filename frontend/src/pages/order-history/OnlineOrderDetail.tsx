@@ -86,6 +86,7 @@ export function OnlineOrderDetailPage({ user, storeId }: { user: Principal; stor
         <button
           className="button secondary"
           disabled={!online || detail.isFetching}
+          aria-busy={detail.isFetching}
           onClick={() => void detail.refetch()}
         >
           Refresh details
@@ -101,7 +102,11 @@ export function OnlineOrderDetailPage({ user, storeId }: { user: Principal; stor
       )}
       {!value &&
         !detail.isError &&
-        (online ? <Loading /> : <p role="status">Reconnect to load these order details.</p>)}
+        (online ? (
+          <Loading label="Loading order details…" />
+        ) : (
+          <p role="status">Reconnect to load these order details.</p>
+        ))}
       {value && <OnlineOrderDetailContent user={user} value={value} online={online} />}
     </>
   );

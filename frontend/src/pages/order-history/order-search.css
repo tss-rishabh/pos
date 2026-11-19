@@ -1,45 +1,127 @@
-.order-search-grid {
+/* W27: aligned order filters, one chip style, one table toolbar. */
+.order-search-workspace {
+  padding: var(--space-5) var(--space-6);
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 14px;
-  margin-bottom: 16px;
+  gap: var(--space-4);
+  overflow: visible;
 }
-.order-search-grid label {
-  display: grid;
-  gap: 6px;
-}
-.order-search-grid input,
-.order-search-grid select {
-  width: 100%;
-  min-width: 0;
-}
-.order-search-grid select[multiple] {
-  min-height: 78px;
-}
-.order-search-actions {
+.order-count-chips {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
-  margin: 16px 0;
+  gap: var(--space-2);
 }
-.order-search-actions label {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-.order-search-actions details label {
+.count-chip {
   display: inline-flex;
-  margin: 6px;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 11px;
+  font-weight: 550;
+  color: #4f6447;
+  white-space: nowrap;
+}
+.count-chip:hover {
+  background: #f4f6ee;
+}
+.count-chip strong {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #eef1e7;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.order-filters {
+  display: grid;
+  gap: var(--space-4);
+}
+.order-filters .form-grid {
+  align-items: start;
+}
+.order-filters .form-grid input,
+.order-filters .form-grid select {
+  width: 100%;
+}
+.order-filter-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+.order-filter-checks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+}
+.order-pagination {
+  justify-content: flex-end;
+}
+.order-pagination .button {
+  min-height: 32px;
+  padding: 6px 10px;
+}
+.order-pagination > span {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 0 var(--space-2);
 }
 .order-search-workspace td small {
   display: block;
 }
-.order-search-workspace dl {
+.order-summary-list {
+  margin: 0;
   max-height: 50vh;
   overflow: auto;
 }
-.order-search-workspace dd {
-  margin-left: 16px;
+.order-summary-list .receipt-line {
+  padding: var(--space-2) 0;
+}
+.order-summary-list dt {
+  text-transform: capitalize;
+  color: var(--label);
+}
+.order-summary-list dd {
+  margin: 0;
+  text-align: right;
   overflow-wrap: anywhere;
+}
+/* Orders page date window and order detail dialog (operations.tsx). */
+.order-date-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  margin-bottom: var(--space-4);
+  overflow: visible;
+}
+.order-date-form > .muted {
+  flex-basis: 100%;
+  margin: 0;
+}
+.order-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
+  font-size: 12px;
+}
+.order-detail .receipt-line {
+  padding: var(--space-3) 0;
+}
+.order-detail dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.order-detail h3 {
+  margin: var(--space-2) 0 0;
 }

@@ -4,12 +4,15 @@ import { Search, ArrowDownToLine } from 'lucide-react';
 import { z } from 'zod';
 import { request } from '../../api/client';
 import type { Principal } from '../../api/types';
-import { Empty, ErrorState, Loading, PageTitle } from '../../components/common';
+import { Empty, ErrorState, PageTitle } from '../../components/common';
+import { SkeletonTable } from '../../components/loader';
+import { MultiSelect } from '../../components/multi-select';
 import { useOnline } from '../../hooks/use-pos';
 import type { ReportExportKind } from './export-commands';
 import { downloadLoadedPageCsv } from './page-csv';
 import { QueuedExport } from './queued-export';
 import './style.css';
+import '../order-history/table-tools.css';
 interface ReportColumn<T> {
   key: keyof T;
   label: string;
@@ -155,14 +158,15 @@ export function ReportView<T extends Record<string, unknown>>({
         <button
           className="button secondary"
           disabled={!report.data?.data.length || !visible.length || pageCsv.isPending}
+          aria-busy={pageCsv.isPending}
           onClick={() => pageCsv.mutate()}
         >
-          <ArrowDownToLine size={16} />
+          {!pageCsv.isPending && <ArrowDownToLine size={16} aria-hidden="true" />}
           CSV
         </button>
       </PageTitle>
       <form
-        className="surface resource-report-filters"
+        className="surface resource-report-filters form-grid"
         onSubmit={(event) => {
           event.preventDefault();
           setSubmitted(filters);
@@ -190,32 +194,22 @@ export function ReportView<T extends Record<string, unknown>>({
             onChange={(event) => update('to', event.target.value)}
           />
         </label>
-        <label>
-          Stores
-          <select
-            multiple
-            value={filters.storeIds}
-            onChange={(event) =>
-              update(
-                'storeIds',
-                Array.from(event.target.selectedOptions, (option) => option.value),
-              )
-            }
-          >
-            {stores.data?.data
-              .filter((store) => user.userType !== 2 || user.storeIds.includes(store.id))
-              .map((store) => (
-                <option key={store.id} value={store.id}>
-                  {store.name}
-                </option>
-              ))}
-          </select>
-          <small>
-            {requiresSelectedStores || user.userType === 2
+        <MultiSelect
+          label="Stores"
+          emptyLabel={
+            requiresSelectedStores || user.userType === 2 ? 'Select stores' : 'All stores'
+          }
+          options={(stores.data?.data ?? [])
+            .filter((store) => user.userType !== 2 || user.storeIds.includes(store.id))
+            .map((store) => ({ value: store.id, label: store.name }))}
+          value={filters.storeIds}
+          onChange={(storeIds) => update('storeIds', storeIds)}
+          hint={
+            requiresSelectedStores || user.userType === 2
               ? 'Choose the stores to include.'
-              : 'Clear the selection for all stores.'}
-          </small>
-        </label>
+              : 'Clear the selection for all stores.'
+          }
+        />
         <label>
           Sort by
           <select
@@ -253,8 +247,12 @@ export function ReportView<T extends Record<string, unknown>>({
             />
           </label>
         )}
-        <button className="button primary" disabled={!online || report.isFetching}>
-          <Search size={16} />
+        <button
+          className="button primary"
+          disabled={!online || report.isFetching}
+          aria-busy={report.isFetching}
+        >
+          {!report.isFetching && <Search size={16} aria-hidden="true" />}
           View report
         </button>
       </form>
@@ -275,11 +273,11 @@ export function ReportView<T extends Record<string, unknown>>({
         />
       )}
       {columnControls && (
-        <details className="surface report-column-controls">
+        <details className="column-picker report-column-controls">
           <summary>
             Columns ({visible.length} of {columns.length})
           </summary>
-          <div className="report-column-options">
+          <div className="column-picker-panel">
             {columns.map((column) => (
               <label key={String(column.key)}>
                 <input
@@ -296,10 +294,10 @@ export function ReportView<T extends Record<string, unknown>>({
                 {column.label}
               </label>
             ))}
+            <button type="button" className="button secondary small" onClick={() => setHidden([])}>
+              Show all columns
+            </button>
           </div>
-          <button type="button" className="button secondary" onClick={() => setHidden([])}>
-            Show all columns
-          </button>
         </details>
       )}
       {stores.isError && <ErrorState error={stores.error} />}
@@ -308,7 +306,7 @@ export function ReportView<T extends Record<string, unknown>>({
         <p role="status">Showing available report data. Connect to refresh this report.</p>
       )}
       {report.isPending ? (
-        <Loading />
+        <SkeletonTable rows={6} columns={Math.max(1, visible.length)} label="Loading report…" />
       ) : report.isError ? (
         <ErrorState error={report.error} retry={() => void report.refetch()} />
       ) : !report.data.data.length ? (
@@ -340,7 +338,7 @@ export function ReportView<T extends Record<string, unknown>>({
               </tbody>
             </table>
           </div>
-          <div className="resource-report-pagination">
+          <div className="toolbar resource-report-pagination">
             <button
               className="button secondary"
               disabled={report.data.page <= 1 || report.isFetching}
@@ -351,7 +349,7 @@ export function ReportView<T extends Record<string, unknown>>({
             <span>
               Page {report.data.page} of {report.data.totalPages}
             </span>
-            <label>
+            <label className="inline-field">
               Rows
               <select
                 value={pageSize}
