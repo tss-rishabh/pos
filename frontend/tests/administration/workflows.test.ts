@@ -1773,9 +1773,39 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         ).toHaveAttribute('type', 'password');
         await dialog.getByLabel('New authenticator secret', { exact: true }).fill(secret);
         await dialog.getByLabel('New authenticator code', { exact: true }).fill('123456');
-        await dialog
-          .getByRole('button', { name: 'Apply authenticator reset', exact: true })
-          .click();
+        // Hold the operator list refresh that follows a reset, so the "replaced, still
+        // refreshing" state is asserted deterministically instead of depending on its speed.
+        let releaseRefresh: () => void = () => undefined,
+          refreshRequested: () => void = () => undefined;
+        const refreshGate = new Promise<void>((resolve) => {
+            releaseRefresh = resolve;
+          }),
+          refreshStarted = new Promise<void>((resolve) => {
+            refreshRequested = resolve;
+          });
+        const heldRefresh = (url: URL) =>
+          url.pathname.startsWith('/api/v1/') && url.pathname !== '/api/v1/admin/operators/4/mfa';
+        await page.route(heldRefresh, async (route) => {
+          if (route.request().method() !== 'GET') return route.fallback();
+          refreshRequested();
+          await refreshGate;
+          await route.fallback();
+        });
+        try {
+          await dialog
+            .getByRole('button', { name: 'Apply authenticator reset', exact: true })
+            .click();
+          await refreshStarted;
+          // Only the current action's state is announced: one status, the replaced message.
+          await browserExpect(dialog.getByRole('status')).toHaveCount(1);
+          await browserExpect(dialog.getByRole('status')).toHaveText('Authenticator replaced.');
+        } finally {
+          releaseRefresh();
+          await page.unroute(heldRefresh);
+        }
+        await browserExpect(
+          dialog.getByRole('button', { name: 'Close authenticator', exact: true }),
+        ).toBeEnabled();
         await browserExpect(dialog.getByRole('status')).toHaveText('Authenticator replaced.');
         await browserExpect(
           dialog.getByLabel('New authenticator secret', { exact: true }),

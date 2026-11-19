@@ -393,7 +393,9 @@ function OperatorMfaDialog({
           )}
         </>
       )}
-      {busy && <p role="status">Loading authenticator settings…</p>}
+      {/* One status: once the current action's message is set, it replaces the busy text while
+          the follow-up refresh still holds the controls. */}
+      {busy && !message && <p role="status">Loading authenticator settings…</p>}
     </dialog>
   );
 }
