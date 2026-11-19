@@ -1,9 +1,11 @@
+import { timingSafeEqual } from 'node:crypto';
 import { or, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Databases } from '../../../db/pools.js';
 import { MUser } from '../../../db/legacy-schema.js';
 import { AppError } from '../../../domain/errors.js';
 import { identifier } from '../../../domain/validation.js';
+import { currentRequestTrace } from '../../../observability/context.js';
 import type { CheckoutState } from '../contracts.js';
 import { CheckoutGatewayError, type CheckoutGateway } from '../gateway.js';
 import { checkoutSessionStore, type CheckoutSessionStore } from '../session-store.js';
@@ -113,6 +115,8 @@ const recordSchema = z
     createdAt: z.number().int().nonnegative(),
     sentAt: z.number().int().nonnegative(),
     deliveries: z.object({ sms: deliveryStatus, whatsapp: deliveryStatus.optional() }).strict(),
+    /** S36 "Self Verify (Without OTP)": verified without the code; never a benefit proof. */
+    selfVerified: z.boolean().optional(),
   })
   .strict();
 type RegistrationRecord = z.infer<typeof recordSchema>;
@@ -171,7 +175,23 @@ const limited = () =>
     'Customer verification is temporarily limited. Wait before requesting another code.',
   );
 
+/** Structured audit sink (Fastify `app.log`); events carry identifiers only, never contacts. */
+export interface RegistrationAuditLog {
+  info(value: Record<string, unknown>, message: string): void;
+}
+const stdoutAudit: RegistrationAuditLog = {
+  info(value, message) {
+    process.stdout.write(
+      JSON.stringify({ level: 30, time: Date.now(), ...value, msg: message }) + '\n',
+    );
+  },
+};
+const selfVerifyRefused = (code: string, status: number, message: string) =>
+  new AppError(status, code, message);
+
 export interface CustomerRegistrationDependencies {
+  /** Audit sink for self-verified registrations; defaults to a JSON line on stdout. */
+  log?: RegistrationAuditLog;
   stateStore?: PosStateStore;
   sessions?: CheckoutSessionStore;
   now?: () => number;
@@ -198,7 +218,30 @@ export function customerRegistrationService(
   const store = dependencies.stateStore ?? dependencies.sessions?.store ?? memoryStateStore(),
     sessions = dependencies.sessions ?? checkoutSessionStore(store),
     now = dependencies.now ?? Date.now,
-    schedule = dependencies.schedule ?? timer;
+    schedule = dependencies.schedule ?? timer,
+    audit = dependencies.log ?? stdoutAudit;
+  /** S36 audit: request, operator, store, sale, registration and customer identifiers only. */
+  function auditSelfVerified(record: RegistrationRecord, outcome: 'accepted' | 'registered') {
+    const trace = currentRequestTrace();
+    audit.info(
+      {
+        module: 'checkout',
+        resource: 'customer-registration',
+        eventId: `checkout.customer-registration.self-verify-${outcome}`,
+        requestId: trace?.requestId ?? null,
+        userId: trace?.userId ?? record.operatorId,
+        operatorId: record.operatorId,
+        storeId: record.storeId,
+        counterId: record.counterId,
+        checkoutId: record.checkoutId,
+        registrationId: record.id,
+        customerId: record.customerId,
+      },
+      outcome === 'accepted'
+        ? 'Customer registration self-verified without OTP'
+        : 'Self-verified customer registration created',
+    );
+  }
   function secret() {
     assertRegistrationReady(environment);
     return environment.secret;
@@ -266,6 +309,7 @@ export function customerRegistrationService(
       attemptsRemaining: Math.max(0, MAX_ATTEMPTS - record.attempts),
       customerId: record.customerId,
       verifiedAt: record.verifiedAt,
+      selfVerified: record.selfVerified === true,
       deliveries: [
         { channel: 'sms' as const, status: record.deliveries.sms },
         ...(record.deliveries.whatsapp
@@ -392,6 +436,7 @@ export function customerRegistrationService(
     };
     await save(registered);
     await releaseClaims(registered);
+    if (registered.selfVerified) auditSelfVerified(registered, 'registered');
     return registered;
   }
   return {
@@ -518,6 +563,8 @@ export function customerRegistrationService(
         !record ||
         record.checkoutId !== state.id ||
         record.status !== 'registered' ||
+        // S36/S33: a self-verified registration connects the customer but proves nothing.
+        record.selfVerified === true ||
         record.customerId !== customer.id ||
         !record.verifiedAt ||
         record.verifiedAt + PROOF_MS <= now() ||
@@ -592,6 +639,70 @@ export function customerRegistrationService(
       });
       return publicRecord(record);
     },
+    /**
+     * Legacy "Self Verify (Without OTP)" (`create_order.html:4856,4996`; `order/views.py:2429-2448`
+     * `if self_verify or self.verify_otp(...)`). Legacy trusts a client `self_verify=1` for any
+     * phone; S36 accepts it only for the phone this sale's pending registration OTP was actually
+     * delivered to (SMS or WhatsApp `sent`), within the LOGIN_OTP_EXPIRY window of that send.
+     * The result is `verified` so `register` can follow, flagged `selfVerified` so it is never a
+     * verified-customer proof (S33).
+     */
+    async selfVerify(state, telephone) {
+      secret();
+      const refusedPhone = () =>
+        selfVerifyRefused(
+          'CUSTOMER_SELF_VERIFY_PHONE_MISMATCH',
+          409,
+          'Self verification is allowed only for the mobile number the OTP was sent to.',
+        );
+      const expired = () =>
+        selfVerifyRefused(
+          'CUSTOMER_SELF_VERIFY_EXPIRED',
+          409,
+          'The OTP window has ended. Request a new OTP before self verification.',
+        );
+      if (!/^[6-9]\d{9}$/.test(telephone)) throw refusedPhone();
+      if (!state.registrationId)
+        throw selfVerifyRefused(
+          'CUSTOMER_SELF_VERIFY_OTP_NOT_SENT',
+          409,
+          'Send the registration OTP to this mobile number before self verification.',
+        );
+      const outcome = await locked(state.registrationId, async () => {
+        // The record lives only for its OTP window while pending; gone means the window ended.
+        if (!(await read(registrationIdOf(state)))) throw expired();
+        const row = await current(state),
+          phone = Buffer.from(registrationDigest(secret(), 'phone', telephone), 'hex'),
+          bound = Buffer.from(row.phoneHash, 'hex');
+        if (phone.length !== bound.length || !timingSafeEqual(phone, bound)) throw refusedPhone();
+        if (['verified', 'registered', 'dispatching', 'uncertain'].includes(row.status))
+          return { record: row, accepted: false };
+        if (row.deliveries.sms !== 'sent' && row.deliveries.whatsapp !== 'sent')
+          throw selfVerifyRefused(
+            'CUSTOMER_SELF_VERIFY_OTP_NOT_SENT',
+            409,
+            'Send the registration OTP to this mobile number before self verification.',
+          );
+        if (
+          row.status !== 'pending' ||
+          row.expiresAt <= now() ||
+          row.sentAt + (environment.ttlSeconds ?? 0) * 1000 <= now()
+        )
+          throw expired();
+        const verified: RegistrationRecord = {
+          ...row,
+          status: 'verified',
+          verifiedAt: now(),
+          selfVerified: true,
+          codeHash: '',
+          encryptedInput: sealRegistration(secret(), row.id, { details: input(row).details }),
+        };
+        await save(verified);
+        return { record: verified, accepted: true };
+      });
+      if (outcome.accepted) auditSelfVerified(outcome.record, 'accepted');
+      return publicRecord(outcome.record);
+    },
     async resend(state) {
       assertRegistrationReady(environment);
       sender.assertReady('sms');
@@ -608,6 +719,7 @@ export function customerRegistrationService(
             codeHash: registrationCodeDigest(secret(), row.id, state.id, next),
             status: 'pending',
             verifiedAt: null,
+            selfVerified: false,
             attempts: 0,
             expiresAt: now() + environment.ttlSeconds * 1000,
             sentAt: now(),
