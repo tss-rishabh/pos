@@ -4,7 +4,7 @@ import { privateRedisFixture } from '../../tests/helpers/private-redis.js';
 /**
  * Checks that the Redis server the e2e stacks spawn (redis-server, or E2E_REDIS_SERVER such as
  * Memurai on Windows) supports every command family the backend relies on: SET NX EX/PX, Lua
- * (EVAL/EVALSHA), LMOVE/BLMOVE job queues, list ops, sorted sets, SCAN, TTLs, TIME, MGET and
+ * (EVAL/EVALSHA), RPOPLPUSH/BRPOPLPUSH job queues, list ops, sorted sets, SCAN, TTLs, TIME, MGET and
  * pub/sub. It runs against its own private loopback instance with synthetic keys only.
  */
 const redis = await privateRedisFixture();
@@ -35,17 +35,15 @@ try {
   const sha = String(await send(['SCRIPT', 'LOAD', lua]));
   check('EVALSHA', Number(await send(['EVALSHA', sha, '1', 'pos:compat:n', '2'])) === 7);
   await send(['LPUSH', 'pos:compat:q', 'job-1', 'job-2']);
+  // The job claimer uses RPOPLPUSH/BRPOPLPUSH (Redis 2.2+), not LMOVE/BLMOVE (6.2+): UAT runs 6.0.
+  check('RPOPLPUSH', (await send(['RPOPLPUSH', 'pos:compat:q', 'pos:compat:w'])) === 'job-1');
   check(
-    'LMOVE',
-    (await send(['LMOVE', 'pos:compat:q', 'pos:compat:w', 'RIGHT', 'LEFT'])) === 'job-1',
+    'BRPOPLPUSH',
+    (await send(['BRPOPLPUSH', 'pos:compat:q', 'pos:compat:w', '1'])) === 'job-2',
   );
   check(
-    'BLMOVE',
-    (await send(['BLMOVE', 'pos:compat:q', 'pos:compat:w', 'RIGHT', 'LEFT', '1'])) === 'job-2',
-  );
-  check(
-    'BLMOVE timeout',
-    (await send(['BLMOVE', 'pos:compat:q', 'pos:compat:w', 'RIGHT', 'LEFT', '0.2'])) === null,
+    'BRPOPLPUSH timeout',
+    (await send(['BRPOPLPUSH', 'pos:compat:q', 'pos:compat:w', '0.2'])) === null,
   );
   check(
     'LRANGE',

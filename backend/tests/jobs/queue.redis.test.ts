@@ -150,7 +150,7 @@ describe.skipIf(!hasRedis)('Redis job queue (private loopback redis-server)', ()
     expect(Number(await redis.send(['LLEN', jobKeys.queue('order_create')]))).toBe(50);
   });
 
-  it('claims with LMOVE/BLMOVE into the inflight list, round-robin over queues', async () => {
+  it('claims with RPOPLPUSH/BRPOPLPUSH into the inflight list, round-robin over queues', async () => {
     const producer = redisJobProducer(redis),
       claim = jobClaimer(blocking, ['core', 'export_queue']);
     const first = await producer.enqueue(
@@ -319,7 +319,7 @@ describe.skipIf(!hasRedis)('Redis job queue (private loopback redis-server)', ()
       { queue: 'order' },
     );
     // Simulate a worker that claimed the job, marked it started, then died (no heartbeat).
-    await redis.send(['LMOVE', jobKeys.queue('order'), jobKeys.inflight('dead'), 'RIGHT', 'LEFT']);
+    await redis.send(['RPOPLPUSH', jobKeys.queue('order'), jobKeys.inflight('dead')]);
     const started: JobRecord = {
       ...(await store.read(job.jobId))!,
       state: 'started',
