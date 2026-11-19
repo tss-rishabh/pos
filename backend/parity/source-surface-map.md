@@ -38,7 +38,7 @@ Mapped surfaces: `stores/urls.py:8` (implementation_present), `stores/urls.py:9`
 | --- | --- |
 | `frontend/src/pages/administration/stores.tsx:18` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
 | `frontend/src/pages/administration/collection-table.tsx:79` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
-| `backend/src/modules/administration/store-detail-routes.ts:14` | Actual selected-store detail/PNG endpoints recheck current native scope and encode only the exact static public marketing URL, not a login/application capability. |
+| `backend/src/modules/administration/store-detail-routes.ts:15` | Actual selected-store detail/PNG endpoints recheck current native scope and encode only the exact static public marketing URL, not a login/application capability. |
 | `frontend/src/pages/administration/stores.tsx:169` | Actual store row opens its selected-store detail/marketing QR action; checked-in application handoff remains separate. |
 
 ### storage
@@ -83,8 +83,8 @@ Mapped surfaces: `core/urls.py:131` (implementation_present), `core/urls.py:132`
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `backend/src/modules/administration/index.ts:123` | Actual administration registrar mounts the credential-free EDC directory. |
-| `backend/src/modules/administration/terminal-directory.ts:27` | Pine/Paytm union applies fresh role/current assigned-store authority, finite provider/search/sort and bounded primary paging; credential fields are not selected. |
+| `backend/src/modules/administration/index.ts:140` | Actual administration registrar mounts the credential-free EDC directory. |
+| `backend/src/modules/administration/terminal-directory.ts:28` | Pine/Paytm union applies fresh role/current assigned-store authority, finite provider/search/sort and bounded primary paging; credential fields are not selected. |
 | `frontend/src/pages/administration/terminal-directory.tsx:58` | Actual provider directory offers nonsecret columns, visibility/page choices and page/full CSV while preserving the independent write-only editor. |
 
 ### documentation
@@ -129,7 +129,7 @@ Mapped surfaces: `order/urls.py:16` (external_acceptance), `order/urls.py:17` (e
 | `order/templates/order/show.html:247` | Active source closed-window Extend Date action belongs to roles1-3; the manager action is separate from role1 cash/eligibility override. |
 | `backend/src/modules/checkout/return-workflow/extensions.ts:19` | Actual native GET/PUT resource locks the exact tuple, preserves creation provenance, validates business dates and uses desired-state idempotency plus revision conflicts. |
 | `backend/src/modules/checkout/return-workflow/repository.ts:1066` | Extension uses current native manager/store/check-in authority, exact delivered HP, live customer/contact/OTP proof and unambiguous mapped audit actor inside the writer transaction. |
-| `backend/src/modules/checkout/return-workflow/routes.ts:101` | Actual registered return registrar constructs and mounts the extension service; it is not an unused constructor. |
+| `backend/src/modules/checkout/return-workflow/routes.ts:122` | Actual registered return registrar constructs and mounts the extension service; it is not an unused constructor. |
 | `frontend/src/pages/returns/index.tsx:656` | Actual return and exchange page mounts the bound source-role manager control for the selected verified line. |
 | `frontend/src/pages/returns/client.ts:246` | Client binds PUT and returned state to the exact order/line/product and current operator; it sends no refund or guessed manager fields. |
 | `frontend/src/pages/returns/ReturnWindowExtension.tsx:47` | Unknown/conflicting save uses explicit GET-only recorded-date recovery and renewed attestation; Cancel clears local form state only. |
@@ -159,7 +159,7 @@ Mapped surfaces: `notification/urls.py:7` (external_acceptance), `order/template
 | Code/source reference | Reviewed scope |
 | --- | --- |
 | `frontend/src/pages/fulfillment/notification-links.ts:29` | Retains source stored-title routing and explicit live new-order flag; derives bound order/queue links without trusting a stored URL. Exact two-declaration joined proof is retained separately; whole-template and production-provider acceptance remain pending. |
-| `backend/src/modules/fulfillment/index.ts:527` | Stored feed rechecks writer-current check-in authority before and after primary-reader queries. Exact notification route/consumer joined proof is reviewed separately; whole templates and production provider acceptance remain pending. |
+| `backend/src/modules/fulfillment/index.ts:614` | Stored feed rechecks writer-current check-in authority before and after primary-reader queries. Exact notification route/consumer joined proof is reviewed separately; whole templates and production provider acceptance remain pending. |
 | `backend/src/modules/fulfillment/service.ts:854` | Read-receipt mutation locks current native actor/store/check-in authority inside the writer transaction before changing only the current recipient row. |
 | `backend/src/modules/fulfillment/notification-stream.ts:19` | Broker readiness and fresh native authority precede upgrade OPEN; bounded early pointers and once-only transport cleanup preserve the protocol. Twelve lifecycle units and seven fresh native/source/App groups pass on the fixed snapshot; original red ordering evidence remains immutable. |
 
