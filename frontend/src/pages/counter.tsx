@@ -34,6 +34,13 @@ import { recordPerformancePhase } from '../offline/performance/storage';
 import { captureOperatorScope } from '../api/client';
 import { addProduct, commitScannedProduct, resolveBarcode } from './counter-catalog/barcode';
 import './counter-catalog/style.css';
+import {
+  billable,
+  InventoryReload,
+  ProductInventoryDetails,
+  useStockLocations,
+  type StockLocation,
+} from './counter-catalog/inventory';
 import { DraftQuantity, commitDraftQuantity } from './counter-catalog/quantity';
 import { productDetailPath, useCartProductLinks } from './counter-catalog/detail-links';
 import {
@@ -59,18 +66,22 @@ export function ProductTile({
   index,
   onAdd,
   troubleshooting = false,
+  location,
 }: {
   product: Product;
   index: number;
   onAdd: () => void;
   troubleshooting?: boolean;
+  /** Held/storage stock (legacy picker columns); `undefined` while loading. */
+  location?: StockLocation | null;
 }) {
   return (
-    <article className="counter-product-card">
+    <article className={`counter-product-card${product.stock <= 0 ? ' legacy-out-of-stock' : ''}`}>
       <button
         className="product-tile"
         onClick={onAdd}
-        disabled={product.stock <= 0}
+        // Legacy picker: only stock > 0 with a barcode can be added (store_products_datatable.py).
+        disabled={!billable(product)}
         aria-label={`Add ${product.name} to sale`}
       >
         <div className={`product-art ${tones[index % tones.length]}`}>
@@ -99,6 +110,7 @@ export function ProductTile({
           </div>
         </div>
       </button>
+      <ProductInventoryDetails product={product} location={location} />
       <nav className="counter-product-actions" aria-label={`Actions for ${product.name}`}>
         <a
           href={productDetailPath(product)}
@@ -488,6 +500,11 @@ export function CounterPage({
   }
   const pending = operations.find((o) => o.draftId === cart?.id);
   const allProducts = products.data?.pages.flatMap((p) => p.data) || [];
+  const stockLocations = useStockLocations(
+    user.id,
+    storeId,
+    allProducts.map((p) => p.id),
+  );
   const cached = products.data?.pages.some((p) => p.cached);
   shortcutAction.current = (action) => {
     const root = shortcutRoot.current,
@@ -571,6 +588,13 @@ export function CounterPage({
                 Show out of stock
               </label>
               <span className="muted">{allProducts.length} loaded</span>
+              <InventoryReload
+                busy={products.isFetching || stockLocations.isFetching}
+                onReload={() => {
+                  void products.refetch();
+                  void stockLocations.refetch();
+                }}
+              />
             </div>
             <span className="caption">
               {cached
@@ -593,6 +617,7 @@ export function CounterPage({
                   index={i}
                   onAdd={() => add(p)}
                   troubleshooting={user.role === 1 && user.userType === 1}
+                  location={stockLocations.isError ? null : stockLocations.data?.get(p.id)}
                 />
               ))}
             </div>
