@@ -26,8 +26,10 @@ is empty (`helpers/helpers.py:1345-1350`). This is weak and predictable; it is u
 behaviour (AGENTS.md, 19 Nov). The rewrite's random password, sealed secrets, retrievable password, owner download,
 frozen archive and delivery-state machine are removed.
 
-Kept differences: the list search box matches `id`, `size` and `message` literally (legacy raises `FieldError` on every
-non-empty search because it references `product__…`); the size must be an integer 1–10 000 (legacy accepts any
+Kept differences: the list search box works, limited to the fields legacy configures (user decision N7, 19 Nov 2026).
+Legacy filters `product__product__icontains | product__id__icontains` (`core/datatables/gift_card_datatable.py:47-51`),
+but `gift_card_collection` has no product relation (`core/models.py:742-757`), so legacy raises `FieldError` on every
+non-empty search. The rewrite matches the `id` lookup literally; the product name has no column and is not searched; the size must be an integer 1–10 000 (legacy accepts any
 truthy integer, including negatives, from a direct POST); messages with characters outside MySQL latin1 are rejected
 instead of stored as `?`.
 

@@ -42,8 +42,16 @@ first failure stops the calls and is logged, as the source `try` around the loop
 
 Source quirks kept on purpose:
 
-- `IsHold=0` with a quantity also holds (the unhold `elif`, `:265-292`, is unreachable). Previous rewrite
-  corrected this; that correction is removed. See NEEDS USER DECISION in the W8b report.
+- **Approved divergence (user, 19 Nov 2026):** legacy `if is_hold != "" and hold_unhold_qty != ""`
+  (`helpers/task_helpers.py:241`) also matches `IsHold=0`, so legacy holds stock for `IsHold=0` and its unhold
+  `elif` (`:272-292`) is unreachable. The rewrite holds for a non-zero `IsHold` and unholds for `IsHold=0`:
+  it reduces `hold_stock_store`, logs "Hold Stock inventory reduced to add into Product inventory.", and adds the
+  quantity back through `inward_product_to_store` (`order/libs/calculations.py:286-321`). That re-lists the
+  product (and, for a variant, its live siblings and parent), calls the stock procedure, and syncs those products
+  right after the record. Unholding more than is held fails the record with "Stock not available to unhold.".
+- The product-store (parent/store) upload page and route are deleted (user decision 19 Nov 2026; legacy
+  `core/urls.py:11` comments the URL out). Job C1 `core.tasks.parse_csv_product_store` stays registered, as legacy
+  keeps the task (`core/tasks.py:28-37`).
 - A hold failure does not stop the record: listing flags are still updated, and the product is not synced.
 - A later exception re-appends the same failure dict, so it appears twice in `failed_data`.
 - Writes before an exception inside a record stay (e.g. flags, then the missing product's

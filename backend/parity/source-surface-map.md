@@ -36,11 +36,10 @@ Mapped surfaces: `stores/urls.py:8` (implementation_present), `stores/urls.py:9`
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `frontend/src/pages/administration/stores.tsx:178` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
-| `frontend/src/pages/administration/collection-table.tsx:81` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
-| `backend/src/modules/administration/collection-export.ts:170` | Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle. |
+| `frontend/src/pages/administration/stores.tsx:18` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
+| `frontend/src/pages/administration/collection-table.tsx:79` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
 | `backend/src/modules/administration/store-detail-routes.ts:14` | Actual selected-store detail/PNG endpoints recheck current native scope and encode only the exact static public marketing URL, not a login/application capability. |
-| `frontend/src/pages/administration/stores.tsx:443` | Actual store row opens its selected-store detail/marketing QR action; checked-in application handoff remains separate. |
+| `frontend/src/pages/administration/stores.tsx:169` | Actual store row opens its selected-store detail/marketing QR action; checked-in application handoff remains separate. |
 
 ### storage
 
@@ -48,9 +47,8 @@ Mapped surfaces: `stores/urls.py:21` (implementation_present), `stores/urls.py:2
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `frontend/src/pages/administration/store-resources.tsx:28` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
-| `frontend/src/pages/administration/collection-table.tsx:81` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
-| `backend/src/modules/administration/collection-export.ts:170` | Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle. |
+| `frontend/src/pages/administration/store-resources.tsx:35` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
+| `frontend/src/pages/administration/collection-table.tsx:79` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
 
 ### counters
 
@@ -58,9 +56,8 @@ Mapped surfaces: `stores/urls.py:31` (implementation_present), `stores/urls.py:3
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `frontend/src/pages/administration/store-resources.tsx:28` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
-| `frontend/src/pages/administration/collection-table.tsx:81` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
-| `backend/src/modules/administration/collection-export.ts:170` | Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle. |
+| `frontend/src/pages/administration/store-resources.tsx:35` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
+| `frontend/src/pages/administration/collection-table.tsx:79` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
 
 ### salespeople
 
@@ -68,9 +65,8 @@ Mapped surfaces: `core/urls.py:53` (implementation_present), `core/urls.py:54` (
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `frontend/src/pages/administration/people.tsx:372` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
-| `frontend/src/pages/administration/collection-table.tsx:81` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
-| `backend/src/modules/administration/collection-export.ts:170` | Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle. |
+| `frontend/src/pages/administration/people.tsx:364` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
+| `frontend/src/pages/administration/collection-table.tsx:79` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
 
 ### operators
 
@@ -78,9 +74,8 @@ Mapped surfaces: `users/urls.py:14` (implementation_present), `users/urls.py:15`
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `frontend/src/pages/administration/people.tsx:92` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
-| `frontend/src/pages/administration/collection-table.tsx:81` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
-| `backend/src/modules/administration/collection-export.ts:170` | Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle. |
+| `frontend/src/pages/administration/people.tsx:91` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
+| `frontend/src/pages/administration/collection-table.tsx:79` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
 
 ### terminals
 
@@ -88,7 +83,7 @@ Mapped surfaces: `core/urls.py:131` (implementation_present), `core/urls.py:132`
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `backend/src/modules/administration/index.ts:114` | Actual administration registrar mounts the credential-free EDC directory. |
+| `backend/src/modules/administration/index.ts:123` | Actual administration registrar mounts the credential-free EDC directory. |
 | `backend/src/modules/administration/terminal-directory.ts:27` | Pine/Paytm union applies fresh role/current assigned-store authority, finite provider/search/sort and bounded primary paging; credential fields are not selected. |
 | `frontend/src/pages/administration/terminal-directory.tsx:58` | Actual provider directory offers nonsecret columns, visibility/page choices and page/full CSV while preserving the independent write-only editor. |
 
@@ -99,8 +94,7 @@ Mapped surfaces: `core/urls.py:123` (external_acceptance), `core/urls.py:124` (e
 | Code/source reference | Reviewed scope |
 | --- | --- |
 | `frontend/src/pages/administration/documentation.tsx:119` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
-| `frontend/src/pages/administration/collection-table.tsx:81` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
-| `backend/src/modules/administration/collection-export.ts:170` | Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle. |
+| `frontend/src/pages/administration/collection-table.tsx:79` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
 
 ### shared-shell
 
@@ -118,12 +112,12 @@ Mapped surfaces: `order/urls.py:8` (partial), `order/urls.py:9` (partial), `orde
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `backend/src/modules/order-history/online-detail/service.ts:22` | Authorized N/HL/HE details bind native current authority to complete primary or qualified BigQuery facts, then hydrate explicitly current customer/product dimensions. Source/native/routed-App proof is scoped; complete historical transport and per-line actions remain separate. |
-| `backend/src/modules/order-history/search/default-ranges.ts:8` | Server-authoritative rolling five-day store-page bounds include its extra ending minute and bounded midnight fraction without a future warehouse publication. Active type switching must retain this same window; separate online-prefix arithmetic does not establish rendered online-entry behavior. |
-| `frontend/src/pages/operations.tsx:139` | Initial defaults anchor once per authority scope; opening rows preserves list state, historical detail gets its own row-day context, and explicit date ranges remain authoritative. Source-derived/native/routed-App regressions are separate from complete workflow admission. |
-| `frontend/src/pages/operations.tsx:331` | Actual OrdersPage mounts the source-specific search/list alongside independently authorized detail/payment controls. |
-| `frontend/src/pages/order-history/SourceOrderList.tsx:211` | Actual order-list CSV uses only the loaded page and selected visible columns; page choices 5/10/25/50/100 and source sort actions remain wired. |
-| `frontend/src/pages/order-history/search-client.ts:157` | Loaded duplicate rows are preserved and spreadsheet formula strings neutralized; this does not certify original full-workflow or identical download bytes. |
+| `backend/src/modules/order-history/online-detail/service.ts:25` | Authorized N/HL/HE details bind native current authority to complete primary or qualified BigQuery facts, then hydrate explicitly current customer/product dimensions. Source/native/routed-App proof is scoped; complete historical transport and per-line actions remain separate. |
+| `backend/src/modules/order-history/search/default-ranges.ts:6` | Server-authoritative rolling five-day store-page bounds include its extra ending minute and bounded midnight fraction without a future warehouse publication. Active type switching must retain this same window; separate online-prefix arithmetic does not establish rendered online-entry behavior. |
+| `frontend/src/pages/operations.tsx:138` | Initial defaults anchor once per authority scope; opening rows preserves list state, historical detail gets its own row-day context, and explicit date ranges remain authoritative. Source-derived/native/routed-App regressions are separate from complete workflow admission. |
+| `frontend/src/pages/operations.tsx:329` | Actual OrdersPage mounts the source-specific search/list alongside independently authorized detail/payment controls. |
+| `frontend/src/pages/order-history/SourceOrderList.tsx:213` | Actual order-list CSV uses only the loaded page and selected visible columns; page choices 5/10/25/50/100 and source sort actions remain wired. |
+| `frontend/src/pages/order-history/search-client.ts:166` | Loaded duplicate rows are preserved and spreadsheet formula strings neutralized; this does not certify original full-workflow or identical download bytes. |
 
 ### returns-exchanges
 
@@ -134,11 +128,11 @@ Mapped surfaces: `order/urls.py:16` (external_acceptance), `order/urls.py:17` (e
 | `order/views.py:4449` | Active source exact order/product/HP create/update, native administrator provenance, end-of-day date and reactivation; empty date is not a clear operation. |
 | `order/templates/order/show.html:247` | Active source closed-window Extend Date action belongs to roles1-3; the manager action is separate from role1 cash/eligibility override. |
 | `backend/src/modules/checkout/return-workflow/extensions.ts:19` | Actual native GET/PUT resource locks the exact tuple, preserves creation provenance, validates business dates and uses desired-state idempotency plus revision conflicts. |
-| `backend/src/modules/checkout/return-workflow/repository.ts:1371` | Extension uses current native manager/store/check-in authority, exact delivered HP, live customer/contact/OTP proof and unambiguous mapped audit actor inside the writer transaction. |
-| `backend/src/modules/checkout/return-workflow/routes.ts:80` | Actual registered return registrar constructs and mounts the extension service; it is not an unused constructor. |
-| `frontend/src/pages/returns/index.tsx:848` | Actual return and exchange page mounts the bound source-role manager control for the selected verified line. |
-| `frontend/src/pages/returns/client.ts:254` | Client binds PUT and returned state to the exact order/line/product and current operator; it sends no refund or guessed manager fields. |
-| `frontend/src/pages/returns/ReturnWindowExtension.tsx:48` | Unknown/conflicting save uses explicit GET-only recorded-date recovery and renewed attestation; Cancel clears local form state only. |
+| `backend/src/modules/checkout/return-workflow/repository.ts:1066` | Extension uses current native manager/store/check-in authority, exact delivered HP, live customer/contact/OTP proof and unambiguous mapped audit actor inside the writer transaction. |
+| `backend/src/modules/checkout/return-workflow/routes.ts:101` | Actual registered return registrar constructs and mounts the extension service; it is not an unused constructor. |
+| `frontend/src/pages/returns/index.tsx:656` | Actual return and exchange page mounts the bound source-role manager control for the selected verified line. |
+| `frontend/src/pages/returns/client.ts:246` | Client binds PUT and returned state to the exact order/line/product and current operator; it sends no refund or guessed manager fields. |
+| `frontend/src/pages/returns/ReturnWindowExtension.tsx:47` | Unknown/conflicting save uses explicit GET-only recorded-date recovery and renewed attestation; Cancel clears local form state only. |
 
 ### invoice-documents
 
@@ -146,8 +140,7 @@ Mapped surfaces: `order/urls.py:13` (external_acceptance), `order/urls.py:14` (e
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `backend/src/modules/invoice-documents/global-proof.ts:32` | Explicit genuine paid N access binds authorized context separately from ownerStoreId:null and source issuer policy, current actor/native financial snapshot and complete history proof. Scoped source/native/UI checks do not establish a deployed SDD renderer or legal approval. |
-| `frontend/src/pages/order-history/OnlineOrderDetail.tsx:197` | Paid N detail selects the explicit global access mode; HL/HE retain existing owned-store invoice authority. Absent private consumer/history configuration refuses the document. |
+| `frontend/src/pages/order-history/OnlineOrderDetail.tsx:229` | Paid N detail selects the explicit global access mode; HL/HE retain existing owned-store invoice authority. Absent private consumer/history configuration refuses the document. |
 
 ### express-fulfillment
 
@@ -166,8 +159,8 @@ Mapped surfaces: `notification/urls.py:7` (external_acceptance), `order/template
 | Code/source reference | Reviewed scope |
 | --- | --- |
 | `frontend/src/pages/fulfillment/notification-links.ts:29` | Retains source stored-title routing and explicit live new-order flag; derives bound order/queue links without trusting a stored URL. Exact two-declaration joined proof is retained separately; whole-template and production-provider acceptance remain pending. |
-| `backend/src/modules/fulfillment/index.ts:304` | Stored feed rechecks writer-current check-in authority before and after primary-reader queries. Exact notification route/consumer joined proof is reviewed separately; whole templates and production provider acceptance remain pending. |
-| `backend/src/modules/fulfillment/service.ts:696` | Read-receipt mutation locks current native actor/store/check-in authority inside the writer transaction before changing only the current recipient row. |
+| `backend/src/modules/fulfillment/index.ts:527` | Stored feed rechecks writer-current check-in authority before and after primary-reader queries. Exact notification route/consumer joined proof is reviewed separately; whole templates and production provider acceptance remain pending. |
+| `backend/src/modules/fulfillment/service.ts:854` | Read-receipt mutation locks current native actor/store/check-in authority inside the writer transaction before changing only the current recipient row. |
 | `backend/src/modules/fulfillment/notification-stream.ts:19` | Broker readiness and fresh native authority precede upgrade OPEN; bounded early pointers and once-only transport cleanup preserve the protocol. Twelve lifecycle units and seven fresh native/source/App groups pass on the fixed snapshot; original red ordering evidence remains immutable. |
 
 ### finance-day-close
@@ -180,7 +173,7 @@ Mapped surfaces: `report/urls.py:16` (external_acceptance), `report/urls.py:73` 
 | `frontend/src/pages/finance/day-close-reminder.tsx:44` | Global server-decided reminder with foreground-only reads, scoped snooze and correct-date navigation; no client financial calculation or policy change. Behavioral/source acceptance remains pending. |
 | `frontend/src/hooks/use-check-in-authority.ts:10` | A fresh successful native authority read releases denied reminders without remounting an already valid open dialog or rewriting its snooze. Manual cache writes do not establish new authority. |
 | `frontend/src/pages/finance/ledger.tsx:35` | Actual cash-balance screen restores original default 31 and 31/62/100/500 page choices after complete-chain financial calculations. |
-| `frontend/src/pages/finance/history.tsx:148` | Actual close-history loaded-page CSV is separate from its retained complete filtered CSV; it uses only the current authenticated bounded page. |
+| `frontend/src/pages/finance/history.tsx:142` | Actual close-history loaded-page CSV is separate from its retained complete filtered CSV; it uses only the current authenticated bounded page. |
 
 ### daily-store-report
 
@@ -198,12 +191,7 @@ Mapped surfaces: `report/urls.py:19` (external_acceptance), `report/urls.py:20` 
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `frontend/src/pages/operational-reports/performance.tsx:47` | Actual performance page selects the queued source-screen CSV kind; cashier has its distinct registered kind. |
-| `frontend/src/pages/operational-reports/acceptance.tsx:30` | Actual hyperlocal acceptance page exposes the source CSV action through the common private queue. |
-| `frontend/src/pages/operational-reports/report-view.tsx:140` | Actual visible-column export binds the submitted result filters/sort and current finite column selection; complete CSV remains a distinct action. |
-| `backend/src/modules/operational-reports/export-presentation.ts:68` | Finite per-screen presentation allowlists reject arbitrary SQL/unknown/duplicate columns and preserve source column order. |
-| `backend/src/modules/operational-reports/export-service.ts:98` | Actual worker builder dispatches performance/acceptance and selected-screen variants; unmarked full export retains its original query/layout. |
-| `backend/src/modules/operational-reports/screen-report-csv.ts:10` | Bounded UTF-8 CSV includes all matching rows in selected sort and original visible-column order; no truncated artifact is published. |
+| `backend/src/modules/operational-reports/export-service.ts:63` | Actual worker builder dispatches performance/acceptance and selected-screen variants; unmarked full export retains its original query/layout. |
 
 ### report-exports
 
@@ -211,8 +199,8 @@ Mapped surfaces: `report/urls.py:91` (external_acceptance), `report/urls.py:92` 
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `frontend/src/pages/operational-reports/exports.tsx:115` | Actual export-history screen exports only selected metadata columns from its loaded authorized page, with no file-key/URL fetch or recursive export-of-exports job. |
-| `frontend/src/pages/operational-reports/export-metadata.ts:47` | Finite bounded metadata CSV preserves static safe messages and formula/UTF-8 guards; raw legacy error messages and file keys stay excluded. |
+| `frontend/src/pages/operational-reports/exports.tsx:131` | Actual export-history screen exports only selected metadata columns from its loaded authorized page, with no file-key/URL fetch or recursive export-of-exports job. |
+| `frontend/src/pages/operational-reports/export-metadata.ts:38` | Finite bounded metadata CSV preserves static safe messages and formula/UTF-8 guards; raw legacy error messages and file keys stay excluded. |
 
 ### inactive-upload-logs
 

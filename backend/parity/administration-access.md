@@ -1,3 +1,9 @@
+> **Deleted (19 November 2026).** The groups/permissions administration described below is removed end to end
+> (user decision N1, AGENTS.md "Administration"): there are no production tables for Django auth groups or grants,
+> and legacy never checks them at runtime. Model administration now requires a current active internal role-1
+> staff superuser (`src/modules/administration/model-administration.ts`); operator-admin and model-account replay
+> receipts live in Redis `pos:idem:admin_access:{operationId}` (EX 86400). This note is historical evidence.
+
 # Model administration groups and permissions
 
 `users/admin.py` replaces the personal-info fieldset of Django4.2.5 `UserAdmin`; its inherited permission fields and default `GroupAdmin` remain present. The framework combines direct and group grants, active superusers satisfy model permissions, and the administration site requires an active staff account. The rewrite's pure evaluators match32 native framework cases generated in an isolated in-memory SQLite database. See the pinned [Django UserAdmin/GroupAdmin](https://github.com/django/django/blob/4.2.5/django/contrib/auth/admin.py), [permission models](https://github.com/django/django/blob/4.2.5/django/contrib/auth/models.py) and [ModelBackend](https://github.com/django/django/blob/4.2.5/django/contrib/auth/backends.py).
