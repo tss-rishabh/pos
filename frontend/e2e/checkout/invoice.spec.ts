@@ -21,7 +21,8 @@ test('production invoice frame uses its own restrictive policy and supports in-a
   page.on('popup', () => {
     popups++;
   });
-  await page.route('**/api/v1/stores/*/orders/6008/invoice', (route) => {
+  // Downloads read the store invoice document (`/invoices/{kind}`, 2aa2f33d).
+  await page.route('**/api/v1/stores/*/orders/6008/invoices/store', (route) => {
     documentReads++;
     expect(route.request().headers()['x-operator-id']).toBeTruthy();
     if (denied)

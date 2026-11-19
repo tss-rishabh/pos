@@ -64,6 +64,13 @@ test('manager approval is restored safely and a changed final quote requires app
   await page.route('**/api/v1/stores/1/checkout-sessions**', async (route) => {
     const req = route.request(),
       path = new URL(req.url()).pathname;
+    if (req.method() === 'GET' && path.endsWith('/payment-options'))
+      return route.fulfill({
+        json: {
+          counterId: '1',
+          options: [],
+        },
+      });
     if (req.method() === 'GET')
       return route.fulfill({ json: path.endsWith('/discount-approval') ? approval() : state() });
     if (path.endsWith('/checkout-sessions')) {
@@ -101,6 +108,13 @@ test('manager approval is restored safely and a changed final quote requires app
       status = 'approved';
     }
     if (path.endsWith('/order-submissions')) {
+      // Legacy C-21: the confirmed payment form travels with the order submission.
+      expect(body.payment).toMatchObject({
+        channel: 'cash',
+        cashAmount: '80.00',
+        onlineAmount: '0.00',
+        cashReceived: '80.00',
+      });
       orders++;
       phase = 'submitted';
       orderId = '7701';
@@ -139,28 +153,33 @@ test('manager approval is restored safely and a changed final quote requires app
   await page.getByLabel('Store discount reason').selectOption('Founder billing');
   await page.getByRole('button', { name: 'Apply discount', exact: true }).click();
   await page.getByRole('button', { name: 'Get final quote' }).click();
-  await expect(page.getByRole('button', { name: 'Create order', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Proceed For Payment', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Request manager approval code' }).click();
   await expect(page.getByText('The manager code was sent.')).toBeVisible();
   await page.getByLabel('Manager approval code', { exact: true }).fill('123456');
   await page.getByRole('button', { name: 'Verify manager approval' }).click();
-  await expect(page.getByRole('button', { name: 'Create order', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Proceed For Payment', exact: true })).toBeEnabled();
   expect(await page.evaluate(() => JSON.stringify({ ...localStorage }))).not.toContain('123456');
   expect(await page.evaluate(() => JSON.stringify({ ...localStorage }))).not.toContain(
     'PRIVATE-DISCOUNT-REMARK',
   );
   await page.getByRole('button', { name: 'Close checkout' }).click();
   await page.getByRole('button', { name: 'Review sale', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Create order', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Proceed For Payment', exact: true })).toBeEnabled();
   expect(requests).toBe(1);
   expect(confirmations).toBe(1);
   expect(orders).toBe(0);
   await page.getByRole('button', { name: 'Refresh final quote' }).click();
-  await expect(page.getByRole('button', { name: 'Create order', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Proceed For Payment', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Request manager approval code' }).click();
   await page.getByLabel('Manager approval code', { exact: true }).fill('123456');
   await page.getByRole('button', { name: 'Verify manager approval' }).click();
-  await page.getByRole('button', { name: 'Create order', exact: true }).click();
+  // A positive payable opens the legacy payment form; the order is created only when the
+  // cashier confirms it (create_order.html:6177-7239).
+  await page.getByRole('button', { name: 'Proceed For Payment', exact: true }).click();
+  expect(orders).toBe(0);
+  await page.getByRole('button', { name: 'Submit', exact: true }).click();
+  await page.getByRole('button', { name: 'Yes, sure!', exact: true }).click();
   await expect(
     page.getByText('Payment must be confirmed before handing over products.', { exact: false }),
   ).toBeVisible();

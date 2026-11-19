@@ -71,16 +71,51 @@ const matrixEligible = and(
     ),
   ),
 );
+function requireStockAdministration(user: Principal) {
+  if (user.userType !== 1)
+    throw new AppError(
+      403,
+      'INVENTORY_ADMINISTRATION_DENIED',
+      'Stock administration is restricted for this user type.',
+    );
+}
+/**
+ * The stores the stock matrix may show: legacy `ProductsStockView.get_queryset`
+ * (core/views.py:183-190) lists every active store for role 1 and only the operator's assigned
+ * (`UserStore`) active stores otherwise. The picker and the search use this same scope.
+ */
+function matrixStoreScope(user: Principal, selected: readonly string[]) {
+  return and(
+    eq(Store.is_active, true),
+    selected.length
+      ? inArray(Store.id, selected.map(BigInt))
+      : user.role !== 1
+        ? inArray(Store.id, user.storeIds.map(BigInt))
+        : undefined,
+  );
+}
 export function inventoryMatrixService(db: Databases) {
   return {
+    /** The matrix store picker: exactly the stores `search` authorises for this operator. */
+    async stores(user: Principal) {
+      requireStockAdministration(user);
+      if (user.role !== 1 && !user.storeIds.length) return { data: [] };
+      const rows = await db
+        .get('primary')
+        .select({ id: Store.id, name: Store.store_name })
+        .from(Store)
+        .where(matrixStoreScope(user, []))
+        .orderBy(asc(Store.store_name), asc(Store.id))
+        .limit(5001);
+      if (rows.length > 5000)
+        throw new AppError(422, 'CATALOG_SCOPE_TOO_LARGE', 'Select a smaller catalog store scope.');
+      return {
+        data: rows.map((row) => ({ id: String(row.id), name: row.name || String(row.id) })),
+      };
+    },
     async search(user: Principal, value: z.infer<typeof inventoryMatrixInput>) {
       const input = inventoryMatrixInput.parse(value);
-      if (user.userType !== 1)
-        throw new AppError(
-          403,
-          'INVENTORY_ADMINISTRATION_DENIED',
-          'Stock administration is restricted for this user type.',
-        );
+      requireStockAdministration(user);
       input.storeIds = [...new Set(input.storeIds)];
       input.storeIds.forEach((id) => requireStore(user, id));
       if (user.role !== 1 && !user.storeIds.length)
@@ -98,16 +133,7 @@ export function inventoryMatrixService(db: Databases) {
         .get('primary')
         .select({ id: Store.id, name: Store.store_name })
         .from(Store)
-        .where(
-          and(
-            eq(Store.is_active, true),
-            input.storeIds.length
-              ? inArray(Store.id, input.storeIds.map(BigInt))
-              : user.role !== 1
-                ? inArray(Store.id, user.storeIds.map(BigInt))
-                : undefined,
-          ),
-        )
+        .where(matrixStoreScope(user, input.storeIds))
         .orderBy(asc(Store.store_name), asc(Store.id))
         .limit(5001);
       if (stores.length > 5000)

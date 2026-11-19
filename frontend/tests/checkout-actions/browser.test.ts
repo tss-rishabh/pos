@@ -123,7 +123,8 @@ describe.skipIf(process.env.CHECKOUT_ACTIONS_BROWSER_TESTS !== 'true')(
             ).toBeVisible();
             await browserExpect(summary.getByText('₹20.49', { exact: true })).toBeVisible();
             await browserExpect(
-              summary.getByText('Membership savings', { exact: true }),
+              // Legacy label (create_order.html; 3cd0da5d).
+              summary.getByText('Membership Savings', { exact: true }),
             ).toBeVisible();
             await browserExpect(
               summary.getByText('Fixture configured cashback timing.', { exact: true }),

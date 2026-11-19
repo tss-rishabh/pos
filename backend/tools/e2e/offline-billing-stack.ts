@@ -11,7 +11,6 @@ import {
   Comments,
   MUser,
   Order,
-  OrderStatus,
   OrderStore,
   PosTerminalPaymentModes,
   PosTerminalTransaction,
@@ -127,16 +126,9 @@ try {
         [810001n, 810002n].map((salesperson) => ({ salesperson, store, is_active: 1 })),
       ),
     );
-  // Payment completion reads order status 3 (legacy Helpers.complete_order) and an active
-  // operator-recorded "Others" terminal mode (1001) for card/UPI references.
-  await db.insert(OrderStatus).values({
-    id: 3n,
-    order_status: 'DELIVERED',
-    display_name: 'Delivered',
-    cat: 1,
-    created_at: seededAt,
-    updated_at: seededAt,
-  });
+  // Payment completion reads order status 3 (legacy Helpers.complete_order), which the shared
+  // e2e seed provides, and an active operator-recorded "Others" terminal mode (1001) for
+  // card/UPI references.
   await db
     .insert(PosTerminalPaymentModes)
     .values({ name: 'Others', mode_id: 1001, is_active: 1, platform: 'OTHERS' });

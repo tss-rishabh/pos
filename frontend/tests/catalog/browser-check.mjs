@@ -122,6 +122,8 @@ await page.route('**/*', async (route) => {
 
   if (url.pathname === '/api/v1/catalog/stores')
     return json({ data: stores, selectedStoreIds: ['1'], stockManagementPath: '/inventory' });
+  if (url.pathname === '/api/v1/catalog/inventory/stores')
+    return json({ data: stores.map(({ id, name }) => ({ id, name })) });
   if (url.pathname === '/api/v1/catalog/products/search') {
     const body = request.postDataJSON(),
       rows = products.filter((row) =>

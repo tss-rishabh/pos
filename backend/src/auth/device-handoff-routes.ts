@@ -45,6 +45,11 @@ export function registerDeviceHandoffs(app: FastifyInstance, service: DeviceHand
         authentication: 'service',
         trace: { module: 'identity', resource: 'device-handoff-verification', action: 'create' },
       },
+      // Authenticate the calling service before schema validation so an unauthenticated
+      // caller learns nothing about the body contract (401, never 400).
+      preValidation: async (request: FastifyRequest) => {
+        service.authorizeService(request.headers['x-pos-auth-key']);
+      },
       ...routeSchema({ querystring: none, body: deviceHandoffVerification, headers }),
     },
     async (request) => {

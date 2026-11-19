@@ -137,8 +137,10 @@ test('actual routed App retains explicit calendar filters instead of injecting r
     .first()
     .click();
   const detail = await opened;
-  expect(new URL(detail.url()).searchParams.get('from')).toBe(from);
-  expect(new URL(detail.url()).searchParams.get('to')).toBe(to);
+  // Legacy ShowOrderDetailsView reads the order by id (and `cr`) only (1827c91a), so the detail
+  // request carries no date window; the explicit calendar filter stays on the list below.
+  for (const name of ['from', 'to', 'placedFrom', 'placedTo'])
+    expect(new URL(detail.url()).searchParams.has(name)).toBe(false);
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.getByRole('button', { name: 'Close order', exact: true }).click();
   await expect(page.getByLabel('Orders from', { exact: true })).toHaveValue(from);

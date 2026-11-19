@@ -68,6 +68,9 @@ export async function registerCatalogDetails(
     (request) =>
       catalog.detail(authenticated(request), productParams.parse(request.params).productId),
   );
+  app.get('/api/v1/catalog/inventory/stores', trace('catalog-inventory', 'stores'), (request) =>
+    matrix.stores(authenticated(request)),
+  );
   app.post(
     '/api/v1/catalog/inventory/search',
     trace('catalog-inventory', 'search', { body: inventoryMatrixInput }),

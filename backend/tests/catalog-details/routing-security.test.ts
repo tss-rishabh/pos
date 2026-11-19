@@ -208,6 +208,7 @@ describe('catalog read boundaries and private input validation', () => {
     for (const route of [
       { method: 'GET' as const, url: '/api/v1/catalog/stores' },
       { method: 'POST' as const, url: '/api/v1/catalog/inventory/search', payload: {} },
+      { method: 'GET' as const, url: '/api/v1/catalog/inventory/stores' },
       { method: 'POST' as const, url: '/api/v1/catalog/products/search', payload: {} },
       { method: 'GET' as const, url: '/api/v1/catalog/products/20' },
       {
@@ -221,7 +222,7 @@ describe('catalog read boundaries and private input validation', () => {
       const response = await app.inject({ ...route, headers: { 'x-fixture-anonymous': 'true' } });
       expect(response.statusCode).toBe(401);
     }
-    expect(traces).toHaveLength(10);
+    expect(traces).toHaveLength(11);
     // Legacy InventorySyncView/AjaxTroubleshootProductView require only a signed-in operator.
     const capabilities = await app.inject(maintenanceRoutes[0]!);
     expect(capabilities.json()).toEqual({

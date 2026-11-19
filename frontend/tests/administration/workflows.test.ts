@@ -1724,7 +1724,10 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         );
         await dialog.getByLabel('Authenticator code', { exact: true }).fill('111111');
         await dialog.getByRole('button', { name: 'Verify authenticator', exact: true }).click();
-        await browserExpect(dialog.getByRole('alert')).toHaveText('Wrong OTP, Enter correct OTP');
+        // The legacy message, followed by the server request reference shown beside errors.
+        await browserExpect(dialog.getByRole('alert')).toHaveText(
+          /^Wrong OTP, Enter correct OTP(?:Reference [0-9a-f-]{36})?$/,
+        );
         expect(state.mfaEnabled).toBe(false);
         await dialog.getByLabel('Authenticator code', { exact: true }).fill('123456');
         await dialog.getByRole('button', { name: 'Verify authenticator', exact: true }).click();
@@ -2113,7 +2116,8 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
           '/api/v1/auth/application-links/customer-scans',
         );
         expect(state.applicationRequests[0]?.cookie).toBeUndefined();
-        expect(state.applicationRequests[0]?.body).toMatchObject({ token: 'C'.repeat(43) });
+        // Customer fragments carry the store id (Redis application-link contract).
+        expect(state.applicationRequests[0]?.body).toMatchObject({ token: '1.' + 'C'.repeat(43) });
         expect(urls.join('\n')).not.toContain('C'.repeat(43));
         expect(state.console.join('\n')).not.toContain('C'.repeat(43));
       } finally {

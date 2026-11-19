@@ -132,7 +132,10 @@ describe.skipIf(process.env.COUNTER_BARCODE_BROWSER_TESTS !== 'true')('counter s
             1,
           );
         } else if (outcome === 'not-found')
-          await browserExpect(page.getByText('Barcode not found.', { exact: true })).toBeVisible();
+          // The message, followed by the request reference shown beside errors (80b43d4f).
+          await browserExpect(page.getByRole('alert')).toHaveText(
+            /^Barcode not found\.(?:Reference [0-9a-f-]{36})?$/,
+          );
         if (outcome === 'success')
           await browserExpect(
             page.getByRole('link', { name: 'Exact scanned product', exact: true }),

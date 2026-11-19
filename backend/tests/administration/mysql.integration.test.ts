@@ -1740,7 +1740,16 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       specialPrice: actual.specialPrice,
       exclusivePrice: actual.exclusivePrice,
       image: actual.image,
-    }).toEqual({ ...reference[0], barcode: String(reference[0]!.barcode) });
+    }).toEqual({
+      ...reference[0],
+      barcode: String(reference[0]!.barcode),
+      // Legacy PriceList.price is a Django DecimalField over the production FLOAT column
+      // (core/models.py:119). Django's MySQL backend has no DecimalField converter, so the
+      // driver's float reaches DjangoJSONEncoder as 799.0 and the DataTables column
+      // (order/templates/order/create_order.html:1786) shows 799. The oracle above was
+      // fed the fixture string '799.00', which a FLOAT column can never return.
+      exclusivePrice: String(Number(reference[0]!.exclusivePrice)),
+    });
     expect(actual.erpName).toBe('PARENT-ERP');
     // Source uses icontains for names, numeric IDs and all GS1 records.
     const service = catalogService(db);

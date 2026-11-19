@@ -194,10 +194,11 @@ test('P/PP never bypass pricing or duplicate an order; F only prepares and focus
     cashWrites: 0,
     clears: 0,
   });
+  // Legacy F clicks #fast-checkout (create_order.html:1032-1038): the final quote is taken and
+  // the Fast Checkout (Cash Only) dialog opens with its order message focused; nothing is charged.
   await bodyKeys(page, 'f');
-  await expect(
-    dialog.getByRole('textbox', { name: 'Cash received for fast checkout' }),
-  ).toBeFocused();
+  const fastCash = page.getByRole('dialog', { name: /^Fast Checkout \(Cash Only\)!/ });
+  await expect(fastCash.getByRole('textbox', { name: 'Order Message' })).toBeFocused();
   expect(api.stats()).toMatchObject({
     creates: 1,
     quotes: 1,
@@ -225,20 +226,26 @@ test('N/E/S use scoped enabled controls and letters typed into cash remain ordin
   await bodyKeys(page, 's');
   const salesperson = page.getByRole('combobox', { name: 'Sale salesperson', exact: true });
   await expect(salesperson).toBeFocused();
+  // Legacy posts nps_feedback_switch from a checked, disabled box (create_order.html:76), so N
+  // has no enabled target and changes nothing.
   await bodyKeys(page, 'n');
-  await expect(
-    page.getByRole('checkbox', { name: 'Include the shopping feedback link' }),
-  ).toBeChecked();
+  await page.getByText('Order messages', { exact: true }).click();
+  const nps = page.getByRole('checkbox', { name: 'NPS Feedback' });
+  await expect(nps).toBeChecked();
+  await expect(nps).toBeDisabled();
+  expect(api.mutations.filter((call) => call.path.endsWith('/order-notifications'))).toEqual([]);
   await bodyKeys(page, 'e');
   await expect(page.getByRole('checkbox', { name: 'Apply walk-in member benefits' })).toBeChecked();
   expect(api.mutations.filter((call) => call.path.endsWith('/membership-benefits'))).toHaveLength(
     1,
   );
   await bodyKeys(page, 'f');
-  const cash = page.getByRole('textbox', { name: 'Cash received for fast checkout' });
-  await expect(cash).toBeFocused();
+  const message = page
+    .getByRole('dialog', { name: /^Fast Checkout \(Cash Only\)!/ })
+    .getByRole('textbox', { name: 'Order Message' });
+  await expect(message).toBeFocused();
   await page.keyboard.type('penrst');
-  await expect(cash).toHaveValue('penrst');
+  await expect(message).toHaveValue('penrst');
   expect(api.stats()).toMatchObject({ orderSubmissions: 0, cashWrites: 0, clears: 0 });
   expect(api.mutations.filter((call) => call.path.endsWith('/membership-benefits'))).toHaveLength(
     1,

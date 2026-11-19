@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { eligibleLine } from './support/eligibility';
 
 test('return confirmation without a customer OTP and reload recovery never repeat an uncertain refund', async ({
   page,
@@ -71,7 +72,12 @@ test('return confirmation without a customer OTP and reload recovery never repea
           nextCursor: null,
         },
       });
-    else if (path.endsWith('/return-reasons'))
+    else if (path.endsWith('/orders/8801/line-items/88011/return-eligibility')) {
+      expect(new URL(request.url()).searchParams.get('kind')).toBe('return');
+      await route.fulfill({
+        json: eligibleLine({ orderId: '8801', lineId: '88011', kind: 'return' }),
+      });
+    } else if (path.endsWith('/return-reasons'))
       await route.fulfill({ json: { data: [{ id: '1', reason: 'Quality' }] } });
     else if (path.endsWith('/sub-reasons'))
       await route.fulfill({ json: { data: [{ id: '9', sub_reason: 'Stitching' }] } });

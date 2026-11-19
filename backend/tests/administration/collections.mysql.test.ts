@@ -106,14 +106,18 @@ describe.skipIf(!template)('native administration collection workflows', () => {
       user_type: 1,
       is_active: 1,
     });
-    for (const [id, name] of [
-      [1, 'Zulu'],
-      [2, 'Alpha'],
-      [3, 'Alpha'],
+    // Production `stores.store_name_unique` (latin1_swedish_ci) cannot hold equal or
+    // case-only-different names, so collation ties are exercised on the non-unique
+    // `city_name`, where 'Pune' and 'PUNE' are a genuine native collation tie.
+    for (const [id, name, city] of [
+      [1, 'Zulu', 'Thane'],
+      [2, 'Alpha', 'Pune'],
+      [3, 'Alpha Annex', 'PUNE'],
     ] as const)
       await fixture.insert(getTableName(Store), {
         id,
         store_name: name,
+        city_name: city,
         type: 'STORE',
         category: 'IN_HOUSE',
         is_active: id === 3 ? 0 : 1,
@@ -126,7 +130,7 @@ describe.skipIf(!template)('native administration collection workflows', () => {
         limit: 1,
         search: '',
         active: 'all' as const,
-        sort: 'name',
+        sort: 'city',
         direction: 'asc' as const,
       };
     const first = await service.stores(actor, page);
@@ -143,12 +147,12 @@ describe.skipIf(!template)('native administration collection workflows', () => {
         await service.stores(actor, { ...page, direction: 'desc', after: reverse.nextCursor! })
       ).data.map((r) => String(r.id)),
     ).toEqual(['3']);
-    for (const changed of [{ sort: 'phone' }, { active: 'true' as const }, { search: 'Alpha' }])
+    for (const changed of [{ sort: 'name' }, { active: 'true' as const }, { search: 'Alpha' }])
       await expect(
         service.stores(actor, { ...page, ...changed, after: first.nextCursor! }),
       ).rejects.toMatchObject({ code: 'ADMINISTRATION_CURSOR_INVALID' });
     await expect(
-      service.stores(actor, { ...page, sort: 'name desc; DROP TABLE stores' }),
+      service.stores(actor, { ...page, sort: 'city desc; DROP TABLE stores' }),
     ).rejects.toMatchObject({ code: 'ADMINISTRATION_SORT_INVALID' });
   });
   it('preserves native Unicode sorting and current-only archived selection', async () => {

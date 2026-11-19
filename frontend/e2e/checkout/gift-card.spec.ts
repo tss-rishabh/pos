@@ -136,9 +136,12 @@ test('physical cards keep individual serials and dates through custom value repl
   await page.getByRole('button', { name: 'Confirm prices online' }).click();
   const groups = page.getByRole('group', { name: 'Fixture gift card', exact: true });
   await expect(groups).toHaveCount(2);
-  await expect(groups.first().getByLabel('Valid from')).toHaveValue('2026-11-17');
-  await expect(groups.first().getByLabel('Valid until')).toHaveValue('2027-02-15');
+  // Legacy dates start blank: "Today's" start and "No Expiry" end (create_order.html:205-206,
+  // f69a23fb); the cashier picks them explicitly.
+  await expect(groups.first().getByLabel("Valid from (Today's)")).toHaveValue('');
+  await expect(groups.first().getByLabel('Valid until (No Expiry)')).toHaveValue('');
   await groups.first().getByLabel('Gift card number', { exact: true }).fill('990_111');
+  await groups.first().getByLabel('Valid from').fill('2026-11-17');
   await groups.first().getByLabel('Valid until').fill('2027-05-17');
   await groups.first().getByRole('button', { name: 'Save card number and dates' }).click();
   await expect(groups.first().getByText('Card number and dates are saved.')).toBeVisible();

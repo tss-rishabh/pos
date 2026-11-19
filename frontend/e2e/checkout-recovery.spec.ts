@@ -183,7 +183,7 @@ for (const interrupted of [false, true]) {
     await page.getByRole('button', { name: 'Review sale', exact: true }).click();
     await page.getByRole('button', { name: 'Confirm prices online' }).click();
     await page.getByRole('button', { name: 'Get final quote' }).click();
-    await page.getByRole('button', { name: 'Create order', exact: true }).click();
+    await page.getByRole('button', { name: 'Proceed For Payment', exact: true }).click();
     if (interrupted) {
       await expect(
         page.getByText('Confirmation response was interrupted.', { exact: false }),

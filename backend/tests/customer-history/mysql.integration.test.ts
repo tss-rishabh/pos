@@ -148,13 +148,22 @@ describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
         captured.push({ name: vector.name, dataset: vector, expected });
       });
     it('preserves the source Latin1 feedback constraint instead of changing fixture collation for unsupported characters', async () => {
-      await expect(
-        db().fixture.insert('nps_feedback', {
-          id: 999,
-          order_id: '9007199254740993',
-          feedback_answer: '１２',
-        }),
-      ).rejects.toMatchObject({ code: 'ER_TRUNCATED_WRONG_VALUE_FOR_FIELD' });
+      // Production runs with an empty (non-strict) sql_mode (AGENTS.md), so MySQL does not
+      // reject characters outside latin1: it stores '?' and raises warning 1366
+      // (ER_TRUNCATED_WRONG_VALUE_FOR_FIELD). The fixture keeps the native latin1 column.
+      const { connection, fixture } = db();
+      await fixture.insert('nps_feedback', {
+        id: 999,
+        order_id: '9007199254740993',
+        feedback_answer: '１２',
+      });
+      const [warnings] = await connection.query<mysql.RowDataPacket[]>('SHOW WARNINGS');
+      expect(warnings.map((row) => Number(row.Code))).toContain(1366);
+      const [rows] = await connection.query<mysql.RowDataPacket[]>(
+        'SELECT feedback_answer FROM nps_feedback WHERE id=999',
+      );
+      expect(rows.map((row) => row.feedback_answer as string)).toEqual(['??']);
+      await connection.query('DELETE FROM nps_feedback WHERE id=999');
     });
     it('publishes only generated fixture evidence for the BigQuery literal differential runner', async () => {
       expect(captured).toHaveLength(customerHistoryFixtures().length);
