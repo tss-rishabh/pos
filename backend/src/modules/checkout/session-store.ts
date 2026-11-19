@@ -31,7 +31,12 @@ export const sessionKeys = {
   lock: (checkoutId: string) => `pos:checkout_lock:${checkoutId}`,
   customerLease: (customerId: string) => `pos:customer_cart_lease:${customerId}`,
   giftCardLease: (serial: string) => `pos:gift_card_lease:${serial}`,
+  /** Leases a sale holds, so a cleared sale releases all of them (the old `DELETE … WHERE checkout_id`). */
+  leaseIndex: (checkoutId: string) => `pos:checkout_leases:${checkoutId}`,
 };
+const leaseIndexSchema = z.array(
+  z.object({ kind: z.enum(['customer', 'gift-card']), subject: z.string().min(1) }).strict(),
+);
 
 const leaseSchema = z.object({ checkoutId: z.uuid(), expiresAt: z.number() }).strict();
 const receiptSchema: z.ZodType<OperationReceipt> = z
@@ -84,6 +89,8 @@ export interface CheckoutSessionStore {
   acquireLease(kind: 'customer' | 'gift-card', subject: string, checkoutId: string): Promise<void>;
   releaseLease(kind: 'customer' | 'gift-card', subject: string, checkoutId: string): Promise<void>;
   leaseHolder(kind: 'customer' | 'gift-card', subject: string): Promise<string | null>;
+  /** Releases every lease this sale still holds. */
+  releaseAllLeases(checkoutId: string): Promise<void>;
 }
 
 export function checkoutSessionStore(
@@ -105,6 +112,17 @@ export function checkoutSessionStore(
   }
   const leaseKey = (kind: 'customer' | 'gift-card', subject: string) =>
     kind === 'customer' ? sessionKeys.customerLease(subject) : sessionKeys.giftCardLease(subject);
+  async function index(
+    checkoutId: string,
+    change: (entries: z.infer<typeof leaseIndexSchema>) => z.infer<typeof leaseIndexSchema>,
+  ) {
+    const key = sessionKeys.leaseIndex(checkoutId);
+    await withStateLock(store, `${key}:lock`, async () => {
+      const next = change((await readJson(store, key, leaseIndexSchema)) ?? []);
+      if (next.length) await store.set(key, JSON.stringify(next), ORDER_SESSION_TTL_SECONDS);
+      else await store.del(key);
+    });
+  }
   return {
     store,
     read,
@@ -182,6 +200,11 @@ export function checkoutSessionStore(
           LEASE_TTL_SECONDS,
         );
       });
+      await index(checkoutId, (entries) =>
+        entries.some((entry) => entry.kind === kind && entry.subject === subject)
+          ? entries
+          : [...entries, { kind, subject }],
+      );
     },
     async releaseLease(kind, subject, checkoutId) {
       const key = leaseKey(kind, subject);
@@ -189,6 +212,14 @@ export function checkoutSessionStore(
         const current = await readJson(store, key, leaseSchema);
         if (current?.checkoutId === checkoutId) await store.del(key);
       });
+      await index(checkoutId, (entries) =>
+        entries.filter((entry) => !(entry.kind === kind && entry.subject === subject)),
+      );
+    },
+    async releaseAllLeases(checkoutId) {
+      const entries =
+        (await readJson(store, sessionKeys.leaseIndex(checkoutId), leaseIndexSchema)) ?? [];
+      for (const entry of entries) await this.releaseLease(entry.kind, entry.subject, checkoutId);
     },
     async leaseHolder(kind, subject) {
       const current = await readJson(store, leaseKey(kind, subject), leaseSchema);

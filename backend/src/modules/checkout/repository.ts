@@ -386,8 +386,7 @@ export function checkoutRepository(
         (state.phase === 'cleared' || previous.customerId !== state.customerId)
       )
         await sessions.releaseLease('customer', previous.customerId, state.id);
-      if (state.phase === 'cleared' && state.customerId)
-        await sessions.releaseLease('customer', state.customerId, state.id);
+      if (state.phase === 'cleared') await sessions.releaseAllLeases(state.id);
     },
     finish(state, operationId, result) {
       return sessions.exclusive(state.operatorId, state.storeId, state.id, async (current) => {
