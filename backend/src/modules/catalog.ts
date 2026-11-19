@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, inArray, isNull, like, ne, or, sql } from 'drizzle-orm';
+import { and, asc, eq, exists, gt, inArray, isNull, like, ne, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import {
   HoldStockStore,
@@ -155,12 +155,34 @@ export function catalogService(databases: Databases) {
             or(ne(Product.parent_prod_id, 0n), ne(Product.prod_type, 3n)),
             gt(Product.id, BigInt(after)),
             exactBarcode !== undefined
-              ? sql`exists (select 1 from ${ProductBarcode} where ${ProductBarcode.product}=${Product.id} and ${ProductBarcode.gtin}=${BigInt(exactBarcode)})`
+              ? exists(
+                  databases
+                    .get('primary')
+                    .select({ id: ProductBarcode.id })
+                    .from(ProductBarcode)
+                    .where(
+                      and(
+                        eq(ProductBarcode.product, Product.id),
+                        eq(ProductBarcode.gtin, BigInt(exactBarcode)),
+                      ),
+                    ),
+                )
               : search
                 ? or(
                     like(Product.product, pattern),
-                    sql`cast(${Product.id} as char) like ${pattern}`,
-                    sql`exists (select 1 from ${ProductBarcode} where ${ProductBarcode.product}=${Product.id} and ${ProductBarcode.gtin} like ${pattern})`,
+                    like(sql`cast(${Product.id} as char)`, pattern),
+                    exists(
+                      databases
+                        .get('primary')
+                        .select({ id: ProductBarcode.id })
+                        .from(ProductBarcode)
+                        .where(
+                          and(
+                            eq(ProductBarcode.product, Product.id),
+                            like(ProductBarcode.gtin, pattern),
+                          ),
+                        ),
+                    ),
                   )
                 : undefined,
           ),
