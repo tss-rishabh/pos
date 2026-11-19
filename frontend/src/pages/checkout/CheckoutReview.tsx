@@ -21,6 +21,7 @@ import {
   type Customer,
 } from './client';
 import { PaymentPanel, type ConfirmedPayment } from './PaymentPanel';
+import { FastCashCheckout } from './FastCashCheckout';
 import { SalespersonAssignments } from './SalespersonAssignments';
 import { confirmedPaymentSchema } from './receipts';
 import { InvoiceActions } from './InvoiceActions';
@@ -1546,6 +1547,19 @@ export function CheckoutReview({
                 >
                   {checkout.phase === 'quoted' ? 'Refresh final quote' : 'Get final quote'}
                 </button>
+                <FastCashCheckout
+                  checkout={checkout}
+                  ownerId={draft.ownerId}
+                  disabled={disabled}
+                  mutate={mutate}
+                  act={act}
+                  onNotice={setNotice}
+                  onOrderCreated={onOrderCreated}
+                  onPaid={async (receipt) => {
+                    await adopt(await readCheckout(draft.storeId, checkout.id, draft.ownerId));
+                    completedCallback.current?.(receipt);
+                  }}
+                />
               </>
             )}
             <CheckoutCartLines
