@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { signIn } from '../e2e/support/login';
+import { desktopControl, desktopWorkspace } from './ports';
 import type { IpcChannel, OfflineSale, OfflineStatus } from '../src/offline/billing/contracts';
 
 /**
@@ -15,8 +16,8 @@ import type { IpcChannel, OfflineSale, OfflineStatus } from '../src/offline/bill
  * creates or reads an item in the developer's login keychain. The wrap/unwrap path is the real
  * Electron safeStorage API; only the OS keystore behind it is Chromium's mock keychain.
  */
-const CONTROL = 'http://127.0.0.1:4499';
-const WORKSPACE = 'http://localhost:4173';
+const CONTROL = desktopControl;
+const WORKSPACE = desktopWorkspace;
 const SALESPERSON = '810001';
 const STORE = '1',
   COUNTER = '1';
@@ -59,6 +60,8 @@ const posOrderCalls = async () =>
 let profile = '';
 let app: ElectronApplication;
 let page: Page;
+/** The app the spec is deliberately closing; its window closing is then expected. */
+let closingApp: ElectronApplication | null = null;
 
 async function launch() {
   app = await _electron.launch({
@@ -71,6 +74,44 @@ async function launch() {
     },
   });
   page = await app.firstWindow();
+  const launched = app,
+    child = launched.process();
+  // Diagnostics for a lost DevTools connection: Playwright then reports the page as closed
+  // although the Electron process (and its window) is still running.
+  page.once('close', () => {
+    if (child.exitCode === null && child.signalCode === null && closingApp !== launched)
+      console.warn('[desktop-e2e] Playwright lost the window while the app process is running.');
+  });
+}
+const settled = (done: Promise<void>, ms: number) =>
+  Promise.race([
+    done.then(() => true),
+    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), ms)),
+  ]);
+/**
+ * Quit the app and wait until its process has exited. `ElectronApplication.close()` asks the app
+ * to quit over Playwright's DevTools connection; if that connection was lost, Playwright treats
+ * the app as already closed and returns while Electron keeps running (and keeps syncing), and
+ * the worker teardown then waits for an exit that never comes. SIGTERM runs Electron's normal
+ * quit path (before-quit closes the encrypted offline database), so teardown never depends on
+ * the DevTools connection. SIGKILL is a last resort and fails the caller.
+ */
+async function closeApp(target: ElectronApplication) {
+  const child = target.process();
+  const exited =
+    child.exitCode !== null || child.signalCode !== null
+      ? Promise.resolve()
+      : new Promise<void>((resolve) => child.once('exit', () => resolve()));
+  closingApp = target;
+  // Not awaited on its own: if the app never quits, Playwright's close() never settles either.
+  const closing = target.close().catch(() => undefined);
+  if (await settled(exited, 15000)) return await closing;
+  console.warn('[desktop-e2e] The app did not exit after quit; sending SIGTERM.');
+  child.kill('SIGTERM');
+  if (await settled(exited, 15000)) return;
+  child.kill('SIGKILL');
+  await exited;
+  throw new Error('The desktop app ignored quit and SIGTERM and had to be killed.');
 }
 type Reply<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string } };
 async function bridge<T>(channel: IpcChannel, payload: unknown): Promise<Reply<T>> {
@@ -137,7 +178,7 @@ test.describe.serial('desktop offline billing on the real stack', () => {
     profile = await mkdtemp(join(tmpdir(), 'souled-pos-offline-'));
   });
   test.afterAll(async () => {
-    await app?.close().catch(() => undefined);
+    if (app) await closeApp(app);
     await network(true).catch(() => undefined);
     await rm(profile, { recursive: true, force: true });
   });
@@ -219,7 +260,7 @@ test.describe.serial('desktop offline billing on the real stack', () => {
 
   test('keeps the queued sales across an app restart', async () => {
     const before = (await sales()).map((sale) => sale.provisionalRef);
-    await app.close();
+    await closeApp(app);
     await launch();
     // Still offline: the shell loads from the service worker and the counter switches to
     // offline billing by itself.
