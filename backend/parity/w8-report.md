@@ -378,3 +378,67 @@ Those suites already fail at `1a651f9` for other reasons.
   them to their franchise.
 - **N7. Gift-card list search.** Legacy raises `FieldError` on any search; the rewrite searches id, size and
   message.
+
+## Integration merge notes (19 November 2026, `refactor/single-stack-schema-freeze`)
+
+Merged into the integration head that already had W3, W4, W5 and the W5 follow-up
+(merge `c02be62`, wiring `16755ed`).
+
+**Check-ins: one implementation.** Kept HEAD's `administration/checkins.ts` (W5 follow-up), which
+writes through W3's `loginCheckIns`, the same code login uses. It matches legacy exactly
+(`helpers/helpers.py:759-824`, `:1235-1240`, `core/views.py:2406-2425`):
+- `check_in_{uid}` holds Python `json.dumps([id, name])`, and store 0 is `[0, ""]`;
+- `check_in_list_{store}` gets LREM from every list, then LPUSH and EXPIRE;
+- the TTL is `time_until_end_of_day() - 1`;
+- `user_can_check_in` gates the write.
+
+Dropped from W8's copy:
+- the rewrite-only `pos:checkin_counter:{uid}` key (legacy check-ins carry no counter);
+- its `EphemeralStore` key writer;
+- its DB re-validation on reads. Legacy reads only the key, and writer actions still recheck
+  the current scope in `assertCheckIn`.
+
+The §4 table's `pos:checkin_counter` row no longer applies. Administration routes use
+`checkInService(db, config)`. `tests/helpers/check-ins.ts` now seeds through the same writer on
+the port `buildApp` binds. `tests/administration/checkins.test.ts` and the two check-in cases in
+`administration/mysql.integration.test.ts` assert the legacy semantics.
+
+**Other conflicts:**
+- `legacy-fulfillment/service.ts`: HEAD's deletion kept. W8's edit only adapted it to the removed
+  outbox and check-in tables. Product sync already runs after commit in `legacy-fulfillment/stock.ts`.
+- `checkin-lock-order.mysql.test.ts`: deletion kept. It tested row locks on the removed check-in
+  table and registries.
+- `package.json`: only `worker:jobs` remains. Removed `financial-outbox`, `customer-contacts`,
+  `customer-otp` and `security`, whose entry files are gone.
+- `.env.example`: `REDIS_URL` is documented once, plus the `JOBS_*` settings.
+- `deployment.md`: the stale financial-outbox paragraph is removed.
+
+**Job wiring:**
+- `buildApp` passes `createModuleRuntime(config, options.jobs).queue` to every producer:
+  - `checkoutShared.jobs` (order SMS, returns C12, payments, cancellations, order copy, benefit
+    and wallet adjustments, global vouchers, customer OTP, checkout performance);
+  - fulfillment (O1/O5) and legacy-fulfillment (O2/O3).
+- `queue` is the Redis producer when `REDIS_URL` is set outside demo mode; otherwise it is
+  `undefined`.
+- `src/jobs/handlers.ts` registers all seven modules. Every `JOB_NAMES` entry has exactly one
+  handler (`tests/jobs/handlers.test.ts`). `store` and `report_queue` are dormant.
+- One inline `sync_pos_product` adapter (`requireReplaySafe: false`) is passed to
+  legacy-fulfillment and to checkout pending-order cancellations.
+
+**Still open:**
+- Checkout returns and exchanges (`return-workflow/repository.ts`) only record
+  `enqueueInventorySynchronization`, so nothing is sent. Wiring them needs option plumbing and
+  post-commit capture in W4's repository, not just a call-site change.
+- The 10 `administration/mysql.integration` cases still use W3's retired `mysqlSessions`.
+- `return-window/native` loads the deleted customer-contacts SQL and table (W4).
+- `store-default-operators` reads `migrationPaths`.
+- The API holds several Redis clients to `REDIS_URL` (auth port, order Redis, POS state, jobs).
+- Stale `checkin-lock-order` references remain in `parity/*.md` and `source-surface-map.json`.
+
+**Checks:**
+- Backend `tsc` and `eslint` pass. Backend `vitest` passes except the two expected
+  `tests/migrations.test.ts` failures.
+- Frontend `tsc` and `eslint` pass.
+- MySQL suites ran on isolated loopback MySQL 8.4 with an empty `sql_mode`, now stopped:
+  administration, legacy-fulfillment, fulfillment, return-window, auth, catalog-details and jobs.
+  Result: 334 passed, 10 failed. All 10 failures are the pre-existing ones listed above.
