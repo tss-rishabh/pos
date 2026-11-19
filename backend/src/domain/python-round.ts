@@ -3,6 +3,9 @@
  */
 export function pythonRound2(value: number): number {
   if (!Number.isFinite(value) || value === 0) return value;
+  // Every double of magnitude >= 2**52 is an integer, so CPython returns it unchanged; scaling
+  // by 100 would overflow Number near Number.MAX_VALUE.
+  if (Math.abs(value) >= 2 ** 52) return value;
   const bytes = new DataView(new ArrayBuffer(8));
   bytes.setFloat64(0, value);
   const raw = bytes.getBigUint64(0),
