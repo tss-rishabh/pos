@@ -123,3 +123,8 @@ These supersede earlier WIP patterns. Every agent must follow them.
   - Fix two legacy hyperlocal bugs:
     - Split orders move to status 21 when the courier accepts.
     - The transfer path stores the pass reason in the correct field.
+- **Checkout, 19 November 2026 (user and primary agent):**
+  - No customer OTP on returns, exchanges or return-date extension, matching legacy (`order/views.py:885-914`).
+  - The normal path creates the order only after the operator confirms the payment form, as legacy does.
+  - Self-verify registration is kept, with the S36 guard.
+  - Exchange and type-8 guards are enforced on the server (S35).
