@@ -58,8 +58,10 @@
     ],
     "npmRebuild": false,
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
+    "icon": "build/icon.png",
     "mac": {
       "target": [
         {
