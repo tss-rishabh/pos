@@ -1,6 +1,20 @@
-import { bigint, datetime, index, json, mysqlTable, varchar } from 'drizzle-orm/mysql-core';
+import { datetime, index, json, mysqlTable, varchar } from 'drizzle-orm/mysql-core';
 import type { ReturnOperation } from './contracts.js';
-import type { CustomerContactBinding } from '../customer-contact-authority.js';
+import type { ReturnVerification } from './verification-state.js';
+export type { ReturnVerification } from './verification-state.js';
+
+/*
+ * COMPATIBILITY ONLY — the return workflow no longer reads or writes these rewrite tables.
+ * Operation state, verification proofs and recovery claims live in Redis (state.ts); durable
+ * facts are written to the legacy production tables. These definitions remain exported only for
+ * modules outside checkout/return-workflow that still import them (legacy-order-status,
+ * payment-reversals, customer-otp, checkout/worker via outbox.ts) until their owners migrate.
+ * Freed tables: pos_rewrite_return_operations, pos_rewrite_return_outbox,
+ * pos_rewrite_return_verifications, pos_rewrite_return_verification_limits,
+ * pos_rewrite_exchange_recovery_claims, pos_rewrite_exchange_stock_confirmations.
+ */
+
+/** @deprecated Redis `pos:return_op:{id}` (state.ts). */
 export const returnOperations = mysqlTable(
   'pos_rewrite_return_operations',
   {
@@ -14,6 +28,7 @@ export const returnOperations = mysqlTable(
   },
   (table) => [index('ix_return_line_phase').on(table.lineId, table.phase)],
 );
+/** @deprecated Return/exchange mail is sent inline after commit, as legacy does. */
 export const returnOutbox = mysqlTable('pos_rewrite_return_outbox', {
   id: varchar('id', { length: 36 }).primaryKey(),
   kind: varchar('kind', { length: 32 }).notNull(),
@@ -26,57 +41,8 @@ export const returnOutbox = mysqlTable('pos_rewrite_return_outbox', {
   operatorId: varchar('operator_id', { length: 32 }),
   createdAt: datetime('created_at', { mode: 'string' }).notNull(),
 });
-export interface ReturnVerification {
-  id: string;
-  operatorId: string;
-  storeId: string;
-  counterId: string;
-  orderId: string;
-  customerId: string;
-  requestHash: string;
-  sent: boolean;
-  expiresAt: number;
-  verifiedUntil: number | null;
-  busyOperationId: string | null;
-  contact?: CustomerContactBinding | null;
-  otpChallengeId?: string | null;
-  deliveryStatus?: 'pending' | 'sent' | 'uncertain' | 'rejected' | null;
-  requestOperationId?: string | null;
-  verifyOperationId?: string | null;
-  verificationError?: string | null;
-}
+/** @deprecated Redis `pos:return_verification:{id}`; read it with `readReturnVerification`. */
 export const returnVerifications = mysqlTable('pos_rewrite_return_verifications', {
   id: varchar('id', { length: 36 }).primaryKey(),
   state: json('state').$type<ReturnVerification>().notNull(),
 });
-export const returnVerificationLimits = mysqlTable('pos_rewrite_return_verification_limits', {
-  customerId: varchar('customer_id', { length: 32 }).primaryKey(),
-  state: json('state').$type<{ nextSendAt: number; attempts: number; resetAt: number }>().notNull(),
-  updatedAt: bigint('updated_at_ms', { mode: 'number' }).notNull(),
-});
-
-/** Written atomically with a claim; later handoffs never overwrite an earlier outcome. */
-export const exchangeRecoveryClaims = mysqlTable(
-  'pos_rewrite_exchange_recovery_claims',
-  {
-    id: varchar('id', { length: 36 }).primaryKey(),
-    operatorId: varchar('operator_id', { length: 32 }).notNull(),
-    storeId: varchar('store_id', { length: 32 }).notNull(),
-    orderId: varchar('order_id', { length: 32 }).notNull(),
-    lineId: varchar('line_id', { length: 32 }).notNull(),
-    counterId: varchar('counter_id', { length: 32 }).notNull(),
-    verificationId: varchar('verification_id', { length: 36 }).notNull(),
-    requestHash: varchar('request_hash', { length: 64 }).notNull(),
-    revision: varchar('revision', { length: 64 }).notNull(),
-    operationId: varchar('operation_id', { length: 36 }).notNull(),
-    recordedAt: datetime('recorded_at', { mode: 'string' }).notNull(),
-  },
-  (table) => [
-    index('ix_exchange_recovery_claim_line').on(
-      table.storeId,
-      table.orderId,
-      table.lineId,
-      table.id,
-    ),
-  ],
-);

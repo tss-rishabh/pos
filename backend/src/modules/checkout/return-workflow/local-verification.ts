@@ -7,22 +7,30 @@ import { AppError } from '../../../domain/errors.js';
 import { checkInService, type AdministrationTransaction } from '../../administration/checkins.js';
 import type { CustomerOtpOperationView, CustomerOtpView } from '../../customer-otp/index.js';
 import { readCustomerContactBinding, sameCustomerContact } from '../customer-contact-authority.js';
-import { operationHash } from '../crypto.js';
 import type { CustomerVerificationClient } from '../customer-verification.js';
-import { returnVerifications, type ReturnVerification } from './schema.js';
 import {
   publicReturnVerification as view,
   returnCustomerOtpScope,
-  returnVerificationSchema,
+  type ReturnVerification,
 } from './verification-state.js';
+import { fingerprint, type ReturnState } from './state.js';
 import type { ReturnVerificationOptions } from './verification.js';
 
+/**
+ * Customer verification for a return (rewrite gate; see NEEDS USER DECISION in the W4 report).
+ * The proof lives in Redis `pos:return_verification:{id}`; the purpose-bound OTP itself is the
+ * customer-otp module's.
+ */
 export function localReturnVerificationService(
   db: Databases,
   config: Config,
-  options: ReturnVerificationOptions & { customerOtp: CustomerVerificationClient },
+  options: ReturnVerificationOptions & {
+    customerOtp: CustomerVerificationClient;
+    state: ReturnState;
+  },
 ) {
   const client = options.customerOtp,
+    state = options.state,
     now = options.now || Date.now,
     checkIns = checkInService(db, config),
     checkIn =
@@ -34,62 +42,70 @@ export function localReturnVerificationService(
       'RETURN_VERIFICATION_CHANGED',
       'This verification changed. Reload before continuing.',
     );
+  const notFound = () =>
+    new AppError(404, 'RETURN_VERIFICATION_NOT_FOUND', 'Return verification was not found.');
   async function own(tx: AdministrationTransaction, user: Principal, storeId: string, id: string) {
     requireStore(user, storeId);
-    const [first] = await tx
-      .select({ state: returnVerifications.state })
-      .from(returnVerifications)
-      .where(eq(returnVerifications.id, id))
-      .limit(1);
-    const initial = first ? returnVerificationSchema.parse(first.state) : null;
-    if (!initial || initial.operatorId !== user.id || initial.storeId !== storeId)
-      throw new AppError(
-        404,
-        'RETURN_VERIFICATION_NOT_FOUND',
-        'Return verification was not found.',
-      );
+    const initial = await state.readVerification(id);
+    if (!initial || initial.operatorId !== user.id || initial.storeId !== storeId) throw notFound();
     await checkIn(user.id, storeId, initial.counterId, tx);
-    const [row] = await tx
-      .select({ state: returnVerifications.state })
-      .from(returnVerifications)
-      .where(eq(returnVerifications.id, id))
-      .for('update');
-    if (!row) throw changed();
-    const state = returnVerificationSchema.parse(row.state),
-      contact = await readCustomerContactBinding(tx, state.customerId);
-    return sameCustomerContact(state.contact, contact)
-      ? state
-      : { ...state, sent: false, verifiedUntil: null, deliveryStatus: 'rejected' as const };
+    const contact = await readCustomerContactBinding(tx, initial.customerId);
+    return sameCustomerContact(initial.contact, contact)
+      ? initial
+      : { ...initial, sent: false, verifiedUntil: null, deliveryStatus: 'rejected' as const };
   }
-  function applyView(state: ReturnVerification, value: CustomerOtpView) {
-    if (value.id !== state.otpChallengeId || !sameCustomerContact(state.contact, value.contact))
+  /** Read-modify-write of the proof under its Redis lock. */
+  function mutate(
+    user: Principal,
+    storeId: string,
+    id: string,
+    update: (
+      tx: AdministrationTransaction,
+      current: ReturnVerification,
+    ) => Promise<ReturnVerification | null>,
+  ) {
+    return state.withVerification(id, async () => {
+      const next = await db.get('writer').transaction(async (tx) => {
+        const current = await own(tx, user, storeId, id);
+        return (await update(tx, current)) ?? current;
+      });
+      await state.saveVerification(next, now());
+      return next;
+    });
+  }
+  function applyView(current: ReturnVerification, value: CustomerOtpView) {
+    if (value.id !== current.otpChallengeId || !sameCustomerContact(current.contact, value.contact))
       throw changed();
     return {
-      ...state,
+      ...current,
       sent: value.status === 'sent',
       deliveryStatus: value.status,
       expiresAt: value.expiresAt,
     };
   }
   async function load(user: Principal, storeId: string, id: string) {
-    const state = await db.get('writer').transaction((tx) => own(tx, user, storeId, id));
-    if (!state.otpChallengeId) throw changed();
+    const current = await db.get('writer').transaction((tx) => own(tx, user, storeId, id));
+    if (!current.otpChallengeId) throw changed();
     try {
-      const value = await client.read(user, returnCustomerOtpScope(state), state.otpChallengeId);
+      const value = await client.read(
+        user,
+        returnCustomerOtpScope(current),
+        current.otpChallengeId,
+      );
       return {
-        ...applyView(state, value),
+        ...applyView(current, value),
         verifiedUntil:
-          state.verifiedUntil && value.verifiedUntil === state.verifiedUntil
-            ? state.verifiedUntil
+          current.verifiedUntil && value.verifiedUntil === current.verifiedUntil
+            ? current.verifiedUntil
             : null,
       };
     } catch (error) {
       if (!(error instanceof AppError)) throw error;
       return {
-        ...state,
+        ...current,
         sent: false,
         verifiedUntil: null,
-        deliveryStatus: error.status === 404 ? state.deliveryStatus : ('rejected' as const),
+        deliveryStatus: error.status === 404 ? current.deliveryStatus : ('rejected' as const),
       };
     }
   }
@@ -100,22 +116,21 @@ export function localReturnVerificationService(
     operationId: string,
     evidence: CustomerOtpOperationView,
   ) {
-    return db.get('writer').transaction(async (tx) => {
-      const state = await own(tx, user, storeId, id);
+    return mutate(user, storeId, id, async (tx, current) => {
       const kind =
-        state.requestOperationId === operationId
+        current.requestOperationId === operationId
           ? 'request'
-          : state.verifyOperationId === operationId
+          : current.verifyOperationId === operationId
             ? 'verify'
             : null;
       if (!kind || kind !== evidence.kind || !evidence.result) throw changed();
-      if (state.busyOperationId !== operationId) {
-        if (state.busyOperationId) throw changed();
-        return state;
+      if (current.busyOperationId !== operationId) {
+        if (current.busyOperationId) throw changed();
+        return null;
       }
-      const contact = await readCustomerContactBinding(tx, state.customerId);
+      const contact = await readCustomerContactBinding(tx, current.customerId);
       if (
-        !sameCustomerContact(state.contact, contact) ||
+        !sameCustomerContact(current.contact, contact) ||
         !sameCustomerContact(evidence.result.contact, contact)
       )
         throw changed();
@@ -124,8 +139,8 @@ export function localReturnVerificationService(
         !evidence.error &&
         evidence.result.verifiedUntil &&
         evidence.result.verifiedUntil > now();
-      const next: ReturnVerification = {
-        ...applyView(state, evidence.result),
+      return {
+        ...applyView(current, evidence.result),
         busyOperationId: null,
         verificationError:
           evidence.error || (kind === 'verify' && !verified ? 'CUSTOMER_OTP_EXPIRED' : null),
@@ -133,26 +148,21 @@ export function localReturnVerificationService(
           ? { verifiedUntil: verified ? evidence.result.verifiedUntil : null }
           : {}),
       };
-      await tx
-        .update(returnVerifications)
-        .set({ state: next })
-        .where(eq(returnVerifications.id, id));
-      return next;
     });
   }
   async function reconcile(user: Principal, storeId: string, id: string, operationId: string) {
-    const state = await db.get('writer').transaction((tx) => own(tx, user, storeId, id));
+    const current = await db.get('writer').transaction((tx) => own(tx, user, storeId, id));
     if (
-      !state.otpChallengeId ||
-      ![state.requestOperationId, state.verifyOperationId].includes(operationId)
+      !current.otpChallengeId ||
+      ![current.requestOperationId, current.verifyOperationId].includes(operationId)
     )
       throw changed();
     let evidence: CustomerOtpOperationView | null;
     try {
       evidence = await client.readOperation(
         user,
-        returnCustomerOtpScope(state),
-        state.otpChallengeId,
+        returnCustomerOtpScope(current),
+        current.otpChallengeId,
         operationId,
       );
     } catch (error) {
@@ -161,23 +171,19 @@ export function localReturnVerificationService(
         !['CUSTOMER_OTP_SCOPE_CHANGED', 'CHECKOUT_CUSTOMER_UNAVAILABLE'].includes(error.code)
       )
         throw error;
-      return db.get('writer').transaction(async (tx) => {
-        const latest = await own(tx, user, storeId, id);
-        if (latest.busyOperationId !== operationId) throw changed();
-        const next: ReturnVerification = {
-          ...latest,
-          busyOperationId: null,
-          sent: false,
-          verifiedUntil: null,
-          deliveryStatus: 'rejected',
-          verificationError: 'CUSTOMER_OTP_SCOPE_CHANGED',
-        };
-        await tx
-          .update(returnVerifications)
-          .set({ state: next })
-          .where(eq(returnVerifications.id, id));
-        return view(next);
-      });
+      return view(
+        await mutate(user, storeId, id, async (_tx, latest) => {
+          if (latest.busyOperationId !== operationId) throw changed();
+          return {
+            ...latest,
+            busyOperationId: null,
+            sent: false,
+            verifiedUntil: null,
+            deliveryStatus: 'rejected',
+            verificationError: 'CUSTOMER_OTP_SCOPE_CHANGED',
+          };
+        }),
+      );
     }
     if (!evidence)
       throw new AppError(
@@ -189,90 +195,88 @@ export function localReturnVerificationService(
   }
   return {
     async create(user: Principal, storeId: string, orderId: string, id: string, counterId: string) {
-      const reservation = await db.get('writer').transaction(async (tx) => {
-        requireStore(user, storeId);
-        await checkIn(user.id, storeId, counterId, tx);
-        const [order] = await tx
-          .select({ customerId: Order.user })
-          .from(Order)
-          .where(eq(Order.id, BigInt(orderId)))
-          .limit(1)
-          .for('update');
-        if (!order) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order was not found.');
-        const hash = operationHash(
-            'return.verification',
-            { storeId, orderId, counterId, userId: user.id },
-            options.secret,
-          ),
-          [existing] = await tx
-            .select({ state: returnVerifications.state })
-            .from(returnVerifications)
-            .where(eq(returnVerifications.id, id))
-            .for('update');
+      const reservation = await state.withVerification(id, async () => {
+        const hash = fingerprint('return.verification', {
+          storeId,
+          orderId,
+          counterId,
+          userId: user.id,
+        });
+        const existing = await state.readVerification(id);
         if (existing) {
-          const proof = returnVerificationSchema.parse(existing.state);
-          if (proof.requestHash !== hash)
+          if (existing.requestHash !== hash)
             throw new AppError(
               409,
               'IDEMPOTENCY_CONFLICT',
               'This verification key was used for another request.',
             );
-          return { proof, replay: true };
+          return { proof: existing, replay: true };
         }
-        const customerId = String(order.customerId),
-          contact = await readCustomerContactBinding(tx, customerId);
-        const proof: ReturnVerification = {
-          id,
-          operatorId: user.id,
-          storeId,
-          counterId,
-          orderId,
-          customerId,
-          requestHash: hash,
-          sent: false,
-          expiresAt: now() + 300000,
-          verifiedUntil: null,
-          busyOperationId: id,
-          contact,
-          otpChallengeId: crypto.randomUUID(),
-          deliveryStatus: 'pending',
-          requestOperationId: id,
-          verifyOperationId: null,
-          verificationError: null,
-        };
-        await tx.insert(returnVerifications).values({ id, state: proof });
+        const proof = await db.get('writer').transaction(async (tx) => {
+          requireStore(user, storeId);
+          await checkIn(user.id, storeId, counterId, tx);
+          const [order] = await tx
+            .select({ customerId: Order.user })
+            .from(Order)
+            .where(eq(Order.id, BigInt(orderId)))
+            .limit(1);
+          if (!order) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order was not found.');
+          const customerId = String(order.customerId),
+            contact = await readCustomerContactBinding(tx, customerId);
+          const value: ReturnVerification = {
+            id,
+            operatorId: user.id,
+            storeId,
+            counterId,
+            orderId,
+            customerId,
+            requestHash: hash,
+            sent: false,
+            expiresAt: now() + 300000,
+            verifiedUntil: null,
+            busyOperationId: id,
+            contact,
+            otpChallengeId: crypto.randomUUID(),
+            deliveryStatus: 'pending',
+            requestOperationId: id,
+            verifyOperationId: null,
+            verificationError: null,
+          };
+          return value;
+        });
+        if (!(await state.createVerification(proof, now())))
+          throw new AppError(
+            409,
+            'IDEMPOTENCY_CONFLICT',
+            'This verification key was used for another request.',
+          );
         return { proof, replay: false };
       });
       if (reservation.replay) return view(await load(user, storeId, id));
-      const state = reservation.proof;
+      const current = reservation.proof;
       try {
         const result = await client.request(
           user,
-          returnCustomerOtpScope(state),
-          state.otpChallengeId!,
+          returnCustomerOtpScope(current),
+          current.otpChallengeId!,
           id,
-          state.contact!,
+          current.contact!,
         );
         return view(
           await applyEvidence(user, storeId, id, id, { kind: 'request', result, error: null }),
         );
       } catch (error) {
         if (error instanceof AppError)
-          await db.get('writer').transaction(async (tx) => {
-            const latest = await own(tx, user, storeId, id);
-            if (latest.busyOperationId === id)
-              await tx
-                .update(returnVerifications)
-                .set({
-                  state: {
-                    ...latest,
-                    busyOperationId: null,
-                    deliveryStatus: 'rejected',
-                    verificationError: 'CUSTOMER_OTP_UNAVAILABLE',
-                  },
-                })
-                .where(eq(returnVerifications.id, id));
-          });
+          await mutate(user, storeId, id, async (_tx, latest) =>
+            latest.busyOperationId === id
+              ? {
+                  ...latest,
+                  busyOperationId: null,
+                  deliveryStatus: 'rejected',
+                  verificationError: 'CUSTOMER_OTP_UNAVAILABLE',
+                }
+              : null,
+          ).catch(() => undefined);
         throw error instanceof AppError
           ? error
           : new AppError(
@@ -287,31 +291,25 @@ export function localReturnVerificationService(
     },
     reconcile,
     async verify(user: Principal, storeId: string, id: string, operationId: string, code: string) {
-      const reservation = await db.get('writer').transaction(async (tx) => {
-        const state = await own(tx, user, storeId, id);
-        if (state.busyOperationId)
+      const reservation = await mutate(user, storeId, id, async (_tx, current) => {
+        if (current.busyOperationId)
           throw new AppError(
             409,
             'RETURN_VERIFICATION_INFLIGHT',
             'Check the original verification action before continuing.',
           );
-        if (!state.otpChallengeId || !state.requestOperationId || state.expiresAt <= now())
+        if (!current.otpChallengeId || !current.requestOperationId || current.expiresAt <= now())
           throw new AppError(
             403,
             'RETURN_OTP_EXPIRED',
             'Request a new customer verification code.',
           );
-        const next = {
-          ...state,
+        return {
+          ...current,
           verifyOperationId: operationId,
           busyOperationId: operationId,
           verificationError: null,
         };
-        await tx
-          .update(returnVerifications)
-          .set({ state: next })
-          .where(eq(returnVerifications.id, id));
-        return next;
       });
       try {
         const result = await client.verify(
@@ -335,20 +333,11 @@ export function localReturnVerificationService(
         ) {
           await reconcile(user, storeId, id, operationId);
         } else if (error instanceof AppError) {
-          await db.get('writer').transaction(async (tx) => {
-            const state = await own(tx, user, storeId, id);
-            if (state.busyOperationId === operationId)
-              await tx
-                .update(returnVerifications)
-                .set({
-                  state: {
-                    ...state,
-                    busyOperationId: null,
-                    verificationError: 'CUSTOMER_OTP_UNAVAILABLE',
-                  },
-                })
-                .where(eq(returnVerifications.id, id));
-          });
+          await mutate(user, storeId, id, async (_tx, current) =>
+            current.busyOperationId === operationId
+              ? { ...current, busyOperationId: null, verificationError: 'CUSTOMER_OTP_UNAVAILABLE' }
+              : null,
+          ).catch(() => undefined);
         }
         // Unknown outcomes retain the original busy reference; reconciliation
         // reads the OTP receipt and never repeats verification or delivery.
@@ -397,6 +386,7 @@ export function localReturnVerificationService(
             productId: HasProduct.product,
             name: Product.product,
             parentId: Product.parent_prod_id,
+            productType: Product.prod_type,
             quantity: HasProduct.qty,
             status: HasProduct.status,
             returnStatus: HasProduct.return_status,
@@ -412,6 +402,7 @@ export function localReturnVerificationService(
             id: String(row.id),
             productId: String(row.productId),
             parentId: String(row.parentId || 0),
+            productType: row.productType === null ? null : Number(row.productType),
             quantity: String(row.quantity),
           })),
           nextCursor: rows.length > 100 ? String(rows[99]!.id) : null,

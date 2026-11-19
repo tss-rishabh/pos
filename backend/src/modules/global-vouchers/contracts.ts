@@ -1,11 +1,6 @@
 import { z } from 'zod';
 import { identifier } from '../../domain/validation.js';
 
-export const globalVoucherContract = 'pos-global-vouchers-v1' as const;
-export const exactVoucherValueContract = 'pos-gift-voucher-exact-cents-v1' as const;
-// v2 writes the production schema as-is: zero-date validity and platform '' (the value
-// MySQL stores for legacy 'GV_ADD' under the empty sql_mode). v1 required schema DDL.
-export const nonExpiringVoucherContract = 'pos-voucher-production-schema-v2' as const;
 export const voucherAmount = z
   .string()
   .regex(/^(?:0|[1-9]\d{0,7})(?:\.\d{1,2})?$/)
@@ -29,27 +24,28 @@ export const voucherIssuanceSchema = z
     amount: voucherAmount,
   })
   .strict();
+const voucherCode = z
+  .string()
+  .trim()
+  .min(1)
+  .max(25)
+  .regex(/^[A-Za-z0-9]+$/);
+/** create_order.html:3824-3910 GC PIN dialog: 6 digits (`'mask': '999999'`). */
+const giftCardPin = z.string().regex(/^\d{6}$/);
+/** AjaxGiftVoucherCheck (order/views.py:4518-4546). */
+export const voucherCheckSchema = z
+  .object({ voucherCode, giftCardPin: giftCardPin.optional() })
+  .strict();
+/** AjaxGiftVoucherConvert (order/views.py:4548-4579). */
 export const voucherConversionSchema = z
-  .object({
-    operationId: z.uuid(),
-    expectedVersion: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
-    voucherCode: z
-      .string()
-      .min(1)
-      .max(25)
-      .regex(/^[A-Za-z0-9]+$/),
-    giftCardPin: z
-      .string()
-      .regex(/^\d{6}$/)
-      .optional(),
-  })
+  .object({ operationId: z.uuid(), voucherCode, giftCardPin: giftCardPin.optional() })
   .strict();
 const cents = z.string().regex(/^\d+\.\d{2}$/);
 const wall = z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
 export const voucherReceiptSchema = z
   .object({
     operationId: z.uuid(),
-    kind: z.enum(['issuance', 'conversion']),
+    kind: z.literal('issuance'),
     operatorId: identifier,
     customerId: identifier,
     voucherId: identifier,
@@ -57,22 +53,42 @@ export const voucherReceiptSchema = z
     voucherCode: z.string().min(1).max(25),
     amount: cents,
     voucherHistoryId: identifier,
-    moneyHistoryId: identifier.nullable(),
-    walletBefore: cents.nullable(),
-    walletAfter: cents.nullable(),
-    nonExpiring: z.boolean(),
+    nonExpiring: z.literal(true),
     createdAt: wall,
-    contract: z.literal(globalVoucherContract),
-    valueContract: z.enum(['pos-gift-voucher-integer-v1', exactVoucherValueContract]),
-    checkoutId: z.uuid().nullable(),
-    checkoutVersion: z.number().int().min(1).nullable(),
+    status: z.literal('success'),
+    message: z.string().max(400),
+  })
+  .strict();
+/** Upstream `gift_voucher_check` balance/validity as the legacy dialog shows it. */
+export const voucherCheckResultSchema = z
+  .object({
+    voucherCode: z.string().min(1).max(25),
+    voucherValue: z.string().max(32),
+    validity: z.string().max(32).nullable(),
+    nonExpiring: z.boolean(),
+    pinUsed: z.boolean(),
+  })
+  .strict();
+export const voucherConversionResultSchema = z
+  .object({
+    operationId: z.uuid(),
+    kind: z.literal('conversion'),
+    operatorId: identifier,
+    customerId: identifier,
+    storeId: identifier,
+    checkoutId: z.uuid(),
+    voucherCode: z.string().min(1).max(25),
+    pinUsed: z.boolean(),
     status: z.literal('success'),
     message: z.string().max(400),
   })
   .strict();
 export type VoucherIssuance = z.infer<typeof voucherIssuanceSchema>;
+export type VoucherCheck = z.infer<typeof voucherCheckSchema>;
 export type VoucherConversion = z.infer<typeof voucherConversionSchema>;
 export type VoucherReceipt = z.infer<typeof voucherReceiptSchema>;
+export type VoucherCheckResult = z.infer<typeof voucherCheckResultSchema>;
+export type VoucherConversionResult = z.infer<typeof voucherConversionResultSchema>;
 export const voucherCancellationSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('issuance'), selectionId: z.uuid() }).strict(),
   z.object({ kind: z.literal('conversion'), storeId: identifier, checkoutId: z.uuid() }).strict(),

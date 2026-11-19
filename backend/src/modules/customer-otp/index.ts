@@ -1,12 +1,10 @@
-export { customerOtpService } from './service.js';
-export { customerOtpOutbox } from './worker.js';
+export { customerOtpService, type CustomerOtpDependencies } from './service.js';
+export { customerOtpApiV2 } from './api-v2.js';
 export { readCustomerOtpOptions, type CustomerOtpOptions } from './options.js';
-export { createCustomerOtpDelivery } from './delivery.js';
-export { pruneCustomerOtpProofs } from './prune.js';
 export type {
   CustomerOtpScope,
   CustomerOtpView,
-  CustomerOtpDelivery,
-  CustomerOtpPayload,
   CustomerOtpOperationView,
+  CustomerOtpApi,
+  CustomerOtpApiReply,
 } from './contracts.js';

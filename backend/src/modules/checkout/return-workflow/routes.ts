@@ -4,34 +4,57 @@ import type { Config } from '../../../config.js';
 import type { Databases } from '../../../db/pools.js';
 import { authenticated } from '../../../auth/routes.js';
 import { identifier } from '../../../domain/validation.js';
+import type { JobProducer } from '../../../jobs/contract.js';
+import type { StockProcedure } from '../../administration/stock-procedure.js';
+import type { AdministrationTransaction } from '../../administration/checkins.js';
 import { checkoutGateway, type CheckoutEnvironment, type CheckoutGateway } from '../gateway.js';
 import type { CheckoutRepository } from '../contracts.js';
-import { exchangeInputSchema, returnInputSchema, type ReturnGateway } from './contracts.js';
-import { returnEnvironment, returnGateway, type ReturnEnvironment } from './gateway.js';
-import { returnRepository, type ReturnRepositoryOptions } from './repository.js';
-import { returnService } from './service.js';
-import { returnVerificationService } from './verification.js';
-import { exchangeService } from './exchanges.js';
-import { returnWindowExtensions } from './extensions.js';
+import type { CustomerVerificationClient } from '../customer-verification.js';
+import type { CheckoutSessionStore } from '../session-store.js';
+import { configuredStateStore, type PosStateStore } from '../state-store.js';
 import {
+  exchangeInputSchema,
+  returnInputSchema,
   exchangeRecoveryScope,
   exchangeRecoveryPath,
   exchangeRecoveryClaim,
   returnWindowScopeSchema,
   returnWindowInputSchema,
   returnWindowPathSchema,
+  type ReturnGateway,
 } from './contracts.js';
-import type { orderFinalizer } from '../finalizer.js';
-export interface ReturnRegistrationOptions extends Omit<
-  ReturnRepositoryOptions,
-  'hashSecret' | 'returnPeriodDays'
-> {
+import { returnEnvironment, returnGateway, type ReturnEnvironment } from './gateway.js';
+import { returnRepository } from './repository.js';
+import { returnService } from './service.js';
+import { returnVerificationService } from './verification.js';
+import { exchangeService } from './exchanges.js';
+import { returnWindowExtensions } from './extensions.js';
+import { returnState } from './state.js';
+
+export interface ReturnRegistrationOptions {
   signing: CheckoutEnvironment;
   customers: CheckoutRepository;
   gateway?: ReturnGateway;
   environment?: ReturnEnvironment;
   orderGateway?: CheckoutGateway;
-  finalizeExchangeOrder?: ReturnType<typeof orderFinalizer>;
+  customerOtp?: CustomerVerificationClient;
+  inventoryProcedureVerified?: boolean;
+  stockProcedure?: StockProcedure;
+  assertCheckIn?: (
+    userId: string,
+    storeId: string,
+    counterId: string,
+    transaction: AdministrationTransaction,
+  ) => Promise<void>;
+  /** Shared W4 infrastructure (Redis state, checkout sessions, legacy job queue). */
+  stateStore?: PosStateStore;
+  sessions?: CheckoutSessionStore;
+  jobs?: JobProducer;
+  /**
+   * @deprecated Ignored. A failed warehouse return now enqueues the legacy
+   * `core.tasks.push_vinc_order_for_all` job instead of a rewrite repair obligation.
+   */
+  rejectedInboundRepairDispatcherEnabled?: boolean;
 }
 export function registerReturns(
   app: FastifyInstance,
@@ -40,33 +63,34 @@ export function registerReturns(
   options: ReturnRegistrationOptions,
 ) {
   const environment = options.environment || returnEnvironment(),
-    gateway = options.gateway || returnGateway(config, environment),
+    gateway = options.gateway || returnGateway(config, environment, fetch, app.log),
+    state = returnState(options.stateStore || configuredStateStore(config)),
     repository = returnRepository(db, config, {
-      ...options,
-      hashSecret: options.signing.hs256 || options.signing.hs512 || '',
       returnPeriodDays: environment.returnPeriodDays,
+      inventoryProcedureVerified: options.inventoryProcedureVerified,
+      stockProcedure: options.stockProcedure,
+      customerOtp: options.customerOtp,
+      assertCheckIn: options.assertCheckIn,
+      state,
     }),
-    service = returnService(
+    context = {
       repository,
-      options.customers,
+      customers: options.customers,
       gateway,
-      options.signing,
-      config.BUSINESS_TIMEZONE,
-    ),
-    exchanges = exchangeService(
-      repository,
-      options.customers,
-      gateway,
-      options.orderGateway || checkoutGateway(config, options.signing),
-      options.signing,
+      signing: options.signing,
       config,
-      db,
-      options.finalizeExchangeOrder,
+      jobs: options.jobs,
+      log: app.log,
+    },
+    service = returnService(context),
+    exchanges = exchangeService(
+      context,
+      options.orderGateway || checkoutGateway(config, options.signing),
     ),
-    verification = returnVerificationService(db, config, options.customers, gateway, {
-      secret: options.signing.hs256 || options.signing.hs512 || '',
+    verification = returnVerificationService(db, config, {
       assertCheckIn: options.assertCheckIn,
       customerOtp: options.customerOtp,
+      state,
     }),
     scope = z.object({ storeId: identifier, orderId: identifier, lineId: identifier }),
     returnScope = z.object({ storeId: identifier, returnId: z.uuid() }),
@@ -77,10 +101,7 @@ export function registerReturns(
     exchangeTrace = (action: string) => ({
       config: { trace: { module: 'checkout', resource: 'exchange-operation', action } },
     });
-  const extensions = returnWindowExtensions(db, config, {
-    repository,
-    hashSecret: options.signing.hs256 || options.signing.hs512 || '',
-  });
+  const extensions = returnWindowExtensions(db, config, { repository });
   app.get(
     '/api/v1/stores/:storeId/orders/:orderId/line-items/:lineId/return-eligibility',
     { config: { trace: { module: 'checkout', resource: 'return-eligibility', action: 'read' } } },
@@ -338,17 +359,6 @@ export function registerReturns(
       const p = exchangeScope.parse(request.params),
         body = z.object({ salespersonId: identifier }).strict().parse(request.body);
       return exchanges.retry(authenticated(request), p.storeId, p.exchangeId, body.salespersonId);
-    },
-  );
-  app.post(
-    '/api/v1/stores/:storeId/exchanges/:exchangeId/reconciliations',
-    exchangeTrace('reconcile'),
-    async (request) => {
-      const p = exchangeScope.parse(request.params);
-      z.object({})
-        .strict()
-        .parse(request.body || {});
-      return exchanges.reconcile(authenticated(request), p.storeId, p.exchangeId);
     },
   );
   return service;

@@ -1,5 +1,6 @@
 import type { CartContext } from '../upstream.js';
 import { AppError } from '../../domain/errors.js';
+import { Decimal } from 'decimal.js';
 import { minorUnits } from '../../domain/money.js';
 
 export type Payload = Record<string, unknown>;
@@ -83,10 +84,11 @@ export const removeBenefitPayload = (
     ...(kind === 'coupon' ? { localcart: cart } : {}),
   },
 });
+/** AjaxGiftVoucherView.gift_voucher (order/views.py:2344-2362). */
 export const giftVoucherPayload = (context: CartContext, code: string, pin: string) => ({
-  ...cartScope(context),
   voucher_code: code,
   gc_pin: pin.replaceAll('_', ''),
+  ...cartScope(context),
 });
 export const exclusivePayload = (context: CartContext, enabled: boolean) => ({
   ...cartScope(context),
@@ -110,15 +112,19 @@ export function orderPayload(
   customData: Payload | null = null,
   createdAt: string | null = null,
 ) {
+  // Same keys and order as AjaxOrderView.order (order/views.py:2863-2877); `tab_id` only for a
+  // walk-in cart. `payment_method` is "coc" when the payable is above zero, else "prepaid".
   return {
-    ...cartScope(context),
-    payment_method: minorUnits(total) > 0n ? 'coc' : 'prepaid',
+    payment_method: new Decimal(total).gt(0) ? 'coc' : 'prepaid',
+    is_pos: true,
+    store_id: context.storeId,
     counter_id: wireId(counterId),
     salesperson_id: salespersonId ? wireId(salespersonId) : 0,
     admin_user_id: wireId(adminCustomerId),
     custom_data: customData,
     custom_created_at: createdAt,
     gc_data: giftCards,
+    ...(!context.endUser ? { tab_id: context.tabId } : {}),
   };
 }
 export const confirmationPayload = (

@@ -14,6 +14,45 @@ const flag = (fallback: boolean) =>
     z.boolean(),
   );
 
+/**
+ * Legacy `int(ENV.get(NAME, default))` (POSAdmin/settings.py). Python `int()` accepts surrounding
+ * whitespace, an optional sign and single underscores between digits; anything else (including an
+ * empty value) raises at startup, so it fails config validation here too.
+ */
+export const legacyInt = (fallback: number) =>
+  z.preprocess(
+    (value) => (value === undefined ? String(fallback) : value),
+    z
+      .string()
+      .regex(/^\s*[+-]?\d+(?:_\d+)*\s*$/, 'Expected a legacy integer setting.')
+      .transform((value) => Number(value.trim().replaceAll('_', '')))
+      .pipe(z.number().int().safe()),
+  );
+/**
+ * Legacy `EXCHANGE_ENABLED_STORE_IDS` (POSAdmin/settings.py:588-592): default "1", stripped;
+ * "all" (any case) enables every store; otherwise comma-separated ints, blank parts skipped.
+ */
+export const exchangeStoreIds = z
+  .string()
+  .default('1')
+  .transform((raw, context) => {
+    const value = raw.trim();
+    if (value.toLowerCase() === 'all') return { all: true as const, storeIds: [] as string[] };
+    const storeIds: string[] = [];
+    for (const part of value.split(',')) {
+      if (!part.trim()) continue;
+      if (!/^\s*[+-]?\d+(?:_\d+)*\s*$/.test(part)) {
+        context.addIssue({
+          code: 'custom',
+          message: 'EXCHANGE_ENABLED_STORE_IDS must be "all" or comma-separated integers.',
+        });
+        return z.NEVER;
+      }
+      storeIds.push(String(BigInt(part.trim().replaceAll('_', ''))));
+    }
+    return { all: false as const, storeIds };
+  });
+
 export function readConfig(env: NodeJS.ProcessEnv = process.env) {
   const config = z
     .object({
@@ -105,6 +144,14 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
       BIGQUERY_MAX_BYTES_BILLED: z.coerce.number().int().positive().default(1_000_000_000),
       TSS_API_BASE_URL: optionalUrl,
       TSS_API_MIGRATION_V2: flag(true),
+      // Legacy checkout flags (backend/parity/legacy-flags.md), exact legacy defaults and parsing.
+      GLOBAL_SHOW_COUPON_MODULE: legacyInt(1),
+      GLOBAL_SHOW_PG_DISCOUNT_MODULE: legacyInt(1),
+      ENABLE_OLD_PG_DISCOUNT: legacyInt(1),
+      ENABLE_NEW_PG_DISCOUNT: legacyInt(1),
+      ENABLE_VOUCHER_TO_MONEY_CHECK_AND_COVERT: legacyInt(0),
+      TEN_PER_SWITCH: legacyInt(1),
+      EXCHANGE_ENABLED_STORE_IDS: exchangeStoreIds,
     })
     .parse(env);
   if (config.NODE_ENV === 'production') {

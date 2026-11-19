@@ -23,9 +23,7 @@ function VoucherIssuer({ user, online }: { user: Principal; online: boolean }) {
   const [email, setEmail] = useState(''),
     [amount, setAmount] = useState(''),
     [selection, setSelection] = useState<VoucherSelection | null>(null),
-    [capabilities, setCapabilities] = useState<{ enabled: boolean; exactCents: boolean } | null>(
-      null,
-    ),
+    [capabilities, setCapabilities] = useState<{ enabled: true } | null>(null),
     [intent, setIntent] = useState<VoucherIntent | null>(null),
     [receipt, setReceipt] = useState<VoucherReceipt | null>(null),
     [busy, setBusy] = useState(false),
@@ -35,7 +33,8 @@ function VoucherIssuer({ user, online }: { user: Principal; online: boolean }) {
   const journal = useRef(voucherJournal('pos-voucher-issuance:' + user.id)),
     lifetime = useRef(new AbortController()),
     running = useRef(false);
-  const allowed = user.userType === 1 && [1, 2, 3].includes(user.role);
+  // core/views.py:1175-1176: roles 1-3, franchise operators (user_type 2) excluded.
+  const allowed = user.userType !== 2 && [1, 2, 3].includes(user.role);
   useEffect(() => {
     const controller = new AbortController();
     lifetime.current = controller;
@@ -179,12 +178,9 @@ function VoucherIssuer({ user, online }: { user: Principal; online: boolean }) {
   return (
     <div className="global-vouchers">
       <PageTitle eyebrow="Administration" title="Gift vouchers">
-        <p>Issue a non-expiring voucher for a confirmed customer.</p>
+        <p>Issue a non-expiring gift voucher to a customer by email.</p>
       </PageTitle>
       {!online && <p role="status">Connect to issue a voucher or check its original outcome.</p>}
-      {capabilities && !capabilities.enabled && (
-        <p role="status">Voucher issuance is awaiting compatibility configuration.</p>
-      )}
       {problem && (
         <p className="inline-error" role="alert">
           {problem}

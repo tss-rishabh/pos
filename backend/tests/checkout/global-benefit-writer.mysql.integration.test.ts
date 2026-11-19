@@ -1,8 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import mysql from 'mysql2/promise';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { readConfig } from '../../src/config.js';
+import { readConfig, type Config } from '../../src/config.js';
 import { createDatabases, type Databases } from '../../src/db/pools.js';
 import type { Principal } from '../../src/domain/access.js';
 import { walletAdjustmentRepository } from '../../src/modules/checkout/benefit-adjustments/repository.js';
@@ -10,7 +9,7 @@ import {
   walletAdjustmentSchema,
   type WalletAdjustmentInput,
 } from '../../src/modules/checkout/benefit-adjustments/contracts.js';
-import { walletAdjustmentContract } from '../../src/modules/checkout/benefit-adjustments/policy.js';
+import { memoryStateStore, type PosStateStore } from '../../src/modules/checkout/state-store.js';
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
 
 const integration = process.env.CHECKOUT_MYSQL_TEST_URL;
@@ -18,6 +17,8 @@ describe.skipIf(!integration)('approved atomic global wallet writer in isolated 
   let connection: mysql.Connection,
     db: Databases,
     schema = '',
+    config: Config,
+    store: PosStateStore,
     repository: ReturnType<typeof walletAdjustmentRepository>;
   const customerId = '9007199254740993',
     operator: Principal = {
@@ -29,10 +30,6 @@ describe.skipIf(!integration)('approved atomic global wallet writer in isolated 
       storeIds: [],
     },
     clock = () => Date.parse('2026-11-16T04:30:00Z'),
-    environment = {
-      GLOBAL_BENEFIT_ADJUSTMENT_CONTRACT: walletAdjustmentContract,
-      GLOBAL_BENEFIT_WALLET_LOCK_CONTRACT: 'pos-wallet-user-lock-v1',
-    },
     tables = [
       'users',
       'pos_user',
@@ -105,32 +102,21 @@ describe.skipIf(!integration)('approved atomic global wallet writer in isolated 
     await connection.query(`CREATE DATABASE ${mysql.escapeId(schema)}`);
     await connection.changeUser({ database: schema });
     await verifiedMysqlFixture(connection).create(tables);
-    for (const statement of readFileSync(
-      'src/modules/checkout/migrations/0014_wallet_adjustments.sql',
-      'utf8',
-    )
-      .split(';')
-      .filter((value) => value.trim()))
-      await connection.query(statement);
     url.pathname = '/' + schema;
-    db = createDatabases(
-      readConfig({
-        NODE_ENV: 'test',
-        SESSION_SECRET: 'wallet-fixture-secret-'.repeat(3),
-        MYSQL_ALLOW_LOCAL_PLAINTEXT: 'true',
-        MYSQL_WRITER_URL: url.href,
-        MYSQL_PRIMARY_READER_URL: url.href,
-      }),
-    );
-    repository = walletAdjustmentRepository(db, 'Asia/Kolkata', environment, clock);
+    config = readConfig({
+      NODE_ENV: 'test',
+      SESSION_SECRET: 'wallet-fixture-secret-'.repeat(3),
+      MYSQL_ALLOW_LOCAL_PLAINTEXT: 'true',
+      MYSQL_WRITER_URL: url.href,
+      MYSQL_PRIMARY_READER_URL: url.href,
+      BUSINESS_TIMEZONE: 'Asia/Kolkata',
+    });
+    db = createDatabases(config);
   });
   beforeEach(async () => {
-    for (const table of [
-      ...tables,
-      'pos_rewrite_wallet_consumptions',
-      'pos_rewrite_wallet_adjustments',
-    ])
-      await connection.query(`TRUNCATE TABLE ${mysql.escapeId(table)}`);
+    store = memoryStateStore();
+    repository = walletAdjustmentRepository(db, config, { stateStore: store, clock });
+    for (const table of tables) await connection.query(`TRUNCATE TABLE ${mysql.escapeId(table)}`);
     const fixture = verifiedMysqlFixture(connection);
     await fixture.insert('pos_user', { id: 44, role: 2, user_type: 1, is_active: 1 });
     await fixture.insert('users', {
@@ -156,9 +142,15 @@ describe.skipIf(!integration)('approved atomic global wallet writer in isolated 
 
   it('commits20 identical credits once with one ledger/audit and no cashback mutation', async () => {
     const request = input(),
-      results = await Promise.all(
+      settled = await Promise.allSettled(
         Array.from({ length: 20 }, () => repository.adjust(operator, request)),
-      );
+      ),
+      results = settled.flatMap((value) => (value.status === 'fulfilled' ? [value.value] : []));
+    // The Redis claim admits one writer; concurrent duplicates see the in-flight claim.
+    for (const value of settled)
+      if (value.status === 'rejected')
+        expect(value.reason).toMatchObject({ code: 'WALLET_ADJUSTMENT_UNCONFIRMED' });
+    expect(results.length).toBeGreaterThanOrEqual(1);
     expect(new Set(results.map((value) => JSON.stringify(value))).size).toBe(1);
     expect(results[0]).toMatchObject({
       amount: '10.00',
@@ -169,12 +161,9 @@ describe.skipIf(!integration)('approved atomic global wallet writer in isolated 
       consumedHistories: 0,
     });
     expect(await balances()).toMatchObject({ money: '110', points: '100', cashback: '7' });
-    for (const table of [
-      'tss_money_history',
-      'pos_rewrite_wallet_adjustments',
-      'pos_special_permission_activity_log',
-    ])
+    for (const table of ['tss_money_history', 'pos_special_permission_activity_log'])
       expect((await rows(`SELECT COUNT(*) count FROM ${table}`))[0]?.count).toBe(1);
+    expect(await repository.adjust(operator, request)).toEqual(results[0]);
     const audit = (
       await rows('SELECT recipient,comment FROM pos_special_permission_activity_log')
     )[0]!;
@@ -199,9 +188,10 @@ describe.skipIf(!integration)('approved atomic global wallet writer in isolated 
       amount: '50.25',
       expiry: null,
     });
-    const results = await Promise.all(
+    await Promise.allSettled(
       Array.from({ length: 20 }, () => repository.adjust(operator, request)),
     );
+    const results = [await repository.get(operator, request.operationId)];
     expect(results[0]).toMatchObject({
       asset: 'points',
       balanceAfter: '49.75',
@@ -217,15 +207,16 @@ describe.skipIf(!integration)('approved atomic global wallet writer in isolated 
     expect(
       (
         await rows(
-          'SELECT prod_id,platform,comment,added_user,expiry FROM tss_point_history WHERE added_amt<0',
+          'SELECT prod_id,platform,comment,added_user,CAST(expiry AS CHAR) expiry FROM tss_point_history WHERE added_amt<0',
         )
       )[0],
     ).toMatchObject({
       prod_id: '0',
       platform: 'ORDER_REFUND',
       comment: 'Other',
-      added_user: '44',
-      expiry: null,
+      // Legacy added_user 0 and '' expiry (stored as the zero date), core/views.py:1316-1333.
+      added_user: '0',
+      expiry: '0000-00-00 00:00:00',
     });
     expect(await balances()).toMatchObject({ money: '100', points: '49.75', cashback: '7' });
   });
@@ -241,7 +232,7 @@ describe.skipIf(!integration)('approved atomic global wallet writer in isolated 
         expect(result.reason).toMatchObject({ code: 'INSUFFICIENT_WALLET_BALANCE' });
     expect((await balances()).money).toBe('40');
     expect(
-      (await rows('SELECT COUNT(*) count FROM pos_rewrite_wallet_adjustments'))[0]?.count,
+      (await rows('SELECT COUNT(*) count FROM tss_money_history WHERE added_amt<0'))[0]?.count,
     ).toBe(1);
   });
   it('rolls every balance/history/command mutation back after a late audit failure and permits the same exact retry', async () => {
@@ -255,12 +246,7 @@ describe.skipIf(!integration)('approved atomic global wallet writer in isolated 
       await connection.query('DROP TRIGGER fail_wallet_audit');
     }
     expect((await balances()).money).toBe('100');
-    for (const table of [
-      'tss_money_history',
-      'pos_rewrite_wallet_adjustments',
-      'pos_rewrite_wallet_consumptions',
-    ])
-      expect((await rows(`SELECT COUNT(*) count FROM ${table}`))[0]?.count).toBe(0);
+    expect((await rows('SELECT COUNT(*) count FROM tss_money_history'))[0]?.count).toBe(0);
     expect((await repository.adjust(operator, request)).balanceAfter).toBe('110.00');
   });
   it('checks fresh role, user type and activity rather than trusting a stale administrator principal', async () => {
@@ -277,9 +263,7 @@ describe.skipIf(!integration)('approved atomic global wallet writer in isolated 
       await expect(repository.adjust(operator, input())).rejects.toThrow();
     }
     expect((await balances()).money).toBe('100');
-    expect(
-      (await rows('SELECT COUNT(*) count FROM pos_rewrite_wallet_adjustments'))[0]?.count,
-    ).toBe(0);
+    expect((await rows('SELECT COUNT(*) count FROM tss_money_history'))[0]?.count).toBe(0);
   });
   it('rejects ambiguous lookup and writer-blocked identities after a previously valid lookup', async () => {
     const lookup = await repository.lookup(operator, { email: 'fixture@example.test' });
@@ -326,32 +310,28 @@ describe.skipIf(!integration)('approved atomic global wallet writer in isolated 
       code: 'IDEMPOTENCY_CONFLICT',
     });
   });
-  it('fails paid adjustment reads/replay if the original immutable ledger is missing instead of issuing another credit', async () => {
+  it('replays the stored Redis receipt without another credit after later ledger changes', async () => {
     const request = input(),
       result = await repository.adjust(operator, request);
     await connection.execute('DELETE FROM tss_money_history WHERE id=?', [result.historyId]);
-    await expect(repository.get(operator, request.operationId)).rejects.toMatchObject({
-      code: 'WALLET_ADJUSTMENT_UNCONFIRMED',
-    });
-    await expect(repository.adjust(operator, request)).rejects.toMatchObject({
-      code: 'WALLET_ADJUSTMENT_UNCONFIRMED',
-    });
+    expect(await repository.get(operator, request.operationId)).toEqual(result);
+    expect(await repository.adjust(operator, request)).toEqual(result);
     expect((await balances()).money).toBe('110');
     expect((await rows('SELECT COUNT(*) count FROM tss_money_history'))[0]?.count).toBe(0);
   });
   it('does not overwrite a preexisting unconfirmed command or guess an unsupported platform', async () => {
     const request = input();
-    await connection.execute(
-      'INSERT INTO pos_rewrite_wallet_adjustments(id,operator_id,customer_id,request_hash,execution_id,request_json,created_at) VALUES(?,?,?,?,?,?,?)',
-      [
-        request.operationId,
-        operator.id,
+    await store.set(
+      `pos:wallet_adjustment:${request.operationId}`,
+      JSON.stringify({
+        operatorId: operator.id,
         customerId,
-        createHash('sha256').update(JSON.stringify(request)).digest('hex'),
-        randomUUID(),
-        JSON.stringify(request),
-        '2026-11-16 10:00:00',
-      ],
+        requestHash: createHash('sha256').update(JSON.stringify(request)).digest('hex'),
+        executionId: randomUUID(),
+        status: 'inflight',
+        result: null,
+      }),
+      86400,
     );
     await expect(repository.adjust(operator, request)).rejects.toMatchObject({
       code: 'WALLET_ADJUSTMENT_UNCONFIRMED',
@@ -364,12 +344,8 @@ describe.skipIf(!integration)('approved atomic global wallet writer in isolated 
       }).success,
     ).toBe(false);
   });
-  it('fails before mutations without shared wallet locking certification or complete earning history', async () => {
-    const closed = walletAdjustmentRepository(db, 'Asia/Kolkata', {}, clock);
-    expect((await closed.capabilities(operator)).enabled).toBe(false);
-    await expect(closed.adjust(operator, input())).rejects.toMatchObject({
-      code: 'WALLET_ADJUSTMENTS_NOT_CONFIGURED',
-    });
+  it('is available like the legacy views and fails before mutations without complete earning history', async () => {
+    expect((await repository.capabilities(operator)).enabled).toBe(true);
     await expect(
       repository.adjust(operator, input({ direction: 'subtract', expiry: null })),
     ).rejects.toMatchObject({ code: 'WALLET_HISTORY_REPAIR_REQUIRED' });
@@ -404,9 +380,6 @@ describe.skipIf(!integration)('approved atomic global wallet writer in isolated 
         )
       )[0]?.count,
     ).toBe(250);
-    expect(
-      (await rows('SELECT COUNT(*) count FROM pos_rewrite_wallet_consumptions'))[0]?.count,
-    ).toBe(250);
     expect(await repository.adjust(operator, request)).toEqual(result);
     expect((await balances()).cashback).toBe('7');
   });
@@ -423,9 +396,7 @@ describe.skipIf(!integration)('approved atomic global wallet writer in isolated 
     await expect(repository.adjust(operator, request)).rejects.toMatchObject({
       code: 'WALLET_PRODUCT_REFERENCE_INVALID',
     });
-    expect(
-      (await rows('SELECT COUNT(*) count FROM pos_rewrite_wallet_adjustments'))[0]?.count,
-    ).toBe(0);
+    expect((await rows('SELECT COUNT(*) count FROM tss_money_history'))[0]?.count).toBe(0);
     await fixture.insert('products', { id: productId });
     const receipt = await repository.adjust(operator, request);
     expect(

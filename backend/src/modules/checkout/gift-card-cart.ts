@@ -8,7 +8,6 @@ import type { Cart, CheckoutRepository, CheckoutState } from './contracts.js';
 import { newGiftItemId } from './crypto.js';
 import { CheckoutGatewayError, type CheckoutEnvironment } from './gateway.js';
 import { wireId, type Payload } from './payloads.js';
-import { assertGiftCardContract } from './gift-card-issuance.js';
 
 const itemId = z.union([identifier, z.number().int().positive().safe()]).transform(String);
 const quantity = z
@@ -109,7 +108,6 @@ export function giftCardOperations(
     tabId: state.tabId,
     endUser: state.customerId !== null,
   });
-  const configured = () => assertGiftCardContract(environment);
   const product = async (id: string) => {
     const row = await repository.cartProduct(id);
     if (!row || row.type !== 8)
@@ -171,7 +169,6 @@ export function giftCardOperations(
     auth?: string,
     knownProduct?: CartProduct,
   ) {
-    configured();
     if (
       customValue !== undefined &&
       (!Number.isInteger(customValue) || customValue < 1 || customValue > 10000)
@@ -270,7 +267,6 @@ export function giftCardOperations(
         );
       let current = state,
         currentCart = cart;
-      if (target > existing.length) configured();
       for (let index = existing.length; index < target; index++) {
         const result = await add(
           current,
@@ -302,7 +298,6 @@ export function giftCardOperations(
       return { state: current, result: { quantity: target } };
     },
     async replace(state: CheckoutState, operationId: string, giftId: string, value: number | null) {
-      configured();
       const token = await actions.token(state),
         cart = await actions.read(state, token),
         old = giftCardRows(cart).find((row) => row.gv_id === giftId);

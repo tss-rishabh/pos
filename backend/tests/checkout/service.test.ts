@@ -19,7 +19,6 @@ beforeEach(() => {
   clock = Date.now();
   service = checkoutService(repository, gateway, signingEnvironment, {
     migrationV2: true,
-    verifyRefundAllocations: async () => {},
     now: () => clock,
     assertCheckIn: async (user, store, counter) => {
       if (user !== '44' || store !== '1' || (counter && counter !== '3'))
@@ -32,6 +31,15 @@ const mutation = (version: number) => ({
   operationId: crypto.randomUUID(),
   expectedVersion: version,
 });
+/** Legacy blocks an empty cart and a missing salesperson before AjaxOrderView. */
+function readyToOrder(id: string) {
+  const state = repository.states.get(id)!;
+  state.salespersonId = '5';
+  gateway.carts.set(`777:${state.tabId}`, {
+    ...gateway.empty(),
+    products: { items: [{ prod_id: 10, quantity: 1, prod_type: 1 }] },
+  });
+}
 describe('checkout workflow authorization and external-effect safety', () => {
   it('keeps the payment note private, versioned, amount-bound and replay-safe before order dispatch', async () => {
     const created = await service.create(operator, '1', '3');
@@ -99,13 +107,14 @@ describe('checkout workflow authorization and external-effect safety', () => {
       service.salesperson(operator, '1', created.id, mutation(4), '5', '999'),
     ).rejects.toMatchObject({ code: 'SALESPERSON_PRODUCT_UNAVAILABLE' });
   });
-  it('requires renewed authority for an applied employee coupon after contact verification is invalidated', async () => {
+  it('does not re-verify an applied employee coupon at order time, as legacy AjaxOrderView', async () => {
     const created = await service.create(operator, '1', '3');
     await service.attachCustomer(operator, '1', created.id, mutation(0), '1001');
     gateway.intercept = async (path) =>
       path === 'processorder'
         ? {
             ...gateway.empty(),
+            products: { items: [{ prod_id: 10, quantity: 1, prod_type: 1 }] },
             meta: {
               items: [
                 { name: 'calculations', total: 99 },
@@ -114,11 +123,10 @@ describe('checkout workflow authorization and external-effect safety', () => {
             },
           }
         : undefined;
+    repository.states.get(created.id)!.salespersonId = '5';
     await service.quote(operator, '1', created.id, mutation(1));
-    await expect(service.submit(operator, '1', created.id, mutation(2))).rejects.toMatchObject({
-      code: 'CUSTOMER_VERIFICATION_REQUIRED',
-    });
-    expect(gateway.calls.some((call) => call.path === 'pos/order')).toBe(false);
+    expect((await service.submit(operator, '1', created.id, mutation(2))).status).toBe('succeeded');
+    expect(gateway.calls.filter((call) => call.path === 'pos/order')).toHaveLength(1);
   });
   it('keeps a complementary-product salesperson override distinct from the sale default', async () => {
     const created = await service.create(operator, '1', '3');
@@ -132,60 +140,43 @@ describe('checkout workflow authorization and external-effect safety', () => {
     expect(assigned.state.salespersonId).toBeNull();
     expect(gateway.calls).toHaveLength(0);
   });
-  it.each(['used_tss_money', 'used_tss_points', 'gift_voucher_value'])(
-    'requires renewed customer authority before submitting an already-applied %s benefit',
-    async (field) => {
-      const created = await service.create(operator, '1', '3');
-      await service.attachCustomer(operator, '1', created.id, mutation(0), '1001');
-      await service.sendVerification(operator, '1', created.id, mutation(1));
-      await service.verify(operator, '1', created.id, mutation(2), '123456');
-      gateway.intercept = async (path) =>
-        path === 'processorder'
-          ? {
-              ...gateway.empty(),
-              meta: { items: [{ name: 'calculations', total: 99, [field]: 1 }] },
-            }
-          : undefined;
-      await service.quote(operator, '1', created.id, mutation(3));
-      const original = repository.states.get(created.id)!;
-      repository.states.set(created.id, {
-        ...original,
-        verifiedCustomerUntil: null,
-        verificationChallenge: null,
-        registrationId: null,
-      });
-      await expect(service.submit(operator, '1', created.id, mutation(4))).rejects.toMatchObject({
-        code: 'CUSTOMER_VERIFICATION_REQUIRED',
-      });
-      expect(gateway.calls.some((call) => call.path === 'pos/order')).toBe(false);
-    },
-  );
-  it('retains a created order and never confirms or recreates it when native per-line refund validation fails', async () => {
-    const guarded = checkoutService(repository, gateway, signingEnvironment, {
-      migrationV2: true,
-      assertCheckIn: async () => {},
-      verifyRefundAllocations: async () => {
-        throw new AppError(503, 'REFUND_ALLOCATION_UNCONFIRMED', 'Fixture refund mismatch.');
-      },
-      finalizeOrder: async () => ({ transactionId: 'UNREACHABLE', invoice: null }),
+  it('blocks the order with the legacy salesperson and empty-cart messages before pos/order', async () => {
+    const created = await service.create(operator, '1', '3');
+    await service.quote(operator, '1', created.id, mutation(0));
+    await expect(service.submit(operator, '1', created.id, mutation(1))).rejects.toMatchObject({
+      code: 'CART_EMPTY',
+      message: 'Please add some product into the cart.',
     });
-    const state = await guarded.create(operator, '1', '3');
-    await guarded.quote(operator, '1', state.id, mutation(0));
-    await expect(guarded.submit(operator, '1', state.id, mutation(1))).rejects.toMatchObject({
-      code: 'REFUND_ALLOCATION_UNCONFIRMED',
+    const other = await service.create(operator, '1', '3');
+    readyToOrder(other.id);
+    repository.states.get(other.id)!.salespersonId = null;
+    await service.quote(operator, '1', other.id, mutation(0));
+    await expect(service.submit(operator, '1', other.id, mutation(1))).rejects.toMatchObject({
+      code: 'SALESPERSON_REQUIRED',
+      message: 'Please Select The Salesperson.',
     });
-    const saved = repository.states.get(state.id)!;
-    expect(saved).toMatchObject({
-      orderId: '5001',
-      phase: 'order-created',
-      confirmationPhase: 'not-dispatched',
+    expect(gateway.calls.some((call) => call.path === 'pos/order')).toBe(false);
+  });
+  it('lets the cashier retry after a non-200 pos/order, as legacy "Something Went Wrong"', async () => {
+    const state = await service.create(operator, '1', '3');
+    readyToOrder(state.id);
+    await service.quote(operator, '1', state.id, mutation(0));
+    gateway.intercept = async (path) => {
+      if (path === 'pos/order')
+        throw new CheckoutGatewayError(
+          'ORDER_CREATE_FAILED',
+          'Something Went Wrong. The order was not created; try again.',
+          false,
+        );
+      return undefined;
+    };
+    await expect(service.submit(operator, '1', state.id, mutation(1))).rejects.toMatchObject({
+      code: 'ORDER_CREATE_FAILED',
     });
-    expect(gateway.calls.filter((call) => call.path === 'pos/order')).toHaveLength(1);
-    expect(gateway.calls.filter((call) => call.path === 'payment-confirm')).toHaveLength(0);
-    await expect(
-      guarded.submit(operator, '1', state.id, mutation(saved.version)),
-    ).rejects.toMatchObject({ code: 'CHECKOUT_QUOTE_REQUIRED' });
-    expect(gateway.calls.filter((call) => call.path === 'pos/order')).toHaveLength(1);
+    expect(repository.states.get(state.id)).toMatchObject({ phase: 'quoted', orderId: null });
+    gateway.intercept = undefined;
+    expect((await service.submit(operator, '1', state.id, mutation(1))).status).toBe('succeeded');
+    expect(gateway.calls.filter((call) => call.path === 'pos/order')).toHaveLength(2);
   });
   it.each(['clear', 'detachCustomer'] as const)(
     'clears both customer and actor carts and detaches the account through %s',
@@ -260,7 +251,9 @@ describe('checkout workflow authorization and external-effect safety', () => {
   });
   it('keeps message preferences server-owned and does not allow modifying them after order creation', async () => {
     const created = await service.create(operator, '1', '3');
-    expect(created.orderNotifications).toEqual({ sendSms: true, npsFeedback: false });
+    // Legacy always posts nps_feedback_switch=true (create_order.html:76, :5646).
+    expect(created.orderNotifications).toEqual({ sendSms: true, npsFeedback: true });
+    readyToOrder(created.id);
     const changed = await service.orderNotifications(operator, '1', created.id, mutation(0), {
       sendSms: true,
       npsFeedback: true,
@@ -482,6 +475,7 @@ describe('checkout workflow authorization and external-effect safety', () => {
   });
   it('keeps a created order checkpoint when confirmation times out, without reissuing the order', async () => {
     const state = await service.create(operator, '1', '3');
+    readyToOrder(state.id);
     await service.quote(operator, '1', state.id, mutation(0));
     gateway.intercept = async (path) => {
       if (path === 'payment-confirm')
@@ -504,6 +498,7 @@ describe('checkout workflow authorization and external-effect safety', () => {
   });
   it('creates an order from the server quote and does not represent an unpaid order as paid', async () => {
     const state = await service.create(operator, '1', '3');
+    readyToOrder(state.id);
     await service.quote(operator, '1', state.id, mutation(0));
     const done = await service.submit(operator, '1', state.id, mutation(1));
     expect(done.status).toBe('succeeded');
@@ -553,7 +548,6 @@ describe('checkout workflow authorization and external-effect safety', () => {
     let finalizations = 0;
     const repaired = checkoutService(repository, gateway, signingEnvironment, {
       migrationV2: true,
-      verifyRefundAllocations: async () => {},
       assertCheckIn: async () => {},
       finalizeOrder: async () => {
         if (finalizations++ === 0)
@@ -562,6 +556,7 @@ describe('checkout workflow authorization and external-effect safety', () => {
       },
     });
     const created = await repaired.create(operator, '1', '3');
+    readyToOrder(created.id);
     await repaired.quote(operator, '1', created.id, mutation(0));
     const submit = mutation(1);
     await expect(repaired.submit(operator, '1', created.id, submit)).rejects.toMatchObject({
@@ -585,17 +580,16 @@ describe('checkout workflow authorization and external-effect safety', () => {
       code: 'ORDER_FINALIZATION_REVIEW_REQUIRED',
     });
   });
-  it('recovers a lost confirmation only from verified proof and repairs the original operation receipt', async () => {
+  it('recovers a lost confirmation only after the created order is verified and repairs the original operation receipt', async () => {
     let proof = false,
       finalizations = 0;
     const recovery = checkoutService(repository, gateway, signingEnvironment, {
       migrationV2: true,
-      verifyRefundAllocations: async () => {},
       now: () => clock,
       assertCheckIn: async () => {},
-      verifyProjection: async () => {
+      verifyCreatedOrder: async () => {
         if (!proof)
-          throw new AppError(503, 'CHECKOUT_PROJECTION_UNCONFIRMED', 'Fixture proof missing');
+          throw new AppError(409, 'CREATED_ORDER_SCOPE_MISMATCH', 'Fixture order missing');
       },
       finalizeOrder: async () => {
         finalizations++;
@@ -603,6 +597,7 @@ describe('checkout workflow authorization and external-effect safety', () => {
       },
     });
     const created = await recovery.create(operator, '1', '3');
+    readyToOrder(created.id);
     await recovery.quote(operator, '1', created.id, mutation(0));
     gateway.intercept = async (path) => {
       if (path === 'payment-confirm')
@@ -615,7 +610,7 @@ describe('checkout workflow authorization and external-effect safety', () => {
     });
     await expect(
       recovery.reconcileConfirmation(operator, '1', created.id, mutation(1)),
-    ).rejects.toMatchObject({ code: 'CHECKOUT_PROJECTION_UNCONFIRMED' });
+    ).rejects.toMatchObject({ code: 'CREATED_ORDER_SCOPE_MISMATCH' });
     expect(finalizations).toBe(0);
     expect((await recovery.read(operator, '1', created.id)).phase).toBe('uncertain');
     proof = true;
@@ -640,7 +635,7 @@ describe('checkout workflow authorization and external-effect safety', () => {
     proof = false;
     await expect(
       recovery.reconcileConfirmation(operator, '1', created.id, input),
-    ).rejects.toMatchObject({ code: 'CHECKOUT_PROJECTION_UNCONFIRMED' });
+    ).rejects.toMatchObject({ code: 'CREATED_ORDER_SCOPE_MISMATCH' });
     expect(gateway.calls.filter((call) => call.path === 'pos/order')).toHaveLength(1);
     expect(gateway.calls.filter((call) => call.path === 'payment-confirm')).toHaveLength(1);
   });
@@ -649,16 +644,16 @@ describe('checkout workflow authorization and external-effect safety', () => {
     let finalizations = 0;
     const recovery = checkoutService(repository, gateway, signingEnvironment, {
       migrationV2: true,
-      verifyRefundAllocations: async () => {},
       now: () => clock,
       assertCheckIn: async () => {},
-      verifyProjection: async () => new Promise<void>((resolve) => releases.push(resolve)),
+      verifyCreatedOrder: async () => new Promise<void>((resolve) => releases.push(resolve)),
       finalizeOrder: async () => {
         finalizations++;
         return { transactionId: 'FIXTURE-5001', invoice: null };
       },
     });
     const created = await recovery.create(operator, '1', '3');
+    readyToOrder(created.id);
     await recovery.quote(operator, '1', created.id, mutation(0));
     gateway.intercept = async (path) => {
       if (path === 'payment-confirm')

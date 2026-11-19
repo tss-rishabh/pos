@@ -1,4 +1,4 @@
-import { and, asc, eq, or, sql } from 'drizzle-orm';
+import { and, asc, eq, or } from 'drizzle-orm';
 import type { Databases } from '../../db/pools.js';
 import {
   Coupon,
@@ -13,14 +13,14 @@ import {
   SalesPerson,
 } from '../../db/legacy-schema.js';
 import { AppError } from '../../domain/errors.js';
-import { checkoutOperations, checkoutSessions, customerLeases, giftCardLeases } from './schema.js';
 import {
-  checkoutStateSchema,
   type CheckoutRepository,
+  type CheckoutState,
   type CustomerIdentity,
   type MutationResult,
   type OperationReceipt,
 } from './contracts.js';
+import type { CheckoutSessionStore } from './session-store.js';
 import {
   currentCheckoutOperation,
   recoveryReplay,
@@ -56,7 +56,10 @@ type IdentityRow = {
   blocked: number | null;
   disabled: number | null;
 };
-export function checkoutRepository(db: Databases): CheckoutRepository {
+export function checkoutRepository(
+  db: Databases,
+  sessions: CheckoutSessionStore,
+): CheckoutRepository {
   async function identity(
     row: IdentityRow | undefined,
     consistency: 'primary' | 'writer' = 'primary',
@@ -78,20 +81,8 @@ export function checkoutRepository(db: Databases): CheckoutRepository {
       exclusive: Boolean(membership?.active),
     };
   }
-  const sessionWhere = (operatorId: string, storeId: string, id: string) =>
-    and(
-      eq(checkoutSessions.id, id),
-      eq(checkoutSessions.operatorId, operatorId),
-      eq(checkoutSessions.storeId, storeId),
-    );
-  const receipt = (row: typeof checkoutOperations.$inferSelect): OperationReceipt => ({
-    id: row.id,
-    checkoutId: row.checkoutId,
-    status: row.status as OperationReceipt['status'],
-    requestHash: row.requestHash,
-    result: row.result,
-    errorCode: row.errorCode,
-  });
+  const operationChanged = () =>
+    new AppError(409, 'CHECKOUT_OPERATION_CHANGED', 'This checkout operation is no longer active.');
   return {
     customerContact(customerId) {
       return db
@@ -119,6 +110,16 @@ export function checkoutRepository(db: Databases): CheckoutRepository {
         .select(identitySelection)
         .from(MUser)
         .where(eq(MUser.pos_admin_id, BigInt(operatorId)))
+        .orderBy(asc(MUser.id))
+        .limit(1);
+      return identity(row);
+    },
+    async storefrontIdentity(operatorId) {
+      const [row] = await db
+        .get('primary')
+        .select(identitySelection)
+        .from(MUser)
+        .where(and(eq(MUser.user_type, '8'), eq(MUser.pos_admin_id, BigInt(operatorId))))
         .orderBy(asc(MUser.id))
         .limit(1);
       return identity(row);
@@ -232,158 +233,55 @@ export function checkoutRepository(db: Databases): CheckoutRepository {
         .limit(1);
       return Boolean(row);
     },
-    async acquireCustomer(checkoutId, customerId) {
-      await db.get('writer').transaction(async (tx) => {
-        await tx
-          .insert(customerLeases)
-          .values({ customerId, checkoutId, expiresAt: Date.now() + 12 * 3600000 })
-          .onDuplicateKeyUpdate({ set: { customerId } });
-        const [lease] = await tx
-          .select()
-          .from(customerLeases)
-          .where(eq(customerLeases.customerId, customerId))
-          .for('update');
-        if (lease!.checkoutId !== checkoutId && lease!.expiresAt > Date.now())
-          throw new AppError(
-            409,
-            'CUSTOMER_CART_BUSY',
-            'This customer already has an active checkout. Finish or review that sale first.',
-          );
-        await tx
-          .update(customerLeases)
-          .set({ checkoutId, expiresAt: Date.now() + 12 * 3600000 })
-          .where(eq(customerLeases.customerId, customerId));
-      });
-    },
-    async releaseCustomer(checkoutId, customerId) {
-      await db
-        .get('writer')
-        .delete(customerLeases)
-        .where(
-          and(eq(customerLeases.customerId, customerId), eq(customerLeases.checkoutId, checkoutId)),
-        );
-    },
-    async acquireGiftCard(checkoutId, serial) {
-      await db.get('writer').transaction(async (tx) => {
-        await tx
-          .insert(giftCardLeases)
-          .values({ serial, checkoutId, expiresAt: Date.now() + 12 * 3600000 })
-          .onDuplicateKeyUpdate({ set: { serial } });
-        const [lease] = await tx
-          .select()
-          .from(giftCardLeases)
-          .where(eq(giftCardLeases.serial, serial))
-          .for('update');
-        if (lease!.checkoutId !== checkoutId && lease!.expiresAt > Date.now())
-          throw new AppError(
-            409,
-            'GIFT_CARD_RESERVED',
-            'This card number is reserved by another checkout.',
-          );
-        await tx
-          .update(giftCardLeases)
-          .set({ checkoutId, expiresAt: Date.now() + 12 * 3600000 })
-          .where(eq(giftCardLeases.serial, serial));
-      });
-    },
-    async releaseGiftCard(checkoutId, serial) {
-      await db
-        .get('writer')
-        .delete(giftCardLeases)
-        .where(and(eq(giftCardLeases.serial, serial), eq(giftCardLeases.checkoutId, checkoutId)));
-    },
+    acquireCustomer: (checkoutId, customerId) =>
+      sessions.acquireLease('customer', customerId, checkoutId),
+    releaseCustomer: (checkoutId, customerId) =>
+      sessions.releaseLease('customer', customerId, checkoutId),
+    acquireGiftCard: (checkoutId, serial) => sessions.acquireLease('gift-card', serial, checkoutId),
+    releaseGiftCard: (checkoutId, serial) => sessions.releaseLease('gift-card', serial, checkoutId),
     async create(state) {
       if (!state.draftId)
         throw new AppError(422, 'CHECKOUT_DRAFT_REQUIRED', 'A saved sale identifier is required.');
-      return db.get('writer').transaction(async (tx) => {
-        await tx
-          .insert(checkoutSessions)
-          .values({
-            id: state.id,
-            operatorId: state.operatorId,
-            storeId: state.storeId,
-            clientDraftId: state.draftId,
-            version: state.version,
-            state,
-          })
-          .onDuplicateKeyUpdate({ set: { id: sql`${checkoutSessions.id}` } });
-        const [row] = await tx
-          .select()
-          .from(checkoutSessions)
-          .where(
-            and(
-              eq(checkoutSessions.operatorId, state.operatorId),
-              eq(checkoutSessions.clientDraftId, state.draftId!),
-            ),
-          )
-          .limit(1)
-          .for('update');
-        if (!row)
-          throw new AppError(
-            409,
-            'CHECKOUT_DRAFT_CONFLICT',
-            'This saved sale is already bound to another checkout.',
-          );
-        const existing = checkoutStateSchema.parse(row.state);
-        if (
-          existing.operatorId !== state.operatorId ||
-          existing.storeId !== state.storeId ||
-          existing.counterId !== state.counterId ||
-          existing.draftId !== state.draftId
-        )
-          throw new AppError(
-            409,
-            'CHECKOUT_DRAFT_SCOPE_CONFLICT',
-            'This saved sale is already bound to a different store or counter.',
-          );
-        if (
-          existing.draftVersion !== state.draftVersion ||
-          JSON.stringify(existing.draftImport?.lineItems ?? null) !==
-            JSON.stringify(state.draftImport?.lineItems ?? null)
-        )
-          throw new AppError(
-            409,
-            'CHECKOUT_DRAFT_CONTENT_CONFLICT',
-            'This saved sale is already bound to a different review snapshot.',
-          );
-        return existing;
-      });
+      const boundId = await sessions.bindDraft(state.operatorId, state.draftId, state.id);
+      if (boundId === state.id) {
+        const existing = await sessions.read(state.id);
+        if (!existing) await sessions.write(state);
+      }
+      const existing = await sessions.read(boundId);
+      if (!existing)
+        throw new AppError(
+          409,
+          'CHECKOUT_DRAFT_CONFLICT',
+          'This saved sale is already bound to another checkout.',
+        );
+      if (
+        existing.operatorId !== state.operatorId ||
+        existing.storeId !== state.storeId ||
+        existing.counterId !== state.counterId ||
+        existing.draftId !== state.draftId
+      )
+        throw new AppError(
+          409,
+          'CHECKOUT_DRAFT_SCOPE_CONFLICT',
+          'This saved sale is already bound to a different store or counter.',
+        );
+      if (
+        existing.draftVersion !== state.draftVersion ||
+        JSON.stringify(existing.draftImport?.lineItems ?? null) !==
+          JSON.stringify(state.draftImport?.lineItems ?? null)
+      )
+        throw new AppError(
+          409,
+          'CHECKOUT_DRAFT_CONTENT_CONFLICT',
+          'This saved sale is already bound to a different review snapshot.',
+        );
+      return existing;
     },
-    async get(operatorId, storeId, id) {
-      const [row] = await db
-        .get('writer')
-        .select({ state: checkoutSessions.state })
-        .from(checkoutSessions)
-        .where(sessionWhere(operatorId, storeId, id))
-        .limit(1);
-      return row ? checkoutStateSchema.parse(row.state) : null;
-    },
-    async begin(operatorId, storeId, id, input, hash, recovery) {
-      return db.get('writer').transaction(async (tx) => {
-        const [session] = await tx
-          .select()
-          .from(checkoutSessions)
-          .where(sessionWhere(operatorId, storeId, id))
-          .for('update');
-        if (!session)
-          throw new AppError(
-            404,
-            'CHECKOUT_NOT_FOUND',
-            'Checkout was not found for this operator and store.',
-          );
-        const state = checkoutStateSchema.parse(session.state);
-        const [existing] = await tx
-          .select()
-          .from(checkoutOperations)
-          .where(
-            and(
-              eq(checkoutOperations.checkoutId, id),
-              eq(checkoutOperations.id, input.operationId),
-            ),
-          );
-        // The existing session row above serializes every operation writer for
-        // this checkout. Locking a missing operation also takes a shared gap
-        // lock and can deadlock inserts for unrelated checkout IDs.
+    get: (operatorId, storeId, id) => sessions.readScoped(operatorId, storeId, id),
+    begin(operatorId, storeId, id, input, hash, recovery) {
+      type Reservation = { state: CheckoutState; receipt: OperationReceipt; replay: boolean };
+      return sessions.exclusive<Reservation>(operatorId, storeId, id, async (state) => {
+        const existing = await sessions.receipt(id, input.operationId);
         if (existing) {
           if (existing.requestHash !== hash)
             throw new AppError(
@@ -391,8 +289,8 @@ export function checkoutRepository(db: Databases): CheckoutRepository {
               'IDEMPOTENCY_CONFLICT',
               'This operation key was used with different data.',
             );
-          if (!recovery || recoveryReplay(state, receipt(existing), recovery))
-            return { state, receipt: receipt(existing), replay: true };
+          if (!recovery || recoveryReplay(state, existing, recovery))
+            return { state: null, value: { state, receipt: existing, replay: true } };
         }
         if (state.version !== input.expectedVersion)
           throw new AppError(
@@ -412,175 +310,125 @@ export function checkoutRepository(db: Databases): CheckoutRepository {
             'CHECKOUT_REVIEW_REQUIRED',
             'A previous checkout operation needs review before continuing.',
           );
-        const [origin] =
+        const origin =
           recovery?.purpose === 'registration-request' && state.registrationId
-            ? await tx
-                .select()
-                .from(checkoutOperations)
-                .where(
-                  and(
-                    eq(checkoutOperations.checkoutId, id),
-                    eq(checkoutOperations.id, state.registrationId),
-                  ),
-                )
-                .limit(1)
-            : [];
-        const next = recovery
+            ? await sessions.receipt(id, state.registrationId)
+            : null;
+        const next: CheckoutState = recovery
           ? recovery.purpose === 'registration-request'
-            ? reserveRegistrationRequestRecovery(
-                state,
-                input.operationId,
-                recovery,
-                origin ? receipt(origin) : null,
-              )
+            ? reserveRegistrationRequestRecovery(state, input.operationId, recovery, origin)
             : reserveConfirmationRecovery(state, input.operationId, recovery)
           : { ...state, busyOperationId: input.operationId, updatedAt: Date.now() };
-        if (recovery && state.busyOperationId && state.busyOperationId !== input.operationId)
-          await tx
-            .update(checkoutOperations)
-            .set({
+        if (recovery && state.busyOperationId && state.busyOperationId !== input.operationId) {
+          const busy = await sessions.receipt(id, state.busyOperationId);
+          if (busy)
+            await sessions.saveReceipt({
+              ...busy,
               status: 'uncertain',
               errorCode:
                 recovery.purpose === 'registration-request'
                   ? 'CUSTOMER_REGISTRATION_REQUEST_RECOVERING'
                   : 'CHECKOUT_CONFIRMATION_RECONCILING',
-            })
-            .where(
-              and(
-                eq(checkoutOperations.checkoutId, id),
-                eq(checkoutOperations.id, state.busyOperationId),
-              ),
-            );
-        if (existing)
-          await tx
-            .update(checkoutOperations)
-            .set({ status: 'inflight', errorCode: null })
-            .where(
-              and(
-                eq(checkoutOperations.checkoutId, id),
-                eq(checkoutOperations.id, input.operationId),
-              ),
-            );
-        else
-          await tx.insert(checkoutOperations).values({
-            checkoutId: id,
-            id: input.operationId,
-            status: 'inflight',
-            requestHash: hash,
-          });
-        await tx.update(checkoutSessions).set({ state: next }).where(eq(checkoutSessions.id, id));
+            });
+        }
+        const receipt: OperationReceipt = {
+          id: input.operationId,
+          checkoutId: id,
+          status: 'inflight',
+          requestHash: hash,
+          result: existing?.result ?? null,
+          errorCode: null,
+        };
+        await sessions.saveReceipt(
+          existing ? { ...existing, status: 'inflight', errorCode: null } : receipt,
+        );
         return {
           state: next,
-          receipt: {
-            id: input.operationId,
-            checkoutId: id,
-            status: 'inflight',
-            requestHash: hash,
-            result: null,
-            errorCode: null,
+          value: {
+            state: next,
+            receipt: { ...receipt, result: null },
+            replay: false,
           },
-          replay: false,
         };
       });
     },
     async checkpoint(state, operationId) {
-      await db.get('writer').transaction(async (tx) => {
-        const [row] = await tx
-          .select()
-          .from(checkoutSessions)
-          .where(sessionWhere(state.operatorId, state.storeId, state.id))
-          .for('update');
-        if (
-          !row ||
-          !currentCheckoutOperation(checkoutStateSchema.parse(row.state), state, operationId)
-        )
-          throw new AppError(
-            409,
-            'CHECKOUT_OPERATION_CHANGED',
-            'This checkout operation is no longer active.',
-          );
-        await tx
-          .update(checkoutSessions)
-          .set({ state: { ...state, busyOperationId: operationId, updatedAt: Date.now() } })
-          .where(eq(checkoutSessions.id, state.id));
-        if (state.phase === 'cleared') {
-          await tx.delete(customerLeases).where(eq(customerLeases.checkoutId, state.id));
-          await tx.delete(giftCardLeases).where(eq(giftCardLeases.checkoutId, state.id));
-        }
-      });
+      const previous = await sessions.exclusive(
+        state.operatorId,
+        state.storeId,
+        state.id,
+        async (current) => {
+          if (!currentCheckoutOperation(current, state, operationId)) throw operationChanged();
+          return {
+            state: { ...state, busyOperationId: operationId, updatedAt: Date.now() },
+            value: current,
+          };
+        },
+      );
+      if (state.phase === 'cleared') {
+        // Detach clears customerId before this checkpoint; release whichever customer and
+        // cards the stored sale still held.
+        for (const customerId of new Set([state.customerId, previous.customerId]))
+          if (customerId) await sessions.releaseLease('customer', customerId, state.id);
+        for (const card of [
+          ...Object.values(state.giftCards),
+          ...Object.values(previous.giftCards),
+        ])
+          await sessions.releaseLease('gift-card', card.number, state.id);
+      }
     },
-    async finish(state, operationId, result) {
-      return db.get('writer').transaction(async (tx) => {
-        const [row] = await tx
-          .select()
-          .from(checkoutSessions)
-          .where(sessionWhere(state.operatorId, state.storeId, state.id))
-          .for('update');
-        if (
-          !row ||
-          !currentCheckoutOperation(checkoutStateSchema.parse(row.state), state, operationId)
-        )
-          throw new AppError(
-            409,
-            'CHECKOUT_OPERATION_CHANGED',
-            'This checkout operation is no longer active.',
-          );
-        const next = {
+    finish(state, operationId, result) {
+      return sessions.exclusive(state.operatorId, state.storeId, state.id, async (current) => {
+        if (!currentCheckoutOperation(current, state, operationId)) throw operationChanged();
+        const next: CheckoutState = {
           ...state,
-          version: row.version + 1,
+          version: current.version + 1,
           busyOperationId: null,
           confirmationRecovery: null,
           registrationRecovery: null,
           updatedAt: Date.now(),
         };
         const response: MutationResult = { state: next, result };
-        await tx
-          .update(checkoutSessions)
-          .set({ version: next.version, state: next })
-          .where(eq(checkoutSessions.id, state.id));
-        await tx
-          .update(checkoutOperations)
-          .set({ status: 'succeeded', result: response, errorCode: null })
-          .where(
-            and(
-              eq(checkoutOperations.checkoutId, state.id),
-              eq(checkoutOperations.id, operationId),
-            ),
-          );
+        const receipt = await sessions.receipt(state.id, operationId);
+        await sessions.saveReceipt({
+          id: operationId,
+          checkoutId: state.id,
+          requestHash: receipt?.requestHash ?? '',
+          status: 'succeeded',
+          result: response,
+          errorCode: null,
+        });
         const originalOperationId = state.confirmationRecovery
           ? state.orderSubmissionOperationId
           : state.registrationRecovery
             ? state.registrationId
             : null;
-        if (originalOperationId && originalOperationId !== operationId)
-          await tx
-            .update(checkoutOperations)
-            .set({ status: 'succeeded', result: response, errorCode: null })
-            .where(
-              and(
-                eq(checkoutOperations.checkoutId, state.id),
-                eq(checkoutOperations.id, originalOperationId),
-              ),
-            );
-        return response;
+        if (originalOperationId && originalOperationId !== operationId) {
+          const original = await sessions.receipt(state.id, originalOperationId);
+          if (original)
+            await sessions.saveReceipt({
+              ...original,
+              status: 'succeeded',
+              result: response,
+              errorCode: null,
+            });
+        }
+        return { state: next, value: response };
       });
     },
     async fail(state, operationId, uncertain, errorCode) {
-      await db.get('writer').transaction(async (tx) => {
-        const [row] = await tx
-          .select()
-          .from(checkoutSessions)
-          .where(sessionWhere(state.operatorId, state.storeId, state.id))
-          .for('update');
-        if (
-          !row ||
-          !currentCheckoutOperation(checkoutStateSchema.parse(row.state), state, operationId)
-        )
-          return;
-        const current = checkoutStateSchema.parse(row.state);
-        await tx
-          .update(checkoutSessions)
-          .set({
+      await sessions
+        .exclusive(state.operatorId, state.storeId, state.id, async (current) => {
+          if (!currentCheckoutOperation(current, state, operationId))
+            return { state: null, value: undefined };
+          const receipt = await sessions.receipt(state.id, operationId);
+          if (receipt)
+            await sessions.saveReceipt({
+              ...receipt,
+              status: uncertain ? 'uncertain' : 'rejected',
+              errorCode,
+            });
+          return {
             state: {
               ...current,
               busyOperationId: null,
@@ -594,90 +442,47 @@ export function checkoutRepository(db: Databases): CheckoutRepository {
                     : current.phase,
               updatedAt: Date.now(),
             },
-          })
-          .where(eq(checkoutSessions.id, state.id));
-        await tx
-          .update(checkoutOperations)
-          .set({ status: uncertain ? 'uncertain' : 'rejected', errorCode })
-          .where(
-            and(
-              eq(checkoutOperations.checkoutId, state.id),
-              eq(checkoutOperations.id, operationId),
-            ),
-          );
-      });
+            value: undefined,
+          };
+        })
+        .catch((error: unknown) => {
+          if (!(error instanceof AppError) || error.code !== 'CHECKOUT_NOT_FOUND') throw error;
+        });
     },
-    async reconcileCustomerVerification(operatorId, storeId, id, input, evidence) {
-      return db.get('writer').transaction(async (tx) => {
-        const [row] = await tx
-          .select()
-          .from(checkoutSessions)
-          .where(sessionWhere(operatorId, storeId, id))
-          .for('update');
-        if (!row) throw new AppError(404, 'CHECKOUT_NOT_FOUND', 'Checkout was not found.');
-        const state = checkoutStateSchema.parse(row.state),
-          [original] = await tx
-            .select()
-            .from(checkoutOperations)
-            .where(
-              and(
-                eq(checkoutOperations.checkoutId, id),
-                eq(checkoutOperations.id, input.operationId),
-              ),
-            )
-            .limit(1);
+    reconcileCustomerVerification(operatorId, storeId, id, input, evidence) {
+      return sessions.exclusive(operatorId, storeId, id, async (state) => {
+        const original = await sessions.receipt(id, input.operationId);
         if (!original)
           throw new AppError(
             404,
             'CHECKOUT_OPERATION_NOT_FOUND',
             'The original verification action was not found.',
           );
-        const originalReceipt = receipt(original);
-        if (originalReceipt.status === 'succeeded' || originalReceipt.status === 'rejected')
-          return { state, receipt: originalReceipt };
+        if (original.status === 'succeeded' || original.status === 'rejected')
+          return { state: null, value: { state, receipt: original } };
         if (!state.customerId)
           throw new AppError(409, 'CUSTOMER_REQUIRED', 'Connect a customer first.');
         const current =
             evidence.kind === 'revoked'
               ? null
-              : await readCustomerContactBinding(tx, state.customerId),
+              : await db
+                  .get('writer')
+                  .transaction((tx) => readCustomerContactBinding(tx, state.customerId!)),
           repaired = reconcileCustomerVerificationState(
             state,
-            originalReceipt,
+            original,
             input,
             evidence,
             current,
             Date.now(),
           );
-        await tx
-          .update(checkoutSessions)
-          .set({ state: repaired.state, version: repaired.state.version })
-          .where(eq(checkoutSessions.id, id));
-        await tx
-          .update(checkoutOperations)
-          .set({
-            status: repaired.receipt.status,
-            result: repaired.receipt.result,
-            errorCode: repaired.receipt.errorCode,
-          })
-          .where(
-            and(
-              eq(checkoutOperations.checkoutId, id),
-              eq(checkoutOperations.id, input.operationId),
-            ),
-          );
-        return repaired;
+        await sessions.saveReceipt(repaired.receipt);
+        return { state: repaired.state, value: repaired };
       });
     },
     async operation(operatorId, storeId, id, operationId) {
-      const [row] = await db
-        .get('writer')
-        .select({ operation: checkoutOperations })
-        .from(checkoutOperations)
-        .innerJoin(checkoutSessions, eq(checkoutSessions.id, checkoutOperations.checkoutId))
-        .where(and(sessionWhere(operatorId, storeId, id), eq(checkoutOperations.id, operationId)))
-        .limit(1);
-      return row ? receipt(row.operation) : null;
+      if (!(await sessions.readScoped(operatorId, storeId, id))) return null;
+      return sessions.receipt(id, operationId);
     },
   };
 }

@@ -104,7 +104,7 @@ describe('checkout source-extracted parity', () => {
     expect(exchangeRetryable('REFUND_INITIATED', true)).toBe(false);
     expect(exchangeRetryable('EXCHANGE_INITIATED', false)).toBe(false);
   });
-  it('issues server-owned customer identities with the source two-factor prefix and membership claim', () => {
+  it('issues server-owned customer identities with the source two-factor prefix and never an iev claim', () => {
     const key = 'fixture-signing-key-'.repeat(3),
       identity = {
         id: '1001',
@@ -127,7 +127,6 @@ describe('checkout source-extracted parity', () => {
       sub: '1001',
       iat: 1000,
       exp: 4600,
-      iev: true,
     });
     expect(signature).toBe(
       createHmac('sha512', key).update(`${header}.${payload}`).digest('base64url'),

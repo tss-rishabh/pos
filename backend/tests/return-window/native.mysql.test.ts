@@ -11,7 +11,6 @@ import { splitMigration } from '../../src/db/migrations.js';
 import { checkInService } from '../../src/modules/administration/checkins.js';
 import { checkoutRepository } from '../../src/modules/checkout/repository.js';
 import { registerReturns } from '../../src/modules/checkout/return-workflow/routes.js';
-import { returnVerificationService } from '../../src/modules/checkout/return-workflow/verification.js';
 import { returnRepository } from '../../src/modules/checkout/return-workflow/repository.js';
 import { returnWindowExtensions } from '../../src/modules/checkout/return-workflow/extensions.js';
 import {
@@ -19,12 +18,9 @@ import {
   returnInputSchema,
   type ReturnGateway,
 } from '../../src/modules/checkout/return-workflow/contracts.js';
-import {
-  customerOtpService,
-  customerOtpOutbox,
-  readCustomerOtpOptions,
-  type CustomerOtpDelivery,
-} from '../../src/modules/customer-otp/index.js';
+import { memoryStateStore } from '../../src/modules/checkout/state-store.js';
+import { returnState } from '../../src/modules/checkout/return-workflow/state.js';
+import { readCustomerContactBinding } from '../../src/modules/checkout/customer-contact-authority.js';
 import { requestEvent } from '../../src/observability/events.js';
 import { returnWindowNativeFixture } from './native-fixture.js';
 
@@ -53,42 +49,36 @@ const windowView = z
     windowClosed: z.boolean(),
   })
   .strict();
+const refuse = async (): Promise<never> => {
+  throw new Error('No external dispatch belongs to date extension');
+};
 const sink: ReturnGateway = {
   configured() {
     throw new Error('No return dispatch belongs to date extension');
   },
-  async sendOtp() {
-    throw new Error('No legacy OTP dispatch');
-  },
-  async verifyOtp() {
-    throw new Error('No legacy OTP dispatch');
-  },
-  async eligibility() {
-    throw new Error('No external eligibility dispatch');
-  },
-  async inbound() {
-    throw new Error('No warehouse dispatch');
-  },
-  async refund() {
-    throw new Error('No refund dispatch');
-  },
+  sendOtp: refuse,
+  verifyOtp: refuse,
+  orderEligibility: refuse,
+  eligibility: refuse,
+  inbound: refuse,
+  refund: refuse,
+  returnMail: refuse,
+  exchangeMail: refuse,
+  slack: refuse,
 };
 describe.skipIf(!template)('manager return date on verified native source tables', () => {
   let f: Awaited<ReturnType<typeof returnWindowNativeFixture>>;
   let proofId: string,
     currentActor: Principal = actor;
-  let otp: ReturnType<typeof customerOtpService>, api: FastifyInstance;
+  let api: FastifyInstance;
+  let store = memoryStateStore();
   let extension: ReturnType<typeof returnWindowExtensions>,
     repository: ReturnType<typeof returnRepository>;
   const events: unknown[] = [];
   beforeAll(async () => {
     f = await returnWindowNativeFixture(template!);
     await f.fixture.create(['extend_applicability_for_return_exchange', 'reverse_pickup_reason']);
-    for (const file of [
-      'src/modules/administration/migration.sql',
-      'src/modules/checkout/migrations/0004_returns.sql',
-      'src/modules/customer-otp/migration.sql',
-    ])
+    for (const file of ['src/modules/administration/migration.sql'])
       for (const statement of splitMigration(readFileSync(file, 'utf8')))
         await f.connection.query(statement);
   });
@@ -102,8 +92,6 @@ describe.skipIf(!template)('manager return date on verified native source tables
     for (const row of tables) {
       const name = String(Object.values(row)[0]);
       if (
-        name.startsWith('pos_rewrite_customer_otp_') ||
-        name.startsWith('pos_rewrite_return_') ||
         name === 'pos_rewrite_operator_checkins' ||
         name === 'extend_applicability_for_return_exchange' ||
         name === 'reverse_pickup_reason'
@@ -159,38 +147,36 @@ describe.skipIf(!template)('manager return date on verified native source tables
       created_at: '2026-01-01 12:00:00',
     });
     await checkInService(f.db, f.config).set(currentActor, '1', '2');
-    let code = '';
-    const sender: CustomerOtpDelivery = {
-      assertReady() {},
-      async send(_id, payload) {
-        code = payload.code;
-        return 'accepted';
-      },
-    };
-    const otpOptions = readCustomerOtpOptions({
-      CUSTOMER_OTP_ENABLED: 'true',
-      CUSTOMER_OTP_CONTRACT: 'pos-customer-otp-v1',
-      CUSTOMER_OTP_SECRET: secret,
-      CUSTOMER_OTP_WORKER_ENABLED: 'true',
-    });
-    otp = customerOtpService(f.config, f.db, otpOptions, sender);
-    const customers = checkoutRepository(f.db),
-      verification = returnVerificationService(f.db, f.config, customers, sink, {
-        secret,
-        customerOtp: otp,
-      });
+    // The customer verification proof is Redis state (pos:return_verification:{id}); the OTP
+    // exchange itself belongs to the customer-otp module and is outside this native test.
+    store = memoryStateStore();
+    const state = returnState(store),
+      customers = checkoutRepository(f.db);
     proofId = randomUUID();
-    await verification.create(currentActor, '1', '100', proofId, '2');
-    const worker = customerOtpOutbox(f.config, f.db, otpOptions, sender);
-    await worker.drain(new AbortController().signal, 10);
-    expect(code).toMatch(/^\d{6}$/);
-    await verification.verify(currentActor, '1', proofId, randomUUID(), code);
-    repository = returnRepository(f.db, f.config, {
-      hashSecret: secret,
-      returnPeriodDays: 30,
-      customerOtp: otp,
+    const contact = await f.db
+      .get('writer')
+      .transaction((tx) => readCustomerContactBinding(tx, '77'));
+    await state.saveVerification({
+      id: proofId,
+      operatorId: currentActor.id,
+      storeId: '1',
+      counterId: '2',
+      orderId: '100',
+      customerId: '77',
+      requestHash: 'a'.repeat(64),
+      sent: false,
+      expiresAt: Date.now() + 300000,
+      verifiedUntil: Date.now() + 900000,
+      busyOperationId: null,
+      contact,
+      otpChallengeId: null,
+      deliveryStatus: 'sent',
+      requestOperationId: null,
+      verifyOperationId: null,
+      verificationError: null,
     });
-    extension = returnWindowExtensions(f.db, f.config, { hashSecret: secret, repository });
+    repository = returnRepository(f.db, f.config, { returnPeriodDays: 30, state });
+    extension = returnWindowExtensions(f.db, f.config, { repository });
     api = Fastify();
     api.addHook('preHandler', async (request) => {
       request.principal = currentActor;
@@ -216,9 +202,9 @@ describe.skipIf(!template)('manager return date on verified native source tables
     registerReturns(api, f.config, f.db, {
       signing: { hs256: secret },
       customers,
-      customerOtp: otp,
       gateway: sink,
       environment: { returnPeriodDays: 30 },
+      stateStore: store,
     });
     await api.ready();
   }
@@ -377,9 +363,8 @@ describe.skipIf(!template)('manager return date on verified native source tables
       code: 'RETURN_CUSTOMER_VERIFICATION_REQUIRED',
     });
     await f.connection.query("UPDATE users SET user_type='2',telephone='9876543210' WHERE id=77");
-    await f.connection.query(
-      "UPDATE pos_rewrite_return_verifications SET state=JSON_SET(state,'$.verifiedUntil',0)",
-    );
+    const proof = (await returnState(store).readVerification(proofId))!;
+    await returnState(store).saveVerification({ ...proof, verifiedUntil: 0 });
     await expect(put(day(1), start.revision)).rejects.toMatchObject({
       code: 'RETURN_CUSTOMER_VERIFICATION_REQUIRED',
     });
@@ -466,9 +451,8 @@ describe.skipIf(!template)('manager return date on verified native source tables
     await put(day(1), start.revision);
     const [after] = await f.connection.query(query);
     expect(after).toEqual(before);
-    const [operations] = await f.connection.query(
-      'SELECT COUNT(*) n FROM pos_rewrite_return_operations',
+    expect([...store.entries().keys()].filter((key) => key.startsWith('pos:return_op'))).toEqual(
+      [],
     );
-    expect(operations).toEqual([{ n: '0' }]);
   });
 });

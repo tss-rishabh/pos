@@ -115,6 +115,46 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
             windowClosed: state.closed,
           });
         }
+        if (url.pathname.endsWith('/exchange-recovery'))
+          return json({ revision: 'f'.repeat(64), state: 'none', operation: null, newSize: null });
+        if (url.pathname.endsWith('/return-eligibility')) {
+          // A closed return window: show.html offers the manager "Extend Date" button.
+          const closed = { status: false, reason: 'Return window closed', upto: null };
+          const facts = {
+            variant: 'store',
+            shopifyOrder: false,
+            eligibilityLoaded: true,
+            productType: 1,
+            lineStatus: 'DELIVERED',
+            return: closed,
+            exchange: { status: false, reason: '', upto: null },
+            superAdminReturnOverride: false,
+            failedExchange: null,
+            checkinStoreId: '1',
+            exchangeFeatureEnabled: true,
+            operatorRole: 3,
+            returnStatus: 0,
+            merged: false,
+          };
+          return json({
+            orderId: '100',
+            lineId: '1000',
+            kind: 'return',
+            allowed: false,
+            until: null,
+            reason: closed.reason,
+            overrideAvailable: false,
+            exchangeFeatureEnabled: true,
+            facts,
+            cell: {
+              branch: 'split',
+              notice: null,
+              parts: [],
+              returnBranch: 'reason',
+              exchangeBranch: 'not-applicable',
+            },
+          });
+        }
         if (url.pathname.endsWith('/line-items'))
           return json({
             data: [

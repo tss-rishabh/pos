@@ -25,7 +25,6 @@ import {
   readProof,
   readReverse,
   retryExchange,
-  reconcileExchange,
   exchangeReasonsSchema,
   exchangeSizesSchema,
   salespeopleSchema,
@@ -41,6 +40,7 @@ import './style.css';
 import { SalespersonSelect } from './SalespersonSelect';
 import { ReturnWindowExtension } from './ReturnWindowExtension';
 import { matchingReturnEntryLine, type ReturnOrderEntry } from './order-entry';
+import { cellOffers, exchangeCell } from './exchange-cell';
 
 const reasonList = z.object({ data: z.array(z.object({ id: z.string(), reason: z.string() })) });
 const subReasonList = z.object({
@@ -312,13 +312,17 @@ export function ReturnsPage({
       ),
   });
   const currentEligibility = eligibility.isError ? undefined : eligibility.data;
+  // The legacy template branch (order/online/_return_exchange_cells.html, show.html), chosen by
+  // the same pure function the server uses, from the facts the server returned.
+  const cell = currentEligibility ? exchangeCell(currentEligibility.facts) : null;
+  const forceReturn =
+    mode === 'return' && !!cell && !cellOffers(cell, 'return') && cellOffers(cell, 'force-return');
+  const superAdminOverride = mode === 'return' && cell?.returnBranch === 'super-admin-override';
   const eligible =
-    !!currentEligibility &&
-    (currentEligibility.allowed ||
-      (mode === 'return' &&
-        user.role === 1 &&
-        currentEligibility.overrideAvailable &&
-        overrideEligibility));
+    !!cell &&
+    (mode === 'exchange'
+      ? cellOffers(cell, 'exchange')
+      : cellOffers(cell, 'return') || (forceReturn && overrideEligibility));
   const selectedSalesperson = salespersonId || result.data?.replacement?.salespersonId || '';
   const salespersonAvailable = people.some((person) => person.id === selectedSalesperson);
   function remember(value: ReturnRecovery | null) {
@@ -398,8 +402,7 @@ export function ReturnsPage({
       (mode === 'exchange' && newExchangeBlocked) ||
       !line ||
       !recovery?.verificationId ||
-      !quality ||
-      !tag
+      (!quality && !tag)
     )
       return;
     const operationId = crypto.randomUUID();
@@ -414,12 +417,16 @@ export function ReturnsPage({
           reasonId,
           ...(subReasonId ? { subReasonId } : {}),
           comment,
-          qualityConfirmed: true,
-          tagConfirmed: true,
+          qualityConfirmed: quality,
+          tagConfirmed: tag,
           saleable,
           ...(mode === 'exchange'
             ? { replacementProductId: replacementId, salespersonId }
-            : { refundMode, overrideEligibility: user.role === 1 && overrideEligibility }),
+            : {
+                refundMode,
+                overrideEligibility: superAdminOverride,
+                clickType: forceReturn ? 'extreme' : 'normal',
+              }),
         },
         returnSchema,
         user.id,
@@ -773,9 +780,7 @@ export function ReturnsPage({
                   <p>
                     {exchangeRecovery.data?.state === 'wrong-store'
                       ? 'This exchange must be completed at the store where it was started.'
-                      : exchangeRecovery.data?.state === 'restoration-unconfirmed'
-                        ? 'The original stock-restoration evidence needs reconciliation. No return or stock update will be repeated.'
-                        : `Stored replacement size: ${exchangeRecovery.data?.newSize || 'Unavailable'}. Recover the earlier operation before creating anything new.`}
+                      : `Stored replacement size: ${exchangeRecovery.data?.newSize || 'Unavailable'}. Recover the earlier operation before creating anything new.`}
                   </p>
                   {exchangeRecovery.data?.state === 'legacy' && (
                     <SalespersonSelect
@@ -844,23 +849,26 @@ export function ReturnsPage({
               <h3>
                 {mode === 'exchange' ? 'Exchange' : 'Return'} {line.name || `line ${line.id}`}
               </h3>
-              {[1, 2, 3].includes(user.role) && recovery?.verificationId && (
-                <ReturnWindowExtension
-                  key={`${user.id}:${user.role}:${user.userType}:${storeId}:${counterId}:${recovery.verificationId}:${line.id}`}
-                  scope={{
-                    operatorId: user.id,
-                    storeId,
-                    counterId,
-                    orderId: recovery.orderId,
-                    lineId: line.id,
-                    productId: line.productId,
-                    verificationId: recovery.verificationId,
-                  }}
-                  online={online}
-                  busy={busy}
-                  run={act}
-                />
-              )}
+              {[1, 2, 3].includes(user.role) &&
+                recovery?.verificationId &&
+                cell &&
+                cellOffers(cell, 'extend-return') && (
+                  <ReturnWindowExtension
+                    key={`${user.id}:${user.role}:${user.userType}:${storeId}:${counterId}:${recovery.verificationId}:${line.id}`}
+                    scope={{
+                      operatorId: user.id,
+                      storeId,
+                      counterId,
+                      orderId: recovery.orderId,
+                      lineId: line.id,
+                      productId: line.productId,
+                      verificationId: recovery.verificationId,
+                    }}
+                    online={online}
+                    busy={busy}
+                    run={act}
+                  />
+                )}
               {mode === 'exchange' && (
                 <>
                   <fieldset className="replacement-sizes">
@@ -954,13 +962,25 @@ export function ReturnsPage({
                 ) : eligibility.isError ? (
                   <ErrorState error={eligibility.error} />
                 ) : (
-                  currentEligibility && (
-                    <p>
-                      {currentEligibility.allowed
-                        ? `Available for ${mode}${currentEligibility.until ? ` through ${currentEligibility.until}` : ''}.`
-                        : currentEligibility.reason ||
-                          `This item is not currently eligible for ${mode}.`}
-                    </p>
+                  cell && (
+                    <div className="return-cell">
+                      {cell.notice && <p>{cell.notice.text}</p>}
+                      {cell.parts.map((part, index) => (
+                        <p key={index} className={part.warningIcon ? 'return-cell-warning' : ''}>
+                          {part.texts.map((value, position) => (
+                            <span key={position} className={`return-cell-${value.style}`}>
+                              {value.text}{' '}
+                            </span>
+                          ))}
+                          {!part.texts.length &&
+                            (part.actions.includes('force-return')
+                              ? 'Not applicable for return. A force return is available.'
+                              : part.actions.length
+                                ? `Available for ${mode}.`
+                                : '')}
+                        </p>
+                      ))}
+                    </div>
                   )
                 )}
                 <button
@@ -980,15 +1000,14 @@ export function ReturnsPage({
                   onChange={(event) => setComment(event.target.value)}
                 />
               </label>
-              {mode === 'return' && user.role === 1 && currentEligibility?.overrideAvailable && (
+              {forceReturn && (
                 <label className="return-check">
                   <input
                     type="checkbox"
                     checked={overrideEligibility}
                     onChange={(event) => setOverrideEligibility(event.target.checked)}
                   />
-                  Request super-admin return eligibility override. The server still requires the
-                  permitted return date, customer verification and valid line.
+                  Not applicable for return. I still want to return this product.
                 </label>
               )}
               <label className="return-check">
@@ -1044,8 +1063,7 @@ export function ReturnsPage({
                   !online ||
                   busy ||
                   !eligible ||
-                  !quality ||
-                  !tag ||
+                  (!quality && !tag) ||
                   !reasonId ||
                   (mode === 'return'
                     ? !preview.data || subReasons.isPending || !!subReasons.error
@@ -1105,6 +1123,7 @@ export function ReturnsPage({
                           ? 'This return was rejected before completion.'
                           : `Current stage: ${result.data.phase.replaceAll('-', ' ')}`}
                 </p>
+                {result.data.message && <p>{result.data.message}</p>}
                 {result.data.creditNote && <p>Credit note {result.data.creditNote}</p>}
                 {result.data.replacement && (
                   <p>
@@ -1115,28 +1134,6 @@ export function ReturnsPage({
                 {result.data.errorCode && (
                   <p className="caption">Support code: {result.data.errorCode}</p>
                 )}
-                {operationKind === 'exchange' &&
-                  (result.data.phase === 'replacement-rejected' ||
-                    (result.data.phase === 'uncertain' &&
-                      result.data.uncertainStage === 'replacement')) && (
-                    <button
-                      className="button secondary"
-                      disabled={!online || busy}
-                      onClick={() =>
-                        void act(async () => {
-                          const value = await reconcileExchange(
-                            storeId,
-                            recovery.returnId!,
-                            user.id,
-                          );
-                          client.setQueryData(resultKey, value);
-                          newExchangeInvoice(value, recovery.returnId!);
-                        })
-                      }
-                    >
-                      Find confirmed replacement
-                    </button>
-                  )}
                 {canContinue(result.data, operationKind) && (
                   <button
                     className="button primary"

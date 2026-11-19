@@ -15,7 +15,7 @@ describe('immutable payment request recovery', () => {
       getItem: (key: string) => values.get(key) ?? null,
       setItem: (key: string, value: string) => values.set(key, value),
     });
-    savePaymentRecovery('owner:order', { version: 1, kind: 'payment', input });
+    savePaymentRecovery('owner:order', { version: 2, kind: 'payment', input });
     input.cashReceived = '101.00';
     expect(readPaymentRecovery('owner:order')?.intent).toMatchObject({
       input: { cashReceived: '100.00' },
@@ -32,11 +32,11 @@ describe('immutable payment request recovery', () => {
       },
     });
     expect(() =>
-      savePaymentRecovery('owner:order', { version: 1, kind: 'payment', input }),
+      savePaymentRecovery('owner:order', { version: 2, kind: 'payment', input }),
     ).toThrow('Quota');
     expect(() =>
       savePaymentRecovery('owner:order', {
-        version: 1,
+        version: 2,
         kind: 'payment',
         input: { ...input, email: 'private@example.test' },
       } as unknown as Parameters<typeof savePaymentRecovery>[1]),

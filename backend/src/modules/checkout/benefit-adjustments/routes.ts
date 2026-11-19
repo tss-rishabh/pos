@@ -4,17 +4,31 @@ import type { Config } from '../../../config.js';
 import type { Databases } from '../../../db/pools.js';
 import { authenticated } from '../../../auth/routes.js';
 import { walletAdjustmentSchema, walletCustomerLookupSchema } from './contracts.js';
+import type { JobProducer } from '../../../jobs/contract.js';
+import type { CheckoutSessionStore } from '../session-store.js';
+import type { PosStateStore } from '../state-store.js';
 import { walletAdjustmentRepository } from './repository.js';
 
 const trace = (resource: string, action: string) => ({
   config: { trace: { module: 'checkout', resource, action } },
 });
+export interface WalletAdjustmentRegistrationOptions {
+  stateStore?: PosStateStore;
+  sessions?: CheckoutSessionStore;
+  jobs?: JobProducer;
+  repository?: ReturnType<typeof walletAdjustmentRepository>;
+}
 export function registerWalletAdjustments(
   app: FastifyInstance,
   config: Config,
   db: Databases,
-  repository = walletAdjustmentRepository(db, config.BUSINESS_TIMEZONE),
+  options: WalletAdjustmentRegistrationOptions = {},
 ) {
+  const repository =
+    options.repository ||
+    walletAdjustmentRepository(db, config, {
+      stateStore: options.stateStore || options.sessions?.store,
+    });
   app.get(
     '/api/v1/wallet-adjustment-capabilities',
     trace('wallet-adjustment-capability', 'read'),

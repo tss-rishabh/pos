@@ -13,15 +13,17 @@ export interface CashierShortcutRequest {
   action: CashierShortcut;
   requestedAt: number;
 }
+/** Verbatim from legacy `order/templates/order/shortcuts.html` ("Keyboard Shortcuts For Billing Screen"). */
 export const cashierShortcutDescriptions = [
-  ['R', 'Refresh the sale'],
-  ['P / PP', 'Proceed through the current validated payment step'],
-  ['F', 'Open fast cash and focus cash received'],
-  ['N', 'Toggle the shopping feedback link'],
-  ['E', 'Toggle walk-in member benefits'],
-  ['B', 'Focus barcode search'],
-  ['S', 'Select the sale salesperson'],
-  ['T', 'Start another sale'],
+  ['R', "Press 'R' To Refresh the Cart"],
+  ['P', "Press 'P' To Proceed For Payment"],
+  ['PP', "Press 'PP' To Proceed For Payment without extra steps(Fast) or Double click"],
+  ['F', "Press 'F' For Fast Cash"],
+  ['N', "Press 'N' To Enable/Disable NPS Feedback"],
+  ['E', "Press 'E' To Enable/Disable Exclusive Benifits"],
+  ['B', "Press 'B + Scan' the Product' To Focus/Add Product in Cart"],
+  ['S', "Press 'S + Enter' To Select Salesperson From Dropdown"],
+  ['T', "Press 'T' To Create New Order"],
 ] as const;
 const keys: Readonly<Record<string, CashierShortcut>> = {
   r: 'refresh',
@@ -116,7 +118,8 @@ export function invokeCashierShortcut(
   if (!target || target.matches(':disabled,[aria-disabled="true"]') || target.closest('[inert]'))
     return false;
   reveal(target, root);
-  if (['barcode', 'salesperson', 'fast-cash'].includes(targetAction)) target.focus();
+  // Legacy: B and S focus; F clicks #fast-checkout (create_order.html:1032-1038).
+  if (['barcode', 'salesperson'].includes(targetAction)) target.focus();
   else target.click();
   return true;
 }

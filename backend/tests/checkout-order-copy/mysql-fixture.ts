@@ -1,15 +1,10 @@
-import { readFileSync } from 'node:fs';
 import mysql from 'mysql2/promise';
 import { createDatabases } from '../../src/db/pools.js';
 import { readConfig } from '../../src/config.js';
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
 export async function orderCopyFixture(template: string) {
   const url = new URL(template);
-  if (
-    url.protocol !== 'mysql:' ||
-    !['localhost', '127.0.0.1'].includes(url.hostname) ||
-    url.pathname !== '/pos_rewrite_checkout_test'
-  )
+  if (url.protocol !== 'mysql:' || !['localhost', '127.0.0.1'].includes(url.hostname))
     throw new Error('Explicit isolated localhost checkout template required.');
   const schema = `pos_rewrite_order_copy_${process.pid}_${crypto.randomUUID().slice(0, 8)}`;
   const connection = await mysql.createConnection({
@@ -25,35 +20,7 @@ export async function orderCopyFixture(template: string) {
   await connection.changeUser({ database: schema });
   const fixture = verifiedMysqlFixture(connection);
   try {
-    await fixture.create([
-      'users',
-      'user_eav',
-      'pos_user',
-      'stores',
-      'store_counters',
-      'user_stores',
-      'products',
-      'products_gs1',
-      'product_store',
-      'orders',
-      'order_stores',
-      'has_products',
-    ]);
-    for (const path of [
-      'src/modules/checkout/migrations/0002_checkout.sql',
-      'src/modules/checkout/migrations/0008_checkout_draft_binding.sql',
-      'src/modules/administration/migration.sql',
-      'src/modules/checkout/order-copy/migration.sql',
-      'src/modules/checkout/order-copy/cancellation-migration.sql',
-      'migrations/0006_operator_auth_epochs.sql',
-      'src/modules/customer-contacts/contact-revisions-migration.sql',
-      'src/modules/customer-otp/migration.sql',
-    ])
-      for (const statement of readFileSync(path, 'utf8')
-        .replace(/^--.*$/gm, '')
-        .split(';')
-        .filter((value) => value.trim()))
-        await connection.query(statement);
+    await fixture.create(['orders', 'order_stores', 'has_products']);
     url.pathname = '/' + schema;
     const config = readConfig({
         NODE_ENV: 'test',

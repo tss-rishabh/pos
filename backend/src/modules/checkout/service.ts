@@ -20,21 +20,14 @@ import {
   type Cart,
   type CheckoutRepository,
   type CheckoutState,
+  checkoutSubject,
   type MutationInput,
   type MutationResult,
   type PrepaidSettlement,
 } from './contracts.js';
 import { CheckoutGatewayError, type CheckoutEnvironment, type CheckoutGateway } from './gateway.js';
-import { assertCheckoutProjectionReady } from './projection.js';
-import { assertRefundAllocationReady } from './refund-allocation.js';
-import { assertGiftCardContract } from './gift-card-issuance.js';
 import { issueCustomerToken, newTabId, operationHash } from './crypto.js';
 import { sameCustomerContact, type CustomerContactBinding } from './customer-contact-authority.js';
-import {
-  assertCustomerConsentReady,
-  customerConsentContract,
-  type CustomerConsent,
-} from './customer-consent.js';
 import {
   checkoutCustomerOtpScope,
   customerVerificationOperation,
@@ -53,7 +46,7 @@ import {
 } from './settlement-note.js';
 import type { DiscountApprovals } from './discounts/contracts.js';
 import type { CustomerRegistrations, RegistrationDetails } from './customers/contracts.js';
-import { discountMetadataSchema, discountTerms } from './discounts/policy.js';
+import { discountMetadataSchema } from './discounts/policy.js';
 import {
   assertGiftCardValues,
   giftCardOperations,
@@ -85,8 +78,13 @@ export interface CheckoutServiceOptions {
   migrationV2: boolean;
   now?: () => number;
   prepaidSettlement?: (state: CheckoutState) => Promise<PrepaidSettlement | null>;
-  verifyProjection?(state: CheckoutState, orderId: string): Promise<void>;
-  verifyRefundAllocations?(state: CheckoutState, orderId: string): Promise<void>;
+  /**
+   * Writer read that the created order exists for this sale (store, counter). Used only by the
+   * operator-driven confirmation reconciliation; it never re-sends pos/order or the confirmation.
+   */
+  verifyCreatedOrder?(state: CheckoutState, orderId: string): Promise<void>;
+  /** `has_products.salesperson_id` per line, right after pos/order (order/views.py:2779-2795). */
+  recordLineSalespersons?(state: CheckoutState, orderId: string): Promise<void>;
   registrations?: CustomerRegistrations;
   customerOtp?: CustomerVerificationClient;
   discounts?: DiscountApprovals;
@@ -94,6 +92,7 @@ export interface CheckoutServiceOptions {
   finalizeOrder?(
     state: CheckoutState,
     orderId: string,
+    outcome?: { confirmed: boolean },
   ): Promise<{ transactionId: string; invoice: string | null }>;
 }
 export type MutationReply =
@@ -200,10 +199,7 @@ export function checkoutService(
     };
   }
   async function token(state: CheckoutState) {
-    const identity = await repository.customer(
-      state.customerId || state.operatorCustomerId,
-      'writer',
-    );
+    const identity = await repository.customer(checkoutSubject(state), 'writer');
     if (!identity)
       throw new AppError(
         409,
@@ -251,46 +247,6 @@ export function checkoutService(
         );
     }
     return { customerId, contact, expiresAt };
-  }
-  async function requireCurrentSpendingAuthority(
-    user: Principal,
-    state: CheckoutState,
-    cart: Cart,
-  ) {
-    const meta = z.object({ items: z.array(z.record(z.string(), z.unknown())) }).parse(cart.meta);
-    let spending = false;
-    for (const item of meta.items) {
-      if (item.name === 'coupon' && item.coupon !== undefined && item.coupon !== null) {
-        const code = z.string().min(1).max(100).safeParse(item.coupon);
-        if (!code.success)
-          throw new AppError(
-            502,
-            'CHECKOUT_BENEFITS_INVALID',
-            'The authoritative benefit allocation could not be verified.',
-          );
-        if (await repository.isEmployeeCoupon(code.data)) spending = true;
-      }
-      for (const key of [
-        'used_tss_money',
-        'used_tss_points',
-        'used_reward_points',
-        'gift_voucher_value',
-      ]) {
-        const raw = item[key];
-        if (raw === undefined || raw === null) continue;
-        const value = z
-          .union([z.number().finite().nonnegative(), z.string().regex(/^\d+(?:\.\d+)?$/)])
-          .safeParse(raw);
-        if (!value.success)
-          throw new AppError(
-            502,
-            'CHECKOUT_BENEFITS_INVALID',
-            'The authoritative benefit allocation could not be verified.',
-          );
-        if (new Decimal(value.data).gt(0)) spending = true;
-      }
-    }
-    return spending ? requireVerified(user, state) : null;
   }
   function editable(state: CheckoutState) {
     if (['order-created', 'submitted', 'cleared'].includes(state.phase))
@@ -545,7 +501,6 @@ export function checkoutService(
       customerId: null,
       verifiedCustomerUntil: null,
       verifiedCustomerContact: null,
-      orderCustomerConsent: null,
       verificationChallenge: null,
       salespersonId: null,
       lineSalespersons: {},
@@ -633,19 +588,25 @@ export function checkoutService(
       await options.assertCheckIn(user.id, storeId, counterId);
       if (!(await repository.counter(storeId, counterId)))
         throw new AppError(409, 'COUNTER_UNAVAILABLE', 'Select an active counter at this store.');
-      const operator = await repository.operatorIdentity(user.id);
-      if (!operator)
+      // CreateOrderView.get (order/views.py:1518-1522): the walk-in token subject is the operator's
+      // storefront account (`user_type = 8`); without one the page shows this message.
+      const storefront = await repository.storefrontIdentity(user.id);
+      if (!storefront)
         throw new AppError(
           409,
           'OPERATOR_CUSTOMER_MAPPING_MISSING',
-          'Your operator account is not connected to checkout.',
+          "User doesn't have any account as store-front user in thesouledstore. Please contact administrator.",
         );
-      issueCustomerToken(operator, environment, now());
+      // `admin_user_id` is the first account with this pos_admin_id, any user_type (2861).
+      const operator = (await repository.operatorIdentity(user.id)) ?? storefront;
+      issueCustomerToken(storefront, environment, now());
       const timestamp = now();
       const state: CheckoutState = {
         id: crypto.randomUUID(),
         draftId,
-        orderNotifications: { sendSms: true, npsFeedback: false },
+        // Legacy always posts nps_feedback_switch=true from a checked, disabled box
+        // (create_order.html:76, :5646) and always queues the order SMS (order/views.py:2831).
+        orderNotifications: { sendSms: true, npsFeedback: true },
         draftVersion: draft?.version ?? null,
         draftImport: draft
           ? {
@@ -660,13 +621,13 @@ export function checkoutService(
           : null,
         operatorId: user.id,
         operatorCustomerId: operator.id,
+        storefrontCustomerId: storefront.id,
         storeId,
         counterId,
         tabId: newTabId(),
         customerId: null,
         verifiedCustomerUntil: null,
         verifiedCustomerContact: null,
-        orderCustomerConsent: null,
         verificationChallenge: null,
         version: 0,
         phase: 'open',
@@ -1194,7 +1155,23 @@ export function checkoutService(
         { code, pin },
         async (state) => {
           await requireVerified(user, state);
-          return cartMutation(state, 'giftvoucher', giftVoucherPayload(context(state), code, pin));
+          try {
+            return await cartMutation(
+              state,
+              'giftvoucher',
+              giftVoucherPayload(context(state), code, pin),
+            );
+          } catch (error) {
+            if (error instanceof CheckoutGatewayError && error.pinRequired)
+              throw new AppError(
+                422,
+                pin === '0' ? 'GIFT_VOUCHER_PIN_REQUIRED' : 'GIFT_VOUCHER_PIN_INVALID',
+                pin === '0'
+                  ? 'Please Enter the GIFT CARD PIN.'
+                  : 'The gift card PIN was not accepted. Check it and try again.',
+              );
+            throw error;
+          }
         },
       );
     },
@@ -1237,9 +1214,15 @@ export function checkoutService(
               'GIFT_CARD_DUPLICATE',
               'This card number is already applied to this sale.',
             );
-          const start = Temporal.PlainDate.from(metadata.startDate),
-            end = Temporal.PlainDate.from(metadata.endDate);
-          if (start.year < 1 || end.year > 9999 || Temporal.PlainDate.compare(end, start) < 0)
+          // AjaxSaveGcDateView (order/views.py:4385-4398) stores the picked dates verbatim and
+          // gc_data sends "" for an unpicked date.
+          const start = metadata.startDate ? Temporal.PlainDate.from(metadata.startDate) : null,
+            end = metadata.endDate ? Temporal.PlainDate.from(metadata.endDate) : null;
+          if (
+            (start && start.year < 1) ||
+            (end && end.year > 9999) ||
+            (start && end && Temporal.PlainDate.compare(end, start) < 0)
+          )
             throw new AppError(
               422,
               'INVALID_GIFT_CARD_DATES',
@@ -1256,10 +1239,19 @@ export function checkoutService(
               phase: 'open',
               giftCards: {
                 ...state.giftCards,
-                [giftId]: { number, startDate: start.toString(), endDate: end.toString() },
+                [giftId]: {
+                  number,
+                  startDate: start?.toString() ?? '',
+                  endDate: end?.toString() ?? '',
+                },
               },
             },
-            result: { giftId, number, startDate: start.toString(), endDate: end.toString() },
+            result: {
+              giftId,
+              number,
+              startDate: start?.toString() ?? '',
+              endDate: end?.toString() ?? '',
+            },
           };
         },
       );
@@ -1348,7 +1340,11 @@ export function checkoutService(
         reason?: string;
       },
     ) {
-      requireRole(user, options.discounts?.permittedRoles || [1, 2, 3]);
+      // Legacy has no role check on store-PG (AjaxStoreDiscountPGView, order/views.py:2237-2283) or
+      // removals; old-PG apply is limited to PG_DISC_ROLE_PERM ("You do not have permission.").
+      if (options.discounts)
+        options.discounts.assertApplyPermission(user, request.kind, request.apply);
+      else if (request.kind === 'pg' && request.apply) requireRole(user, [1, 2, 3, 4]);
       return mutate(user, storeId, id, input, 'discount.update', request, async (state) => {
         if (request.apply && new Decimal(request.amount).isZero())
           throw new AppError(422, 'DISCOUNT_NOT_APPLICABLE', 'A nonzero discount is required.');
@@ -1396,6 +1392,28 @@ export function checkoutService(
         { salespersonId, productId },
         async (state) => {
           editable(state);
+          // AjaxAddSalesPersonView / AjaxAddSalesPersonPerProductView (order/views.py:2969-3019).
+          if (salespersonId === '0') {
+            const current = productId ? state.lineSalespersons[productId] : state.salespersonId;
+            if (!current || current === '0')
+              throw new AppError(
+                422,
+                'SALESPERSON_NOT_SELECTED',
+                'Please Select Valid Salesperson.',
+              );
+            return {
+              state: productId
+                ? { ...state, lineSalespersons: { ...state.lineSalespersons, [productId]: '0' } }
+                : {
+                    ...state,
+                    salespersonId: null,
+                    lineSalespersons: Object.fromEntries(
+                      Object.keys(state.lineSalespersons).map((key) => [key, '0']),
+                    ),
+                  },
+              result: { salespersonId: null, productId: productId || null, removed: true },
+            };
+          }
           if (!/^[1-9]\d{0,9}$/.test(salespersonId) || BigInt(salespersonId) > 2147483647n)
             throw new AppError(
               422,
@@ -1422,13 +1440,20 @@ export function checkoutService(
               'Select an active salesperson assigned to this store.',
             );
           return {
-            state: {
-              ...state,
-              ...(productId
-                ? { lineSalespersons: { ...state.lineSalespersons, [productId]: salespersonId } }
-                : { salespersonId }),
-            },
-            result: { salespersonId, productId: productId || null },
+            state: productId
+              ? {
+                  ...state,
+                  lineSalespersons: { ...state.lineSalespersons, [productId]: salespersonId },
+                }
+              : {
+                  // The sale-level choice overwrites every per-line choice (legacy scan_iter set).
+                  ...state,
+                  salespersonId,
+                  lineSalespersons: Object.fromEntries(
+                    Object.keys(state.lineSalespersons).map((key) => [key, salespersonId]),
+                  ),
+                },
+            result: { salespersonId, productId: productId || null, removed: false },
           };
         },
       );
@@ -1759,7 +1784,6 @@ export function checkoutService(
     quote(user: Principal, storeId: string, id: string, input: MutationInput) {
       return mutate(user, storeId, id, input, 'quote.create', {}, async (state) => {
         editable(state);
-        if (state.cart && giftCardRows(state.cart).length) assertGiftCardContract(environment);
         const auth = await token(state),
           c = context(state);
         await gateway.api('validatecheckout', validatePayload(c), auth);
@@ -1768,7 +1792,6 @@ export function checkoutService(
           .record(z.string(), z.unknown())
           .parse(await gateway.api('processorder', processPayload(c, cart), auth));
         const quotedCart = cartSchema.parse(quote);
-        if (giftCardRows(quotedCart).length) assertGiftCardContract(environment);
         assertGiftCardValues(state, quotedCart);
         if (
           !state.customerId &&
@@ -1848,15 +1871,9 @@ export function checkoutService(
       );
     },
     async submit(user: Principal, storeId: string, id: string, input: MutationInput) {
-      assertCheckoutProjectionReady(environment);
-      assertRefundAllocationReady(environment);
-      if (!options.verifyRefundAllocations)
-        throw new AppError(
-          503,
-          'REFUND_ALLOCATION_VERIFIER_UNAVAILABLE',
-          'Order refund validation must be configured before creating this sale.',
-        );
       return mutate(user, storeId, id, input, 'order.create', {}, async (state) => {
+        // Legacy order flow: the page first runs ajax-validate-process-order (validatecheckout +
+        // processorder, our quote), then AjaxOrderView (order/views.py:2686-2840).
         if (state.phase !== 'quoted' || !state.quote)
           throw new AppError(
             409,
@@ -1869,99 +1886,48 @@ export function checkoutService(
             'ORDER_FINALIZER_UNAVAILABLE',
             'Order finalization is not configured.',
           );
-        if (state.cart && giftCardRows(state.cart).length) assertGiftCardContract(environment);
+        assertOrderReady(state);
         const auth = await token(state),
           c = context(state);
-        // Revalidate immediately before submission; browser totals are never accepted.
-        await gateway.api('validatecheckout', validatePayload(c), auth);
-        const freshCart = await readCart(state),
-          freshQuote = z
-            .record(z.string(), z.unknown())
-            .parse(await gateway.api('processorder', processPayload(c, freshCart), auth));
-        const freshState: CheckoutState = {
-          ...state,
-          cart: cartSchema.parse(freshQuote),
-          quote: freshQuote,
-        };
-        assertGiftCardValues(freshState, freshState.cart!);
-        if (giftCardRows(freshState.cart!).length) assertGiftCardContract(environment);
-        const consentAuthority = await requireCurrentSpendingAuthority(
-          user,
-          freshState,
-          freshState.cart!,
-        );
-        assertCustomerConsentReady(environment);
-        const before = discountTerms(state, environment.hs256 || environment.hs512 || ''),
-          after = discountTerms(freshState, environment.hs256 || environment.hs512 || '');
-        if (
-          before.binding !== after.binding ||
-          quotePayable(state.quote) !== quotePayable(freshQuote)
-        )
-          throw new AppError(
-            409,
-            'CHECKOUT_QUOTE_CHANGED',
-            'Prices or benefits changed. Refresh the final quote and approval before creating the order.',
-          );
-        if (after.amount !== '0.00' && !options.discounts)
-          throw new AppError(
-            503,
-            'DISCOUNT_APPROVAL_UNAVAILABLE',
-            'Manager discount approval is not configured.',
-          );
-        const approval = options.discounts
-          ? await options.discounts.authorize(user, freshState)
-          : null;
-        const acceptedQuote = state.quote;
+        // get_user_cart (2731) supplies the gift-card IDs for gc_data (2733-2747).
+        const cart = await readCart(state, auth);
+        const approval = options.discounts ? await options.discounts.authorize(user, state) : null;
         const payload = orderPayload(
           c,
           state.counterId,
           state.operatorCustomerId,
           state.salespersonId,
-          quotePayable(acceptedQuote),
-          giftCardWireData(state.giftCards),
+          quoteTotal(state.quote),
+          orderGiftCardData(state, cart),
         );
-        const dispatchOrder = async () => {
-          try {
-            return await gateway.api('pos/order', payload, auth);
-          } catch (error) {
-            // The pinned PosOrder commits its header/store before later card
-            // validation. Even 4xx can follow a partial order with no returned
-            // ID. Never permit a second dispatch over that unknown creation.
-            if (error instanceof CheckoutGatewayError && !error.uncertain)
-              throw new CheckoutGatewayError(error.code, error.message, true, error.status);
-            throw error;
-          }
-        };
         const created = z
           .object({
-            order: z.union([z.string(), z.number()]),
+            order: z.union([
+              z.string().regex(/^[1-9]\d{0,19}$/),
+              z.number().int().positive().safe(),
+            ]),
             method: z.unknown(),
             isValid: z.unknown(),
             name: z.unknown(),
           })
           .passthrough()
-          .parse(await dispatchOrder());
-        const orderId = String(created.order),
+          .refine((value) => ['method', 'isValid', 'name'].every((key) => key in value))
+          .safeParse(await gateway.api('pos/order', payload, auth));
+        if (!created.success)
+          // Legacy: a 200 without these keys raises KeyError (unhandled 500). The order may exist.
+          throw new CheckoutGatewayError(
+            'CHECKOUT_OUTCOME_UNCERTAIN',
+            'The checkout service did not return the created order. Review recent orders before retrying.',
+            true,
+          );
+        const orderId = String(created.data.order),
           confirmation = confirmationPayload(
-            created.order,
-            created.method,
-            created.isValid,
-            created.name,
+            created.data.order,
+            created.data.method,
+            created.data.isValid,
+            created.data.name,
             c.storeId,
           );
-        const orderCustomerConsent: CustomerConsent | null = consentAuthority
-          ? {
-              v: 1,
-              contract: customerConsentContract,
-              orderId,
-              customerId: consentAuthority.customerId,
-              operatorId: state.operatorId,
-              storeId: state.storeId,
-              counterId: state.counterId,
-              contact: consentAuthority.contact,
-              expiresAt: consentAuthority.expiresAt,
-            }
-          : null;
         const checkpoint: CheckoutState = {
           ...state,
           orderId,
@@ -1969,17 +1935,22 @@ export function checkoutService(
           phase: 'order-created',
           paymentConfirmation: confirmation,
           confirmationPhase: 'not-dispatched',
-          orderCustomerConsent,
         };
         // A process crash after this point retains the created order identity. It
         // never reissues pos/order or silently treats an unconfirmed call as paid.
         await repository.checkpoint(checkpoint, input.operationId);
-        await options.verifyRefundAllocations!(checkpoint, orderId);
         if (approval) await options.discounts!.record(checkpoint, orderId, approval);
-        if (orderCustomerConsent) await requireVerified(user, checkpoint);
+        await options.recordLineSalespersons?.(checkpoint, orderId);
         const dispatching: CheckoutState = { ...checkpoint, confirmationPhase: 'dispatching' };
         await repository.checkpoint(dispatching, input.operationId);
-        await gateway.confirm(confirmation, auth, orderCustomerConsent);
+        try {
+          await gateway.confirm(confirmation, auth);
+        } catch (error) {
+          // Legacy generates the invoice number before checking the confirmation (2799-2809).
+          if (error instanceof CheckoutGatewayError && !error.uncertain)
+            await options.finalizeOrder(dispatching, orderId, { confirmed: false });
+          throw error;
+        }
         const acknowledged: CheckoutState = { ...dispatching, confirmationPhase: 'acknowledged' };
         await repository.checkpoint(acknowledged, input.operationId);
         return completeOrder(acknowledged, orderId);
@@ -2007,11 +1978,9 @@ export function checkoutService(
       input: MutationInput,
     ): Promise<MutationReply> {
       requireStore(user, storeId);
-      assertCheckoutProjectionReady(environment);
-      assertRefundAllocationReady(environment);
       const initial = await get(user, storeId, id);
       await options.assertCheckIn(user.id, storeId, initial.counterId);
-      if (!options.verifyProjection || !options.finalizeOrder)
+      if (!options.verifyCreatedOrder || !options.finalizeOrder)
         throw new AppError(
           503,
           'CHECKOUT_CONFIRMATION_RECOVERY_UNAVAILABLE',
@@ -2040,7 +2009,7 @@ export function checkoutService(
           };
         if (!reservation.state.orderId)
           throw new AppError(409, 'CHECKOUT_ORDER_REQUIRED', 'No saved order can be reconciled.');
-        await options.verifyProjection(reservation.state, reservation.state.orderId);
+        await options.verifyCreatedOrder(reservation.state, reservation.state.orderId);
         const cached = reservation.receipt.result;
         const settlement = options.prepaidSettlement
           ? await options.prepaidSettlement(reservation.state)
@@ -2059,7 +2028,7 @@ export function checkoutService(
         const orderId = reservation.state.orderId!;
         // This is a writer proof read only. Never call pos/order or confirm here,
         // including after a worker dies and its fenced lease is reclaimed.
-        await options.verifyProjection(reservation.state, orderId);
+        await options.verifyCreatedOrder(reservation.state, orderId);
         const acknowledged: CheckoutState = {
           ...reservation.state,
           phase: 'order-created',
@@ -2119,8 +2088,59 @@ export function checkoutService(
     },
   };
 }
+/**
+ * The checks the legacy page runs before AjaxOrderView (`create_order.html:5055-5075`, repeated at
+ * `:6180-6200` and `:7311-7330`): a non-empty cart, a master salesperson and no per-line
+ * "Not Selected" salesperson. Each line's select defaults to its saved value, else the master.
+ */
+export function assertOrderReady(
+  state: Pick<CheckoutState, 'cart' | 'salespersonId' | 'lineSalespersons'>,
+) {
+  const cart = state.cart;
+  const products = [
+    ...(cart?.products.items ?? []),
+    ...(cart?.complementary_products?.items ?? []),
+  ];
+  if (!products.length && !cart?.giftvouchers?.items.length)
+    throw new AppError(422, 'CART_EMPTY', 'Please add some product into the cart.');
+  const master = state.salespersonId;
+  if (!master || products.some((item) => !(state.lineSalespersons[String(item.prod_id)] || master)))
+    throw new AppError(422, 'SALESPERSON_REQUIRED', 'Please Select The Salesperson.');
+}
+/** The quote's `calculations.total`, unrounded, as the browser posted `total_payable` (2696). */
+export function quoteTotal(quote: Payload): string {
+  const meta = z.object({ items: z.array(z.record(z.string(), z.unknown())) }).parse(quote.meta);
+  const value = z
+    .union([z.string(), z.number()])
+    .parse(meta.items.find((item) => item.name === 'calculations')?.total);
+  const amount = new Decimal(value);
+  if (!amount.isFinite() || amount.isNegative())
+    throw new AppError(
+      502,
+      'INVALID_CHECKOUT_QUOTE',
+      'Checkout returned an invalid payable amount.',
+    );
+  return amount.toString();
+}
+/**
+ * `gc_data` (order/views.py:2733-2747): one entry per gift card in the current cart, keyed by
+ * `gv_id`, with the saved card number and the saved start/end dates or "".
+ */
+export function orderGiftCardData(state: Pick<CheckoutState, 'giftCards'>, cart: Cart): Payload {
+  const data: Payload = {};
+  for (const item of cart.giftvouchers?.items ?? []) {
+    const giftId = String(item.gv_id),
+      card = state.giftCards[giftId];
+    // Legacy AjaxOrderView crashes here (None.decode); fast checkout answers this message (3231-3233).
+    if (!card)
+      throw new AppError(422, 'GIFT_CARD_NUMBER_REQUIRED', 'Please add/save Gift Card No.');
+    data[giftId] = giftCardWireData({ [giftId]: card })[giftId];
+  }
+  return data;
+}
 export function giftCardWireData(cards: CheckoutState['giftCards']): Payload {
   const format = (date: string) => {
+    if (date === '') return '';
     const parsed = Temporal.PlainDate.from(date);
     return `${String(parsed.month).padStart(2, '0')}/${String(parsed.day).padStart(2, '0')}/${parsed.year}`;
   };
@@ -2168,12 +2188,12 @@ export function publicCart<T>(value: T): T {
 export function publicState(state: CheckoutState, cashbackCreditMessage?: string) {
   const {
     operatorCustomerId: _operatorCustomerId,
+    storefrontCustomerId: _storefrontCustomerId,
     paymentConfirmation: _paymentConfirmation,
     confirmationRecovery: _confirmationRecovery,
     registrationRecovery: _registrationRecovery,
     settlementNote: _settlementNote,
     verifiedCustomerContact: _verifiedCustomerContact,
-    orderCustomerConsent: _orderCustomerConsent,
     verificationChallenge: _verificationChallenge,
     ...publicValue
   } = state;

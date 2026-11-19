@@ -1,20 +1,45 @@
 import { z } from 'zod';
-import { request, post } from '../../api/client';
+import { post } from '../../api/client';
 const id = z.string().regex(/^[1-9]\d{0,19}$/);
-const activeCopyBindingSchema = z
+export interface OrderCopyScope {
+  operatorId: string;
+  storeId: string;
+  checkoutId: string;
+  customerId: string;
+}
+/** Legacy `ajax_fetch_the_products` reply messages (order/views.py:2103-2104). */
+export const orderCopyResultSchema = z
   .object({
-    commandId: z.uuid(),
-    reviewId: z.uuid(),
-    originHash: z.string().regex(/^[a-f0-9]{64}$/),
-    status: z.enum(['pending', 'uncertain', 'review-required', 'acknowledged']),
-    resultHash: z
-      .string()
-      .regex(/^[a-f0-9]{64}$/)
-      .nullable(),
+    orderId: id,
+    partial: z.boolean(),
+    message: z.enum(['Cart Synced', 'Cart partially synced - please review the cart']),
   })
   .strict();
+export type OrderCopyResult = z.infer<typeof orderCopyResultSchema>;
+export const copyOrder = (scope: OrderCopyScope, orderId: string) =>
+  post(
+    `/api/v1/stores/${encodeURIComponent(scope.storeId)}/checkout-sessions/${encodeURIComponent(scope.checkoutId)}/order-copies`,
+    { orderId },
+    orderCopyResultSchema,
+    scope.operatorId,
+  );
+
+// TRANSITIONAL compatibility exports: `checkout/client.ts` still parses `orderCopy` with this
+// schema and CheckoutReview still types `onUnsentCancelled`. The server no longer produces a copy
+// binding or an unsent-cancellation proof; delete these once those callers drop them.
 export const copyBindingSchema = z.discriminatedUnion('status', [
-  activeCopyBindingSchema,
+  z
+    .object({
+      commandId: z.uuid(),
+      reviewId: z.uuid(),
+      originHash: z.string().regex(/^[a-f0-9]{64}$/),
+      status: z.enum(['pending', 'uncertain', 'review-required', 'acknowledged']),
+      resultHash: z
+        .string()
+        .regex(/^[a-f0-9]{64}$/)
+        .nullable(),
+    })
+    .strict(),
   z
     .object({
       status: z.literal('cancelled-unsent'),
@@ -24,173 +49,10 @@ export const copyBindingSchema = z.discriminatedUnion('status', [
     })
     .strict(),
 ]);
-export const copySourceSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('store'), storeId: id, orderId: id }).strict(),
-  z.object({ kind: z.literal('customer'), orderId: id }).strict(),
-]);
-export type CopySource = z.infer<typeof copySourceSchema>;
-const step = z
-  .object({
-    id: z.uuid(),
-    productId: id,
-    sourceLineIds: z.array(id).min(1).max(500),
-    beforeQuantity: z.number().int().min(0).max(999),
-    targetQuantity: z.number().int().min(1).max(999),
-    status: z.enum(['not-dispatched', 'dispatched', 'confirmed', 'unavailable']),
-    errorCode: z.string().nullable(),
-  })
-  .strict();
-const line = z
-  .object({
-    productId: id,
-    quantity: z.number().int().positive().max(999),
-    kind: z.enum(['product', 'gift-card', 'complementary']),
-    name: z.string().max(300),
-    price: z.string().nullable(),
-    identity: z.string().nullable(),
-  })
-  .strict();
-export const copyReviewSchema = z
-  .object({
-    id: z.uuid(),
-    hash: z.string().regex(/^[a-f0-9]{64}$/),
-    checkoutVersion: z.number().int().nonnegative(),
-    expiresAt: z.number().int().positive(),
-    source: copySourceSchema,
-    steps: z.array(step).min(1).max(500),
-    before: z.array(line).max(1100),
-  })
-  .passthrough();
-export type CopyReview = z.infer<typeof copyReviewSchema>;
-const activeCopyCommandSchema = z
-  .object({
-    id: z.uuid(),
-    reviewId: z.uuid(),
-    source: copySourceSchema,
-    status: z.enum(['pending', 'uncertain', 'review-required', 'acknowledged']),
-    steps: z.array(step).min(1).max(500),
-    result: z.array(line).max(1100).nullable(),
-    resultHash: z
-      .string()
-      .regex(/^[a-f0-9]{64}$/)
-      .nullable(),
-    partial: z.boolean(),
-    errorCode: z.string().nullable(),
-    originHash: z.string().regex(/^[a-f0-9]{64}$/),
-    checkoutVersion: z.number().int().nonnegative(),
-    acknowledgementId: z.uuid().nullable(),
-    canContinue: z.boolean(),
-  })
-  .strict();
-export type CopyCommand = z.infer<typeof copyCommandSchema>;
-export const copyCancellationSchema = z
-  .object({
-    status: z.literal('cancelled-unsent'),
-    id: z.uuid(),
-    reviewId: z.uuid(),
-    cancellationId: z.uuid(),
-    checkoutId: z.uuid(),
-    operatorId: id,
-    storeId: id,
-    counterId: id,
-    originalRequestHash: z.string().regex(/^[a-f0-9]{64}$/),
-    cancelledAt: z.number().int().positive(),
-    checkoutVersion: z.number().int().nonnegative(),
-    requiresOnlineClear: z.literal(true),
-    markerRequired: z.literal(true),
-    source: z.null(),
-    steps: z.array(z.never()).length(0),
-    result: z.null(),
-    resultHash: z.null(),
-    originHash: z.null(),
-    partial: z.literal(false),
-    errorCode: z.null(),
-    acknowledgementId: z.null(),
-    canContinue: z.literal(false),
-  })
-  .strict();
-export type CopyCancellation = z.infer<typeof copyCancellationSchema>;
-export const copyCommandSchema = z.discriminatedUnion('status', [
-  activeCopyCommandSchema,
-  copyCancellationSchema,
-]);
-export interface OrderCopyScope {
-  operatorId: string;
-  storeId: string;
+export interface CopyCancellation {
+  status: 'cancelled-unsent';
+  id: string;
+  reviewId: string;
+  cancellationId: string;
   checkoutId: string;
-  customerId: string;
 }
-const base = (scope: OrderCopyScope) =>
-  `/api/v1/stores/${encodeURIComponent(scope.storeId)}/checkout-sessions/${scope.checkoutId}`;
-export const prepareOrderCopy = (
-  scope: OrderCopyScope,
-  body: { reviewId: string; expectedVersion: number; source: CopySource },
-) => post(base(scope) + '/order-copy-reviews', body, copyReviewSchema, scope.operatorId);
-export const readOrderCopyReview = (scope: OrderCopyScope, id: string) =>
-  request(
-    base(scope) + '/order-copy-reviews/' + id,
-    { operatorId: scope.operatorId },
-    copyReviewSchema,
-  );
-export const readOrderCopy = (scope: OrderCopyScope, id: string) =>
-  request(base(scope) + '/order-copies/' + id, { operatorId: scope.operatorId }, copyCommandSchema);
-export const currentOrderCopy = (scope: OrderCopyScope) =>
-  request(
-    base(scope) + '/order-copies/current',
-    { operatorId: scope.operatorId },
-    copyCommandSchema.nullable(),
-  );
-export const startOrderCopy = (
-  scope: OrderCopyScope,
-  body: { operationId: string; reviewId: string; manifestHash: string; expectedVersion: number },
-) => post(base(scope) + '/order-copies', body, copyCommandSchema, scope.operatorId);
-export const acknowledgeOrderCopy = (
-  scope: OrderCopyScope,
-  id: string,
-  body: { operationId: string; expectedVersion: number; resultHash: string },
-) =>
-  post(
-    base(scope) + '/order-copies/' + id + '/acknowledgements',
-    body,
-    copyCommandSchema,
-    scope.operatorId,
-  );
-export const continueOrderCopy = (
-  scope: OrderCopyScope,
-  id: string,
-  body: { operationId: string; expectedVersion: number },
-) =>
-  post(
-    base(scope) + '/order-copies/' + id + '/continuations',
-    body,
-    copyCommandSchema,
-    scope.operatorId,
-  );
-export const cancelUnsentOrderCopy = (
-  scope: OrderCopyScope,
-  body: {
-    operationId: string;
-    original: {
-      operationId: string;
-      reviewId: string;
-      manifestHash: string;
-      expectedVersion: number;
-    };
-  },
-) =>
-  post(
-    base(scope) + '/order-copies/' + body.original.operationId + '/cancellations',
-    body,
-    copyCancellationSchema,
-    scope.operatorId,
-  );
-export const readOrderCopyCancellation = (
-  scope: OrderCopyScope,
-  copyId: string,
-  cancellationId: string,
-) =>
-  request(
-    base(scope) + '/order-copies/' + copyId + '/cancellations/' + cancellationId,
-    { operatorId: scope.operatorId },
-    copyCancellationSchema,
-  );

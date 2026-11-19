@@ -20,6 +20,7 @@ export const lineSchema = z.object({
   productId: id,
   name: z.string().nullable(),
   parentId: z.string(),
+  productType: z.number().int().nullable().optional(),
   quantity: id,
   status: z.string().nullable(),
   returnStatus: z.number().int(),
@@ -58,6 +59,7 @@ export const returnSchema = z.object({
     .nullable()
     .optional(),
   errorCode: z.string().nullable(),
+  message: z.string().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -177,13 +179,6 @@ export const retryExchange = (
     returnSchema,
     operatorId,
   );
-export const reconcileExchange = (storeId: string, operationId: string, operatorId: string) =>
-  post(
-    `${returnBase(storeId)}/exchanges/${encodeURIComponent(operationId)}/reconciliations`,
-    {},
-    returnSchema,
-    operatorId,
-  );
 const wireId = z.union([id, z.number().int().positive().safe()]).transform(String);
 export const exchangeReasonsSchema = z.object({
   data: z.array(
@@ -291,7 +286,7 @@ function boundReturnWindow(scope: ReturnWindowScope, value: ReturnWindow): Retur
 export const exchangeRecoverySchema = z
   .object({
     revision: z.string().regex(/^[a-f0-9]{64}$/),
-    state: z.enum(['none', 'operation', 'legacy', 'wrong-store', 'restoration-unconfirmed']),
+    state: z.enum(['none', 'operation', 'legacy', 'wrong-store']),
     operation: returnSchema.nullable(),
     newSize: z.string().nullable(),
   })
@@ -312,6 +307,37 @@ export function readExchangeRecovery(
   );
 }
 
+const eligibilityEntrySchema = z
+  .object({ status: z.boolean(), reason: z.string().max(4096), upto: z.string().nullable() })
+  .strict();
+const cellTextSchema = z
+  .object({
+    text: z.string().max(4096),
+    style: z.enum(['plain', 'danger', 'strong-danger', 'badge']),
+  })
+  .strict();
+/** The facts the legacy template branch selection needs (exchange-cell.ts). */
+export const cellFactsSchema = z
+  .object({
+    variant: z.enum(['online', 'store']),
+    shopifyOrder: z.boolean(),
+    eligibilityLoaded: z.boolean(),
+    productType: z.number().int().nullable(),
+    lineStatus: z.string().nullable(),
+    return: eligibilityEntrySchema.nullable(),
+    exchange: eligibilityEntrySchema.nullable(),
+    superAdminReturnOverride: z.boolean(),
+    failedExchange: z
+      .object({ storeId: id, storeName: z.string(), newSize: z.string() })
+      .strict()
+      .nullable(),
+    checkinStoreId: z.string().nullable(),
+    exchangeFeatureEnabled: z.boolean(),
+    operatorRole: z.number().int(),
+    returnStatus: z.number().int(),
+    merged: z.boolean(),
+  })
+  .strict();
 export const returnEligibilitySchema = z
   .object({
     orderId: id,
@@ -321,8 +347,28 @@ export const returnEligibilitySchema = z
     until: z.string().nullable(),
     reason: z.string().max(4096),
     overrideAvailable: z.boolean(),
+    exchangeFeatureEnabled: z.boolean(),
+    facts: cellFactsSchema,
+    cell: z
+      .object({
+        branch: z.string(),
+        notice: cellTextSchema.nullable(),
+        parts: z.array(
+          z
+            .object({
+              actions: z.array(z.string()),
+              texts: z.array(cellTextSchema),
+              warningIcon: z.boolean(),
+            })
+            .strict(),
+        ),
+        returnBranch: z.string().nullable(),
+        exchangeBranch: z.string().nullable(),
+      })
+      .strict(),
   })
   .strict();
+export type ReturnEligibility = z.infer<typeof returnEligibilitySchema>;
 export function readReturnEligibility(
   storeId: string,
   orderId: string,

@@ -72,19 +72,14 @@ describe('pinned pending cash-on-counter cancellation boundaries', () => {
     expect(result.cases.map((row) => row.blocked)).toEqual([true, true, false, false]);
     expect(result.cases[0]?.message).toBe("Screening tickets can't be cancelled.");
   });
-  it('requires explicit source contract and membership configuration without assuming an empty list', () => {
-    expect(pendingCancellationOptions({})).toEqual({
-      contract: undefined,
-      membershipProductIds: undefined,
-    });
+  it('reads only the legacy API-v2 base URL settings', () => {
+    expect(pendingCancellationOptions({})).toEqual({});
     expect(
       pendingCancellationOptions({
-        POS_PENDING_CANCELLATION_CONTRACT: 'pos-pending-order-cancellation-v1',
-        POS_PENDING_CANCELLATION_MEMBERSHIP_PRODUCT_IDS: '["9007199254740993"]',
-      }).membershipProductIds,
-    ).toEqual(['9007199254740993']);
-    expect(() =>
-      pendingCancellationOptions({ POS_PENDING_CANCELLATION_MEMBERSHIP_PRODUCT_IDS: '[1]' }),
-    ).toThrow();
+        MAIN_API_V2_URL: 'https://main.example.test/',
+        API_V2_URL: '',
+      }),
+    ).toEqual({ mainApiV2Url: 'https://main.example.test/' });
+    expect(() => pendingCancellationOptions({ API_V2_URL: 'not a url' })).toThrow();
   });
 });

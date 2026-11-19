@@ -26,7 +26,12 @@ import {
   type CheckoutServiceOptions,
   type MutationReply,
 } from './service.js';
-import { orderFinalizer, prepaidSettlementReader } from './finalizer.js';
+import {
+  createdOrderVerifier,
+  orderFinalizer,
+  orderLineSalespersons,
+  prepaidSettlementReader,
+} from './finalizer.js';
 import { returnReadService } from './returns.js';
 import { registerPayments } from './payments/routes.js';
 import type { PaymentGateway } from './payments/contracts.js';
@@ -35,28 +40,30 @@ import type { ReturnGateway } from './return-workflow/contracts.js';
 import type { ReturnEnvironment } from './return-workflow/gateway.js';
 import { registerInvoices } from './invoices.js';
 import { discountApprovals } from './discounts/repository.js';
-import { discountPolicy, discountRemark, storeDiscountReasons } from './discounts/policy.js';
+import {
+  discountPolicy,
+  discountRemark,
+  pgDiscountRemark,
+  storeDiscountReasons,
+} from './discounts/policy.js';
 import { assertDiscountDeliveryReady, discountDeliveryEnvironment } from './discounts/delivery.js';
 import type { DiscountApprovals } from './discounts/contracts.js';
-import { assertCheckoutProjection } from './projection.js';
-import { assertOrderRefundAllocations } from './refund-allocation.js';
 import { phoneOtpDelivery } from '../../auth/delivery.js';
 import { customerRegistrationService, registrationEnvironment } from './customers/service.js';
 import { registrationDetailsSchema, type CustomerRegistrations } from './customers/contracts.js';
 import { registerWalletAdjustments } from './benefit-adjustments/routes.js';
 import { settlementMessageSchema } from './settlement-note.js';
-import {
-  customerOtpService,
-  readCustomerOtpOptions,
-  createCustomerOtpDelivery,
-} from '../customer-otp/index.js';
+import { customerOtpService, readCustomerOtpOptions } from '../customer-otp/index.js';
 import type { CustomerVerificationClient } from './customer-verification.js';
 import { registerPendingOrderCancellations } from './cancellations/routes.js';
 import { pendingCancellationOptions } from './cancellations/options.js';
 import type { PendingCancellationOptions } from './cancellations/options.js';
 import { registerOrderCopy, type OrderCopyOptions } from './order-copy/routes.js';
-import type { PaymentCorrectionPort } from './payment-reversals/evidence.js';
 import { copyCancellationClearVerifier } from './order-copy/cancellation-evidence.js';
+import { configuredStateStore, type PosStateStore } from './state-store.js';
+import { checkoutFlagsReader } from './legacy-flags.js';
+import { checkoutSessionStore, type CheckoutSessionStore } from './session-store.js';
+import type { JobProducer } from '../../jobs/contract.js';
 
 const storeScope = z.object({ storeId: identifier });
 const sessionScope = storeScope.extend({ checkoutId: z.uuid() });
@@ -66,7 +73,6 @@ const trace = (resource: string, action: string) => ({
   config: { trace: { module: 'checkout', resource, action } },
 });
 export interface CheckoutRegistrationOptions {
-  paymentCorrections?: PaymentCorrectionPort;
   orderCopy?: OrderCopyOptions;
   repository?: CheckoutRepository;
   gateway?: CheckoutGateway;
@@ -74,18 +80,20 @@ export interface CheckoutRegistrationOptions {
   assertCheckIn?: CheckoutServiceOptions['assertCheckIn'];
   finalizeOrder?: CheckoutServiceOptions['finalizeOrder'];
   prepaidSettlement?: CheckoutServiceOptions['prepaidSettlement'];
-  verifyProjection?: CheckoutServiceOptions['verifyProjection'];
-  verifyRefundAllocations?: CheckoutServiceOptions['verifyRefundAllocations'];
+  verifyCreatedOrder?: CheckoutServiceOptions['verifyCreatedOrder'];
   paymentGateway?: PaymentGateway;
   returnGateway?: ReturnGateway;
   returnEnvironment?: ReturnEnvironment;
-  rejectedInboundRepairDispatcherEnabled?: boolean;
   inventoryProcedureVerified?: boolean;
   stockProcedure?: StockProcedure;
   discounts?: DiscountApprovals;
   registrations?: CustomerRegistrations;
   customerOtp?: CustomerVerificationClient;
   pendingCancellations?: PendingCancellationOptions;
+  stateStore?: PosStateStore;
+  sessions?: CheckoutSessionStore;
+  jobs?: JobProducer;
+  checkoutFlags?: ReturnType<typeof checkoutFlagsReader>;
 }
 export function registerCheckout(
   app: FastifyInstance,
@@ -94,13 +102,14 @@ export function registerCheckout(
   overrides: CheckoutRegistrationOptions = {},
 ) {
   const environment = overrides.environment || checkoutEnvironment();
-  const repository = overrides.repository || checkoutRepository(db),
+  const stateStore = overrides.stateStore || configuredStateStore(config),
+    sessions = overrides.sessions || checkoutSessionStore(stateStore),
+    shared = { stateStore, sessions, jobs: overrides.jobs };
+  const repository = overrides.repository || checkoutRepository(db, sessions),
     gateway = overrides.gateway || checkoutGateway(config, environment);
   const checkIns = checkInService(db, config);
   const otpOptions = readCustomerOtpOptions(),
-    customerOtp =
-      overrides.customerOtp ||
-      customerOtpService(config, db, otpOptions, createCustomerOtpDelivery(config, otpOptions));
+    customerOtp = overrides.customerOtp || customerOtpService(config, db, otpOptions, shared);
   const assertCheckIn =
     overrides.assertCheckIn ||
     ((...args: Parameters<CheckoutServiceOptions['assertCheckIn']>) =>
@@ -121,36 +130,17 @@ export function registerCheckout(
         registrationEnvironment(),
         phoneOtpDelivery(),
         config.BUSINESS_TIMEZONE,
+        shared,
       ),
     finalizeOrder:
-      overrides.finalizeOrder || orderFinalizer(db, config, 'ordinary'),
-    prepaidSettlement:
-      overrides.prepaidSettlement || prepaidSettlementReader(db),
-    verifyProjection:
-      overrides.verifyProjection ||
-      ((state, orderId) =>
-        db.get('writer').transaction((tx) =>
-          assertCheckoutProjection(tx, {
-            orderId,
-            storeId: state.storeId,
-            counterId: state.counterId,
-            customerId: state.customerId || state.operatorCustomerId,
-          }),
-        )),
-    verifyRefundAllocations:
-      overrides.verifyRefundAllocations ||
-      ((state, orderId) =>
-        db.get('writer').transaction((tx) =>
-          assertOrderRefundAllocations(tx, {
-            orderId,
-            storeId: state.storeId,
-            counterId: state.counterId,
-            customerId: state.customerId || state.operatorCustomerId,
-          }),
-        )),
+      overrides.finalizeOrder || orderFinalizer(db, config, 'ordinary', overrides.jobs),
+    recordLineSalespersons: orderLineSalespersons(db),
+    prepaidSettlement: overrides.prepaidSettlement || prepaidSettlementReader(db),
+    verifyCreatedOrder: overrides.verifyCreatedOrder || createdOrderVerifier(db),
     discounts:
       overrides.discounts ||
       discountApprovals(db, config, {
+        ...shared,
         signingSecret: environment.hs256 || environment.hs512 || '',
         approvalSecret: discountDeliveryEnvironment().approvalSecret,
         policy: discountPolicy(),
@@ -158,6 +148,7 @@ export function registerCheckout(
       }),
   });
   const returns = returnReadService(db, gateway, assertCheckIn);
+  const flags = overrides.checkoutFlags || checkoutFlagsReader(db, config);
   function response(result: MutationReply) {
     return { ...result, state: publicState(result.state, config.CASHBACK_CREDIT_MESSAGE) };
   }
@@ -177,12 +168,15 @@ export function registerCheckout(
       version: body.draftVersion,
       lineItems: body.lineItems,
     });
-    return reply.code(201).send(created);
+    return reply.code(201).send({ ...created, flags: await flags(user, storeId) });
   });
   app.get(session, trace('checkout-session', 'read'), async (request) => {
     const user = authenticated(request),
       p = sessionScope.parse(request.params);
-    return service.read(user, p.storeId, p.checkoutId);
+    return {
+      ...(await service.read(user, p.storeId, p.checkoutId)),
+      flags: await flags(user, p.storeId),
+    };
   });
   app.post(
     session + '/confirmation-reconciliations',
@@ -394,7 +388,15 @@ export function registerCheckout(
     const user = authenticated(request),
       p = sessionScope.parse(request.params),
       body = mutationSchema
-        .extend({ code: z.string().min(1).max(100), pin: z.string().regex(/^[\d_]{4,20}$/) })
+        // Legacy applies with gc_pin 0 and asks for the PIN only when API-v2 answers
+        // is_pin_required (create_order.html:3433-3557).
+        .extend({
+          code: z.string().min(1).max(100),
+          pin: z
+            .string()
+            .regex(/^[\d_]{1,20}$/)
+            .default('0'),
+        })
         .strict()
         .parse(request.body);
     return response(
@@ -420,8 +422,9 @@ export function registerCheckout(
         body = mutationSchema
           .extend({
             number: z.string().regex(/^[\d_]{6,40}$/),
-            startDate: z.iso.date(),
-            endDate: z.iso.date(),
+            // Legacy dates are optional: "" means "Today's" / "No Expiry" (create_order.html:205-206).
+            startDate: z.union([z.iso.date(), z.literal('')]),
+            endDate: z.union([z.iso.date(), z.literal('')]),
           })
           .strict()
           .parse(request.body);
@@ -491,10 +494,19 @@ export function registerCheckout(
           kind: z.enum(['pg', 'store']),
           amount: amountSchema,
           apply: z.boolean(),
-          remark: discountRemark.optional(),
+          // Old-PG remark has no legacy maximum; store-PG remark keeps the legacy 35 characters.
+          remark: z.string().max(255).optional(),
           reason: z.enum(storeDiscountReasons).optional(),
         })
         .strict()
+        .refine(
+          (value) =>
+            !value.apply ||
+            (value.kind === 'pg'
+              ? pgDiscountRemark.safeParse(value.remark).success
+              : discountRemark.safeParse(value.remark).success),
+          { message: 'Enter a meaningful discount remark.' },
+        )
         .refine(
           (value) => !value.apply || Boolean(value.remark && (value.kind === 'pg' || value.reason)),
           { message: 'A discount remark and store discount reason are required.' },
@@ -536,7 +548,11 @@ export function registerCheckout(
     const user = authenticated(request),
       p = sessionScope.parse(request.params),
       body = mutationSchema
-        .extend({ salespersonId: identifier, productId: identifier.optional() })
+        // 0 is the legacy "Not Selected" option (removal).
+        .extend({
+          salespersonId: z.union([identifier, z.literal('0')]),
+          productId: identifier.optional(),
+        })
         .strict()
         .parse(request.body);
     return response(
@@ -598,7 +614,8 @@ export function registerCheckout(
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
         body = mutationSchema
-          .extend({ otp: z.string().regex(/^\d{6}$/) })
+          // Legacy customer OTP is 4 digits (order/views.py:2536-2597, create_order.html:4758).
+          .extend({ otp: z.string().regex(/^\d{4}$/) })
           .strict()
           .parse(request.body);
       return response(await service.verify(user, p.storeId, p.checkoutId, body, body.otp));
@@ -699,22 +716,19 @@ export function registerCheckout(
     },
   );
   registerPayments(app, config, db, {
-    corrections: overrides.paymentCorrections,
-    hashSecret: environment.hs256 || environment.hs512 || '',
-    projection: environment,
+    ...shared,
     gateway: overrides.paymentGateway,
     assertCheckIn: overrides.assertCheckIn
       ? (userId, storeId, counterId) => overrides.assertCheckIn!(userId, storeId, counterId)
       : undefined,
   });
   registerPendingOrderCancellations(app, config, db, {
+    ...shared,
     ...(overrides.pendingCancellations || pendingCancellationOptions()),
-    hashSecret: environment.hs256 || environment.hs512 || '',
-    projection: environment,
     stockProcedure: overrides.stockProcedure,
   });
   registerReturns(app, config, db, {
-    rejectedInboundRepairDispatcherEnabled: overrides.rejectedInboundRepairDispatcherEnabled,
+    ...shared,
     customerOtp,
     customers: repository,
     signing: environment,
@@ -729,9 +743,9 @@ export function registerCheckout(
   });
   registerInvoices(app, config, db);
   registerOrderCopy(app, config, db, service.orderCopyCart, {
+    ...shared,
     ...overrides.orderCopy,
-    customerOtp,
   });
-  registerWalletAdjustments(app, config, db);
+  registerWalletAdjustments(app, config, db, { ...shared });
   return service;
 }

@@ -6,7 +6,6 @@ import {
   customerContactBindingSchema,
   type CustomerContactBinding,
 } from './customer-contact-authority.js';
-import { customerConsentSchema, type CustomerConsent } from './customer-consent.js';
 import type { CustomerVerificationEvidence } from './customer-verification.js';
 import { copyBindingSchema, type CopyBinding } from './order-copy/contracts.js';
 
@@ -75,14 +74,19 @@ export interface CheckoutState {
   orderNotifications?: z.infer<typeof orderNotificationsSchema> | null;
   settlementNote?: SettlementNote | null;
   operatorId: string;
+  /** `MUser.filter(pos_admin_id=operator).first()`: legacy `admin_user_id` (order/views.py:2861). */
   operatorCustomerId: string;
+  /**
+   * `MUser.filter(user_type=8, pos_admin_id=operator).first()`: the walk-in (storefront) token
+   * subject (order/views.py:1518-1522). Null on sales created before this field existed.
+   */
+  storefrontCustomerId?: string | null;
   storeId: string;
   counterId: string;
   tabId: number;
   customerId: string | null;
   verifiedCustomerUntil: number | null;
   verifiedCustomerContact?: CustomerContactBinding | null;
-  orderCustomerConsent?: CustomerConsent | null;
   verificationChallenge: {
     id: string;
     expiresAt: number;
@@ -126,13 +130,13 @@ export const checkoutStateSchema: z.ZodType<CheckoutState> = z.object({
   settlementNote: settlementNoteSchema.nullable().default(null),
   operatorId: identifier,
   operatorCustomerId: identifier,
+  storefrontCustomerId: identifier.nullable().default(null),
   storeId: identifier,
   counterId: identifier,
   tabId: z.number().int().positive().safe(),
   customerId: identifier.nullable(),
   verifiedCustomerUntil: z.number().nullable(),
   verifiedCustomerContact: customerContactBindingSchema.nullable().default(null),
-  orderCustomerConsent: customerConsentSchema.nullable().default(null),
   verificationChallenge: z
     .object({
       id: z.uuid(),
@@ -160,7 +164,8 @@ export const checkoutStateSchema: z.ZodType<CheckoutState> = z.object({
     .nullable()
     .default(null),
   salespersonId: identifier.nullable(),
-  lineSalespersons: z.record(identifier, identifier),
+  // '0' is legacy "Not Selected" on a line (AjaxAddSalesPersonPerProductView sets the key to 0).
+  lineSalespersons: z.record(identifier, z.union([identifier, z.literal('0')])),
   giftCards: z.record(
     z.string(),
     z.object({ number: z.string(), startDate: z.string(), endDate: z.string() }),
@@ -183,6 +188,12 @@ export const checkoutStateSchema: z.ZodType<CheckoutState> = z.object({
   createdAt: z.number(),
   updatedAt: z.number(),
 });
+/** The API-v2 JWT subject: the connected customer, else the operator's storefront account. */
+export function checkoutSubject(
+  state: Pick<CheckoutState, 'customerId' | 'storefrontCustomerId' | 'operatorCustomerId'>,
+): string {
+  return state.customerId || state.storefrontCustomerId || state.operatorCustomerId;
+}
 export interface CustomerIdentity {
   id: string;
   email: string;
@@ -228,6 +239,8 @@ export interface CheckoutRepository {
   customerContact(customerId: string): Promise<CustomerContactBinding>;
   counter(storeId: string, counterId: string): Promise<boolean>;
   operatorIdentity(operatorId: string): Promise<CustomerIdentity | null>;
+  /** The operator's storefront account (`user_type = 8`), the legacy walk-in token subject. */
+  storefrontIdentity(operatorId: string): Promise<CustomerIdentity | null>;
   customer(
     customerId: string,
     consistency?: 'primary' | 'writer',

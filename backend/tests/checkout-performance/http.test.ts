@@ -97,6 +97,7 @@ describe('private traced checkout timing HTTP inputs', () => {
             })
           ).statusCode,
         ).toBe(400);
+      // The rewrite-only snapshot read was removed; legacy has no timing read endpoint.
       expect(
         (
           await app.inject({
@@ -104,7 +105,7 @@ describe('private traced checkout timing HTTP inputs', () => {
             headers: { 'x-operator-id': '7' },
           })
         ).statusCode,
-      ).toBe(400);
+      ).toBe(404);
       expect(
         (
           await app.inject({

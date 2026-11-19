@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 const amount = z.string().regex(/^\d+(?:\.\d{1,2})?$/);
 const identifier = z.string().regex(/^[1-9]\d{0,18}$/);
+/** The exact counter payment request, saved before dispatch so a lost response can be recovered. */
 export const recordedPaymentInputSchema = z
   .object({
     operationId: z.uuid(),
@@ -12,9 +13,11 @@ export const recordedPaymentInputSchema = z
       'pincode',
       'pine-card',
       'pine-upi',
+      'pine',
       'paytm-card',
       'paytm-qr',
     ]),
+    paymentMode: z.number().int().min(1).max(2147483647).optional(),
     cashAmount: amount,
     onlineAmount: amount,
     cashReceived: amount,
@@ -23,23 +26,14 @@ export const recordedPaymentInputSchema = z
       .string()
       .regex(/^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$/)
       .optional(),
+    /** The legacy cash/card breakdown note stored in order_stores.message. */
+    message: z.string().max(255).optional(),
   })
   .strict();
-export const recordedLegacyInputSchema = z
-  .object({ operationId: z.uuid(), provider: z.enum(['pine', 'paytm']), legacyId: identifier })
+export type RecordedPaymentInput = z.infer<typeof recordedPaymentInputSchema>;
+export const recordedPaymentIntentSchema = z
+  .object({ version: z.literal(2), kind: z.literal('payment'), input: recordedPaymentInputSchema })
   .strict();
-export const recordedPaymentIntentSchema = z.discriminatedUnion('kind', [
-  z
-    .object({
-      version: z.literal(1),
-      kind: z.literal('payment'),
-      input: recordedPaymentInputSchema,
-    })
-    .strict(),
-  z
-    .object({ version: z.literal(1), kind: z.literal('legacy'), input: recordedLegacyInputSchema })
-    .strict(),
-]);
 export type RecordedPaymentIntent = z.infer<typeof recordedPaymentIntentSchema>;
 export interface PaymentRecovery {
   attemptId: string;
@@ -63,6 +57,10 @@ export function savePaymentRecovery(key: string, intent: RecordedPaymentIntent):
   localStorage.setItem(key, JSON.stringify(validated));
   return { attemptId: validated.input.operationId, intent: validated };
 }
-export function savePaymentReference(key: string, id: string) {
-  localStorage.setItem(key, z.uuid().parse(id));
+export function clearPaymentRecovery(key: string) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    /* Nothing to clear when storage is unavailable. */
+  }
 }

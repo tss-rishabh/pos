@@ -74,17 +74,14 @@ import {
   readSlackOAuthOptions,
 } from './modules/administration/slack-provider.js';
 import { registerCheckout } from './modules/checkout/index.js';
+import { configuredStateStore, memoryStateStore } from './modules/checkout/state-store.js';
+import { checkoutSessionStore } from './modules/checkout/session-store.js';
 import { registerOfflineSync } from './modules/offline-sync/index.js';
 import {
   readWholeOrderStatusOptions,
   registerWholeOrderStatus,
 } from './modules/legacy-order-status/index.js';
 import { checkoutEnvironment } from './modules/checkout/gateway.js';
-import {
-  paymentCorrectionEvidence,
-  paymentReversalOptions,
-  registerPaymentReversals,
-} from './modules/checkout/payment-reversals/index.js';
 import { registerFulfillment } from './modules/fulfillment/index.js';
 import { registerShippingLabels } from './modules/fulfillment/shipping-label/index.js';
 import { registerLegacyFulfillment } from './modules/legacy-fulfillment/index.js';
@@ -99,11 +96,7 @@ import {
 } from './modules/global-vouchers/index.js';
 import { registerCustomerContacts } from './modules/customer-contacts/index.js';
 import { registerCustomerWebsiteHandoff } from './modules/customer-website-handoff/index.js';
-import {
-  customerOtpService,
-  readCustomerOtpOptions,
-  createCustomerOtpDelivery,
-} from './modules/customer-otp/index.js';
+import { customerOtpService, readCustomerOtpOptions } from './modules/customer-otp/index.js';
 import { registerFinance } from './modules/finance/index.js';
 import { paymentCorrectionFinanceOptions } from './modules/finance/payment-corrections.js';
 import { registerOperationalReports } from './modules/operational-reports/index.js';
@@ -194,6 +187,15 @@ export async function buildApp(
         : unavailableRedisPort());
   const db = createDatabases(config),
     identity = identityService(config, db, authEvents);
+  // W4: one Redis-backed store for checkout, returns and payments state. The job producer is
+  // wired by W8 (jobs workstream); until then producers receive `undefined`.
+  const posState = config.DEMO_MODE ? undefined : configuredStateStore(config),
+    checkoutShared = posState
+      ? { stateStore: posState, sessions: checkoutSessionStore(posState), jobs: undefined }
+      : {};
+  app.addHook('onClose', async () => {
+    await posState?.close();
+  });
   const paymentCorrections = paymentCorrectionFinanceOptions(),
     checkoutRuntime = checkoutEnvironment(),
     reports = reportService(config, db, { paymentCorrections }),
@@ -203,7 +205,7 @@ export async function buildApp(
     : {
         catalog: catalogService(db),
         orders: ordersService(db, config),
-        drafts: draftService(db),
+        drafts: draftService(db, posState ?? memoryStateStore()),
       };
   const orderRedis = config.DEMO_MODE ? memoryOrderRedis() : nodeOrderRedis(config);
   app.addHook('onClose', async () => {
@@ -407,12 +409,7 @@ export async function buildApp(
   });
   registerEcommerceInventorySynchronization(app, ecommerceSync);
   const customerOtpOptions = readCustomerOtpOptions(),
-    customerOtp = customerOtpService(
-      config,
-      db,
-      customerOtpOptions,
-      createCustomerOtpDelivery(config, customerOtpOptions),
-    );
+    customerOtp = customerOtpService(config, db, customerOtpOptions, checkoutShared);
   registerBarcodeAssignments(app, config, db);
   registerOperatorModelAccounts(app, config, db);
   registerSecondaryCountrySearch(app, db);
@@ -424,8 +421,8 @@ export async function buildApp(
   });
   const wholeOrderOptions = readWholeOrderStatusOptions(config.DEMO_MODE ? {} : process.env);
   const checkout = await registerCheckout(app, config, db, {
+    ...checkoutShared,
     environment: checkoutRuntime,
-    paymentCorrections: paymentCorrectionEvidence(paymentCorrections.proofKey ?? ''),
     customerOtp,
     orderCopy: { history: historicalOrderCopyFacts(orderHistory) },
     ...(stockProjection
@@ -433,12 +430,10 @@ export async function buildApp(
       : {}),
   });
   registerOfflineSync(app, config, db, { checkout, identity, environment: checkoutRuntime });
-  registerPaymentReversals(app, config, db, {
-    ...paymentReversalOptions(),
-    hashSecret: paymentCorrections.proofKey ?? '',
-    projection: checkoutRuntime,
+  await registerGlobalVouchers(app, config, db, readGlobalVoucherOptions(), {
+    ...checkoutShared,
+    customerOtp,
   });
-  await registerGlobalVouchers(app, config, db, readGlobalVoucherOptions(), { customerOtp });
   registerCustomerWebsiteHandoff(app, config, db);
   await registerFulfillment(app, config, db, { redis: orderRedis, jobs: options.jobs });
   registerShippingLabels(app, db);
@@ -447,7 +442,7 @@ export async function buildApp(
   registerCustomerWorkspace(app, config, db, orderRedis);
   registerCustomerHistory(app, config, db);
   registerProductFeedback(app, config, db, orderRedis);
-  registerCheckoutPerformance(app, config, db);
+  registerCheckoutPerformance(app, config, db, checkoutShared);
   registerInvoiceDocuments(app, config, db);
   registerCustomerContacts(app, config, db);
   await registerFinance(app, config, db, {

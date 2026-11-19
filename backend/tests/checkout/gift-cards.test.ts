@@ -33,35 +33,24 @@ beforeEach(() => {
   });
 });
 describe('physical gift-card cart correctness', () => {
-  it('blocks previously saved gift quotes from order creation when the upgraded issuance contract is absent', async () => {
+  it('sends unpicked gift card dates as "" in gc_data, as legacy AjaxOrderView', async () => {
     const created = await service.create(operator, '1', '3'),
       added = await service.addGiftCard(operator, '1', created.id, mutation(0), '80'),
       itemId = giftCardRows(added.state.cart!)[0]!.gv_id;
     await service.giftCardMetadata(operator, '1', created.id, mutation(1), itemId, {
       number: '990111',
-      startDate: '2026-11-17',
+      startDate: '',
       endDate: '2027-02-15',
     });
+    repository.states.get(created.id)!.salespersonId = '5';
     await service.quote(operator, '1', created.id, mutation(2));
-    const downgraded = checkoutService(
-      repository,
-      gateway,
-      { ...signingEnvironment, giftCardContract: 'pos-gift-card-v1' },
-      {
-        migrationV2: true,
-        now: () => now,
-        assertCheckIn: async () => {},
-        verifyRefundAllocations: async () => {},
-        finalizeOrder: async () => ({ transactionId: 'FIXTURE', invoice: 'FIXTURE' }),
-      },
+    expect((await service.submit(operator, '1', created.id, mutation(3))).status).toBe(
+      'succeeded',
     );
-    await expect(downgraded.quote(operator, '1', created.id, mutation(3))).rejects.toMatchObject({
-      code: 'GIFT_CARD_CONTRACT_UNVERIFIED',
+    const order = gateway.calls.find((call) => call.path === 'pos/order')!.payload;
+    expect(order.gc_data).toEqual({
+      [itemId]: { gift_card_no: 990111, start_date: '', end_date: '02/15/2027' },
     });
-    await expect(downgraded.submit(operator, '1', created.id, mutation(3))).rejects.toMatchObject({
-      code: 'GIFT_CARD_CONTRACT_UNVERIFIED',
-    });
-    expect(gateway.calls.some((call) => call.path === 'pos/order')).toBe(false);
   });
   it('matches the original Python Hashids helper at safe-integer and signed-BIGINT boundaries', () => {
     const fixture = z
@@ -214,17 +203,9 @@ describe('physical gift-card cart correctness', () => {
     });
     expect(gateway.calls.some((call) => call.path === 'pos/order')).toBe(false);
   });
-  it('requires a verified gift contract and gift product before mutation, and freezes an unidentified addition', async () => {
-    const unverified = checkoutService(
-        repository,
-        gateway,
-        { ...signingEnvironment, giftCardContract: undefined },
-        { migrationV2: true, now: () => now, assertCheckIn: async () => {} },
-      ),
-      created = await unverified.create(operator, '1', '3');
-    await expect(
-      unverified.addGiftCard(operator, '1', created.id, mutation(0), '80'),
-    ).rejects.toMatchObject({ code: 'GIFT_CARD_CONTRACT_UNVERIFIED' });
+  it('requires a gift product before mutation, and freezes an unidentified addition', async () => {
+    // Legacy calls unpatched API-v2: no gift-card upstream contract is required any more.
+    const created = await service.create(operator, '1', '3');
     await expect(
       service.addGiftCard(operator, '1', created.id, mutation(0), '10', 1234),
     ).rejects.toMatchObject({ code: 'GIFT_CARD_PRODUCT_REQUIRED' });

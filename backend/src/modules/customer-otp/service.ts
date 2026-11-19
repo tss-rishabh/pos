@@ -1,52 +1,90 @@
-import { randomUUID } from 'node:crypto';
-import { and, eq, inArray } from 'drizzle-orm';
+import { createHmac } from 'node:crypto';
+import { Temporal } from '@js-temporal/polyfill';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import type { Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
-import { currentRequestTrace } from '../../observability/context.js';
 import type { AdministrationTransaction } from '../administration/checkins.js';
 import {
   customerContactBindingSchema,
   sameCustomerContact,
   type CustomerContactBinding,
 } from '../checkout/customer-contact-authority.js';
+import { wireId } from '../checkout/payloads.js';
+import { checkoutSessionStore, type CheckoutSessionStore } from '../checkout/session-store.js';
+import {
+  configuredStateStore,
+  readJson,
+  withStateLock,
+  type PosStateStore,
+} from '../checkout/state-store.js';
+import { customerOtpApiV2 } from './api-v2.js';
 import {
   assertCustomerOtpActor,
-  assertCustomerOtpEnabled,
-  assertCurrentOtpBinding,
   customerOtpAuthority,
   customerOtpChanged,
-  customerOtpDestinations,
-  customerOtpUnavailable,
+  type CustomerOtpAuthority,
 } from './authority.js';
 import {
-  consumeCustomerOtpSend,
-  customerOtpAttemptLimit,
-  lockedCustomerOtpBudgets,
-} from './budgets.js';
-import {
-  customerOtpScopeSchema,
+  customerOtpErrorSchema,
   customerOtpOperationViewSchema,
+  customerOtpScopeSchema,
+  customerOtpViewSchema,
+  type CustomerOtpApi,
+  type CustomerOtpApiReply,
   type CustomerOtpScope,
-  type CustomerOtpDelivery,
+  type CustomerOtpView,
 } from './contracts.js';
-import {
-  customerOtpCode,
-  customerOtpDigest,
-  sameCustomerOtpCode,
-  sealCustomerOtp,
-} from './crypto.js';
 import type { CustomerOtpOptions } from './options.js';
-import { projectCustomerOtp, type CustomerOtpChallenge } from './projection.js';
-import {
-  customerOtpBudgets as budgets,
-  customerOtpChallenges as challenges,
-  customerOtpDeliveries as deliveries,
-  customerOtpOperations as operations,
-  type CustomerOtpOutcome,
-} from './schema.js';
+
+/** Challenge lifetime. API-v2 stores its code without expiry; the POS bounds every challenge. */
+export const CUSTOMER_OTP_CHALLENGE_MS = 5 * 60_000;
+/** A send with no recorded answer after this long is reported as `uncertain`, not `pending`. */
+const PENDING_GRACE_MS = 15_000;
+/** Operation receipts outlive the challenge by an hour for lost-response recovery. */
+const RECEIPT_GRACE_SECONDS = 3600;
+/** Legacy `AjaxVerifyOtpView` success message (`order/views.py:2577`). */
+export const API_V2_OTP_VERIFIED = 'OTP verified successfully!';
+
+const challengeSchema = z
+  .object({
+    scope: customerOtpScopeSchema,
+    contact: customerContactBindingSchema,
+    state: z.enum(['PENDING', 'SENT', 'UNCERTAIN', 'REJECTED', 'VERIFIED', 'LOCKED']),
+    attempts: z.number().int().nonnegative(),
+    createdAt: z.number().int().nonnegative(),
+    expiresAt: z.number().int().nonnegative(),
+    verifiedUntil: z.number().int().nonnegative().nullable(),
+    operations: z.record(
+      z.uuid(),
+      z
+        .object({
+          kind: z.enum(['request', 'verify']),
+          requestHash: z.string().regex(/^[a-f0-9]{64}$/),
+          error: customerOtpErrorSchema.nullable(),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+type Challenge = z.infer<typeof challengeSchema>;
+type OtpError = z.infer<typeof customerOtpErrorSchema>;
+
+/**
+ * Redis keys (ephemeral, all with TTL):
+ * - `pos:customer_otp:{challengeId}`: Challenge JSON (scope ids, contact binding digest, state,
+ *   attempts, expiry, verified-until, operation receipts). No code, phone or email.
+ *   TTL = max(expiresAt, verifiedUntil) - now + 1 h.
+ * - `pos:customer_otp_lock:{challengeId}`: lock token, 30 s.
+ * - `pos:customer_otp_budget:customer:{customerId}:{businessDay}`: send counter, 2 days.
+ */
+export const customerOtpKeys = {
+  challenge: (id: string) => `pos:customer_otp:${id}`,
+  lock: (id: string) => `pos:customer_otp_lock:${id}`,
+  budget: (customerId: string, day: string) =>
+    `pos:customer_otp_budget:customer:${customerId}:${day}`,
+};
 
 const missing = () =>
   new AppError(404, 'CUSTOMER_OTP_NOT_FOUND', 'Customer verification was not found.');
@@ -56,226 +94,232 @@ const conflict = () =>
     'IDEMPOTENCY_CONFLICT',
     'This request key was used for different verification details.',
   );
-const invalid = () =>
-  new AppError(422, 'CUSTOMER_OTP_INVALID', 'The customer verification code is incorrect.');
+const busy = () =>
+  new AppError(409, 'CUSTOMER_OTP_BUSY', 'This customer verification is still being processed.');
+export const customerOtpErrors: Record<OtpError, () => AppError> = {
+  CUSTOMER_OTP_INVALID: () =>
+    new AppError(400, 'CUSTOMER_OTP_INVALID', 'Wrong OTP! Please enter correct OTP.'),
+  CUSTOMER_OTP_ATTEMPT_LIMIT: () =>
+    new AppError(
+      429,
+      'CUSTOMER_OTP_ATTEMPT_LIMIT',
+      'Too many wrong codes. Request a new customer verification code.',
+    ),
+  CUSTOMER_OTP_NOT_SENT: () =>
+    new AppError(
+      400,
+      'CUSTOMER_OTP_NOT_SENT',
+      'OTP Not Sent. The customer has no reachable mobile or email.',
+    ),
+};
+
+/** Legacy `AjaxSendOtpView.post` (`order/views.py:2541-2545`): sent when mobile or email is true. */
+export function interpretSendReply(reply: CustomerOtpApiReply): 'sent' | 'rejected' | 'uncertain' {
+  if (!reply || reply.status >= 500) return 'uncertain';
+  if (reply.status !== 200) return 'rejected';
+  const body = z
+    .object({ mobile: z.unknown().optional(), email: z.unknown().optional() })
+    .passthrough()
+    .safeParse(reply.body);
+  if (!body.success) return 'uncertain';
+  return body.data.mobile === true || body.data.email === true ? 'sent' : 'rejected';
+}
+/**
+ * Legacy `AjaxVerifyOtpView.post` (`order/views.py:2569-2580`): any non-200 is "Wrong OTP"; a 200
+ * whose message is "OTP verified successfully!" verifies. A 5xx or missing answer is reported as
+ * unavailable without spending an attempt.
+ */
+export function interpretVerifyReply(
+  reply: CustomerOtpApiReply,
+): 'verified' | 'wrong' | 'unavailable' {
+  if (!reply || reply.status >= 500) return 'unavailable';
+  if (reply.status !== 200) return 'wrong';
+  const body = z.object({ message: z.unknown() }).passthrough().safeParse(reply.body);
+  return body.success && body.data.message === API_V2_OTP_VERIFIED ? 'verified' : 'wrong';
+}
+
+export interface CustomerOtpDependencies {
+  stateStore?: PosStateStore;
+  sessions?: CheckoutSessionStore;
+  api?: CustomerOtpApi;
+  clock?: () => number;
+}
+
+/**
+ * Customer verification for checkout benefits and order returns. API-v2 generates, delivers and
+ * checks the code synchronously, as legacy. The POS keeps only the challenge scope, a bounded
+ * expiry, the attempt count and the verified-until proof in Redis.
+ */
 export function customerOtpService(
   config: Config,
   db: Databases,
   options: CustomerOtpOptions,
-  delivery: CustomerOtpDelivery | undefined,
-  clock: () => number = Date.now,
+  dependencies: CustomerOtpDependencies = {},
 ) {
-  const lockAuthority = customerOtpAuthority(config, db);
-  function ready() {
-    assertCustomerOtpEnabled(config, options);
-    if (!delivery) throw customerOtpUnavailable();
-    return { secret: options.CUSTOMER_OTP_SECRET!, delivery };
-  }
+  const store = dependencies.stateStore ?? configuredStateStore(config),
+    sessions = dependencies.sessions ?? checkoutSessionStore(store),
+    api = dependencies.api ?? customerOtpApiV2(config),
+    clock = dependencies.clock ?? Date.now,
+    authorizeIn = customerOtpAuthority(config, db, sessions, store);
+  const digest = (purpose: string, value: unknown) =>
+    createHmac('sha256', config.SESSION_SECRET)
+      .update('pos.customer-otp.v2:' + purpose + ':')
+      .update(JSON.stringify(value))
+      .digest('hex');
   function parseScope(user: Principal, raw: CustomerOtpScope) {
     const scope = customerOtpScopeSchema.parse(raw);
     assertCustomerOtpActor(user, scope);
     return scope;
   }
-  async function own(
-    tx: AdministrationTransaction,
+  function authorize(
     scope: CustomerOtpScope,
-    id: string,
-    current: Awaited<ReturnType<typeof lockAuthority>>,
-    secret: string,
+    challengeId: string,
+    operationId?: string,
+    allowFrozenConsent = false,
   ) {
-    const [row] = await tx
-      .select()
-      .from(challenges)
-      .where(eq(challenges.id, id))
-      .limit(1)
-      .for('update');
-    if (!row || row.scopeHash !== customerOtpDigest(secret, 'scope', scope)) throw missing();
-    assertCurrentOtpBinding(row, current);
+    return db
+      .get('writer')
+      .transaction((tx) => authorizeIn(tx, scope, challengeId, operationId, allowFrozenConsent));
+  }
+  const read = (id: string) => readJson(store, customerOtpKeys.challenge(id), challengeSchema);
+  async function save(id: string, challenge: Challenge) {
+    const parsed = challengeSchema.parse(challenge),
+      until = Math.max(parsed.expiresAt, parsed.verifiedUntil ?? 0);
+    await store.set(
+      customerOtpKeys.challenge(id),
+      JSON.stringify(parsed),
+      Math.max(1, Math.ceil((until - clock()) / 1000)) + RECEIPT_GRACE_SECONDS,
+    );
+  }
+  const locked = <T>(id: string, run: () => Promise<T>) =>
+    withStateLock(store, customerOtpKeys.lock(id), run, { ttlSeconds: 30, busy });
+  function sameScope(left: CustomerOtpScope, right: CustomerOtpScope) {
+    return JSON.stringify(customerOtpScopeSchema.parse(left)) === JSON.stringify(right);
+  }
+  /** The stored challenge, bound to this scope, contact and (if frozen) order consent. */
+  function own(
+    challenge: Challenge | null,
+    scope: CustomerOtpScope,
+    current: CustomerOtpAuthority,
+  ): Challenge {
+    if (!challenge || !sameScope(challenge.scope, scope)) throw missing();
+    if (!sameCustomerContact(challenge.contact, current.contact)) throw customerOtpChanged();
     if (
       current.frozenConsentUntil !== null &&
-      (row.state !== 'VERIFIED' || row.verifiedUntil !== current.frozenConsentUntil)
+      (challenge.state !== 'VERIFIED' || challenge.verifiedUntil !== current.frozenConsentUntil)
     )
       throw customerOtpChanged();
-    return row;
+    return challenge;
   }
-  async function operation(
-    tx: AdministrationTransaction,
-    id: string,
-    challengeId: string,
-    kind: 'request' | 'verify',
-    hash: string,
-  ) {
-    const [row] = await tx
-      .select()
-      .from(operations)
-      .where(eq(operations.id, id))
-      .limit(1)
-      .for('update');
-    if (row && (row.challengeId !== challengeId || row.kind !== kind || row.requestHash !== hash))
-      throw conflict();
-    return row;
+  function view(id: string, challenge: Challenge, now: number): CustomerOtpView {
+    const live = challenge.expiresAt > now,
+      verifiedUntil =
+        challenge.state === 'VERIFIED' && challenge.verifiedUntil && challenge.verifiedUntil > now
+          ? challenge.verifiedUntil
+          : null;
+    const status: CustomerOtpView['status'] = verifiedUntil
+      ? 'sent'
+      : !live
+        ? 'rejected'
+        : challenge.state === 'SENT'
+          ? 'sent'
+          : challenge.state === 'UNCERTAIN'
+            ? 'uncertain'
+            : challenge.state === 'PENDING'
+              ? challenge.createdAt + PENDING_GRACE_MS > now
+                ? 'pending'
+                : 'uncertain'
+              : 'rejected';
+    return customerOtpViewSchema.parse({
+      id,
+      status,
+      expiresAt: challenge.expiresAt,
+      verifiedUntil,
+      contact: challenge.contact,
+    });
   }
-  async function terminal(tx: AdministrationTransaction, row: CustomerOtpChallenge, now: number) {
-    if (row.state !== 'ACTIVE' || row.expiresAt > now) return row;
-    const next = {
-      ...row,
-      state: 'EXPIRED' as const,
-      codeHash: '',
-      activeScopeHash: null,
-      updatedAt: now,
-    };
-    await tx.update(challenges).set(next).where(eq(challenges.id, row.id));
-    return next;
-  }
-  function unwrap(outcome: CustomerOtpOutcome) {
-    if (outcome.error === 'CUSTOMER_OTP_INVALID') throw invalid();
-    if (outcome.error === 'CUSTOMER_OTP_ATTEMPT_LIMIT') throw customerOtpAttemptLimit();
-    return outcome.result;
+  function businessDay(now: number) {
+    return Temporal.Instant.fromEpochMilliseconds(now)
+      .toZonedDateTimeISO(config.BUSINESS_TIMEZONE)
+      .toPlainDate()
+      .toString();
   }
   return {
+    /** Legacy `AjaxSendOtpView` (`order/views.py:2536-2560`). */
     async request(
       user: Principal,
       rawScope: CustomerOtpScope,
       challengeId: string,
       operationId: string,
       expectedContact: CustomerContactBinding,
-    ) {
-      const { secret, delivery: sender } = ready(),
-        scope = parseScope(user, rawScope);
+    ): Promise<CustomerOtpView> {
+      api.assertReady();
+      const scope = parseScope(user, rawScope);
       z.uuid().parse(challengeId);
       z.uuid().parse(operationId);
       const expected = customerContactBindingSchema.parse(expectedContact);
-      return db.get('writer').transaction(async (tx) => {
-        const now = clock(),
-          current = await lockAuthority(tx, scope, challengeId, operationId);
-        if (!sameCustomerContact(expected, current.contact)) throw customerOtpChanged();
-        const hash = customerOtpDigest(secret, 'request', [scope, challengeId, expected]);
-        const [existing] = await tx
-          .select()
-          .from(challenges)
-          .where(eq(challenges.id, challengeId))
-          .limit(1)
-          .for('update');
-        const previous = await operation(tx, operationId, challengeId, 'request', hash);
+      const current = await authorize(scope, challengeId, operationId);
+      if (!sameCustomerContact(expected, current.contact)) throw customerOtpChanged();
+      const hash = digest('request', [scope, challengeId, expected]);
+      return locked(challengeId, async () => {
+        const existing = await read(challengeId);
         if (existing) {
-          if (!previous) throw conflict();
+          const previous = existing.operations[operationId];
           if (
-            existing.requestHash !== hash ||
-            existing.scopeHash !== customerOtpDigest(secret, 'scope', scope)
+            !previous ||
+            previous.kind !== 'request' ||
+            previous.requestHash !== hash ||
+            !sameScope(existing.scope, scope)
           )
             throw conflict();
-          assertCurrentOtpBinding(existing, current);
-          const result = await projectCustomerOtp(tx, await terminal(tx, existing, now), now);
-          return result;
+          own(existing, scope, current);
+          if (previous.error) throw customerOtpErrors[previous.error]();
+          return view(challengeId, existing, clock());
         }
-        if (previous) throw missing();
-        const destinations = customerOtpDestinations(current, options);
-        for (const destination of destinations)
-          sender.assertReady(scope.purpose, destination.channel);
-        const budgetKeys = [
-          ...new Set([
-            'customer:' + scope.customerId,
-            ...destinations.map(
-              (destination) =>
-                (destination.channel === 'whatsapp' ? 'sms' : destination.channel) +
-                ':' +
-                customerOtpDigest(secret, 'destination', [
-                  destination.channel === 'whatsapp' ? 'sms' : destination.channel,
-                  destination.destination.toLowerCase(),
-                ]),
-            ),
-          ]),
-        ].sort();
-        await consumeCustomerOtpSend(tx, budgetKeys, now, config.BUSINESS_TIMEZONE, options);
-        const scopeHash = customerOtpDigest(secret, 'scope', scope);
-        const [old] = await tx
-          .select()
-          .from(challenges)
-          .where(eq(challenges.activeScopeHash, scopeHash))
-          .limit(1)
-          .for('update');
-        if (old) {
-          await tx
-            .update(challenges)
-            .set({
-              state: 'SUPERSEDED',
-              activeScopeHash: null,
-              codeHash: '',
-              verifiedUntil: null,
-              updatedAt: now,
-            })
-            .where(eq(challenges.id, old.id));
-          await tx
-            .update(deliveries)
-            .set({ state: 'CANCELLED', encryptedPayload: '', updatedAt: now })
-            .where(and(eq(deliveries.challengeId, old.id), eq(deliveries.state, 'PENDING')));
-        }
-        const code = customerOtpCode(),
-          row = {
-            id: challengeId,
-            operatorId: scope.operatorId,
-            storeId: scope.storeId,
-            customerId: scope.customerId,
-            scope,
-            contact: current.contact,
-            scopeHash,
-            activeScopeHash: scopeHash,
-            requestHash: hash,
-            actorVersion: current.actorVersion,
-            state: 'ACTIVE' as const,
-            codeHash: customerOtpDigest(secret, 'code', [challengeId, code]),
-            budgetKeys,
-            attempts: 0,
-            expiresAt: now + 300000,
-            proofExpiresAt: now + 900000,
-            verifiedUntil: null,
-            requestId: currentRequestTrace()?.requestId ?? null,
-            createdAt: now,
-            updatedAt: now,
-          };
-        await tx.insert(challenges).values(row);
-        for (const destination of destinations) {
-          const id = randomUUID();
-          await tx.insert(deliveries).values({
-            id,
-            challengeId,
-            channel: destination.channel,
-            availableAt:
-              now +
-              (destination.channel === 'whatsapp' ? options.CUSTOMER_OTP_WHATSAPP_DELAY_MS : 0),
-            state: 'PENDING',
-            encryptedPayload: sealCustomerOtp(secret, id, {
-              contract: 'pos-customer-otp-delivery-v1',
-              purpose: scope.purpose,
-              ...destination,
-              code,
-            }),
-            createdAt: now,
-            updatedAt: now,
-          });
-        }
-        const result = await projectCustomerOtp(tx, row, now);
-        await tx.insert(operations).values({
-          id: operationId,
-          challengeId,
-          kind: 'request',
-          requestHash: hash,
-          outcome: { result, error: null },
+        const now = clock(),
+          sends = await store.increment(
+            customerOtpKeys.budget(scope.customerId, businessDay(now)),
+            2 * 86400,
+          );
+        if (sends > options.CUSTOMER_OTP_SENDS_PER_DAY)
+          throw new AppError(
+            429,
+            'CUSTOMER_OTP_SEND_LIMIT',
+            'Too many verification codes were requested for this customer today.',
+          );
+        const challenge: Challenge = {
+          scope,
+          contact: current.contact,
+          state: 'PENDING',
+          attempts: 0,
           createdAt: now,
-        });
-        return result;
+          expiresAt: now + CUSTOMER_OTP_CHALLENGE_MS,
+          verifiedUntil: null,
+          operations: { [operationId]: { kind: 'request', requestHash: hash, error: null } },
+        };
+        await save(challengeId, challenge);
+        const outcome = interpretSendReply(await api.sendOtp(wireId(scope.customerId)));
+        const next: Challenge = {
+          ...challenge,
+          state: outcome === 'sent' ? 'SENT' : outcome === 'uncertain' ? 'UNCERTAIN' : 'REJECTED',
+          operations: {
+            [operationId]: {
+              kind: 'request',
+              requestHash: hash,
+              error: outcome === 'rejected' ? 'CUSTOMER_OTP_NOT_SENT' : null,
+            },
+          },
+        };
+        await save(challengeId, next);
+        if (outcome === 'rejected') throw customerOtpErrors.CUSTOMER_OTP_NOT_SENT();
+        return view(challengeId, next, clock());
       });
     },
     async read(user: Principal, rawScope: CustomerOtpScope, challengeId: string) {
-      const { secret } = ready(),
-        scope = parseScope(user, rawScope);
+      const scope = parseScope(user, rawScope);
       z.uuid().parse(challengeId);
-      return db.get('writer').transaction(async (tx) => {
-        const current = await lockAuthority(tx, scope, challengeId, undefined, true),
-          now = clock();
-        const row = await own(tx, scope, challengeId, current, secret);
-        return projectCustomerOtp(tx, await terminal(tx, row, now), now);
-      });
+      const current = await authorize(scope, challengeId, undefined, true);
+      return view(challengeId, own(await read(challengeId), scope, current), clock());
     },
     async readOperation(
       user: Principal,
@@ -283,34 +327,26 @@ export function customerOtpService(
       challengeId: string,
       operationId: string,
     ) {
-      const { secret } = ready(),
-        scope = parseScope(user, rawScope);
+      const scope = parseScope(user, rawScope);
       z.uuid().parse(challengeId);
       z.uuid().parse(operationId);
-      return db.get('writer').transaction(async (tx) => {
-        const current = await lockAuthority(tx, scope, challengeId, undefined, true),
-          now = clock();
-        let row: CustomerOtpChallenge;
-        try {
-          row = await own(tx, scope, challengeId, current, secret);
-        } catch (error) {
-          if (error instanceof AppError && error.status === 404) return null;
-          throw error;
-        }
-        const [receipt] = await tx
-          .select()
-          .from(operations)
-          .where(and(eq(operations.id, operationId), eq(operations.challengeId, challengeId)))
-          .limit(1)
-          .for('share');
-        if (!receipt) return null;
-        return customerOtpOperationViewSchema.parse({
-          kind: receipt.kind,
-          result: await projectCustomerOtp(tx, await terminal(tx, row, now), now),
-          error: receipt.outcome.error,
-        });
+      const current = await authorize(scope, challengeId, undefined, true);
+      let challenge: Challenge;
+      try {
+        challenge = own(await read(challengeId), scope, current);
+      } catch (error) {
+        if (error instanceof AppError && error.status === 404) return null;
+        throw error;
+      }
+      const receipt = challenge.operations[operationId];
+      if (!receipt) return null;
+      return customerOtpOperationViewSchema.parse({
+        kind: receipt.kind,
+        result: view(challengeId, challenge, clock()),
+        error: receipt.error,
       });
     },
+    /** Checks an unspent proof inside the caller's writer transaction. Never sends or guesses. */
     async assertVerified(
       tx: AdministrationTransaction,
       user: Principal,
@@ -319,17 +355,15 @@ export function customerOtpService(
       expectedContact: CustomerContactBinding,
       verifiedUntil: number,
     ): Promise<void> {
-      const { secret } = ready(),
-        scope = parseScope(user, rawScope);
+      const scope = parseScope(user, rawScope);
       z.uuid().parse(challengeId);
       z.number().int().positive().parse(verifiedUntil);
       const expected = customerContactBindingSchema.parse(expectedContact);
-      const current = await lockAuthority(tx, scope, challengeId, undefined, true),
-        row = await own(tx, scope, challengeId, current, secret);
+      const current = await authorizeIn(tx, scope, challengeId, undefined, true),
+        challenge = own(await read(challengeId), scope, current);
       if (
-        row.state !== 'VERIFIED' ||
-        row.verifiedUntil !== verifiedUntil ||
-        row.proofExpiresAt !== verifiedUntil ||
+        challenge.state !== 'VERIFIED' ||
+        challenge.verifiedUntil !== verifiedUntil ||
         verifiedUntil <= clock() ||
         !sameCustomerContact(expected, current.contact)
       )
@@ -339,130 +373,82 @@ export function customerOtpService(
           'Verify this customer before using this proof.',
         );
     },
+    /** Legacy `AjaxVerifyOtpView` (`order/views.py:2563-2597`); `otp` is the 4-digit code. */
     async verify(
       user: Principal,
       rawScope: CustomerOtpScope,
       challengeId: string,
       operationId: string,
       code: string,
-    ) {
-      const { secret } = ready(),
-        scope = parseScope(user, rawScope);
+    ): Promise<CustomerOtpView> {
+      api.assertReady();
+      const scope = parseScope(user, rawScope);
       z.uuid().parse(challengeId);
       z.uuid().parse(operationId);
-      z.string()
-        .regex(/^\d{6}$/)
-        .parse(code);
-      const outcome = await db
-        .get('writer')
-        .transaction(async (tx): Promise<CustomerOtpOutcome> => {
-          const current = await lockAuthority(tx, scope, challengeId, operationId),
-            now = clock();
-          const row = await own(tx, scope, challengeId, current, secret),
-            hash = customerOtpDigest(secret, 'verify', [scope, challengeId, code]);
-          const previous = await operation(tx, operationId, challengeId, 'verify', hash);
-          if (previous)
-            return { ...previous.outcome, result: await projectCustomerOtp(tx, row, now) };
-          if (row.state === 'VERIFIED' && row.verifiedUntil && row.verifiedUntil > now) {
-            const result = await projectCustomerOtp(tx, row, now),
-              accepted = { result, error: null };
-            await tx.insert(operations).values({
-              id: operationId,
-              challengeId,
-              kind: 'verify',
-              requestHash: hash,
-              outcome: accepted,
-              createdAt: now,
-            });
-            return accepted;
-          }
-          if (row.state !== 'ACTIVE' || row.expiresAt <= now)
-            throw new AppError(
-              403,
-              'CUSTOMER_OTP_EXPIRED',
-              'Request a new customer verification code.',
-            );
-          const jobs = await tx
-            .select({ state: deliveries.state })
-            .from(deliveries)
-            .where(eq(deliveries.challengeId, challengeId))
-            .limit(3);
-          if (!jobs.some((job) => ['ACCEPTED', 'SENDING', 'UNCERTAIN'].includes(job.state)))
-            throw new AppError(
-              409,
-              'CUSTOMER_OTP_NOT_DISPATCHED',
-              'Wait for the queued verification code.',
-            );
-          const limits = await lockedCustomerOtpBudgets(
-            tx,
-            row.budgetKeys,
-            now,
-            config.BUSINESS_TIMEZONE,
+      if (!/^\d{4}$/.test(code))
+        throw new AppError(400, 'CUSTOMER_OTP_FORMAT', 'Please Provide a Valid PIN');
+      const current = await authorize(scope, challengeId, operationId);
+      const hash = digest('verify', [scope, challengeId, code]);
+      const outcome = await locked(challengeId, async () => {
+        const challenge = own(await read(challengeId), scope, current),
+          previous = challenge.operations[operationId];
+        if (previous) {
+          if (previous.kind !== 'verify' || previous.requestHash !== hash) throw conflict();
+          return { challenge, error: previous.error };
+        }
+        const now = clock(),
+          record = async (next: Challenge, error: OtpError | null) => {
+            const saved = {
+              ...next,
+              operations: {
+                ...next.operations,
+                [operationId]: { kind: 'verify' as const, requestHash: hash, error },
+              },
+            };
+            await save(challengeId, saved);
+            return { challenge: saved, error };
+          };
+        if (
+          challenge.state === 'VERIFIED' &&
+          challenge.verifiedUntil &&
+          challenge.verifiedUntil > now
+        )
+          return record(challenge, null);
+        if (!['SENT', 'UNCERTAIN'].includes(challenge.state) || challenge.expiresAt <= now)
+          throw new AppError(
+            403,
+            'CUSTOMER_OTP_EXPIRED',
+            'Request a new customer verification code.',
           );
-          const blocked =
-            row.attempts >= options.CUSTOMER_OTP_FAILURES_PER_WINDOW ||
-            limits.some(
-              (limit) =>
-                limit.windowFailures >= options.CUSTOMER_OTP_FAILURES_PER_WINDOW ||
-                limit.failures >= options.CUSTOMER_OTP_FAILURES_PER_DAY,
-            );
-          const valid = !blocked && sameCustomerOtpCode(row.codeHash, secret, challengeId, code);
-          let next: CustomerOtpChallenge;
-          let error: CustomerOtpOutcome['error'] = null;
-          if (valid) {
-            next = {
-              ...row,
+        if (challenge.attempts >= options.CUSTOMER_OTP_FAILURES_PER_WINDOW)
+          return record({ ...challenge, state: 'LOCKED' }, 'CUSTOMER_OTP_ATTEMPT_LIMIT');
+        const result = interpretVerifyReply(
+          await api.verifyOtp(wireId(scope.customerId), Number(code)),
+        );
+        if (result === 'unavailable')
+          throw new AppError(
+            503,
+            'CUSTOMER_OTP_VERIFY_UNAVAILABLE',
+            'Customer verification did not answer. Try the code again.',
+          );
+        if (result === 'verified')
+          return record(
+            {
+              ...challenge,
               state: 'VERIFIED',
-              codeHash: '',
-              verifiedUntil: row.proofExpiresAt,
-              updatedAt: now,
-            };
-          } else {
-            for (const limit of limits)
-              if (!blocked)
-                await tx
-                  .update(budgets)
-                  .set({
-                    failures: limit.failures + 1,
-                    windowFailures: limit.windowFailures + 1,
-                  })
-                  .where(eq(budgets.key, limit.key));
-            const exhausted =
-              blocked || row.attempts + 1 >= options.CUSTOMER_OTP_FAILURES_PER_WINDOW;
-            next = {
-              ...row,
-              attempts: row.attempts + (blocked ? 0 : 1),
-              ...(exhausted
-                ? { state: 'LOCKED' as const, codeHash: '', activeScopeHash: null }
-                : {}),
-              updatedAt: now,
-            };
-            error = exhausted ? 'CUSTOMER_OTP_ATTEMPT_LIMIT' : 'CUSTOMER_OTP_INVALID';
-          }
-          await tx.update(challenges).set(next).where(eq(challenges.id, challengeId));
-          if (valid || next.state === 'LOCKED')
-            await tx
-              .update(deliveries)
-              .set({ state: 'CANCELLED', encryptedPayload: '', updatedAt: now })
-              .where(
-                and(
-                  eq(deliveries.challengeId, challengeId),
-                  inArray(deliveries.state, ['PENDING']),
-                ),
-              );
-          const result = await projectCustomerOtp(tx, next, now),
-            receipt = { result, error };
-          await tx.insert(operations).values({
-            id: operationId,
-            challengeId,
-            kind: 'verify',
-            requestHash: hash,
-            outcome: receipt,
-            createdAt: now,
-          });
-          return receipt;
-        });
-      return unwrap(outcome);
+              verifiedUntil: clock() + options.REDIS_VERIFIED_USER_OBJECT_EXPIRY * 1000,
+            },
+            null,
+          );
+        const attempts = challenge.attempts + 1,
+          exhausted = attempts >= options.CUSTOMER_OTP_FAILURES_PER_WINDOW;
+        return record(
+          { ...challenge, attempts, ...(exhausted ? { state: 'LOCKED' as const } : {}) },
+          exhausted ? 'CUSTOMER_OTP_ATTEMPT_LIMIT' : 'CUSTOMER_OTP_INVALID',
+        );
+      });
+      if (outcome.error) throw customerOtpErrors[outcome.error]();
+      return view(challengeId, outcome.challenge, clock());
     },
   };
 }

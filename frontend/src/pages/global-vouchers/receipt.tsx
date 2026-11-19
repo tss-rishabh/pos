@@ -3,9 +3,8 @@ import type { VoucherReceipt } from './api';
 export function GlobalVoucherReceipt({ receipt }: { receipt: VoucherReceipt }) {
   return (
     <section className="global-voucher-receipt" aria-label="Confirmed voucher operation">
-      <h3>
-        {receipt.kind === 'issuance' ? 'Gift voucher issued' : 'Voucher converted to TSS Money'}
-      </h3>
+      <h3>Gift voucher issued</h3>
+      <p role="status">{receipt.message}</p>
       <dl>
         <dt>Voucher code</dt>
         <dd>
@@ -15,18 +14,8 @@ export function GlobalVoucherReceipt({ receipt }: { receipt: VoucherReceipt }) {
         <dd>{currency(receipt.amount)}</dd>
         <dt>Customer</dt>
         <dd>{receipt.customerId}</dd>
-        {receipt.nonExpiring && (
-          <>
-            <dt>Validity</dt>
-            <dd>Won’t expire</dd>
-          </>
-        )}
-        {receipt.walletAfter !== null && (
-          <>
-            <dt>TSS Money balance</dt>
-            <dd>{currency(receipt.walletAfter)}</dd>
-          </>
-        )}
+        <dt>Validity</dt>
+        <dd>Won’t expire</dd>
         <dt>Operation</dt>
         <dd>
           <code>{receipt.operationId}</code>

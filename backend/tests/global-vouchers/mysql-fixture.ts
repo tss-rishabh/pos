@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import mysql from 'mysql2/promise';
 import { readConfig } from '../../src/config.js';
 import { createDatabases } from '../../src/db/pools.js';
@@ -50,21 +49,6 @@ export async function globalVoucherFixture(template: string) {
     await connection.query(
       'ALTER TABLE gift_vouchers ADD UNIQUE KEY fixture_verified_code(voucher_code)',
     );
-    for (const path of [
-      'src/modules/administration/migration.sql',
-      'src/modules/customer-contacts/contact-revisions-migration.sql',
-      'src/modules/checkout/migrations/0002_checkout.sql',
-      'src/modules/checkout/migrations/0008_checkout_draft_binding.sql',
-      'src/modules/checkout/migrations/0015_gift_card_issuance.sql',
-      'src/modules/global-vouchers/migration.sql',
-      'src/modules/customer-otp/migration.sql',
-    ]) {
-      for (const statement of readFileSync(path, 'utf8')
-        .replace(/^--.*$/gm, '')
-        .split(';')
-        .filter((value) => value.trim()))
-        await connection.query(statement);
-    }
     url.pathname = '/' + schema;
     const config = readConfig({
       NODE_ENV: 'test',
