@@ -104,6 +104,12 @@ sales/returns/count SQL for both sources and both date types, both flash-sales k
 forms, and all 7 scheduled source queries.
 
 ### Locking reads: the decision to record
+
+> **Update (W16, `parity/w16-report.md`).** The order list/detail/search, online-detail and
+> catalog-barcode authorizations no longer take row locks: they read the writer with plain
+> consistent reads in a read-only transaction. On loopback every path now passes with
+> `POS_PROD_RO_LOCKING_READS=refuse` and 0 downgraded locks. The text below describes the
+> state measured before that change.
 The rewrite's read paths confirm authorization on the writer with locking reads.
 `assertCurrentStoreAccess` defaults to `FOR UPDATE` on `stores`. Order list, detail and search,
 and online detail, use `FOR SHARE` on `pos_user`, `stores`, `orders` and `order_stores`. Measured
@@ -241,6 +247,11 @@ Results, MySQL 8.4.11, 19 November 2026:
   is committed.
 - **No URL set.** With `POS_PROD_RO_MYSQL_URL` unset, the live file skips all 17 tests and the 65
   guard tests run.
+
+**Production-shaped volume (W16).** `tests/live-readonly/volume-fixture.ts` adds ~360k synthetic
+`products` and ~22k `product_store` rows per store to the seeded schema (run it after
+`seed-loopback.ts`, same URL). With it, the plan gate reproduces the production rejection
+(`products` range, estimate ~176k) on the pre-W16 catalog query.
 
 The synthetic data is small, so several report paths return 0 rows on loopback. Loopback proves
 execution, guard behaviour and contract parsing, not value coverage.

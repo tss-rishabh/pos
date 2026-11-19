@@ -49,18 +49,22 @@ export async function readCatalogBarcode(
   // AjaxCart's falsy integer zero falls back to product_id=0; it does not query GTIN0.
   if (barcode === '0')
     throw new AppError(404, 'BARCODE_NOT_FOUND', 'No sellable product matches this barcode.');
+  // Writer authorization with plain consistent reads and no row locks (W16): a scan is a pure
+  // read, and shared locks on `stores`/`pos_user` would contend with checkout writes.
   async function currentAuthority() {
-    await db.get('writer').transaction(async (tx) => {
-      await assertCurrentStoreAccess(tx, user.id, storeId, [1, 2, 3, 4, 5], 'share');
-      const [store] = await tx
-        .select({ active: Store.is_active })
-        .from(Store)
-        .where(eq(Store.id, BigInt(storeId)))
-        .limit(1)
-        .for('share');
-      if (!store?.active)
-        throw new AppError(403, 'STORE_ACCESS_DENIED', 'This store is unavailable.');
-    });
+    await db.get('writer').transaction(
+      async (tx) => {
+        await assertCurrentStoreAccess(tx, user.id, storeId, [1, 2, 3, 4, 5], 'none');
+        const [store] = await tx
+          .select({ active: Store.is_active })
+          .from(Store)
+          .where(eq(Store.id, BigInt(storeId)))
+          .limit(1);
+        if (!store?.active)
+          throw new AppError(403, 'STORE_ACCESS_DENIED', 'This store is unavailable.');
+      },
+      { isolationLevel: 'repeatable read', accessMode: 'read only' },
+    );
   }
   await currentAuthority();
   const page = await catalog.products(user, storeId, '', '0', 2, false, barcode);

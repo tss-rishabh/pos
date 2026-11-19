@@ -63,97 +63,96 @@ export function onlineDetailAuthority(config: Config, db: Databases) {
         'ORDER_DETAIL_CHECK_IN_REQUIRED',
         'Check in to this store before opening its delivery details.',
       );
-    return db.get('writer').transaction(async (tx) => {
-      const [store] = await tx
-        .select({ active: Store.is_active })
-        .from(Store)
-        .where(eq(Store.id, BigInt(storeId)))
-        .limit(1)
-        .for('share');
-      if (!store?.active) throw detailUnavailable();
-      const [order] = await tx
-        .select({
-          id: Order.id,
-          customerId: Order.user,
-          locationId: Order.location_id,
-          locationType: Order.location_type,
-          transfer: Order.is_transfer,
-          next: Order.next_location_ids,
-        })
-        .from(Order)
-        .where(eq(Order.id, BigInt(orderId)))
-        .limit(1)
-        .for('share');
-      if (!order || order.customerId <= 0n) throw detailUnavailable();
-      const mappings = await tx
-        .select({ id: OrderStore.id, storeId: OrderStore.store })
-        .from(OrderStore)
-        .where(eq(OrderStore.order, order.id))
-        .orderBy(asc(OrderStore.id))
-        .limit(10001)
-        .for('share');
-      const express = await tx
-        .select({
-          id: ExpressLineItem.id,
-          lineId: ExpressLineItem.has_product,
-          storeId: ExpressLineItem.store_id,
-        })
-        .from(ExpressLineItem)
-        .where(eq(ExpressLineItem.order, order.id))
-        .orderBy(asc(ExpressLineItem.id))
-        .limit(10001)
-        .for('share');
-      if (mappings.length > 10000 || express.length > 10000)
-        throw new AppError(
-          422,
-          'ORDER_DETAIL_TOO_LARGE',
-          'This order exceeds the complete detail limit.',
-        );
-      let ownerStoreId: string | null = null;
-      if (order.locationId !== null && order.locationType === 'SW')
-        ownerStoreId = String(order.locationId);
-      if (order.locationId !== null && order.locationType === 'NW') {
-        const [location] = await tx
-          .select({ storeId: HyperlocalLocation.store_id })
-          .from(HyperlocalLocation)
-          .where(eq(HyperlocalLocation.id, BigInt(order.locationId)))
-          .limit(1)
-          .for('share');
-        if (location?.storeId !== null && location?.storeId !== undefined)
-          ownerStoreId = String(location.storeId);
-      }
-      const next = nextStoreIds(order.next),
-        transferable = Boolean(order.transfer) && next.includes(storeId);
-      const allowed =
-        selection.type === 'N'
-          ? !mappings.length && order.locationId === null
-          : selection.type === 'HL'
-            ? !mappings.length &&
-              order.locationId !== null &&
-              (ownerStoreId === storeId || transferable)
-            : express.some((line) => line.storeId !== null && String(line.storeId) === storeId);
-      if (!allowed) throw detailUnavailable();
-      const normalized = {
-        orderId,
-        customerId: String(order.customerId),
-        storeIds: [...new Set(mappings.map((row) => String(row.storeId)))].sort(),
-        ownerStoreId,
-        locationId: order.locationId === null ? null : String(order.locationId),
-        locationType: order.locationType,
-        nextStoreIds: next,
-        express: express.map((row) => ({
-          id: String(row.id),
-          lineId: String(row.lineId),
-          storeId: row.storeId === null ? null : String(row.storeId),
-        })),
-      };
-      return {
-        ...normalized,
-        binding: createHash('sha256')
-          .update(JSON.stringify([scope.binding, selection.type, normalized]))
-          .digest('hex'),
-      };
-    });
+    // Writer reads, plain and consistent in one read-only transaction; no row locks (W16).
+    return db.get('writer').transaction(
+      async (tx) => {
+        const [store] = await tx
+          .select({ active: Store.is_active })
+          .from(Store)
+          .where(eq(Store.id, BigInt(storeId)))
+          .limit(1);
+        if (!store?.active) throw detailUnavailable();
+        const [order] = await tx
+          .select({
+            id: Order.id,
+            customerId: Order.user,
+            locationId: Order.location_id,
+            locationType: Order.location_type,
+            transfer: Order.is_transfer,
+            next: Order.next_location_ids,
+          })
+          .from(Order)
+          .where(eq(Order.id, BigInt(orderId)))
+          .limit(1);
+        if (!order || order.customerId <= 0n) throw detailUnavailable();
+        const mappings = await tx
+          .select({ id: OrderStore.id, storeId: OrderStore.store })
+          .from(OrderStore)
+          .where(eq(OrderStore.order, order.id))
+          .orderBy(asc(OrderStore.id))
+          .limit(10001);
+        const express = await tx
+          .select({
+            id: ExpressLineItem.id,
+            lineId: ExpressLineItem.has_product,
+            storeId: ExpressLineItem.store_id,
+          })
+          .from(ExpressLineItem)
+          .where(eq(ExpressLineItem.order, order.id))
+          .orderBy(asc(ExpressLineItem.id))
+          .limit(10001);
+        if (mappings.length > 10000 || express.length > 10000)
+          throw new AppError(
+            422,
+            'ORDER_DETAIL_TOO_LARGE',
+            'This order exceeds the complete detail limit.',
+          );
+        let ownerStoreId: string | null = null;
+        if (order.locationId !== null && order.locationType === 'SW')
+          ownerStoreId = String(order.locationId);
+        if (order.locationId !== null && order.locationType === 'NW') {
+          const [location] = await tx
+            .select({ storeId: HyperlocalLocation.store_id })
+            .from(HyperlocalLocation)
+            .where(eq(HyperlocalLocation.id, BigInt(order.locationId)))
+            .limit(1);
+          if (location?.storeId !== null && location?.storeId !== undefined)
+            ownerStoreId = String(location.storeId);
+        }
+        const next = nextStoreIds(order.next),
+          transferable = Boolean(order.transfer) && next.includes(storeId);
+        const allowed =
+          selection.type === 'N'
+            ? !mappings.length && order.locationId === null
+            : selection.type === 'HL'
+              ? !mappings.length &&
+                order.locationId !== null &&
+                (ownerStoreId === storeId || transferable)
+              : express.some((line) => line.storeId !== null && String(line.storeId) === storeId);
+        if (!allowed) throw detailUnavailable();
+        const normalized = {
+          orderId,
+          customerId: String(order.customerId),
+          storeIds: [...new Set(mappings.map((row) => String(row.storeId)))].sort(),
+          ownerStoreId,
+          locationId: order.locationId === null ? null : String(order.locationId),
+          locationType: order.locationType,
+          nextStoreIds: next,
+          express: express.map((row) => ({
+            id: String(row.id),
+            lineId: String(row.lineId),
+            storeId: row.storeId === null ? null : String(row.storeId),
+          })),
+        };
+        return {
+          ...normalized,
+          binding: createHash('sha256')
+            .update(JSON.stringify([scope.binding, selection.type, normalized]))
+            .digest('hex'),
+        };
+      },
+      { isolationLevel: 'repeatable read', accessMode: 'read only' },
+    );
   };
 }
 export type OnlineDetailAuthority = Awaited<ReturnType<ReturnType<typeof onlineDetailAuthority>>>;

@@ -4,18 +4,24 @@ import { AppError } from '../../domain/errors.js';
 import type { Role } from '../../domain/access.js';
 import type { AdministrationTransaction } from './checkins.js';
 
-/** Call inside the writer transaction; shared locks prevent revocation during the mutation. */
+/**
+ * Call inside the writer transaction; shared locks prevent revocation during the mutation.
+ * `lock: 'none'` is for pure read paths (W16): a plain consistent read on the writer, as legacy
+ * order views do, so authorization confirmation never takes row locks that contend with
+ * checkout and order writes.
+ */
 export async function assertCurrentOperatorIdentity(
   transaction: AdministrationTransaction,
   userId: string,
   allowedRoles: readonly Role[],
+  lock: 'share' | 'none' = 'share',
 ): Promise<{ role: Role; userType: 1 | 2 }> {
-  const [identity] = await transaction
+  const query = transaction
     .select({ role: PosUser.role, active: PosUser.is_active, userType: PosUser.user_type })
     .from(PosUser)
     .where(eq(PosUser.id, BigInt(userId)))
-    .limit(1)
-    .for('share');
+    .limit(1);
+  const [identity] = await (lock === 'none' ? query : query.for('share'));
   if (
     !identity?.active ||
     ![1, 2, 3, 4, 5].includes(identity.role) ||
@@ -42,32 +48,40 @@ export async function assertCurrentStoreAccess(
   userId: string,
   storeId: string,
   allowedRoles: readonly Role[] = [1, 2, 3, 4, 5],
-  storeLock: 'share' | 'update' = 'update',
+  storeLock: 'share' | 'update' | 'none' = 'update',
 ): Promise<void> {
-  const identity = await assertCurrentOperatorIdentity(transaction, userId, allowedRoles);
+  const identity = await assertCurrentOperatorIdentity(
+    transaction,
+    userId,
+    allowedRoles,
+    storeLock === 'none' ? 'none' : 'share',
+  );
   // Writer callers subsequently mutate this Store or its financial children.
   // Take their final lock mode before assignment/check-in/Order locks: a shared
   // lock followed by an upgrade can deadlock two otherwise independent actors.
-  // Pure readers may explicitly retain a shared lock and must not upgrade it.
-  const [store] = await transaction
+  // Pure readers may explicitly retain a shared lock and must not upgrade it, or pass 'none'
+  // for plain consistent reads (no row locks at all).
+  const storeQuery = transaction
     .select({ category: Store.category })
     .from(Store)
     .where(eq(Store.id, BigInt(storeId)))
-    .limit(1)
-    .for(storeLock);
+    .limit(1);
+  const [store] = await (storeLock === 'none' ? storeQuery : storeQuery.for(storeLock));
   if (identity.role === 1 && identity.userType === 1) return;
   if (identity.userType === 2) {
     if (store?.category !== 'FRANCHISE')
       throw new AppError(403, 'STORE_ACCESS_DENIED', 'You do not have access to this store.');
   }
-  const [assignment] = await transaction
+  const assignmentQuery = transaction
     .select({ id: UserStore.id })
     .from(UserStore)
     .where(
       and(eq(UserStore.django_user_id, BigInt(userId)), eq(UserStore.store_id, BigInt(storeId))),
     )
-    .limit(1)
-    .for('share');
+    .limit(1);
+  const [assignment] = await (storeLock === 'none'
+    ? assignmentQuery
+    : assignmentQuery.for('share'));
   if (!assignment)
     throw new AppError(403, 'STORE_ACCESS_DENIED', 'You do not have access to this store.');
 }
