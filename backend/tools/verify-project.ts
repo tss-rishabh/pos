@@ -70,7 +70,6 @@ if (flags.has('--mysql')) {
     WHOLE_ORDER_STATUS_MYSQL_TEST_URL: 'pos_rewrite_whole_status_test',
     GIFT_CARD_BATCH_MYSQL_TEST_URL: 'pos_rewrite_gift_card_batches_test',
     ADMINISTRATION_HISTORY_MYSQL_TEST_URL: 'pos_rewrite_administration_history_test',
-    SHORTCUT_REFERENCE_MYSQL_TEST_URL: 'pos_rewrite_shortcut_reference_test',
     APP_STACK_MYSQL_TEST_URL: 'pos_rewrite_app_stack_test',
     INVENTORY_JOBS_MYSQL_TEST_URL: 'pos_rewrite_inventory_jobs_test',
   })) {
@@ -639,16 +638,6 @@ const checks: Check[] = [
       '--noEmit',
       '-p',
       'tests/invoice-documents/tsconfig.json',
-    ],
-  },
-  {
-    id: 'cashier-shortcuts-fixture-typecheck',
-    directory: 'frontend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tests/cashier-shortcuts/tsconfig.json',
     ],
   },
   {
