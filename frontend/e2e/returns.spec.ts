@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './support/fixtures';
 import { eligibleLine } from './support/eligibility';
 
 test('return confirmation without a customer OTP and reload recovery never repeat an uncertain refund', async ({
@@ -25,20 +25,26 @@ test('return confirmation without a customer OTP and reload recovery never repea
       path = new URL(request.url()).pathname;
     // Scope and authentication are fixed alongside the financial responses.
     // Accelerated sibling tests share a server quota, including on page reload.
-    if (path === '/api/v1/auth/sessions/current') {
+    if (path === '/api/v1/auth/session-state') {
       await route.fulfill({
         json: {
-          user: {
-            id: '900001',
-            name: 'Fixture operator',
-            email: 'operator@example.test',
-            role: 4,
-            userType: 1,
-            storeIds: ['1'],
+          session: {
+            user: {
+              id: '900001',
+              name: 'Fixture operator',
+              email: 'operator@example.test',
+              role: 4,
+              userType: 1,
+              storeIds: ['1'],
+            },
+            sessionExpiresAt: Date.now() + 3_600_000,
           },
-          sessionExpiresAt: Date.now() + 3_600_000,
+          loginChallengePending: false,
         },
       });
+    } else if (path === '/api/v1/operators/me/check-in') {
+      // Not checked in: the shell then requests no store notifications or stream.
+      await route.fulfill({ json: { data: null } });
     } else if (path === '/api/v1/stores') {
       await route.fulfill({
         json: {

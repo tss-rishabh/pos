@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../support/fixtures';
 import { signIn } from '../support/login';
 
 test('manager approval is restored safely and a changed final quote requires approval again', async ({
@@ -139,6 +139,23 @@ test('manager approval is restored safely and a changed final quote requires app
   await page.route('**/api/v1/stores/1/orders/7701/payment-attempts', (route) =>
     route.fulfill({ json: { data: [] } }),
   );
+  // Order 7701 exists only in this fixture: its payment context is a fixture too.
+  await page.route('**/api/v1/stores/1/orders/7701/payment-context', (route) =>
+    route.fulfill({
+      json: {
+        orderId: '7701',
+        storeId: '1',
+        counterId: '1',
+        payable: '80.00',
+        paid: false,
+        settlement: null,
+        transactionId: 'FIXTURE-7701-TXN',
+        activeTransaction: null,
+        canRecordPayment: true,
+        blocker: null,
+      },
+    }),
+  );
   await page.goto('/');
   await signIn(page);
   await page
@@ -153,24 +170,32 @@ test('manager approval is restored safely and a changed final quote requires app
   await page.getByLabel('Store discount reason').selectOption('Founder billing');
   await page.getByRole('button', { name: 'Apply discount', exact: true }).click();
   await page.getByRole('button', { name: 'Get final quote' }).click();
-  await expect(page.getByRole('button', { name: 'Proceed For Payment', exact: true })).toBeDisabled();
+  await expect(
+    page.getByRole('button', { name: 'Proceed For Payment', exact: true }),
+  ).toBeDisabled();
   await page.getByRole('button', { name: 'Request manager approval code' }).click();
   await expect(page.getByText('The manager code was sent.')).toBeVisible();
   await page.getByLabel('Manager approval code', { exact: true }).fill('123456');
   await page.getByRole('button', { name: 'Verify manager approval' }).click();
-  await expect(page.getByRole('button', { name: 'Proceed For Payment', exact: true })).toBeEnabled();
+  await expect(
+    page.getByRole('button', { name: 'Proceed For Payment', exact: true }),
+  ).toBeEnabled();
   expect(await page.evaluate(() => JSON.stringify({ ...localStorage }))).not.toContain('123456');
   expect(await page.evaluate(() => JSON.stringify({ ...localStorage }))).not.toContain(
     'PRIVATE-DISCOUNT-REMARK',
   );
   await page.getByRole('button', { name: 'Close checkout' }).click();
   await page.getByRole('button', { name: 'Review sale', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Proceed For Payment', exact: true })).toBeEnabled();
+  await expect(
+    page.getByRole('button', { name: 'Proceed For Payment', exact: true }),
+  ).toBeEnabled();
   expect(requests).toBe(1);
   expect(confirmations).toBe(1);
   expect(orders).toBe(0);
   await page.getByRole('button', { name: 'Refresh final quote' }).click();
-  await expect(page.getByRole('button', { name: 'Proceed For Payment', exact: true })).toBeDisabled();
+  await expect(
+    page.getByRole('button', { name: 'Proceed For Payment', exact: true }),
+  ).toBeDisabled();
   await page.getByRole('button', { name: 'Request manager approval code' }).click();
   await page.getByLabel('Manager approval code', { exact: true }).fill('123456');
   await page.getByRole('button', { name: 'Verify manager approval' }).click();

@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { test, expect } from '@playwright/test';
+import { test, expect, sandboxedFrameTrace } from '../support/fixtures';
 import { sanitizeInvoiceHtml } from '../../../backend/src/modules/checkout/invoices.js';
 import { installInvoicePrintProbe } from './invoice-print-probe';
 import {
@@ -8,9 +8,18 @@ import {
 } from '../../../backend/src/modules/invoice-documents/presentation';
 import { signIn } from '../support/login';
 
+test.use(sandboxedFrameTrace);
+
 test('production invoice frame uses its own restrictive policy and supports in-app print/download', async ({
   page,
+  network,
 }) => {
+  // The last print runs after access is revoked and must be refused.
+  network.expectFailure({
+    method: 'GET',
+    path: /^\/api\/v1\/operators\/\d+\/stores\/1\/orders\/6008\/invoices\/store\/preview$/,
+    outcome: 403,
+  });
   const html = sanitizeInvoiceHtml(
     '<h1>Fixture tax invoice FST12627INV00123</h1><table><tr><th>Taxable value</th><td>100.00</td></tr><tr><th>GST</th><td>18.00</td></tr></table><script>window.invoiceExecuted=true</script><img src="https://attacker.example.test/track">',
   );

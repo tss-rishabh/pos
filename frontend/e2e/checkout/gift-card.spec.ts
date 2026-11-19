@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../support/fixtures';
 import { signIn } from '../support/login';
 
 test('physical cards keep individual serials and dates through custom value replacement and recovery', async ({

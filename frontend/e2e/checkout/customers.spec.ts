@@ -1,11 +1,24 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/fixtures';
 import type { CheckoutClearance } from '../../src/api/checkout-clearance';
 import { signIn } from '../support/login';
 
 for (const interrupted of [false, true]) {
   test(`customer lookup, ${interrupted ? 'interrupted' : 'verified'} registration, connection and detachment preserve the cart contract`, async ({
     page,
+    network,
   }) => {
+    // The legacy "User Not Found." lookup is a 404 on purpose.
+    network.expectFailure({
+      method: 'POST',
+      path: '/api/v1/stores/1/customer-lookups',
+      outcome: 404,
+    });
+    if (interrupted)
+      network.expectFailure({
+        method: 'POST',
+        path: /^\/api\/v1\/stores\/1\/checkout-sessions\/[0-9a-f-]{36}\/customer-registrations$/,
+        outcome: 503,
+      });
     const checkoutId = crypto.randomUUID();
     let draftId = '',
       draftVersion = 0,

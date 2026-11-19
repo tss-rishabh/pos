@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { type Page } from '@playwright/test';
+import { expect, test } from '../support/fixtures';
 import {
   walletAdjustmentSchema,
   type WalletAdjustmentInput,
@@ -34,7 +35,23 @@ for (const loss of ['none', 'committed', 'uncommitted', 'offline'] as const) {
   test(`global wallet review and ${loss === 'none' ? 'Money/Points completion' : loss === 'offline' ? 'offline mutation refusal' : loss + ' response recovery'}`, async ({
     page,
     context,
+    network,
   }) => {
+    if (loss === 'committed' || loss === 'uncommitted') {
+      // The first adjustment response is lost on purpose, and the status read answers 404
+      // until the fixture makes the result available.
+      network.expectFailure({
+        method: 'POST',
+        path: '/api/v1/wallet-adjustments',
+        outcome: 'net::ERR_FAILED',
+      });
+      network.expectFailure({
+        method: 'GET',
+        path: /^\/api\/v1\/wallet-adjustments\/[0-9a-f-]{36}$/,
+        outcome: 404,
+        times: loss === 'committed' ? 2 : 5,
+      });
+    }
     const requests: WalletAdjustmentInput[] = [],
       receipts = new Map<string, WalletAdjustmentReceipt>(),
       email = 'wallet-customer@example.test';
@@ -44,20 +61,25 @@ for (const loss of ['none', 'committed', 'uncommitted', 'offline'] as const) {
     await context.route('**/api/v1/**', async (route) => {
       const request = route.request(),
         path = new URL(request.url()).pathname;
-      if (path === '/api/v1/auth/sessions/current')
+      if (path === '/api/v1/auth/session-state')
         return route.fulfill({
           json: {
-            user: {
-              id: '44',
-              name: 'Fixture administrator',
-              email: 'operator@example.test',
-              role: 2,
-              userType: 1,
-              storeIds: ['1'],
+            session: {
+              user: {
+                id: '44',
+                name: 'Fixture administrator',
+                email: 'operator@example.test',
+                role: 2,
+                userType: 1,
+                storeIds: ['1'],
+              },
+              sessionExpiresAt: Date.now() + 3600000,
             },
-            sessionExpiresAt: Date.now() + 3600000,
+            loginChallengePending: false,
           },
         });
+      // Not checked in: the shell then requests no store notifications or stream.
+      if (path === '/api/v1/operators/me/check-in') return route.fulfill({ json: { data: null } });
       if (path === '/api/v1/stores')
         return route.fulfill({
           json: {

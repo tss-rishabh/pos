@@ -237,6 +237,7 @@ describe('S50: authentication runs before validation on session routes', () => {
     'DELETE /api/v1/auth/sessions/current',
     'GET /api/v1/auth/capabilities',
     'GET /api/v1/auth/challenges/current',
+    'GET /api/v1/auth/session-state',
     'GET /health/live',
     'GET /health/ready',
     'POST /api/v1/auth/challenges/current/resends',

@@ -405,8 +405,16 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
                         /* The manual invoice action remains available. */
                       }
                     }
-                    void detail.refetch();
-                    void orders.refetch();
+                    // A new payment action supersedes any older in-flight read. A payment read
+                    // on opening only matters when the loaded detail does not show it paid yet;
+                    // an in-flight detail read is shared rather than cancelled.
+                    if (origin === 'action') {
+                      void detail.refetch();
+                      void orders.refetch();
+                    } else if (detail.data?.isPaid !== true) {
+                      void detail.refetch({ cancelRefetch: false });
+                      void orders.refetch();
+                    }
                   }}
                 />
                 <WholeOrderStatusActions

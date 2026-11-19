@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './support/fixtures';
 import { e2eOperator } from './support/login';
 
 for (const restoration of ['absent', 'late', 'existing'] as const) {
@@ -8,6 +8,7 @@ for (const restoration of ['absent', 'late', 'existing'] as const) {
     let signedIn = false,
       proof = restoration === 'existing',
       verifications = 0,
+      challengeReads = 0,
       restoreStarted!: () => void,
       releaseRestore!: () => void;
     const restoring = new Promise<void>((resolve) => {
@@ -37,15 +38,15 @@ for (const restoration of ['absent', 'late', 'existing'] as const) {
       const request = route.request(),
         path = new URL(request.url()).pathname;
       if (path.endsWith('/capabilities')) await route.fulfill({ json: { password: true } });
-      else if (path.endsWith('/sessions/current'))
-        await route.fulfill(
-          signedIn
-            ? { json: { user: principal, sessionExpiresAt: Date.now() + 3600000 } }
-            : {
-                status: 401,
-                json: { error: { code: 'AUTH_REQUIRED', message: 'Sign in to continue.' } },
-              },
-        );
+      else if (path.endsWith('/session-state'))
+        // Signed out is a 200 state. A pending password step (a reload mid-login, or the late
+        // case's earlier attempt) is reported so the page restores that challenge.
+        await route.fulfill({
+          json: {
+            session: signedIn ? { user: principal, sessionExpiresAt: Date.now() + 3600000 } : null,
+            loginChallengePending: !signedIn && (proof || restoration === 'late'),
+          },
+        });
       else if (path.endsWith('/auth/sessions')) {
         proof = true;
         expect(request.postDataJSON()).toEqual({
@@ -74,6 +75,7 @@ for (const restoration of ['absent', 'late', 'existing'] as const) {
           json: { user: principal, sessionExpiresAt: Date.now() + 3600000 },
         });
       } else if (path.endsWith('/challenges/current')) {
+        challengeReads++;
         restoreStarted();
         if (restoration === 'late') await restoreGate;
         await route.fulfill(
@@ -87,7 +89,8 @@ for (const restoration of ['absent', 'late', 'existing'] as const) {
       } else await route.continue();
     });
     await page.goto('/');
-    await restoring;
+    if (restoration === 'absent') await expect(page.getByLabel('Email or username')).toBeVisible();
+    else await restoring;
     if (restoration !== 'existing') {
       await page.getByLabel('Email or username').fill('fixture');
       await page.getByLabel('Password', { exact: true }).fill('fixture-password');
@@ -121,6 +124,8 @@ for (const restoration of ['absent', 'late', 'existing'] as const) {
     await page.getByRole('button', { name: 'Verify & check in' }).click();
     await expect(page.getByRole('heading', { name: 'The counter.' })).toBeVisible();
     expect(verifications).toBe(1);
+    // Without a pending password step the page never asks for a challenge to restore.
+    expect(challengeReads).toBe(restoration === 'absent' ? 0 : 1);
     expect(await page.evaluate(() => JSON.stringify({ ...localStorage }))).not.toContain(
       'fixture-password',
     );

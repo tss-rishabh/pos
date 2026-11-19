@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import { type Page } from '@playwright/test';
+import { test, expect } from '../support/fixtures';
 import { z } from 'zod';
 import { signIn } from '../support/login';
 
@@ -146,7 +147,17 @@ async function fixture(page: Page, beforeCreateResponse?: () => Promise<void>) {
 
 test('counter shortcuts respect typing, input methods, other dialogs and the persisted off switch', async ({
   page,
+  network,
 }) => {
+  // Typing "tpen" searches per keystroke; the app cancels each search its next keystroke
+  // supersedes (react-query aborts the unobserved read). Whether one is still in flight
+  // depends on timing, so up to one cancellation per typed character is allowed.
+  network.expectFailure({
+    method: 'GET',
+    path: '/api/v1/stores/1/catalog/products',
+    outcome: 'net::ERR_ABORTED',
+    upTo: 4,
+  });
   await counter(page);
   await bodyKeys(page, 'b');
   const search = page.getByRole('textbox', { name: 'Search products or scan a barcode' });

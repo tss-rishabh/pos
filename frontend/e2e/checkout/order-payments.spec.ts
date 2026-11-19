@@ -4,9 +4,12 @@ import {
   invoicePreviewPolicy,
 } from '../../../backend/src/modules/invoice-documents/presentation';
 import { sanitizeInvoiceHtml } from '../../../backend/src/modules/checkout/invoices';
-import { expect, test, type Page } from '@playwright/test';
+import { type Page } from '@playwright/test';
+import { expect, test, sandboxedFrameTrace, type NetworkGuard } from '../support/fixtures';
 import { recordedPaymentInputSchema } from '../../src/pages/checkout/payment-recovery';
 import { signIn } from '../support/login';
+
+test.use(sandboxedFrameTrace);
 
 /**
  * Existing-order payment on the real stack (legacy order show/index pages, create_order.html
@@ -107,9 +110,24 @@ async function confirmCash(page: Page) {
   await panel.getByRole('button', { name: 'Yes, sure!', exact: true }).click();
 }
 
+/**
+ * A confirmed payment refreshes the order list (a new legacy `draw`); the app cancels a list
+ * search that the refresh supersedes while it is still in flight. Timing decides whether one is.
+ */
+function allowSupersededListSearch(network: NetworkGuard) {
+  network.expectFailure({
+    method: 'POST',
+    path: '/api/v1/stores/1/orders/searches',
+    outcome: 'net::ERR_ABORTED',
+    upTo: 2,
+  });
+}
+
 test('existing order cash payment confirms on the real stack without completing a local cart', async ({
   page,
+  network,
 }) => {
+  allowSupersededListSearch(network);
   const invoice = await invoicePreview(page, '6001');
   const attempts: unknown[] = [];
   page.on('request', (request) => {
@@ -149,7 +167,14 @@ test('existing order cash payment confirms on the real stack without completing 
 
 test('a lost payment response is read back by status check and never sent again', async ({
   page,
+  network,
 }) => {
+  allowSupersededListSearch(network);
+  network.expectFailure({
+    method: 'POST',
+    path: '/api/v1/stores/1/orders/6002/payment-attempts',
+    outcome: 'net::ERR_CONNECTION_RESET',
+  });
   const invoice = await invoicePreview(page, '6002');
   let posts = 0;
   // The server records the payment, but its response never reaches the browser.

@@ -148,6 +148,11 @@ try {
     requests.push({ method, path });
     const json = (body, status = 200) =>
       route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+    if (path === '/api/v1/auth/session-state')
+      return json({
+        session: { user, sessionExpiresAt: Date.now() + 3600000 },
+        loginChallengePending: false,
+      });
     if (path === '/api/v1/auth/sessions/current')
       return json({ user, sessionExpiresAt: Date.now() + 3600000 });
     if (path === '/api/v1/auth/capabilities')

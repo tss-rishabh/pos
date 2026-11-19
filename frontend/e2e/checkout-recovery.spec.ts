@@ -1,5 +1,13 @@
-import { test, expect, type Page } from '@playwright/test';
+import { type Page } from '@playwright/test';
+import { test, expect, sandboxedFrameTrace } from './support/fixtures';
 import { signIn } from './support/login';
+import {
+  invoicePreviewHtml,
+  invoicePreviewPolicy,
+} from '../../backend/src/modules/invoice-documents/presentation';
+import { sanitizeInvoiceHtml } from '../../backend/src/modules/checkout/invoices';
+
+test.use(sandboxedFrameTrace);
 
 async function localSales(page: Page) {
   return page.evaluate(async () => {
@@ -31,7 +39,22 @@ async function localSales(page: Page) {
 for (const interrupted of [false, true]) {
   test(`a recovered ${interrupted ? 'interrupted confirmation' : 'paid checkout'} completes its original snapshot and preserves a later local quantity`, async ({
     page,
+    network,
   }) => {
+    if (interrupted) {
+      // The confirmation response is interrupted on purpose, and the first reconciliation is
+      // refused until the fixture proves completion.
+      network.expectFailure({
+        method: 'POST',
+        path: /^\/api\/v1\/stores\/1\/checkout-sessions\/[0-9a-f-]{36}\/order-submissions$/,
+        outcome: 503,
+      });
+      network.expectFailure({
+        method: 'POST',
+        path: /^\/api\/v1\/stores\/1\/checkout-sessions\/[0-9a-f-]{36}\/confirmation-reconciliations$/,
+        outcome: 503,
+      });
+    }
     const checkoutId = crypto.randomUUID();
     let draftId = '',
       productId = '',
@@ -172,6 +195,28 @@ for (const interrupted of [false, true]) {
     );
     await page.route('**/api/v1/stores/1/orders/8801/payment-attempts', (route) =>
       route.fulfill({ json: { data: [] } }),
+    );
+    // Order 8801 exists only in this fixture; completion opens its store invoice preview.
+    await page.route(
+      '**/api/v1/operators/*/stores/1/orders/8801/invoices/store/preview',
+      (route) => {
+        const operatorId = /\/operators\/(\d+)\//.exec(
+          new URL(route.request().url()).pathname,
+        )![1]!;
+        return route.fulfill({
+          contentType: 'text/html',
+          headers: {
+            'Content-Security-Policy': invoicePreviewPolicy,
+            'Cache-Control': 'no-store',
+            'Referrer-Policy': 'no-referrer',
+          },
+          body: invoicePreviewHtml(
+            sanitizeInvoiceHtml('<h1>Fixture tax invoice for order 8801</h1>'),
+            { operatorId, storeId: '1', orderId: '8801', kind: 'store' },
+            'FIXTURE-8801',
+          ),
+        });
+      },
     );
     await page.goto('/');
     await signIn(page);

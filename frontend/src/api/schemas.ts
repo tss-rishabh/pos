@@ -17,6 +17,11 @@ export const sessionSchema = z.object({
   user: principalSchema,
   sessionExpiresAt: z.number().int().positive(),
 });
+/** Public sign-in state probe: signed out is `session: null` with HTTP 200. */
+export const sessionStateSchema = z.object({
+  session: sessionSchema.nullable(),
+  loginChallengePending: z.boolean(),
+});
 export const loginChallengeSchema = z.object({
   authentication: z.literal('challenge'),
   method: z.enum(['otp', 'totp']),

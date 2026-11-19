@@ -1,11 +1,14 @@
-import { test, expect, _electron } from '@playwright/test';
+import { _electron } from '@playwright/test';
+import { test, expect } from './support/fixtures';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
 import { signIn } from './support/login';
 
-test('native desktop shell loads the shared UI with a sandboxed, isolated renderer', async () => {
+test('native desktop shell loads the shared UI with a sandboxed, isolated renderer', async ({
+  network,
+}) => {
   const profile = await mkdtemp(join(tmpdir(), 'souled-pos-electron-'));
   const app = await _electron.launch({
     args: ['.'],
@@ -16,6 +19,8 @@ test('native desktop shell loads the shared UI with a sandboxed, isolated render
       POS_DESKTOP_PROFILE_DIR: profile,
     },
   });
+  app.windows().forEach(network.watch);
+  app.on('window', network.watch);
   try {
     const window = await app.firstWindow();
     await signIn(window);
@@ -34,7 +39,9 @@ test('native desktop shell loads the shared UI with a sandboxed, isolated render
   }
 });
 
-test('desktop shell blocks external links, redirects and new windows', async () => {
+test('desktop shell blocks external links, redirects and new windows', async ({ network }) => {
+  // The shell cancels the fixture's redirect to an external origin on purpose.
+  network.expectFailure({ method: 'GET', path: '/redirect', outcome: 'net::ERR_ABORTED' });
   const server = createServer((request, response) => {
     if (request.url === '/redirect') {
       response.writeHead(302, { Location: 'https://blocked.example.test/redirected' });
@@ -63,6 +70,8 @@ test('desktop shell blocks external links, redirects and new windows', async () 
       POS_CUSTOMER_WEBSITE_ORIGIN: 'https://customer.example.test',
     },
   });
+  app.windows().forEach(network.watch);
+  app.on('window', network.watch);
   try {
     const window = await app.firstWindow();
     const [redirect] = await Promise.all([
