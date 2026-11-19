@@ -23,3 +23,41 @@
   display: block;
   max-width: 10rem;
 }
+.counter-product-inventory {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+  gap: 0.35rem 0.75rem;
+  margin: 0;
+  padding: 0 0.2rem 0.4rem;
+  font-size: 0.75rem;
+}
+.counter-product-inventory > div {
+  min-width: 0;
+  padding: 0.15rem 0.3rem;
+  border-radius: 0.3rem;
+}
+.counter-product-inventory dt {
+  font-weight: 600;
+}
+.counter-product-inventory dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.counter-product-inventory .barcode-missing {
+  background-color: #e59696;
+  color: #1f1f1f;
+}
+.counter-product-inventory .barcode-missing small {
+  white-space: pre-line;
+}
+.counter-product-inventory .held-stock {
+  background-color: #81e68c;
+  color: #1f1f1f;
+}
+.counter-product-inventory .storage-stock dd {
+  white-space: pre;
+  overflow-x: auto;
+}
+.counter-product-card.legacy-out-of-stock .product-tile {
+  background-color: antiquewhite;
+}
