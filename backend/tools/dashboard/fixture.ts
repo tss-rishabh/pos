@@ -85,9 +85,6 @@ export async function dashboardFixture(connection: string) {
             .join(',')})`,
         );
     }
-    await admin.query(
-      'CREATE TABLE pos_rewrite_operator_auth_epochs(operator_id VARCHAR(32) PRIMARY KEY,epoch BIGINT UNSIGNED NOT NULL DEFAULT 0) ENGINE=InnoDB',
-    );
     url.pathname = '/' + schema;
     const config = readConfig({
         NODE_ENV: 'test',
@@ -106,8 +103,7 @@ export async function dashboardFixture(connection: string) {
       db,
       url: url.href,
       async reset() {
-        for (const table of [...tables, 'pos_rewrite_operator_auth_epochs'])
-          await admin.query('DELETE FROM ' + mysql.escapeId(table));
+        for (const table of tables) await admin.query('DELETE FROM ' + mysql.escapeId(table));
         let storeIndex = 1;
         for (const [id, active] of [
           ['1', 1],

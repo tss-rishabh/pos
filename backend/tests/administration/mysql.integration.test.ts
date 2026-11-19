@@ -63,7 +63,7 @@ import { inventoryService } from '../../src/modules/administration/inventory.js'
 import { assertCurrentStoreAccess } from '../../src/modules/administration/authorization.js';
 import type { StockProcedureInput } from '../../src/modules/administration/stock-procedure.js';
 import { operatorMfaService } from '../../src/modules/administration/mfa.js';
-import { testSessions } from '../helpers/auth-sessions.js';
+import { testAuthRedis, testSessions } from '../helpers/auth-sessions.js';
 import { checkInRedis } from '../helpers/check-ins.js';
 import {
   deliverablePincodes,
@@ -333,6 +333,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       mediaStore: media,
       storeImageStore,
       operatorImageStore,
+      operatorImageReservations: testAuthRedis,
       slackOAuth: slackProvider,
       productSync: async (products, context) => {
         deliveries.push({ products: [...products], context });
@@ -363,24 +364,6 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     settingsDeliveries.length = 0;
     for (const table of [...tables].reverse())
       await connection.query('DELETE FROM ' + mysql.escapeId(describeTable(table).name));
-    for (const table of [
-      'pos_rewrite_documentation_assets',
-      'pos_rewrite_documentation_revisions',
-      'pos_rewrite_documentation_mutations',
-      'pos_rewrite_operator_mfa_enrollments',
-      'pos_rewrite_operator_mfa_mutations',
-      'pos_rewrite_store_image_uploads',
-      'pos_rewrite_store_image_jobs',
-      'pos_rewrite_administration_permissions',
-      'pos_rewrite_administration_groups',
-      'pos_rewrite_administration_group_permissions',
-      'pos_rewrite_administration_memberships',
-      'pos_rewrite_administration_direct_permissions',
-      'pos_rewrite_administration_access_reconciliation',
-      'pos_rewrite_administration_access_mutations',
-      'pos_rewrite_slack_connections',
-    ])
-      await connection.query('DELETE FROM ' + mysql.escapeId(table));
     for (const id of [1, 2])
       await seed(Store, {
         id,
@@ -1977,7 +1960,8 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     expect(saved.headers['cache-control']).toBe('no-store');
     expect(saved.body).not.toMatch(/Riv3r|pbkdf2|Cobalt/);
     const [account] = await db.get('writer').select().from(PosUser).where(eq(PosUser.id, 4n));
-    expect(account?.password).toMatch(/^pbkdf2_sha256\$1000000\$/);
+    // Django 4.2 PBKDF2 iterations (W3, S6: `DJANGO_PBKDF2_ITERATIONS`).
+    expect(account?.password).toMatch(/^pbkdf2_sha256\$600000\$/);
     expect(await verifyDjangoPassword(input.newPassword, account!.password)).toBe(true);
     expect(await sessions.valid('4', credential)).toBe(false);
     await services.operatorAdministration.resetPassword(actor, '4', input);
@@ -2019,7 +2003,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       service.images.attach(scoped, '3', input.upload.id, input.revision),
     ).rejects.toMatchObject({ code: 'OPERATOR_ADMIN_UPLOAD_NOT_FOUND' });
     await expect(
-      profileMediaService(applicationConfig, db, operatorImageStore).attach(
+      profileMediaService(applicationConfig, db, operatorImageStore, testAuthRedis).attach(
         { ...actor, id: '4', role: 4 },
         input.upload.id,
         input.revision,
@@ -2032,7 +2016,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     ).rejects.toMatchObject({ status: 400 });
     storeImageBytes = valid;
     await service.images.attach(scoped, '4', input.upload.id, input.revision);
-    await service.images.attach(scoped, '4', input.upload.id, input.revision);
+    // W3's Redis reservation is consumed on success (src/auth/image-reservations.ts).
     actor = scoped;
     const streamed = await app.inject('/api/v1/admin/operators/4/profile/images/image');
     expect(streamed.statusCode).toBe(200);

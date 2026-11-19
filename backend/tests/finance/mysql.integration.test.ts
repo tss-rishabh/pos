@@ -5,7 +5,6 @@ import { and, eq, sql } from 'drizzle-orm';
 import { Temporal } from '@js-temporal/polyfill';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { readFileSync } from 'node:fs';
 import { readConfig } from '../../src/config.js';
 import { createDatabases, type Databases } from '../../src/db/pools.js';
 import {
@@ -118,14 +117,6 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
     await admin.query(
       'ALTER TABLE store_day_banking ADD UNIQUE KEY uq_banking_day(store_id,banking_date)',
     );
-    for (const path of [
-      'src/modules/checkout/migrations/0003_payments.sql',
-      'src/modules/checkout/payment-reversals/migration.sql',
-    ])
-      for (const statement of readFileSync(path, 'utf8')
-        .split(';')
-        .filter((value) => value.trim()))
-        await admin.query(statement);
     url.pathname = '/' + schema;
     database = createDatabases(
       readConfig({

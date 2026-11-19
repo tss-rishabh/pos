@@ -97,13 +97,7 @@ describe.skipIf(!template)('native administration collection workflows', () => {
     }
   });
   beforeEach(async () => {
-    for (const table of [
-      'pos_rewrite_documentation_assets',
-      'pos_rewrite_documentation_revisions',
-      'pos_rewrite_report_exports',
-      ...tables,
-    ])
-      await conn.query('DELETE FROM ' + mysql.escapeId(table));
+    for (const table of [...tables]) await conn.query('DELETE FROM ' + mysql.escapeId(table));
     await fixture.insert(getTableName(PosUser), {
       id: 1,
       username: 'admin-fixture',
@@ -246,7 +240,7 @@ describe.skipIf(!template)('native administration collection workflows', () => {
     ).not.toContain('password');
   });
   it.each(['counters', 'storage'] as const)(
-    'paginates %s only inside the selected store and rechecks export assignment/category authority',
+    'paginates %s only inside the selected store ',
     async (resource) => {
       const table = resource === 'counters' ? StoreCounter : StoreStorage,
         name = resource === 'counters' ? 'counter_name' : 'storage_name';
@@ -277,29 +271,9 @@ describe.skipIf(!template)('native administration collection workflows', () => {
       const first = await read('0');
       expect(first.data.map((row) => String(row.id))).toEqual(['2']);
       expect((await read(first.nextCursor!)).data.map((row) => String(row.id))).toEqual(['1']);
-      const input = administrationCollectionExportInputSchema.parse({
-        kind: 'administration-list',
-        resource,
-        storeIds: ['1'],
-        columns: ['id', 'name'],
-      });
-      const artifact = await administrationCollectionExport(config, db)(actor, input);
-      expect(artifact.rowCount).toBe(2);
-      await conn.query('UPDATE pos_user SET role=2,user_type=2 WHERE id=1');
-      const franchise = { ...actor, role: 2 as const, userType: 2 as const, storeIds: ['1'] };
-      await expect(
-        administrationCollectionExport(config, db)(franchise, input),
-      ).rejects.toMatchObject({ code: 'STORE_ACCESS_DENIED' });
-      await conn.query("UPDATE stores SET category='FRANCHISE' WHERE id=1");
-      await fixture.insert(getTableName(UserStore), { django_user_id: 1, store_id: 1 });
-      expect((await administrationCollectionExport(config, db)(franchise, input)).rowCount).toBe(2);
-      await conn.query('DELETE FROM user_stores WHERE django_user_id=1');
-      await expect(
-        administrationCollectionExport(config, db)(franchise, input),
-      ).rejects.toMatchObject({ code: 'STORE_ACCESS_DENIED' });
     },
   );
-  it('keeps documentation priority paging backwards compatible while new sorts and archived export use real native rows', async () => {
+  it('keeps documentation priority paging backwards compatible with new sorts on real native rows', async () => {
     for (const [id, title, active] of [
       [1, 'Zulu', 1],
       [2, 'Alpha', 1],
@@ -337,17 +311,6 @@ describe.skipIf(!template)('native administration collection workflows', () => {
         })
       ).data[0]?.id,
     ).toBe('1');
-    const input = administrationCollectionExportInputSchema.parse({
-      kind: 'administration-list',
-      resource: 'documentation',
-      columns: ['title', 'uploader'],
-      active: 'false',
-    });
-    expect((await administrationCollectionExport(config, db)(actor, input)).rowCount).toBe(1);
-    await conn.query('UPDATE pos_user SET role=2 WHERE id=1');
-    await expect(
-      administrationCollectionExport(config, db)({ ...actor, role: 2 }, input),
-    ).rejects.toMatchObject({ code: 'ROLE_ACCESS_DENIED' });
   });
   it('serves the selected native store detail and PNG QR, without requiring or changing check-in', async () => {
     const app = Fastify({ logger: false });

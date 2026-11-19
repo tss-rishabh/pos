@@ -101,14 +101,7 @@ export async function barcodeFixture(connection: string) {
       url: url.href,
       async reset() {
         await admin.query('DROP TRIGGER IF EXISTS reject_barcode_audit');
-        for (const table of [
-          'pos_rewrite_catalog_reconciliations',
-          'pos_rewrite_catalog_deliveries',
-          'pos_rewrite_catalog_commands',
-          ...tables,
-          'pos_rewrite_catalog_locks',
-        ])
-          await admin.query('DELETE FROM ' + mysql.escapeId(table));
+        for (const table of tables) await admin.query('DELETE FROM ' + mysql.escapeId(table));
         for (const [id, role, type, active] of [
           ['900001', 1, 1, 1],
           ['900002', 2, 1, 1],

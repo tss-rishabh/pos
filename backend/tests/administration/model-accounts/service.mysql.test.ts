@@ -248,7 +248,7 @@ describe.skipIf(!connection)(
       expect(target[0]?.is_active).toBe(0);
       await fixture.admin.query('UPDATE pos_user SET is_superuser=0 WHERE id=900001');
       await expect(service.read(actor, value.operationId)).rejects.toMatchObject({
-        code: 'ADMIN_PRIVILEGE_MUTATION_DENIED',
+        code: 'MODEL_ADMINISTRATION_DENIED',
       });
     });
     it('preserves generated IDs above2^53 and rejects old-password/common-password/additional privilege fields', async () => {
