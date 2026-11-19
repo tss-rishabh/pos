@@ -149,3 +149,6 @@ These supersede earlier WIP patterns. Every agent must follow them.
     entered payment reference.
   - Where a matching row exists in the terminal tables, it is checked. A missing match does not block the sale and
     is flagged for finance reconciliation.
+- **Windows desktop, 20 November 2026 (user):** no menu bar on Windows. Editing and zoom shortcuts keep working.
+  macOS keeps its standard app menu. Windows CI runs the full desktop e2e on `windows-latest`, using MySQL 8.4 and
+  Memurai as the Redis-compatible server.
