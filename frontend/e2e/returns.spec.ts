@@ -1,21 +1,11 @@
 import { test, expect } from '@playwright/test';
 
-test('customer proof, return confirmation and reload recovery never repeat an uncertain refund', async ({
+test('return confirmation without a customer OTP and reload recovery never repeat an uncertain refund', async ({
   page,
 }) => {
-  let proofId = '',
-    returnId = '',
+  let returnId = '',
     posts = 0,
-    verified = false,
     phase = 'uncertain';
-  const proof = () => ({
-    id: proofId,
-    orderId: '8801',
-    sent: !verified,
-    expiresAt: Date.now() + 300000,
-    verifiedUntil: verified ? Date.now() + 900000 : null,
-    pending: false,
-  });
   const receipt = () => ({
     id: returnId,
     storeId: '1',
@@ -64,14 +54,7 @@ test('customer proof, return confirmation and reload recovery never repeat an un
       });
     } else if (path.endsWith('/counters') && request.method() === 'GET') {
       await route.fulfill({ json: { data: [{ id: '1', storeId: '1', name: 'Fixture counter' }] } });
-    } else if (path.endsWith('/orders/8801/return-verifications')) {
-      proofId = String((request.postDataJSON() as Record<string, unknown>).operationId);
-      await route.fulfill({ json: proof() });
-    } else if (path.endsWith('/confirmations')) {
-      expect(request.postDataJSON()).toMatchObject({ otp: '908172' });
-      verified = true;
-      await route.fulfill({ json: proof() });
-    } else if (path.endsWith('/line-items') && path.includes('/return-verifications/'))
+    } else if (path.endsWith('/orders/8801/return-lines'))
       await route.fulfill({
         json: {
           data: [
@@ -88,7 +71,6 @@ test('customer proof, return confirmation and reload recovery never repeat an un
           nextCursor: null,
         },
       });
-    else if (path.includes('/return-verifications/')) await route.fulfill({ json: proof() });
     else if (path.endsWith('/return-reasons'))
       await route.fulfill({ json: { data: [{ id: '1', reason: 'Quality' }] } });
     else if (path.endsWith('/sub-reasons'))
@@ -100,7 +82,6 @@ test('customer proof, return confirmation and reload recovery never repeat an un
       const body = request.postDataJSON() as Record<string, unknown>;
       expect(body).toMatchObject({
         counterId: '1',
-        verificationId: proofId,
         reasonId: '1',
         subReasonId: '9',
         qualityConfirmed: true,
@@ -119,9 +100,7 @@ test('customer proof, return confirmation and reload recovery never repeat an un
   await page.goto('/returns');
   await page.getByRole('combobox', { name: 'Current counter' }).selectOption('1');
   await page.getByLabel('Return order ID').fill('8801');
-  await page.getByRole('button', { name: 'Send customer verification code' }).click();
-  await page.getByLabel('Return customer OTP').fill('908172');
-  await page.getByRole('button', { name: 'Verify customer', exact: true }).click();
+  await page.getByRole('button', { name: 'Find order' }).click();
   await page.getByRole('button', { name: 'Fixture T-shirt' }).click();
   await page.getByLabel('Return reason', { exact: true }).selectOption('1');
   await page.getByLabel('Return sub-reason').selectOption('9');

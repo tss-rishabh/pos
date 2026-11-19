@@ -6,7 +6,6 @@ import { db, type LocalDraft } from '../../src/offline/database';
 import { prepareReview } from '../../src/offline/review-snapshot';
 import { recoveryFor, saveRecovery } from '../../src/pages/checkout/client';
 import { CheckoutReview } from '../../src/pages/checkout/CheckoutReview';
-import { ReturnsPage } from '../../src/pages/returns';
 import '../../src/styles.css';
 
 performance.mark('customer-otp-fixture-bootstrap-start');
@@ -93,17 +92,13 @@ function Harness() {
           Switch fixture operator
         </button>
       </aside>
-      {location.pathname === '/__return-otp-test__' ? (
-        <ReturnsPage key={owner} user={user(owner)} storeId="1" counterId="1" />
-      ) : (
-        <CheckoutReview
-          key={owner}
-          user={user(owner)}
-          draft={drafts.get(owner)!}
-          online={online}
-          onClose={() => undefined}
-        />
-      )}
+      <CheckoutReview
+        key={owner}
+        user={user(owner)}
+        draft={drafts.get(owner)!}
+        online={online}
+        onClose={() => undefined}
+      />
     </>
   );
 }

@@ -10,9 +10,7 @@ import { exchangeRecoverySchema, returnEligibilitySchema } from '../../src/pages
 test('exchange preserves stored picks after rejection and reload without retrying an uncertain child', async ({
   page,
 }) => {
-  let proofId = '',
-    exchangeId = '',
-    verified = false,
+  let exchangeId = '',
     phase = 'replacement-rejected',
     starts = 0,
     retries = 0,
@@ -37,14 +35,6 @@ test('exchange preserves stored picks after rejection and reload without retryin
         'EXCHANGE-INVOICE',
       ),
     });
-  });
-  const proof = () => ({
-    id: proofId,
-    orderId: '8802',
-    sent: !verified,
-    expiresAt: Date.now() + 300000,
-    verifiedUntil: verified ? Date.now() + 900000 : null,
-    pending: false,
   });
   const receipt = () => ({
     id: exchangeId,
@@ -87,7 +77,7 @@ test('exchange preserves stored picks after rejection and reload without retryin
     ) {
       const query = new URL(req.url()).searchParams;
       expect(query.get('counterId')).toBe('1');
-      expect(query.get('verificationId')).toBe(proofId);
+      expect(query.has('verificationId')).toBe(false);
       recoveryReads++;
       return route.fulfill({
         json: exchangeRecoverySchema.parse({
@@ -104,7 +94,7 @@ test('exchange preserves stored picks after rejection and reload without retryin
     ) {
       const query = new URL(req.url()).searchParams;
       expect(query.get('counterId')).toBe('1');
-      expect(query.get('verificationId')).toBe(proofId);
+      expect(query.has('verificationId')).toBe(false);
       expect(query.get('kind')).toBe('exchange');
       eligibilityReads++;
       return route.fulfill({
@@ -119,15 +109,7 @@ test('exchange preserves stored picks after rejection and reload without retryin
         }),
       });
     }
-    if (path.endsWith('/orders/8802/return-verifications')) {
-      proofId = String((req.postDataJSON() as Record<string, unknown>).operationId);
-      return route.fulfill({ json: proof() });
-    }
-    if (path.endsWith('/confirmations')) {
-      verified = true;
-      return route.fulfill({ json: proof() });
-    }
-    if (path.includes('/return-verifications/') && path.endsWith('/line-items'))
+    if (path.endsWith('/orders/8802/return-lines'))
       return route.fulfill({
         json: {
           data: [
@@ -144,7 +126,6 @@ test('exchange preserves stored picks after rejection and reload without retryin
           nextCursor: null,
         },
       });
-    if (path.includes('/return-verifications/')) return route.fulfill({ json: proof() });
     if (path.endsWith('/exchange-reasons'))
       return route.fulfill({
         json: {
@@ -181,7 +162,6 @@ test('exchange preserves stored picks after rejection and reload without retryin
       exchangeId = String(body.operationId);
       expect(body).toMatchObject({
         counterId: '1',
-        verificationId: proofId,
         replacementProductId: '1002',
         salespersonId: '5',
         reasonId: '2',
@@ -226,9 +206,7 @@ test('exchange preserves stored picks after rejection and reload without retryin
   await page.getByRole('link', { name: 'Returns', exact: true }).click();
   await page.getByRole('button', { name: 'Exchange', exact: true }).click();
   await page.getByLabel('Return order ID').fill('8802');
-  await page.getByRole('button', { name: 'Send customer verification code' }).click();
-  await page.getByLabel('Return customer OTP').fill('908172');
-  await page.getByRole('button', { name: 'Verify customer', exact: true }).click();
+  await page.getByRole('button', { name: 'Find order' }).click();
   await page.getByRole('button', { name: 'Fixture exchange T-shirt' }).click();
   await expect(page.getByRole('button', { name: 'XL · 0 in stock' })).toBeDisabled();
   await page.getByRole('button', { name: 'L · 3 in stock', exact: true }).click();

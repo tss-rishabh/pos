@@ -37,7 +37,6 @@ export function ReturnWindowExtension({
       scope.orderId,
       scope.lineId,
       scope.productId,
-      scope.verificationId,
     ],
     current = useQuery({
       queryKey: key,

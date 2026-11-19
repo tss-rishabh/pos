@@ -2,19 +2,6 @@ import { z } from 'zod';
 import { post, request } from '../../api/client';
 const id = z.string().regex(/^[1-9]\d{0,19}$/);
 export type ReverseKind = 'return' | 'exchange';
-export const proofSchema = z.object({
-  id: z.uuid(),
-  orderId: id,
-  sent: z.boolean(),
-  expiresAt: z.number(),
-  verifiedUntil: z.number().nullable(),
-  pending: z.boolean(),
-  deliveryStatus: z.enum(['pending', 'sent', 'uncertain', 'rejected']).nullable().optional(),
-  requestOperationId: z.uuid().nullable().optional(),
-  verifyOperationId: z.uuid().nullable().optional(),
-  pendingOperationId: z.uuid().nullable().optional(),
-  errorCode: z.string().nullable().optional(),
-});
 export const lineSchema = z.object({
   id,
   productId: id,
@@ -64,12 +51,14 @@ export const returnSchema = z.object({
   updatedAt: z.string(),
 });
 export type ReturnReceipt = z.infer<typeof returnSchema>;
-export type ReturnProof = z.infer<typeof proofSchema>;
 export type ReturnLine = z.infer<typeof lineSchema>;
+/**
+ * Unknown keys are dropped, so a value saved before the return OTP step was removed (its
+ * `verificationId`) still restores its order and operation.
+ */
 export const recoverySchema = z
   .object({
     orderId: id,
-    verificationId: z.uuid().nullable(),
     returnId: z.uuid().nullable(),
     kind: z.enum(['return', 'exchange']).optional(),
     pendingRecoveryClaim: z
@@ -78,13 +67,12 @@ export const recoverySchema = z
         revision: z.string().regex(/^[a-f0-9]{64}$/),
         lineId: id,
         counterId: id.optional(),
-        verificationId: z.uuid().optional(),
         salespersonId: id.optional(),
       })
-      .strict()
+      .strip()
       .optional(),
   })
-  .strict();
+  .strip();
 export type ReturnRecovery = z.infer<typeof recoverySchema>;
 const key = (ownerId: string, storeId: string, counterId: string) =>
   `souled-return:${ownerId}:${storeId}:${counterId}`;
@@ -101,7 +89,7 @@ export function loadRecovery(
     return null;
   }
 }
-/** Persist only scoped operation identifiers. OTPs, comments and customer data remain in memory. */
+/** Persist only scoped operation identifiers. Comments and customer data remain in memory. */
 export function saveRecovery(
   ownerId: string,
   storeId: string,
@@ -121,11 +109,22 @@ export const canContinue = (receipt: ReturnReceipt, kind: ReverseKind = receipt.
     : ['inbound-accepted', 'refund-confirmed']
   ).includes(receipt.phase);
 export const returnBase = (storeId: string) => `/api/v1/stores/${encodeURIComponent(storeId)}`;
-export const readProof = (storeId: string, proofId: string, operatorId: string) =>
+export const returnLinesSchema = z.object({
+  data: z.array(lineSchema),
+  nextCursor: z.string().nullable(),
+});
+/** The order's lines (no customer OTP step, as legacy); the operator must be checked in. */
+export const readReturnLines = (
+  storeId: string,
+  orderId: string,
+  counterId: string,
+  after: string,
+  operatorId: string,
+) =>
   request(
-    `${returnBase(storeId)}/return-verifications/${encodeURIComponent(proofId)}`,
+    `${returnBase(storeId)}/orders/${encodeURIComponent(orderId)}/return-lines?${new URLSearchParams({ counterId, after })}`,
     { operatorId },
-    proofSchema,
+    returnLinesSchema,
   );
 export const readReturn = (storeId: string, returnId: string, operatorId: string) =>
   request(
@@ -225,7 +224,6 @@ export interface ReturnWindowScope {
   lineId: string;
   productId: string;
   counterId: string;
-  verificationId: string;
   operatorId: string;
 }
 function returnWindowPath(scope: ReturnWindowScope) {
@@ -234,7 +232,6 @@ function returnWindowPath(scope: ReturnWindowScope) {
 export async function readReturnWindow(scope: ReturnWindowScope) {
   const query = new URLSearchParams({
     counterId: scope.counterId,
-    verificationId: scope.verificationId,
     productId: scope.productId,
   });
   return boundReturnWindow(
@@ -260,7 +257,6 @@ export async function setReturnWindow(
         operatorId: scope.operatorId,
         body: JSON.stringify({
           counterId: scope.counterId,
-          verificationId: scope.verificationId,
           productId: scope.productId,
           date,
           expectedRevision,
@@ -296,12 +292,11 @@ export function readExchangeRecovery(
   orderId: string,
   lineId: string,
   counterId: string,
-  verificationId: string,
   operatorId: string,
   signal?: AbortSignal,
 ) {
   return request(
-    `${returnBase(storeId)}/orders/${encodeURIComponent(orderId)}/line-items/${encodeURIComponent(lineId)}/exchange-recovery?${new URLSearchParams({ counterId, verificationId })}`,
+    `${returnBase(storeId)}/orders/${encodeURIComponent(orderId)}/line-items/${encodeURIComponent(lineId)}/exchange-recovery?${new URLSearchParams({ counterId })}`,
     { operatorId, signal },
     exchangeRecoverySchema,
   );
@@ -374,13 +369,12 @@ export function readReturnEligibility(
   orderId: string,
   lineId: string,
   counterId: string,
-  verificationId: string,
   kind: ReverseKind,
   operatorId: string,
   signal?: AbortSignal,
 ) {
   return request(
-    `${returnBase(storeId)}/orders/${encodeURIComponent(orderId)}/line-items/${encodeURIComponent(lineId)}/return-eligibility?${new URLSearchParams({ counterId, verificationId, kind })}`,
+    `${returnBase(storeId)}/orders/${encodeURIComponent(orderId)}/line-items/${encodeURIComponent(lineId)}/return-eligibility?${new URLSearchParams({ counterId, kind })}`,
     { operatorId, signal },
     returnEligibilitySchema,
   );
@@ -396,12 +390,11 @@ export function readExchangeClaimStatus(
   lineId: string,
   claimId: string,
   counterId: string,
-  verificationId: string,
   operatorId: string,
   signal?: AbortSignal,
 ) {
   return request(
-    `${returnBase(storeId)}/orders/${encodeURIComponent(orderId)}/line-items/${encodeURIComponent(lineId)}/exchange-recovery-claims/${encodeURIComponent(claimId)}?${new URLSearchParams({ counterId, verificationId })}`,
+    `${returnBase(storeId)}/orders/${encodeURIComponent(orderId)}/line-items/${encodeURIComponent(lineId)}/exchange-recovery-claims/${encodeURIComponent(claimId)}?${new URLSearchParams({ counterId })}`,
     { operatorId, signal },
     exchangeClaimStatusSchema,
   );

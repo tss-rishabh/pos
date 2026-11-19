@@ -6,7 +6,6 @@ import { chromium, expect as be, type Browser, type Page } from '@playwright/tes
 import { createServer, type ViteDevServer } from 'vite';
 import react from '@vitejs/plugin-react';
 
-const proof = '11111111-1111-4111-8111-111111111111';
 describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
   'actual return/exchange manager date controls',
   { timeout: 15000 },
@@ -155,7 +154,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
             },
           });
         }
-        if (url.pathname.endsWith('/line-items'))
+        if (url.pathname.endsWith('/return-lines'))
           return json({
             data: [
               {
@@ -169,15 +168,6 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
               },
             ],
             nextCursor: null,
-          });
-        if (url.pathname.includes('/return-verifications/'))
-          return json({
-            id: proof,
-            orderId: '100',
-            sent: true,
-            expiresAt: Date.now() + 300000,
-            verifiedUntil: Date.now() + 300000,
-            pending: false,
           });
         if (url.pathname.endsWith('/refund-preview'))
           return json({ pay_mode: 'other', pay_amt: 10, is_exchange_order: false });
@@ -210,7 +200,6 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
             actor: '1',
             body: {
               counterId: '2',
-              verificationId: proof,
               productId: '123',
               date: '2026-12-01',
               expectedRevision: 'a'.repeat(64),
