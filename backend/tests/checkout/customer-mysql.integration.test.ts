@@ -119,25 +119,8 @@ describe.skipIf(!template)('customer registration in an isolated writer schema',
         `CREATE TABLE ${mysql.escapeId(metadata.name)} (${definitions.join(',')}) ENGINE=InnoDB`,
       );
     }
-    for (const name of ['0002_checkout.sql', '0008_checkout_draft_binding.sql'])
-      for (const statement of readFileSync('src/modules/checkout/migrations/' + name, 'utf8')
-        .replace(/^--.*$/gm, '')
-        .split(';')
-        .filter((item) => item.trim()))
-        await connection.query(statement);
-    for (const statement of readFileSync('src/modules/customer-contacts/migration.sql', 'utf8')
-      .replace(/^--.*$/gm, '')
-      .split(';')
-      .filter((item) => item.trim()))
-      await connection.query(statement);
-    for (const statement of readFileSync(
-      'src/modules/customer-contacts/contact-revisions-migration.sql',
-      'utf8',
-    )
-      .replace(/^--.*$/gm, '')
-      .split(';')
-      .filter((value) => value.trim()))
-      await connection.query(statement);
+    // Checkout sessions and registrations live in Redis (memory store here); their former
+    // rewrite-table migrations are deleted.
     url.pathname = '/' + schemaName;
     db = createDatabases(
       readConfig({
