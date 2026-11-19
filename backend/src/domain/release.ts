@@ -31,7 +31,7 @@ export const releaseCoverageSchema = z
   .strict();
 export const releaseRequirementIds = [
   'full-behavior-parity',
-  'sso-integration',
+  'legacy-authentication',
   'warehouse-parity-and-freshness',
   'financial-provider-contracts',
   'inventory-writer-procedure',

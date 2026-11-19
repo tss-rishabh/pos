@@ -74,7 +74,7 @@ W18 made only mechanical fixes, each in its own commit:
 
 ## Open items
 
-1. **Release requirements.** All 12 are pending in `backend/parity/release-coverage.json`, and `sso-integration` is
+1. **Release requirements.** All 12 are pending in `backend/parity/release-coverage.json`, and `legacy-authentication` (which replaced the deleted `sso-integration`) is
    obsolete. Decide whether to remove that id from `backend/src/domain/release.ts`.
 2. **E2E console errors and failed requests.** These need owners; the list is in `w18-verification.md` §3.
    - pre-login 401 probes

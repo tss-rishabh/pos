@@ -142,7 +142,7 @@ The approved business divergences are recorded in `AGENTS.md`:
 - **Stale families.** Several remaining-code families in `tools/parity/source-surface-families.json` describe work
   that later workstreams completed (fast checkout, type-8 guard, whole-order status push, contacts, website
   handoff). They need an owner review before the map is used for planning.
-- **Obsolete gate entry.** `sso-integration` is still a required release-gate id although SSO was deleted.
+- **Gate entry renamed.** `sso-integration` was replaced by `legacy-authentication` (password + OTP/TOTP), still pending.
 - **Untested platforms.** Windows has no build, e2e or signing run, and no physical printer or device has been
   tested.
 

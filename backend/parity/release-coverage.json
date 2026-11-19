@@ -240,12 +240,12 @@
       "notes": "Component tests and implemented route counts do not certify complete legacy behavior. W18 on f600dd54 (backend/parity/w18-verification.md): all local suites green on loopback, 396 surfaces still pending in the gate, 9 remaining-code groups in source-surface-map.json."
     },
     {
-      "id": "sso-integration",
+      "id": "legacy-authentication",
       "status": "pending",
       "implementation": [],
       "tests": [],
       "evidence": [],
-      "notes": "Google SSO and desktop SSO were deleted by user decision (AGENTS.md, Revisions 19 November 2026); sign-in is legacy password plus OTP/TOTP. The id is still listed in releaseRequirementIds (backend/src/domain/release.ts), so the gate keeps reporting it until the primary agent or user removes or redefines it."
+      "notes": "Replaces sso-integration: Google/desktop SSO were deleted by user decision (AGENTS.md, Revisions 19 November 2026). Sign-in is legacy password (Django-compatible PBKDF2) plus OTP/TOTP with Redis sessions (backend/parity/w3-report.md, security decisions S1-S16). Pending until verified against a staging deployment with real OTP delivery."
     },
     {
       "id": "warehouse-parity-and-freshness",
