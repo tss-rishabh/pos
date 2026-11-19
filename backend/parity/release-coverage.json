@@ -38,16 +38,12 @@
         "frontend/src/pages/administration/secondary-countries.tsx"
       ],
       "tests": [
-        "backend/tools/lookup-workflow/source-oracle.py",
-        "backend/tools/lookup-workflow/server.ts",
-        "backend/tools/lookup-workflow/run.sh",
-        "frontend/tests/lookup-workflow/workflow.test.ts",
-        "frontend/tests/lookup-workflow/harness.tsx"
+        "backend/tests/lookup-workflow/postal.mysql.test.ts"
       ],
       "evidence": [
         "backend/evidence/lookup-routes-reviewed-6cbae5f.json"
       ],
-      "notes": "Exact source lookup route: original Django class/native rows, actual authenticated API and direct React consumer; documented transport/hardening changes. Does not certify the complete surrounding administration forms, identity provider or deployed reader acceptance. Fresh canonical workflow executed against the current production graph; historical receipts retained. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes."
+      "notes": "Exact source lookup route: original Django class/native rows, actual authenticated API and direct React consumer; documented transport/hardening changes. Does not certify the complete surrounding administration forms, identity provider or deployed reader acceptance. Fresh canonical workflow executed against the current production graph; historical receipts retained. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes. W18 (19 Nov 2026): the deleted Python/native harness paths were replaced by the W15 golden test that now carries this comparison (backend/parity/w15-report.md); the historical receipt stays in evidence. Still pending: the receipt predates the single-stack tree."
     },
     {
       "kind": "route",
@@ -64,16 +60,12 @@
         "frontend/src/pages/administration/stores.tsx"
       ],
       "tests": [
-        "backend/tools/lookup-workflow/source-oracle.py",
-        "backend/tools/lookup-workflow/server.ts",
-        "backend/tools/lookup-workflow/run.sh",
-        "frontend/tests/lookup-workflow/workflow.test.ts",
-        "frontend/tests/lookup-workflow/harness.tsx"
+        "backend/tests/lookup-workflow/postal.mysql.test.ts"
       ],
       "evidence": [
         "backend/evidence/lookup-routes-reviewed-6cbae5f.json"
       ],
-      "notes": "Exact source lookup route: original Django class/native rows, actual authenticated API and direct React consumer; documented transport/hardening changes. Does not certify the complete surrounding administration forms, identity provider or deployed reader acceptance. Fresh canonical workflow executed against the current production graph; historical receipts retained. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes."
+      "notes": "Exact source lookup route: original Django class/native rows, actual authenticated API and direct React consumer; documented transport/hardening changes. Does not certify the complete surrounding administration forms, identity provider or deployed reader acceptance. Fresh canonical workflow executed against the current production graph; historical receipts retained. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes. W18 (19 Nov 2026): the deleted Python/native harness paths were replaced by the W15 golden test that now carries this comparison (backend/parity/w15-report.md); the historical receipt stays in evidence. Still pending: the receipt predates the single-stack tree."
     },
     {
       "kind": "route",
@@ -90,16 +82,12 @@
         "frontend/src/pages/product-feedback/index.tsx"
       ],
       "tests": [
-        "backend/tools/product-feedback/native-workflow-fixture.ts",
-        "backend/tools/product-feedback/native-workflow-source.py",
-        "backend/tools/product-feedback/run-native-workflow.sh",
-        "frontend/tests/product-feedback/native-workflow.test.ts",
-        "frontend/tests/product-feedback/native-workflow-entry.tsx"
+        "backend/tests/product-feedback-legacy.mysql.test.ts"
       ],
       "evidence": [
         "backend/evidence/product-feedback-reviewed-6cbae5f.json"
       ],
-      "notes": "Exact feedback resource/form scope only: original Django/native/browser behavior and actual production App entry; retains explicit validation, exact-ID, selected-line, atomicity and idempotency corrections. History discovery/navigation, shared identity providers/global ASGI, financial checkout, notifications and release acceptance are excluded. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes."
+      "notes": "Exact feedback resource/form scope only: original Django/native/browser behavior and actual production App entry; retains explicit validation, exact-ID, selected-line, atomicity and idempotency corrections. History discovery/navigation, shared identity providers/global ASGI, financial checkout, notifications and release acceptance are excluded. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes. W18 (19 Nov 2026): the deleted Python/native harness paths were replaced by the W15 golden test that now carries this comparison (backend/parity/w15-report.md); the historical receipt stays in evidence. Still pending: the receipt predates the single-stack tree."
     },
     {
       "kind": "route",
@@ -116,16 +104,12 @@
         "frontend/src/pages/product-feedback/index.tsx"
       ],
       "tests": [
-        "backend/tools/product-feedback/native-workflow-fixture.ts",
-        "backend/tools/product-feedback/native-workflow-source.py",
-        "backend/tools/product-feedback/run-native-workflow.sh",
-        "frontend/tests/product-feedback/native-workflow.test.ts",
-        "frontend/tests/product-feedback/native-workflow-entry.tsx"
+        "backend/tests/product-feedback-legacy.mysql.test.ts"
       ],
       "evidence": [
         "backend/evidence/product-feedback-reviewed-6cbae5f.json"
       ],
-      "notes": "Exact feedback resource/form scope only: original Django/native/browser behavior and actual production App entry; retains explicit validation, exact-ID, selected-line, atomicity and idempotency corrections. History discovery/navigation, shared identity providers/global ASGI, financial checkout, notifications and release acceptance are excluded. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes."
+      "notes": "Exact feedback resource/form scope only: original Django/native/browser behavior and actual production App entry; retains explicit validation, exact-ID, selected-line, atomicity and idempotency corrections. History discovery/navigation, shared identity providers/global ASGI, financial checkout, notifications and release acceptance are excluded. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes. W18 (19 Nov 2026): the deleted Python/native harness paths were replaced by the W15 golden test that now carries this comparison (backend/parity/w15-report.md); the historical receipt stays in evidence. Still pending: the receipt predates the single-stack tree."
     },
     {
       "kind": "template",
@@ -142,16 +126,12 @@
         "frontend/src/pages/product-feedback/index.tsx"
       ],
       "tests": [
-        "backend/tools/product-feedback/native-workflow-fixture.ts",
-        "backend/tools/product-feedback/native-workflow-source.py",
-        "backend/tools/product-feedback/run-native-workflow.sh",
-        "frontend/tests/product-feedback/native-workflow.test.ts",
-        "frontend/tests/product-feedback/native-workflow-entry.tsx"
+        "backend/tests/product-feedback-legacy.mysql.test.ts"
       ],
       "evidence": [
         "backend/evidence/product-feedback-reviewed-6cbae5f.json"
       ],
-      "notes": "Exact feedback resource/form scope only: original Django/native/browser behavior and actual production App entry; retains explicit validation, exact-ID, selected-line, atomicity and idempotency corrections. History discovery/navigation, shared identity providers/global ASGI, financial checkout, notifications and release acceptance are excluded. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes."
+      "notes": "Exact feedback resource/form scope only: original Django/native/browser behavior and actual production App entry; retains explicit validation, exact-ID, selected-line, atomicity and idempotency corrections. History discovery/navigation, shared identity providers/global ASGI, financial checkout, notifications and release acceptance are excluded. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes. W18 (19 Nov 2026): the deleted Python/native harness paths were replaced by the W15 golden test that now carries this comparison (backend/parity/w15-report.md); the historical receipt stays in evidence. Still pending: the receipt predates the single-stack tree."
     },
     {
       "kind": "route",
@@ -168,16 +148,12 @@
         "backend/src/auth/sessions.ts"
       ],
       "tests": [
-        "backend/tools/cashier-shortcuts/source-help.py",
-        "backend/tools/cashier-shortcuts/run-joined.sh",
-        "backend/tools/cashier-shortcuts/native-reference-fixture.ts",
-        "frontend/tools/cashier-shortcuts/joined-help.ts",
-        "frontend/tools/cashier-shortcuts/native-reference.ts"
+        "frontend/tests/cashier-shortcuts/source-help.test.ts"
       ],
       "evidence": [
         "backend/evidence/shortcut-help-reviewed-r8.json"
       ],
-      "notes": "Authenticated static shortcut reference and operator preference: ten original source authentication cases, eight counter safety checks, ten native identities/eight access checks including no assignment, trailing slash, isolation, revocation/tamper. Excludes positive financial shortcuts, full counter and provider/release acceptance. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes."
+      "notes": "Authenticated static shortcut reference and operator preference: ten original source authentication cases, eight counter safety checks, ten native identities/eight access checks including no assignment, trailing slash, isolation, revocation/tamper. Excludes positive financial shortcuts, full counter and provider/release acceptance. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes. W18 (19 Nov 2026): the deleted Python/native harness paths were replaced by the W15 golden test that now carries this comparison (backend/parity/w15-report.md); the historical receipt stays in evidence. Still pending: the receipt predates the single-stack tree."
     },
     {
       "kind": "template",
@@ -194,16 +170,12 @@
         "backend/src/auth/sessions.ts"
       ],
       "tests": [
-        "backend/tools/cashier-shortcuts/source-help.py",
-        "backend/tools/cashier-shortcuts/run-joined.sh",
-        "backend/tools/cashier-shortcuts/native-reference-fixture.ts",
-        "frontend/tools/cashier-shortcuts/joined-help.ts",
-        "frontend/tools/cashier-shortcuts/native-reference.ts"
+        "frontend/tests/cashier-shortcuts/source-help.test.ts"
       ],
       "evidence": [
         "backend/evidence/shortcut-help-reviewed-r8.json"
       ],
-      "notes": "Authenticated static shortcut reference and operator preference: ten original source authentication cases, eight counter safety checks, ten native identities/eight access checks including no assignment, trailing slash, isolation, revocation/tamper. Excludes positive financial shortcuts, full counter and provider/release acceptance. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes."
+      "notes": "Authenticated static shortcut reference and operator preference: ten original source authentication cases, eight counter safety checks, ten native identities/eight access checks including no assignment, trailing slash, isolation, revocation/tamper. Excludes positive financial shortcuts, full counter and provider/release acceptance. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes. W18 (19 Nov 2026): the deleted Python/native harness paths were replaced by the W15 golden test that now carries this comparison (backend/parity/w15-report.md); the historical receipt stays in evidence. Still pending: the receipt predates the single-stack tree."
     },
     {
       "kind": "websocket",
@@ -223,17 +195,13 @@
         "backend/src/modules/fulfillment/notification-stream.ts"
       ],
       "tests": [
-        "backend/tools/fulfillment/notification-workflow-fixture.ts",
-        "backend/tools/fulfillment/notification-workflow-source.py",
-        "backend/tools/fulfillment/notification-workflow-run.sh",
-        "frontend/tests/fulfillment/notification-workflow.test.ts",
-        "frontend/tests/fulfillment/notification-workflow.config.ts",
+        "backend/tests/fulfillment/legacy-notification-workflow.mysql.test.ts",
         "backend/tests/fulfillment/security.test.ts"
       ],
       "evidence": [
         "backend/evidence/notification-workflow-reviewed-2db8152.json"
       ],
-      "notes": "Fresh exact-declaration proof on2db8152: seven pinned-source/realRedis/Channels/nativeMySQL/session/App groups plus twelve controlled lifecycle cases. Source broker-readiness-before-accept ordering restored with fresh authority, bounded buffering and cleanup. Original red and all earlier receipts remain immutable. Explicit safety/precision/transport corrections documented; whole-template, provider, finance, physical audio, generic deployment and release acceptance excluded. The order-default implementation changes the shared production graph after this execution. Preserve this exact notification receipt and refresh the registered native workflow in the frozen full run; do not rebind its hashes."
+      "notes": "Fresh exact-declaration proof on2db8152: seven pinned-source/realRedis/Channels/nativeMySQL/session/App groups plus twelve controlled lifecycle cases. Source broker-readiness-before-accept ordering restored with fresh authority, bounded buffering and cleanup. Original red and all earlier receipts remain immutable. Explicit safety/precision/transport corrections documented; whole-template, provider, finance, physical audio, generic deployment and release acceptance excluded. The order-default implementation changes the shared production graph after this execution. Preserve this exact notification receipt and refresh the registered native workflow in the frozen full run; do not rebind its hashes. W18 (19 Nov 2026): the deleted Python/native harness paths were replaced by the W15 golden test that now carries this comparison (backend/parity/w15-report.md); the historical receipt stays in evidence. Still pending: the receipt predates the single-stack tree."
     },
     {
       "kind": "route",
@@ -253,17 +221,13 @@
         "backend/src/modules/fulfillment/notification-stream.ts"
       ],
       "tests": [
-        "backend/tools/fulfillment/notification-workflow-fixture.ts",
-        "backend/tools/fulfillment/notification-workflow-source.py",
-        "backend/tools/fulfillment/notification-workflow-run.sh",
-        "frontend/tests/fulfillment/notification-workflow.test.ts",
-        "frontend/tests/fulfillment/notification-workflow.config.ts",
+        "backend/tests/fulfillment/legacy-notification-workflow.mysql.test.ts",
         "backend/tests/fulfillment/security.test.ts"
       ],
       "evidence": [
         "backend/evidence/notification-workflow-reviewed-2db8152.json"
       ],
-      "notes": "Fresh exact-declaration proof on2db8152: seven pinned-source/realRedis/Channels/nativeMySQL/session/App groups plus twelve controlled lifecycle cases. Source broker-readiness-before-accept ordering restored with fresh authority, bounded buffering and cleanup. Original red and all earlier receipts remain immutable. Explicit safety/precision/transport corrections documented; whole-template, provider, finance, physical audio, generic deployment and release acceptance excluded. The order-default implementation changes the shared production graph after this execution. Preserve this exact notification receipt and refresh the registered native workflow in the frozen full run; do not rebind its hashes."
+      "notes": "Fresh exact-declaration proof on2db8152: seven pinned-source/realRedis/Channels/nativeMySQL/session/App groups plus twelve controlled lifecycle cases. Source broker-readiness-before-accept ordering restored with fresh authority, bounded buffering and cleanup. Original red and all earlier receipts remain immutable. Explicit safety/precision/transport corrections documented; whole-template, provider, finance, physical audio, generic deployment and release acceptance excluded. The order-default implementation changes the shared production graph after this execution. Preserve this exact notification receipt and refresh the registered native workflow in the frozen full run; do not rebind its hashes. W18 (19 Nov 2026): the deleted Python/native harness paths were replaced by the W15 golden test that now carries this comparison (backend/parity/w15-report.md); the historical receipt stays in evidence. Still pending: the receipt predates the single-stack tree."
     }
   ],
   "requirements": [
@@ -273,7 +237,15 @@
       "implementation": [],
       "tests": [],
       "evidence": [],
-      "notes": "Component tests and implemented route counts do not certify complete legacy behavior."
+      "notes": "Component tests and implemented route counts do not certify complete legacy behavior. W18 on f600dd54 (backend/parity/w18-verification.md): all local suites green on loopback, 396 surfaces still pending in the gate, 9 remaining-code groups in source-surface-map.json."
+    },
+    {
+      "id": "sso-integration",
+      "status": "pending",
+      "implementation": [],
+      "tests": [],
+      "evidence": [],
+      "notes": "Google SSO and desktop SSO were deleted by user decision (AGENTS.md, Revisions 19 November 2026); sign-in is legacy password plus OTP/TOTP. The id is still listed in releaseRequirementIds (backend/src/domain/release.ts), so the gate keeps reporting it until the primary agent or user removes or redefines it."
     },
     {
       "id": "warehouse-parity-and-freshness",
@@ -288,7 +260,8 @@
       "status": "pending",
       "implementation": [],
       "tests": [],
-      "evidence": []
+      "evidence": [],
+      "notes": "No sandbox or live provider evidence (API-v2 pos/order, payment microservice, Paytm/Pine terminals, Gupshup, Netcore, mailr, Borzo). Request shapes and goldens only; e2e uses loopback stand-ins (backend/tools/e2e/order-api.ts). Needs provider sandbox credentials."
     },
     {
       "id": "inventory-writer-procedure",
@@ -311,14 +284,16 @@
       "status": "pending",
       "implementation": [],
       "tests": [],
-      "evidence": []
+      "evidence": [],
+      "notes": "W16 query plans pass the production live read-only plan gate (backend/evidence/live-readonly-2026-11-19-r4.json: 16/16 paths, 0 plan rejections, 3 LIMIT-bounded plans). No load or latency benchmark exists."
     },
     {
       "id": "security-review",
       "status": "pending",
       "implementation": [],
       "tests": [],
-      "evidence": []
+      "evidence": [],
+      "notes": "S1-S57 recorded in backend/parity/security-decisions.md, pending user review. Route validation 335/335 and log redaction tests pass (W18). No independent security review or penetration test."
     },
     {
       "id": "offline-web-and-desktop",
@@ -326,28 +301,31 @@
       "implementation": [],
       "tests": [],
       "evidence": [],
-      "notes": "Immutable signed cash receipts, cached-stock manager reconciliation, print/reprint, durable handoff, native atomic import and sealed reporting proof are implemented with isolated tests. Production source/provider/schema acceptance, real offline devices and physical printers on both operating systems remain uncertified."
+      "notes": "Desktop offline billing (encrypted SQLite, cash + manual card/UPI reference, provisional reference as a comments row, env limits) passes 12/12 Electron e2e scenarios on loopback (W17; W18 rerun 12/12 after one flaky run). Web clients need internet (AGENTS.md). Real keychain/DPAPI, physical printers and devices on both operating systems remain uncertified."
     },
     {
       "id": "desktop-signing",
       "status": "pending",
       "implementation": [],
       "tests": [],
-      "evidence": []
+      "evidence": [],
+      "notes": "Unsigned macOS arm64 package builds (W18). Needs an Apple Developer ID certificate, notarisation credentials and a Windows Authenticode certificate (backend/parity/w17-report.md section 4)."
     },
     {
       "id": "deployment-and-rollback",
       "status": "pending",
       "implementation": [],
       "tests": [],
-      "evidence": []
+      "evidence": [],
+      "notes": "Backend and frontend images build and the container smoke passes 10/10 (backend/evidence/container-smoke-f600dd54-single-stack.json). Staff must sign in again at cut-over; Redis must run with maxmemory-policy noeviction. No staged deployment or rollback rehearsal."
     },
     {
       "id": "background-workers",
       "status": "pending",
       "implementation": [],
       "tests": [],
-      "evidence": []
+      "evidence": [],
+      "notes": "Redis job queue and worker (backend/src/jobs, npm run worker:jobs) are implemented with loopback MySQL/Redis tests (W8). No live run of worker:jobs, S3, Netcore or Slack."
     },
     {
       "id": "desktop-windows-macos",
