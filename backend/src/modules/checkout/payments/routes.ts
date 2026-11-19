@@ -18,6 +18,7 @@ import { paymentEnvironment, terminalGateway } from './gateway.js';
 import { orderPushEnvironment, orderPushes, type OrderPushes } from './order-pushes.js';
 import { paymentRepository, type PaymentRepositoryOptions } from './repository.js';
 import { paymentService } from './service.js';
+import { tracedFetch } from '../../../observability/context.js';
 
 export interface PaymentRegistrationOptions extends PaymentRepositoryOptions {
   gateway?: PaymentGateway;
@@ -43,7 +44,7 @@ export function registerPayments(
       stateStore,
       pushes:
         options.pushes ??
-        orderPushes(config, orderPushEnvironment(), fetch, (event) =>
+        orderPushes(config, orderPushEnvironment(), tracedFetch, (event) =>
           app.log.info({
             eventId: `checkout.${event.kind}.${event.outcome}`,
             module: 'checkout',

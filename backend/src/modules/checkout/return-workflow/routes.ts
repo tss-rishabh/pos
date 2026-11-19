@@ -35,6 +35,7 @@ import { returnService } from './service.js';
 import { exchangeService } from './exchanges.js';
 import { returnWindowExtensions } from './extensions.js';
 import { returnState } from './state.js';
+import { tracedFetch } from '../../../observability/context.js';
 
 export interface ReturnRegistrationOptions {
   signing: CheckoutEnvironment;
@@ -71,7 +72,7 @@ export function registerReturns(
   options: ReturnRegistrationOptions,
 ) {
   const environment = options.environment || returnEnvironment(),
-    gateway = options.gateway || returnGateway(config, environment, fetch, app.log),
+    gateway = options.gateway || returnGateway(config, environment, tracedFetch, app.log),
     state = returnState(options.stateStore || configuredStateStore(config)),
     repository = returnRepository(db, config, {
       returnPeriodDays: environment.returnPeriodDays,

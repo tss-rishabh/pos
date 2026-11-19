@@ -11,6 +11,7 @@ import { readPrivateS3Options } from './private-s3-client.js';
 import { createProductSyncAdapter, productSynchronizer } from './product-sync.js';
 import { executeStockProcedure } from './stock-procedure.js';
 import { readAdministrationWorkerOptions } from './worker-options.js';
+import { tracedFetch } from '../../observability/context.js';
 
 /**
  * Administration jobs: core.tasks.parse_csv_product_store (C1), core.tasks.parse_csv_product_stock
@@ -22,7 +23,7 @@ export const registerJobHandlers: JobModuleRegistration = (registry, runtime) =>
   const productSync = productSynchronizer(
     config.DEMO_MODE
       ? undefined
-      : createProductSyncAdapter(config, syncOptions, fetch, { requireReplaySafe: false }),
+      : createProductSyncAdapter(config, syncOptions, tracedFetch, { requireReplaySafe: false }),
     log,
   );
   const imports = inventoryImportJobs({

@@ -116,7 +116,7 @@ import { draftMutationSchema, draftService } from './modules/drafts.js';
 import { demoServices, demoUser } from './modules/demo.js';
 import { registerEventCatalog, requestEvent } from './observability/events.js';
 import { createModuleRuntime } from './jobs/module-runtime.js';
-import { registerRequestTrace, requestIdFor } from './observability/context.js';
+import { registerRequestTrace, requestIdFor, tracedFetch } from './observability/context.js';
 import { identifier, cursor } from './domain/validation.js';
 import {
   noQuery,
@@ -358,7 +358,7 @@ export async function buildApp(
   // Legacy `Helpers.sync_pos_product`: one unretried POST after commit, failures only logged.
   const productSyncAdapter = config.DEMO_MODE
       ? undefined
-      : createProductSyncAdapter(config, readAdministrationWorkerOptions(), fetch, {
+      : createProductSyncAdapter(config, readAdministrationWorkerOptions(), tracedFetch, {
           requireReplaySafe: false,
         }),
     productSync = productSynchronizer(productSyncAdapter, (level, event, message) =>
