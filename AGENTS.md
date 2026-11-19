@@ -117,3 +117,9 @@ These supersede earlier WIP patterns. Every agent must follow them.
     cashier performance and hyperlocal acceptance.
   - **Exception:** gift-card batch generation runs on the Redis job queue, not inline.
   The queue design is in `backend/parity/phase-c-legacy-jobs.md`.
+- **Orders, 19 November 2026 (user):**
+  - Order search and every order detail read MySQL for all dates, as legacy does. BigQuery is used for reports only;
+    this overrides spec.md's BigQuery-for-older-ranges.
+  - Fix two legacy hyperlocal bugs:
+    - Split orders move to status 21 when the courier accepts.
+    - The transfer path stores the pass reason in the correct field.
