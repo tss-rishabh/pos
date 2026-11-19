@@ -9,10 +9,10 @@ const base = {
   customerId: identifier,
   subjectId: z.uuid(),
 };
-export const customerOtpScopeSchema = z.discriminatedUnion('purpose', [
-  z.object({ ...base, purpose: z.literal('checkout-benefits'), orderId: z.null() }).strict(),
-  z.object({ ...base, purpose: z.literal('order-return'), orderId: identifier }).strict(),
-]);
+/** Checkout benefits only: returns, exchanges and date extension have no customer OTP (legacy). */
+export const customerOtpScopeSchema = z
+  .object({ ...base, purpose: z.literal('checkout-benefits'), orderId: z.null() })
+  .strict();
 export type CustomerOtpScope = z.infer<typeof customerOtpScopeSchema>;
 export type CustomerOtpPurpose = CustomerOtpScope['purpose'];
 export const customerOtpViewSchema = z
