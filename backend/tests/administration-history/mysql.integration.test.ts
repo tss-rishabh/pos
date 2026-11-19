@@ -10,10 +10,7 @@ import { createDatabases, type Databases } from '../../src/db/pools.js';
 import { PosUser, Store } from '../../src/db/legacy-schema.js';
 import { AppError } from '../../src/domain/errors.js';
 import type { Principal } from '../../src/domain/access.js';
-import {
-  legacyFixtureRecord,
-  legacyFixtureTableSql,
-} from '../../tools/administration/mysql-fixture.js';
+import { legacyFixtureRecord } from '../../tools/administration/mysql-fixture.js';
 import {
   registerAdministrationHistory,
   administrationHistoryService,
@@ -25,6 +22,7 @@ import {
 } from '../../src/modules/administration-history/contracts.js';
 import { administrationHistoryAuthActor } from '../../src/modules/administration-history/schema.js';
 import { goldenSpawnResult } from '../golden/load.js';
+import { createProductionTables } from '../helpers/production-schema.js';
 import { fixturePlaceholders } from '../golden/fixture-placeholders.js';
 
 const template = process.env.ADMINISTRATION_HISTORY_MYSQL_TEST_URL;
@@ -122,18 +120,14 @@ describe.skipIf(!template)('inherited model history against isolated MySQL', () 
       `CREATE DATABASE ${mysql.escapeId(schemaName)} CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci`,
     );
     await connection.changeUser({ database: schemaName });
-    await connection.query(legacyFixtureTableSql(PosUser));
-    await connection.query(legacyFixtureTableSql(Store));
-    await connection.query(legacyFixtureTableSql(administrationHistoryAuthActor));
-    await connection.query(
-      "ALTER TABLE auth_user ADD COLUMN password VARCHAR(128) NOT NULL DEFAULT 'fixture-not-a-password', ADD COLUMN last_login DATETIME(6) NULL",
-    );
-    await connection.query(
-      'CREATE TABLE django_content_type (id INT NOT NULL PRIMARY KEY,app_label VARCHAR(100) NOT NULL,model VARCHAR(100) NOT NULL,UNIQUE KEY content_identity(app_label,model)) CHARACTER SET latin1 COLLATE latin1_swedish_ci ENGINE=InnoDB',
-    );
-    await connection.query(
-      'CREATE TABLE django_admin_log (id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,action_time DATETIME(6) NOT NULL,object_id LONGTEXT NULL,object_repr VARCHAR(200) NOT NULL,action_flag SMALLINT UNSIGNED NOT NULL,change_message LONGTEXT NOT NULL,content_type_id INT NULL,user_id INT NOT NULL,INDEX content_type_id(content_type_id),INDEX user_id(user_id),FOREIGN KEY(content_type_id) REFERENCES django_content_type(id),FOREIGN KEY(user_id) REFERENCES auth_user(id)) CHARACTER SET latin1 COLLATE latin1_swedish_ci ENGINE=InnoDB',
-    );
+    // Production DDL (auth_user already has password/last_login; django_* carry their FKs).
+    await createProductionTables(connection, [
+      PosUser,
+      Store,
+      administrationHistoryAuthActor,
+      'django_content_type',
+      'django_admin_log',
+    ]);
     await connection.query(
       'CREATE TABLE pos_rewrite_administration_registries (resource VARCHAR(32) PRIMARY KEY) ENGINE=InnoDB',
     );
