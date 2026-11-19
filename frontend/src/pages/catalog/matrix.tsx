@@ -6,7 +6,7 @@ import type { Principal } from '../../api/types';
 import { request } from '../../api/client';
 import { Empty, ErrorState, Loading, PageTitle } from '../../components/common';
 import { useOnline } from '../../hooks/use-pos';
-import { catalogMetadata, tableResult } from './contracts';
+import { tableResult } from './contracts';
 import { CatalogPagination, CatalogTable, type CatalogColumn } from './table';
 import { StockEditor } from './product';
 import './style.css';
@@ -25,6 +25,9 @@ const matrixRow = z.object({
   product_store_stock_is_del: booleanMap,
 });
 type MatrixRow = z.infer<typeof matrixRow>;
+export const matrixStoresSchema = z
+  .object({ data: z.array(z.object({ id: z.string(), name: z.string() }).strict()) })
+  .strict();
 const resultSchema = tableResult(matrixRow).extend({
   stores: z.array(z.object({ id: z.string(), name: z.string() })),
 });
@@ -44,9 +47,12 @@ export function StockMatrixPage({ user, storeId }: { user: Principal; storeId: s
     [start, setStart] = useState(0),
     [length, setLength] = useState(10);
   const stores = useQuery({
-      queryKey: [user.id, 'catalog-details-stores'],
+      // The stores the matrix search authorises for this operator (legacy ProductsStockView:
+      // every active store for role 1, the assigned active stores otherwise).
+      queryKey: [user.id, 'catalog-inventory-stores'],
       enabled: permitted,
-      queryFn: ({ signal }) => request('/api/v1/catalog/stores', { signal }, catalogMetadata),
+      queryFn: ({ signal }) =>
+        request('/api/v1/catalog/inventory/stores', { signal }, matrixStoresSchema),
     }),
     data = useQuery({
       queryKey: [user.id, 'catalog-stock-matrix', submitted, start, length],
@@ -171,13 +177,11 @@ export function StockMatrixPage({ user, storeId }: { user: Principal; storeId: s
               })
             }
           >
-            {stores.data?.data
-              .filter((store) => user.role === 1 || user.storeIds.includes(store.id))
-              .map((store) => (
-                <option value={store.id} key={store.id}>
-                  {store.name}
-                </option>
-              ))}
+            {stores.data?.data.map((store) => (
+              <option value={store.id} key={store.id}>
+                {store.name}
+              </option>
+            ))}
           </select>
           <small>Clear the selection for all accessible stores.</small>
         </label>

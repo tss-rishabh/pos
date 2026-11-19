@@ -46,6 +46,13 @@ export const e2eStores = [
   { id: 1n, name: 'Bandra Flagship', code: 'SYN-BDR', city: 'Mumbai' },
   { id: 2n, name: 'Indiranagar', code: 'SYN-IDR', city: 'Bengaluru' },
 ] as const;
+/** An active store the operator is NOT assigned to (store-scope checks). */
+export const e2eUnassignedStore = {
+  id: 3n,
+  name: 'Colaba Unassigned',
+  code: 'SYN-CLB',
+  city: 'Mumbai',
+} as const;
 
 const productNames = [
   'Classic: Oversized T-shirt',
@@ -116,7 +123,7 @@ export async function seedE2e(
   // Production runs with an empty sql_mode; omitted NOT NULL columns take implicit defaults.
   await connection.query("SET SESSION sql_mode = ''");
   await db.insert(Store).values(
-    e2eStores.map((store, index) => ({
+    [...e2eStores, e2eUnassignedStore].map((store, index) => ({
       id: store.id,
       store_name: store.name,
       short_name: store.name,
