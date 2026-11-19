@@ -152,3 +152,22 @@ These supersede earlier WIP patterns. Every agent must follow them.
 - **Windows desktop, 20 November 2026 (user):** no menu bar on Windows. Editing and zoom shortcuts keep working.
   macOS keeps its standard app menu. Windows CI runs the full desktop e2e on `windows-latest`, using MySQL 8.4 and
   Memurai as the Redis-compatible server.
+
+## STRICT RULE: every change ships to all three clients — user, 20 November 2026
+
+Every fix and every feature must land on, and be verified on, all three clients:
+**web**, **desktop macOS** and **desktop Windows**.
+
+- **One change, three clients.** A change is not done until it works on all three.
+  - Shared UI and API changes are exercised in the web build and in both packaged desktop builds.
+  - Desktop-shell changes (Electron main, preload, IPC, packaging) are made and tested for both macOS and Windows.
+- **Verification is required on each client.**
+  - Web: Playwright.
+  - macOS: the Electron specs and the desktop suite, run locally or on the `macos-latest` CI leg.
+  - Windows: the `windows-latest` leg of `.github/workflows/desktop-platforms.yml`.
+  - Report the result for each client separately. Never claim a client works without its own evidence.
+- **Platform-specific code paths need tests on the platform they target.** This covers keyboard shortcuts, paths,
+  printing, DPAPI/Keychain, installers and menus.
+- **Exceptions need an explicit user decision.** The only one so far is desktop offline billing (approved 19 November
+  2026); web clients need internet to bill. Any new exception must be asked for and recorded here.
+- This rule applies to every agent and every continuation.
