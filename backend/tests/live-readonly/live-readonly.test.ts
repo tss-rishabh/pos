@@ -267,6 +267,7 @@ describe.skipIf(!enabled)('live read-only production parity (Phase F1)', () => {
       ...stats,
       refusedCodes: [...stats.refusedCodes],
       planRejected: [...stats.planRejected],
+      planBounded: [...stats.planBounded],
     };
   }
   async function run(
@@ -328,6 +329,7 @@ describe.skipIf(!enabled)('live read-only production parity (Phase F1)', () => {
       downgradedUpdateLocks: delta.downgradedUpdateLocks,
       refused: delta.refused,
       planRejected: delta.planRejected,
+      planBounded: delta.planBounded,
       durationMs: Math.round(performance.now() - started),
     });
     if (status === 'fail') throw new Error(`${path} failed: ${reason ?? 'UNKNOWN'}`);
@@ -720,7 +722,11 @@ describe.skipIf(!enabled)('live read-only production parity (Phase F1)', () => {
           checks.push('zod:CustomerIdentity');
         }
       }
-      // Price-list (pricelist id 2) and stock inputs come through the counter product page.
+      // The quote itself reads no product_store row: prices and stock come from API-v2
+      // (processorder), as in legacy AjaxCartView (order/views.py:1692-1770). The price-list
+      // (pricelist id 2) and stock columns the cashier sees come from the counter product picker
+      // with out-of-stock rows (include_oss_toggle=1): products PRIMARY in id order plus one
+      // uq_product_store point read per product, bounded by LIMIT (W16).
       const page = await catalogService(guarded.databases).products(
         principal,
         s.storeId,

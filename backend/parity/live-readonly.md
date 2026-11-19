@@ -37,7 +37,7 @@ POS_PROD_RO_MYSQL_URL='mysql://<ro-user>:<password>@<host>:3306/tss' \
 | `POS_PROD_RO_MYSQL_CA` | `../global-bundle.pem` (the same default as `tools/schema/snapshot-production-schema.ts`) | CA bundle path for TLS with `rejectUnauthorized: true`. The value `plaintext-localhost` turns TLS off, and is accepted **only** for `127.0.0.1`/`localhost`/`::1`. For any other host it throws. |
 | `POS_PROD_RO_MAX_EXECUTION_MS` | `10000` | `MAX_EXECUTION_TIME` per session, from 1000 to 10000. |
 | `POS_PROD_RO_PLAN_ROW_LIMIT` | `100000` | Plan-gate threshold, at most 100000. |
-| `POS_PROD_RO_LOCKING_READS` | `downgrade` | `refuse` is strict mode: every locking read is refused, and paths that need one are reported as skipped (see below). |
+| `POS_PROD_RO_LOCKING_READS` | `refuse` (since W16; was `downgrade`) | `refuse` is strict mode: every locking read is refused, and paths that need one are reported as skipped (see below). `downgrade` sends a trailing locking read as a plain read. |
 | `POS_PROD_RO_WRITE_EVIDENCE=1` | off | Writes `backend/evidence/live-readonly-<date>.json`. If that file exists, it writes `-2`, `-3` and so on, using exclusive create (`wx`). It never overwrites. |
 | `POS_PROD_RO_EVIDENCE_DIR` | — | Writes the evidence file to this directory instead. Setting it also enables writing. |
 
@@ -108,8 +108,9 @@ forms, and all 7 scheduled source queries.
 > **Update (W16, `parity/w16-report.md`).** The order list/detail/search, online-detail and
 > catalog-barcode authorizations no longer take row locks: they read the writer with plain
 > consistent reads in a read-only transaction. On loopback every path now passes with
-> `POS_PROD_RO_LOCKING_READS=refuse` and 0 downgraded locks. The text below describes the
-> state measured before that change.
+> `POS_PROD_RO_LOCKING_READS=refuse` and 0 downgraded locks, and `refuse` is now the default
+> (production rerun `live-readonly-2026-11-19-r2.json`: 0 locks, 0 refusals). The text below
+> describes the state measured before that change.
 The rewrite's read paths confirm authorization on the writer with locking reads.
 `assertCurrentStoreAccess` defaults to `FOR UPDATE` on `stores`. Order list, detail and search,
 and online detail, use `FOR SHARE` on `pos_user`, `stores`, `orders` and `order_stores`. Measured
@@ -147,7 +148,15 @@ three order paths). Any other refusal fails the path.
   - any plan row is `type=ALL` on a table with more than `POS_PROD_RO_PLAN_ROW_LIMIT` rows. The
     row count comes from `information_schema.TABLES.table_rows`, or from the EXPLAIN estimate
     for aliases and derived tables;
-  - any plan row estimates more than that limit.
+  - any plan row estimates more than that limit, **unless** that row is bounded by LIMIT (W16,
+    `tools/live-readonly/plan-gate.ts`, unit-tested in `tests/live-readonly/plan-gate.test.ts`):
+    it is the driving table of the outermost query block, its access is `range` or `ref`, the
+    outermost block has no filesort and no temporary table (`EXPLAIN FORMAT=JSON`), and the
+    statement ends with a top-level `LIMIT n` with n ≤ 50 and no OFFSET. The server then streams
+    rows in index order and stops after n, so EXPLAIN's estimate (which ignores LIMIT) is not the
+    cost; `MAX_EXECUTION_TIME` bounds a selective filter. Such plans are listed per path as
+    `planBounded` (table, access, estimate). Full scans, and filesorts or temporary tables over
+    more than the limit, are still refused.
 
   This also applies when a module swallows the error: the harness reads the gate's own counters.
   The schema check's `INFORMATION_SCHEMA` metadata reads touch no data table and are exempt from
@@ -249,15 +258,15 @@ Results, MySQL 8.4.11, 19 November 2026:
   guard tests run.
 
 **Production-shaped volume (W16).** `tests/live-readonly/volume-fixture.ts` adds ~360k synthetic
-`products` and ~22k `product_store` rows per store to the seeded schema (run it after
-`seed-loopback.ts`, same URL). With it, the plan gate reproduces the production rejection
-(`products` range, estimate ~176k) on the pre-W16 catalog query.
+`products` and, for 4 stores, ~324k `product_store` rows per store (90% of the catalog, about a
+fifth in stock: the production per-store density, where a `store_id` ref estimates 318,880 rows).
+Run it after `seed-loopback.ts`, same URL. With it, the old gate reproduces both production
+rejections (`products` range ~176k, `product_store` ref ~640k), and with the W16 code and gate all
+16 paths pass with 4 LIMIT-bounded plans.
 
 The synthetic data is small, so several report paths return 0 rows on loopback. Loopback proves
 execution, guard behaviour and contract parsing, not value coverage.
 
 ## NEEDS USER DECISION
-- **Locking-read downgrade.** Do we accept `downgrade` as the default for the production run? The
-  alternative is `refuse`, which leaves the order list/detail/search and online-detail paths
-  unverified, because their authorization confirmation uses `FOR UPDATE`/`FOR SHARE`. Either way,
-  no locking statement reaches production.
+- ~~**Locking-read downgrade.**~~ Resolved by W16: the read paths take no locks and `refuse` is
+  the default.

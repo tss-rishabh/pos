@@ -6,7 +6,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { z } from 'zod';
-import { backendRoot, type PlanRejection } from './connection.js';
+import { backendRoot, type PlanBounded, type PlanRejection } from './connection.js';
 
 export type PathStatus = 'pass' | 'fail' | 'skip';
 export interface ColumnDrift {
@@ -36,6 +36,8 @@ export interface PathResult {
   downgradedUpdateLocks: number;
   refused: number;
   planRejected: PlanRejection[];
+  /** Plans accepted only because a LIMIT-bounded, index-ordered scan drives them. */
+  planBounded?: PlanBounded[];
   durationMs: number;
 }
 export interface LiveSummary {
@@ -69,6 +71,7 @@ export interface LiveSummary {
     downgradedUpdateLocks: number;
     refused: number;
     planRejected: number;
+    planBounded: number;
   };
 }
 
@@ -98,6 +101,7 @@ export function newSummary(
       downgradedUpdateLocks: 0,
       refused: 0,
       planRejected: 0,
+      planBounded: 0,
     },
   };
 }
@@ -114,6 +118,7 @@ export function finishSummary(summary: LiveSummary): LiveSummary {
     totals.downgradedUpdateLocks += path.downgradedUpdateLocks;
     totals.refused += path.refused;
     totals.planRejected += path.planRejected.length;
+    totals.planBounded += path.planBounded?.length ?? 0;
   }
   return summary;
 }

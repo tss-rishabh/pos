@@ -106,137 +106,160 @@ export function catalogService(databases: Databases) {
         parent = alias(Product, 'catalog_parent'),
         eligibilityParent = alias(Product, 'eligibility_parent');
       const pattern = `%${search.replace(/[\\%_]/g, '\\$&')}%`;
-      // W16: the page is chosen first, by product id, in a derived table driven by an index on
-      // this store's `product_store` rows (or by the exact GTIN), so the statement never ranges
-      // over the whole `products` table and the scalar projections below run for the page rows
-      // only. One statement, so the page and its columns come from one consistent read.
-      const filters = and(
+      // The optimizer hint must follow SELECT, so it rides on the first column.
+      const columns = (hint: string) => ({
+        id: sql<bigint>`${sql.raw(hint)} ${Product.id}`,
+        name: Product.product,
+        erp: sql<string>`coalesce(nullif(case when ${Product.parent_prod_id}=0 then ${Product.erp_product} else ${parent.erp_product} end,''),'-')`,
+        parentId: Product.parent_prod_id,
+        type: Product.prod_type,
+        price: sql<string>`case when ${Product.parent_prod_id}=0 then ${Product.price} else coalesce(${parent.price},0) end`,
+        special: sql<string>`case when ${Product.parent_prod_id}=0 then ${Product.spl_price} else coalesce(${parent.spl_price},0) end`,
+        gst: Product.gst,
+        images: Product.images_new,
+        parentImages: parent.images_new,
+        stock: ProductStore.stock,
+        // Barcode and membership prices are bounded scalar projections; the outer
+        // stock join never multiplies rows when a SKU has multiple GS1 records.
+        barcode: sql<string | null>`${reader
+          .select({ gtin: ProductBarcode.gtin })
+          .from(ProductBarcode)
+          .where(eq(ProductBarcode.product, Product.id))
+          .orderBy(asc(ProductBarcode.id))
+          .limit(1)}`,
+        exclusive: sql<string | null>`${reader
+          .select({ price: PriceList.price })
+          .from(PriceList)
+          .where(
+            and(
+              eq(
+                PriceList.product_id,
+                sql`case when ${Product.parent_prod_id}=0 then ${Product.id} else ${Product.parent_prod_id} end`,
+              ),
+              eq(PriceList.pricelist_id, 2),
+            ),
+          )
+          .orderBy(asc(PriceList.product_id))
+          .limit(1)}`,
+      });
+      const eligible = (owner: typeof parent | typeof eligibilityParent) =>
+        or(
+          and(
+            eq(Product.is_del, 0),
+            or(
+              isNull(owner.id),
+              ne(owner.is_del, 1),
+              ne(owner.prod_type, 3n),
+              ne(owner.parent_prod_id, 0n),
+            ),
+          ),
+          gt(ProductStore.stock, 0),
+        );
+      const common = and(
         eq(ProductStore.store, store),
         eq(ProductStore.is_del, false),
         eq(ProductStore.is_avail, true),
         includeOutOfStock ? undefined : gt(ProductStore.stock, 0),
         ne(Product.product, ''),
-        // The parent-eligibility branch is OR-ed with `stock > 0`, which the in-stock page
-        // already requires, so it (and its parent join) only matters with out-of-stock rows.
-        includeOutOfStock
-          ? or(
-              and(
-                eq(Product.is_del, 0),
-                or(
-                  isNull(eligibilityParent.id),
-                  ne(eligibilityParent.is_del, 1),
-                  ne(eligibilityParent.prod_type, 3n),
-                  ne(eligibilityParent.parent_prod_id, 0n),
-                ),
-              ),
-              gt(ProductStore.stock, 0),
-            )
-          : undefined,
         or(ne(Product.parent_prod_id, 0n), ne(Product.prod_type, 3n)),
         gt(Product.id, BigInt(after)),
-        exactBarcode === undefined && search
-          ? or(
-              like(Product.product, pattern),
-              like(sql`cast(${Product.id} as char)`, pattern),
-              exists(
-                reader
-                  .select({ id: ProductBarcode.id })
-                  .from(ProductBarcode)
-                  .where(
-                    and(eq(ProductBarcode.product, Product.id), like(ProductBarcode.gtin, pattern)),
-                  ),
-              ),
-            )
-          : undefined,
       );
-      const pageQuery =
-        exactBarcode !== undefined
-          ? // Exact GTIN: a point lookup on `products_gs1.gtin`, then the product and its
-            // `uq_product_store` row. GROUP BY keeps one row per product (EXISTS semantics).
-            reader
-              .select({
-                id: sql<bigint>`/*+ JOIN_ORDER(products_gs1, products, product_store) */ ${Product.id}`.as(
-                  'page_id',
-                ),
-              })
-              .from(ProductBarcode, { forceIndex: 'gtin' })
-              .innerJoin(Product, eq(Product.id, ProductBarcode.product))
-              .innerJoin(
-                ProductStore,
-                and(eq(ProductStore.product, Product.id), eq(ProductStore.store, store)),
-                { forceIndex: 'uq_product_store' },
+      let rows;
+      if (exactBarcode === undefined) {
+        // Page and picker: `products` PRIMARY in id order, then this store's row by
+        // `uq_product_store (product_id, store_id)` as a point read per product. The ORDER BY is
+        // served by the index (no filesort), so LIMIT stops the scan early; stores hold most of
+        // the catalog (~319k of 362k products on production). AjaxOrderProductsListView
+        // (`core/datatables/store_products_datatable.py:217-247`) walks the same join by id.
+        rows = await reader
+          .select(columns('/*+ JOIN_ORDER(products, product_store) */'))
+          .from(Product, { forceIndex: 'PRIMARY' })
+          .innerJoin(
+            ProductStore,
+            and(eq(ProductStore.product, Product.id), eq(ProductStore.store, store)),
+            { forceIndex: 'uq_product_store' },
+          )
+          .leftJoin(parent, eq(parent.id, Product.parent_prod_id))
+          .where(
+            and(
+              common,
+              eligible(parent),
+              search
+                ? or(
+                    like(Product.product, pattern),
+                    like(sql`cast(${Product.id} as char)`, pattern),
+                    exists(
+                      reader
+                        .select({ id: ProductBarcode.id })
+                        .from(ProductBarcode)
+                        .where(
+                          and(
+                            eq(ProductBarcode.product, Product.id),
+                            like(ProductBarcode.gtin, pattern),
+                          ),
+                        ),
+                    ),
+                  )
+                : undefined,
+            ),
+          )
+          .orderBy(asc(Product.id))
+          .limit(limit + 1);
+      } else {
+        // Exact GTIN (W16): a point lookup on `products_gs1.gtin` (legacy
+        // `ProductBarcode.objects.filter(gtin=barcode)`, `order/views.py:1720`), then the product
+        // and its `uq_product_store` row. GROUP BY keeps one row per product (EXISTS semantics).
+        // The parent-eligibility branch is OR-ed with `stock > 0`, which the in-stock lookup
+        // already requires, so it only joins the parent when out-of-stock rows are included.
+        const candidates = reader
+          .select({
+            id: sql<bigint>`/*+ JOIN_ORDER(products_gs1, products, product_store) */ ${Product.id}`.as(
+              'page_id',
+            ),
+          })
+          .from(ProductBarcode, { forceIndex: 'gtin' })
+          .innerJoin(Product, eq(Product.id, ProductBarcode.product))
+          .innerJoin(
+            ProductStore,
+            and(eq(ProductStore.product, Product.id), eq(ProductStore.store, store)),
+            { forceIndex: 'uq_product_store' },
+          )
+          .$dynamic();
+        const page = (
+          includeOutOfStock
+            ? candidates.leftJoin(
+                eligibilityParent,
+                eq(eligibilityParent.id, Product.parent_prod_id),
               )
-              .$dynamic()
-          : reader
-              .select({
-                id: sql<bigint>`/*+ JOIN_ORDER(product_store, products) */ ${Product.id}`.as(
-                  'page_id',
-                ),
-              })
-              .from(ProductStore, { forceIndex: 'idx_store_id_stock_is_avail_is_del' })
-              .innerJoin(Product, eq(Product.id, ProductStore.product))
-              .$dynamic();
-      const page = (
-        includeOutOfStock
-          ? pageQuery.leftJoin(eligibilityParent, eq(eligibilityParent.id, Product.parent_prod_id))
-          : pageQuery
-      )
-        .where(
-          exactBarcode !== undefined
-            ? and(eq(ProductBarcode.gtin, BigInt(exactBarcode)), filters)
-            : filters,
+            : candidates
         )
-        .groupBy(...(exactBarcode !== undefined ? [Product.id] : []))
-        .orderBy(asc(Product.id))
-        .limit(limit + 1)
-        .as('catalog_page');
-      // Drizzle renders a subquery's SQL field unqualified; name the derived column explicitly.
-      const pageId = sql`${sql.identifier('catalog_page')}.${sql.identifier('page_id')}`;
-      // Barcode and membership prices are bounded scalar projections; the outer
-      // stock join never multiplies rows when a SKU has multiple GS1 records.
-      const rows = await reader
-        .select({
-          id: sql<bigint>`/*+ JOIN_ORDER(catalog_page, products, product_store, catalog_parent) */ ${Product.id}`,
-          name: Product.product,
-          erp: sql<string>`coalesce(nullif(case when ${Product.parent_prod_id}=0 then ${Product.erp_product} else ${parent.erp_product} end,''),'-')`,
-          parentId: Product.parent_prod_id,
-          type: Product.prod_type,
-          price: sql<string>`case when ${Product.parent_prod_id}=0 then ${Product.price} else coalesce(${parent.price},0) end`,
-          special: sql<string>`case when ${Product.parent_prod_id}=0 then ${Product.spl_price} else coalesce(${parent.spl_price},0) end`,
-          gst: Product.gst,
-          images: Product.images_new,
-          parentImages: parent.images_new,
-          stock: ProductStore.stock,
-          barcode: sql<string | null>`${reader
-            .select({ gtin: ProductBarcode.gtin })
-            .from(ProductBarcode)
-            .where(eq(ProductBarcode.product, Product.id))
-            .orderBy(asc(ProductBarcode.id))
-            .limit(1)}`,
-          exclusive: sql<string | null>`${reader
-            .select({ price: PriceList.price })
-            .from(PriceList)
-            .where(
-              and(
-                eq(
-                  PriceList.product_id,
-                  sql`case when ${Product.parent_prod_id}=0 then ${Product.id} else ${Product.parent_prod_id} end`,
-                ),
-                eq(PriceList.pricelist_id, 2),
-              ),
-            )
-            .orderBy(asc(PriceList.product_id))
-            .limit(1)}`,
-        })
-        .from(page)
-        .innerJoin(Product, eq(Product.id, pageId))
-        .innerJoin(
-          ProductStore,
-          and(eq(ProductStore.product, pageId), eq(ProductStore.store, store)),
-          { forceIndex: 'uq_product_store' },
-        )
-        .leftJoin(parent, eq(parent.id, Product.parent_prod_id))
-        .orderBy(asc(Product.id));
+          .where(
+            and(
+              eq(ProductBarcode.gtin, BigInt(exactBarcode)),
+              common,
+              includeOutOfStock ? eligible(eligibilityParent) : undefined,
+            ),
+          )
+          .groupBy(Product.id)
+          .orderBy(asc(Product.id))
+          .limit(limit + 1)
+          .as('catalog_page');
+        // Drizzle renders a subquery's SQL field unqualified; name the derived column explicitly.
+        const pageId = sql`${sql.identifier('catalog_page')}.${sql.identifier('page_id')}`;
+        rows = await reader
+          .select(
+            columns('/*+ JOIN_ORDER(catalog_page, products, product_store, catalog_parent) */'),
+          )
+          .from(page)
+          .innerJoin(Product, eq(Product.id, pageId))
+          .innerJoin(
+            ProductStore,
+            and(eq(ProductStore.product, pageId), eq(ProductStore.store, store)),
+            { forceIndex: 'uq_product_store' },
+          )
+          .leftJoin(parent, eq(parent.id, Product.parent_prod_id))
+          .orderBy(asc(Product.id));
+      }
       const more = rows.length > limit;
       const selected = rows.slice(0, limit),
         ids = selected.map((row) => BigInt(row.id)),

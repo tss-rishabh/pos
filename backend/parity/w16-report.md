@@ -1,121 +1,170 @@
 # W16: query performance and locking reads
 
-Branch `w16/query-perf`, from integration head `3a3e0ab5`. Every check below ran on a loopback
-MySQL 8.4.11 server only. Nothing was run against production. The primary agent re-runs the live
-suite against production.
+Branch `w16/query-perf`. Round 1 started from integration head `3a3e0ab5` and was merged as
+`2712b3ef`. Round 2 is this follow-up, after the production rerun
+`evidence/live-readonly-2026-11-19-r2.json`. Every check below ran on a loopback MySQL 8.4.11
+server. Nothing was run against production.
 
-## Diagnosis of the plan-gate skips
+## Production facts that decided the plans
 
-The production evidence (`evidence/live-readonly-2026-11-19.json`) skipped
-`catalog-product-barcode`, `checkout-quote-inputs` and `inventory-list` with
-`RO_PLAN_ROWS products range 181046`.
+The production rerun reports these table sizes:
 
-- **The sampling query is not the cause.** It passed with 8 statements.
-- **The cause is the rewrite's own app queries:**
-  - **`catalogService.products`** forced the plan with `JOIN_ORDER(products, product_store)` and
-    `FORCE INDEX (PRIMARY)` on `products`, so the plan was a `products` PK range from `id > after`.
-  - **`inventoryService.list`** had no hint. On production the optimizer chose the same PK range,
-    through its ORDER BY … LIMIT heuristic.
-- **The cost of that plan grows with the catalog, not the store.** It returns quickly when a store
-  stocks many low ids. A search with no match, a sparse store or a deep cursor scans the whole
-  `products` table.
-- **The first statement of each path was rejected.** In `checkout-quote-inputs`, that statement
-  is the counter product page.
+| table | rows |
+|---|---|
+| `products` | 362,092 |
+| `product_store` | 27,594,003 |
+| `products_gs1` | 165,308 |
+| `pricelist` | 58,620 |
 
-**Reproduced on loopback.** `tests/live-readonly/volume-fixture.ts` adds about 360k synthetic
-`products` (60k parents and 300k variants) and about 22k `product_store` rows per store for 40
-stores. With the pre-W16 code, the plan gate rejected catalog and checkout with `products range
-175685`.
+A `store_id` ref estimates **318,880 rows per store**, so a store holds about 88% of the catalog.
+The in-stock range on `(store_id, stock > 0)` stays under 100k, so `catalog-product-barcode` passed
+in r2.
 
-**Inventory on loopback.** Here the optimizer happened to choose `product_store.store_id`, so this
-path ran on loopback; on production it chose the PK range. The new code removes that choice with
-a hint.
+With stores this dense, the right plan for "this store's products by id, page of n" is a walk of
+`products` PRIMARY in id order. Each product's store row is then a point read on
+`uq_product_store (product_id, store_id)`.
+- The ORDER BY is served by the index, so there is no filesort.
+- `LIMIT n+1` stops the scan after roughly n / density products.
+- A store-driven read cannot stop early. No index has a `(store_id, product_id)` prefix, so it must
+  read and sort all ~319k store rows.
 
-## Queries changed
+**Round 1 was right for the first symptom but wrong for this density.** It replaced the PK walk with
+a store-driven derived page, which is what the old gate demanded. Round 2 restores the PK walk and
+refines the gate instead.
 
-Both queries now choose the page of product ids first, in a derived table, using a store index.
-They then read the columns and the per-row scalar subqueries (first GTIN, membership price) for
-the page rows only. It is still one statement, so all of it is one consistent read.
+The volume fixture now reproduces production density: 4 stores × ~324k `product_store` rows (90% of
+the catalog, a fifth in stock). The ref estimate is ~640k; production's is 319k.
 
-Before the change, MySQL evaluated those select-list subqueries for every candidate row before the
-sort. EXPLAIN ANALYZE showed the "Stream results" step over about 22k rows. That was the only
-N+1-like pattern found.
+On that fixture, at merge head `2712b3ef` with `refuse`, 3 paths skip:
+- catalog: `product_store` range, 109k;
+- checkout: `product_store` ref, 643k;
+- inventory: `product_store` ref, 643k.
 
-### 1. Counter product page, picker and barcode (`src/modules/catalog.ts` `products`)
+## Queries (current state)
 
-**Legacy reference:**
-- `AjaxOrderProductsListView` (`core/datatables/store_products_datatable.py:186-293`), which
-  filters `ps_product__store`, orders by `id` and runs a `count()` on every request.
-- The barcode lookup `ProductBarcode.objects.filter(gtin=barcode).first()`
-  (`order/views.py:1720`), which is a point lookup on `gtin`.
+### 1. Counter product page and picker (`src/modules/catalog.ts` `products`, no barcode)
 
-**The new plan:**
-- **Inner page.**
-  - It reads `product_store FORCE INDEX (idx_store_id_stock_is_avail_is_del)`: a range on
-    `(store_id, stock > 0)`, or a ref on `store_id` when out-of-stock rows are included.
-  - It joins `products` by `eq_ref`.
-  - It sorts by id and applies `LIMIT n+1`.
-- **Exact barcode.** It reads `products_gs1 FORCE INDEX (gtin)` by `ref`, then joins `products`
-  `eq_ref` and `product_store` `eq_ref` through `uq_product_store`. `GROUP BY products.id` keeps
-  EXISTS semantics when one product has duplicate GTIN rows.
-- **Simplification.** The parent-eligibility branch is `OR stock > 0`, so it is always true when
-  the page already requires `stock > 0`. The in-stock page therefore drops that branch and its
-  parent join. It stays when out-of-stock rows are included.
+This is the pre-W16 statement, unchanged:
+`products FORCE INDEX (PRIMARY)` range `id > after` in id order, then `product_store` eq_ref
+`uq_product_store`, `catalog_parent` eq_ref and `LIMIT n+1`.
 
-**Proof:**
-- `tests/catalog/products-plan-orm.mysql.test.ts` (gate `MYSQL_INTEGRATION_URL`) runs the former
-  statement verbatim as the oracle.
-- It compares the whole `Page` with `toStrictEqual`: values, types, order, cursors, holds and
-  storage.
-- The inputs cover 3 stores × in/out-of-stock × 9 searches × 6 cursor/limit pairs.
-- It also covers 7 exact barcodes: shared, alternate, other-store-only, deleted parent and
-  missing.
-- It walks every page and checks the walk equals the single-page result.
-- It includes deleted and orphan parents, empty names, configurable leaves, `is_avail`/`is_del`
-  rows, negative stock and multiple price-list locations.
-- 3/3 pass.
+Legacy reference: `AjaxOrderProductsListView` (`core/datatables/store_products_datatable.py:186-293`)
+walks the same `products ⋈ product_store(store)` join ordered by `id`, and also runs a `count()`
+on every request.
 
-### 2. Store inventory list (`src/modules/administration/inventory.ts` `list`)
+With no sort, the scalar projections (first GTIN, membership price) run only for emitted rows. The
+round-1 pre-sort evaluation problem therefore does not arise.
 
-The page is the same derived page: `product_store` on the index, then `products` `eq_ref`. The
-outer query then joins `products` and `product_store` (`uq_product_store`) and reads the first
-GTIN.
+### 2. Exact barcode (`catalog.ts`, `exactBarcode`)
 
-**Proof:** the existing W11 oracle, `tests/administration/inventory-list-orm.mysql.test.ts`. It
-runs the former statement verbatim with a `toStrictEqual` page matrix, and passes.
+This path keeps the round-1 point lookup:
+- `products_gs1 FORCE INDEX (gtin)` ref, then `products` eq_ref, then `product_store` eq_ref
+  `uq_product_store`;
+- `GROUP BY products.id` keeps EXISTS semantics;
+- the derived page has ≤ 2 rows, and the projection is read for those rows only.
 
-### EXPLAIN on the loopback snapshot schema plus the volume fixture
+Legacy reference: `ProductBarcode.objects.filter(gtin=barcode)` (`order/views.py:1720`).
 
-| query | before: driving access, est. rows | after: driving access, est. rows | actual before → after |
-|---|---|---|---|
-| catalog, in-stock first page | `products` range PRIMARY, **175,685** | derived: `product_store` range `idx_store_id_stock_is_avail_is_del`, 26,320; then `products` eq_ref | 57 → 125 ms |
-| catalog, including out-of-stock (checkout) | `products` range PRIMARY, **175,685** | `product_store` ref `idx_store_id_stock_is_avail_is_del`, 46,688 | 52 → 205 ms |
-| catalog, search with no match | `products` range PRIMARY, 175,685 | as the in-stock row | 417 → 103 ms |
-| catalog, deep cursor | `products` range PRIMARY | as the in-stock row | 2.6 → 114 ms |
-| catalog, exact barcode | `products_gs1` ref `gtin`, 1 (semijoin) | `products_gs1` ref `gtin`, 1 (explicit and hinted) → `products` eq_ref → `product_store` eq_ref `uq_product_store` | 0.08 → 0.14 ms |
-| inventory list | production: `products` range, 181,046. Loopback: `product_store` ref `store_id`, 43,040, with the subquery evaluated for all rows | `product_store` ref `idx_store_id_stock_is_avail_is_del`, 46,688 → `products` eq_ref (covering) | 262 → 180 ms |
+### 3. Store inventory list (`src/modules/administration/inventory.ts` `list`)
 
-In every new plan the outer query reads only the page rows (≤ n+1): `products`, `product_store` and
-`catalog_parent` by `eq_ref`, plus the two dependent subqueries by `ref`.
+The statement is the original one plus hints. Its WHERE and ORDER BY are unchanged:
+- `JOIN_ORDER(products, product_store)`;
+- `products FORCE INDEX (PRIMARY)`;
+- `product_store FORCE INDEX (uq_product_store)`.
 
-**Trade-off, recorded honestly.** The cost of each page is now bounded by the store's
-`product_store` rows instead of by catalog density. It is predictable and passes the plan gate.
-However, a dense first page or a deep cursor is slower on loopback than the early-terminating PK
-scan was. No index has a `(store_id, product_id)` prefix, and the schema is frozen, so the PK scan
-cannot be both bounded and early-terminating.
+The hint rides on the first column, and `mapWith(Product.id)` keeps the bigint id type. Production
+had already chosen this PK walk by itself; the hints make it deterministic.
 
-Legacy is no cheaper: it ran a `count()` over the same store rows on every request.
+Legacy pages the store's products by id.
 
-**Risk for the production run.** If a store has more than 100k `product_store` rows in the index
-estimate, the plan gate will still reject the page. The loopback estimate is 26k–47k for about
-22k rows.
+### 4. checkout-quote-inputs: which statement was store-wide, and why
+
+**The quote itself reads no `product_store` row.**
+- Prices and stock come from API-v2 `processorder`/`validatecheckout`.
+- Cart lines read only `products` (`cartProduct`, a PK point read), `store_counters` and `users`.
+- Legacy is the same. `AjaxCartView` (`order/views.py:1692-1770`) reads only `products_gs1` and
+  `products`, and reads no store stock.
+
+**The rejected statement** (statement 5 of 5) was the suite's proxy for "price-list and stock
+inputs". That proxy is the counter product picker with out-of-stock rows (`includeOutOfStock`,
+legacy `include_oss_toggle=1`). In round 1 it read `product_store` ref on `store_id` with
+filesort.
+
+**It is now item 1:**
+- a PK walk of `products`;
+- one `uq_product_store` point read per product;
+- the subqueries (pricelist PK point read, `products_gs1.product_id` ref) per emitted row only.
+
+The suite comment now states this.
+
+### Proof that output is identical
+
+- **`tests/catalog/products-plan-orm.mysql.test.ts`:**
+  - It runs the pre-W16 statement verbatim as the oracle. It compares the whole `Page` with
+    `toStrictEqual`: values, types, order, cursors, holds and storage.
+  - The inputs are 3 stores × in/out-of-stock × 9 searches × 6 cursor/limit pairs, plus 7 exact
+    barcodes and full page walks.
+  - 3/3 pass.
+- **`tests/administration/inventory-list-orm.mysql.test.ts`:** the existing oracle, with the former
+  statement verbatim and a `toStrictEqual` matrix, passes.
+
+### EXPLAIN and timing on the dense fixture (store 1 ≈ 324k `product_store` rows)
+
+| statement | round 1 (merged `2712b3ef`) | round 2 (now) |
+|---|---|---|
+| catalog in-stock page, LIMIT 21 | derived: `product_store` range 109k + temp + filesort; **331 ms** | `products` range PRIMARY (est. 175,895), no filesort → `product_store` eq_ref `uq_product_store`; 0.55 ms on variants (48 ms on page 1, which first crosses the fixture's 60k out-of-stock parent ids) |
+| picker incl. out-of-stock (checkout), LIMIT 11 | `product_store` ref 643k + temp + filesort; **1,624 ms** | same plan as above; 0.11 ms (47 ms on page 1, for the same reason) |
+| inventory list, LIMIT 21 | `product_store` ref 643k + temp + filesort; **1,065 ms** | `products` range PRIMARY → `product_store` eq_ref `uq_product_store`; **0.12 ms** |
+| exact barcode | `products_gs1` ref `gtin` (1) → eq_ref → eq_ref; 0.14 ms | unchanged |
+| worst case: search with no match | store-driven ~0.3–1.6 s | full PK walk: 431 / 345 / 277 ms (catalog / picker / inventory). This equals legacy's per-request `count()` over the same join. |
+
+## Live-suite plan gate (round 2)
+
+`tools/live-readonly/plan-gate.ts` is a pure function over `EXPLAIN FORMAT=JSON`.
+`connection.ts` now issues `EXPLAIN FORMAT=JSON` instead of the traditional format.
+
+**The rule.** An access estimating more than the row limit (100k) is accepted only when all of
+these hold:
+- it is the **driving** table of the **outermost** query block, not a subquery, derived table or
+  UNION member;
+- its access is `range` or `ref`;
+- the outermost block has **no filesort and no temporary table** anywhere: ordering, grouping,
+  DISTINCT or semijoin duplicate removal;
+- the statement ends with a top-level **`LIMIT n`, n ≤ 50**, with no OFFSET (`LIMIT ?` is read from
+  the last bound value).
+
+Such plans are reported per path as `planBounded` and counted in the totals.
+
+**Still refused:**
+- `ALL` on tables over the limit, judged by physical size;
+- `index` full scans;
+- any filesort or temporary table over the limit;
+- large non-driving or nested accesses.
+
+**Unit tests:** `tests/live-readonly/plan-gate.test.ts` has 9 tests. They cover the accept case, no
+LIMIT or LIMIT > 50, filesort, temporary table and semijoin temporary table, non-driving,
+derived, subquery and UNION accesses, ALL and index scans, small plans, and the trailing-LIMIT
+parser.
+
+**`POS_PROD_RO_LOCKING_READS` now defaults to `refuse`.**
+
+**Loopback live results.** All runs: 91 tests, 16/16 paths, 0 locks, 0 refusals, 0 rejections.
+
+| fixture | mode | `planBounded` plans |
+|---|---|---|
+| dense | `refuse` | 4, all `products` range (~176k) |
+| dense | `downgrade` | 4, all `products` range (~176k) |
+| plain | `refuse` | 0 |
+
+With `POS_PROD_RO_PLAN_ROW_LIMIT=1`, the sampling query is still rejected (its backward `index`
+scan is not exempt), so the gate still bites.
 
 ## Locking reads
 
 The loopback run before the change matched production: 56 locking reads, 12 of them `FOR UPDATE`.
 After the change there are **0**. All 16 paths pass with `POS_PROD_RO_LOCKING_READS=refuse`, on both
 the plain fixture and the volume fixture. This makes the "NEEDS USER DECISION: downgrade versus
-refuse" item in `live-readonly.md` moot. Refuse can become the default.
+refuse" item in `live-readonly.md` moot. Refuse is now the default (round 2). Production r2 confirms: 0 locks, 0 refusals.
 
 **Removed.** Every one of these was authorization confirmation in a transaction that never mutates.
 
@@ -159,18 +208,19 @@ caller changes behaviour.
 - **Store detail and online detail:** batched per order.
 - **Checkout quote:** API-v2 driven. `cartProduct` and `customer` are single lookups. The sequential
   draft-import loop is an ordered sequence of cart mutations, so it is not batchable.
-- **Catalog:** hold and storage are already batched.
+- **Catalog:** hold and storage are already batched. The scalar projections run per emitted
+  row only, because the PK walk has no sort.
 
-The only per-row query pattern was the pre-sort scalar subquery evaluation fixed above.
+No per-row database round trips were found.
 
 ## Checks (loopback)
 
 - **Static checks:** `tsc` and `eslint` pass. `orm-metadata` passes as part of the full run.
-- **Full backend `vitest` without database environment variables:** 156 files passed and 53
-  skipped; 728 tests passed and 0 failed.
+- **Full backend `vitest` without database environment variables:** 157 files passed and 53
+  skipped; 737 tests passed and 0 failed.
 - **Full `vitest` with the touched-module MySQL gates** (integration, administration,
-  order-history, order-search, checkout, global-vouchers): 11 failures. The same 11 fail at base
-  `3a3e0ab5`, so none is caused by W16. They are owned by W14/W15:
+  order-history, order-search, checkout, global-vouchers): 999 pass and 11 fail. The same 11 fail
+  at base `3a3e0ab5`, so none is caused by W16. They are owned by W14/W15:
   - `administration/collections` ×7;
   - `administration/mysql.integration` "barcode, variant pricing": `exclusivePrice` `"799"` vs
     `"799.00"`, from the float `pricelist.price`. W16 left this value unchanged;
@@ -178,21 +228,27 @@ The only per-row query pattern was the pre-sort scalar subquery evaluation fixed
   - `customer-history` Latin1;
   - `fulfillment/shipping-label`;
   - `global-vouchers`.
-- **Live suite** (82 tests, all 16 paths pass, 0 plan rejections, 0 locks), in all four
-  combinations of the plain or volume fixture with the downgrade or refuse mode.
+- **Live suite:** the results are listed above.
 
 ## Shared-file and out-of-ownership edits
 
 - **`src/modules/administration/authorization.ts`:** additive optional `'none'` lock mode.
-- **`parity/live-readonly.md`:** a W16 update note on locking reads, and the volume fixture.
+- **`parity/live-readonly.md`:** notes on the locking default, the plan-gate rule and the
+  volume fixture. The resolved NEEDS USER DECISION item is struck through.
+- **`tools/live-readonly/connection.ts`, `summary.ts`, new `plan-gate.ts`:**
+  - JSON EXPLAIN, the bounded rule and `planBounded` stats;
+  - the `refuse` default.
 - **`tests/live-readonly/volume-fixture.ts`:** new, loopback-only, refuses any schema not named
   `pos_live_readonly_*`.
 - No schema, index, `package.json`, `app.ts` or `config.ts` change.
 
 ## Remaining gaps
 
-- **Production plan estimates are unverified until the primary agent re-runs the suite.** The
-  per-store `product_store` estimate must be ≤ 100k.
-- **Picker page latency on dense stores is higher than the early-terminating plan's.** It is
-  bounded by store size. Revisit only if production timings require it, for example if the DBA
-  approves an index on `(store_id, product_id)`.
+- **The production plans are unverified until the primary agent re-runs the suite.** Expected
+  result:
+  - catalog, checkout and inventory pass through `planBounded` (`products` range ~181k);
+  - the exact barcode is a point lookup.
+- **A search with no match walks the full catalog.** That is about 0.3–0.4 s on loopback for 362k
+  products. It equals legacy's `count()` cost.
+- **An index on `(store_id, product_id)` would bound both cases**, but the schema is frozen. A DBA
+  would have to approve that index.
