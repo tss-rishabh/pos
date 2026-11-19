@@ -63,6 +63,13 @@ remains historical failure evidence. The old documentation's pending packaging
 wording describes that earlier state; the successful run above subsequently
 completed the listed packaging/runtime steps.
 
+## Status on the single-stack branch (19 November 2026, W18)
+
+The five files this PR changed still exist on `refactor/single-stack-schema-freeze`, and the frontend vitest run
+in `backend/parity/w18-verification.md` includes `tests/catalog/snapshot.test.ts` and
+`tests/finance/ledger-rows.test.ts` (all passing). The CI runs above remain historical; no new GitHub run was
+started for this verification.
+
 ## Limits
 
 A standalone fragment oracle certifies the selected DataTables comparison cases.

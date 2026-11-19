@@ -2,6 +2,13 @@
 
 PR: https://github.com/thesouledstore-tss/pos/pull/2
 
+> **Status, 19 November 2026 (W18).** This file describes PR #2 as it stood on 18 November, before the
+> single-stack schema freeze. That content (Google OIDC, `pos_rewrite_*` migrations, Python/Go oracles,
+> IndexedDB offline cash, the recovery-claim migration) has since been removed or re-homed on
+> `refactor/single-stack-schema-freeze`. The replacement description is
+> [pr-2-description.md](pr-2-description.md), with the verification in
+> `backend/parity/w18-verification.md`. The GitHub PR text has not been edited.
+
 The user requested integrating all accumulated rewrite work into main and
 documenting each PR. This is a repository integration, not production release
 acceptance. The original all-feature migration remains unfinished.
