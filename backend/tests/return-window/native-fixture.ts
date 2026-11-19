@@ -87,13 +87,8 @@ export async function returnWindowNativeFixture(template: string) {
     await connection.query(
       'ALTER TABLE orders MODIFY ship_date DATETIME NULL DEFAULT NULL,MODIFY ret_ex_request_date DATETIME NULL DEFAULT NULL',
     );
-    for (const path of [
-      'src/modules/checkout/migrations/0009_checkout_projection_proof.sql',
-      'src/modules/checkout/migrations/0017_customer_consent_proof.sql',
-      'src/modules/checkout/migrations/0015_gift_card_issuance.sql',
-      'src/modules/customer-contacts/contact-revisions-migration.sql',
-      'src/modules/checkout/migrations/0003_payments.sql',
-    ])
+    // The return workflow keeps no rewrite tables; only the contact revision it binds remains.
+    for (const path of ['src/modules/customer-contacts/contact-revisions-migration.sql'])
       for (const statement of splitMigration(readFileSync(path, 'utf8')))
         await connection.query(statement);
     await connection.query(
@@ -120,13 +115,7 @@ export async function returnWindowNativeFixture(template: string) {
         for (const table of [
           'pos_rewrite_customer_contact_revisions',
           'pos_rewrite_operator_auth_epochs',
-          'pos_rewrite_checkout_customer_consents',
-          'pos_rewrite_checkout_projection_lines',
-          'pos_rewrite_checkout_projections',
-          'pos_rewrite_payment_attempts',
-          'pos_rewrite_payment_outbox',
           'pos_rewrite_administration_outbox',
-          'pos_rewrite_gift_card_issuances',
           'amount_to_be_refunded_log',
           ...extra,
           ...base,
