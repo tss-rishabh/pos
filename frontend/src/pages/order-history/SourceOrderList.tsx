@@ -480,7 +480,7 @@ export function SourceOrderList({
             {data?.fetchedAt ? ' · Updated ' + new Date(data.fetchedAt).toLocaleTimeString() : ''}
           </p>
           <div className="table-wrap">
-            <table>
+            <table className="order-table">
               <thead>
                 <tr>
                   {columns

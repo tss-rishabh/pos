@@ -259,7 +259,29 @@ The primary agent must push `ui/cleanup` and confirm on Windows:
    panel is not clipped.
 7. macOS leg: the same suites (the local macOS results are in §7).
 
-## 10. Follow-ups for the primary agent
+## 10. Follow-up fixes after the coordinator's screenshot review
+
+- **Quote breakdown:** a row appears only when the final quote carries its value; no "Unavailable"
+  text anywhere; the round-off deduction sign goes on numbers only (`-₹0.49`); with no breakdown
+  rows the dialog shows "Confirmed payable" alone (the e2e stand-in quote carries only the total,
+  so `after-09/10` now show the payable alone). `tests/checkout-actions` adds a `payable-only` mode
+  and checks partial rows, the sign and the absence of placeholders.
+- **Orders payment method:** legacy `get_method_name` (`order/datatables/orders_datatable.py:264-303`)
+  returns `f"{pay_method}: {cash} {other} {online}"`, so an order without a method name is
+  `": CASH  "`. The server value and the page CSV keep that legacy string; the table now joins the
+  parts only when both exist (`order-history/payment-method-label.ts`, unit-tested; the
+  order-search harness expects `CASH`).
+- **Truncation:** one `TextCell` (`components/text-cell.tsx`) for plain-text cells in the orders,
+  report-view, order-transactions and daily-sales tables: one line, ellipsis, full value in the
+  tooltip. The orders table uses a fixed layout so it fits its panel instead of running past the
+  edge.
+- Re-verified on the final code: web Playwright two runs 37/37, 0 unexpected (runs 10, 11; shell
+  specs 2/2 in each); macOS desktop offline suite 12/12 (receipt 1 page) on `21b10473` (the later
+  change is orders-table CSS only); vitest 407/407 with all browser gates; order-search,
+  order-history and reports harnesses 1/1; report-columns fixture pass. Screenshots `after-08…11`
+  (web and macOS) recaptured.
+
+## 11. Follow-ups for the primary agent
 
 - Record a release-gate disposition for user-removed legacy surfaces (three entries now `blocked`).
 - `operational-reports` still routes the salesperson performance, cashier performance and
