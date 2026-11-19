@@ -5,11 +5,14 @@ ENV POS_MEDIA_ORIGINS=${POS_MEDIA_ORIGINS}
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY tools/dependency-security/manifest.json tools/dependency-security/verify.mjs tools/dependency-security/picomatch-4.0.7-pos-review.tgz ./tools/dependency-security/
-RUN node tools/dependency-security/verify.mjs --archive-only && npm ci && node tools/dependency-security/verify.mjs
+# The web image never loads the desktop-only native modules (better-sqlite3-multiple-ciphers for
+# Electron offline billing), so install scripts are skipped: no toolchain, no native build.
+RUN node tools/dependency-security/verify.mjs --archive-only && npm ci --ignore-scripts && node tools/dependency-security/verify.mjs
 COPY tsconfig*.json vite.config.ts index.html ./
 COPY public ./public
 COPY src ./src
-RUN npm run build
+# Web bundle only: `npm run build` also typechecks and bundles electron/, which is not in this image.
+RUN npx tsc --noEmit -p tsconfig.json && npx vite build
 
 FROM nginxinc/nginx-unprivileged:1.30.6-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03 AS runtime
 ENV API_UPSTREAM=backend:4410 NGINX_ENVSUBST_OUTPUT_DIR=/tmp/nginxconf NGINX_ENVSUBST_FILTER=API_UPSTREAM
