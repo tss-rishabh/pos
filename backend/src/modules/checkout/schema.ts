@@ -1,15 +1,11 @@
-import {
-  bigint,
-  int,
-  json,
-  mysqlTable,
-  primaryKey,
-  timestamp,
-  varchar,
-  uniqueIndex,
-} from 'drizzle-orm/mysql-core';
-import type { CheckoutState, MutationResult } from './contracts.js';
+import { int, json, mysqlTable, timestamp, varchar, uniqueIndex } from 'drizzle-orm/mysql-core';
+import type { CheckoutState } from './contracts.js';
 
+/**
+ * @deprecated W4 moved checkout sales to Redis (`session-store.ts`, `pos:checkout:{id}`); no W4
+ * code reads or writes this table. Kept only for `customer-contacts/commit.ts` (a feature AGENTS.md
+ * removes) and `tests/customer-profile.mysql.integration.test.ts`, which other owners must migrate.
+ */
 export const checkoutSessions = mysqlTable(
   'pos_rewrite_checkout_sessions',
   {
@@ -23,27 +19,3 @@ export const checkoutSessions = mysqlTable(
   },
   (table) => [uniqueIndex('ux_checkout_operator_draft').on(table.operatorId, table.clientDraftId)],
 );
-export const checkoutOperations = mysqlTable(
-  'pos_rewrite_checkout_operations',
-  {
-    checkoutId: varchar('checkout_id', { length: 36 }).notNull(),
-    id: varchar('id', { length: 36 }).notNull(),
-    status: varchar('status', { length: 16 }).notNull(),
-    requestHash: varchar('request_hash', { length: 64 }).notNull(),
-    result: json('result').$type<MutationResult>(),
-    errorCode: varchar('error_code', { length: 64 }),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
-  },
-  (table) => [primaryKey({ columns: [table.checkoutId, table.id] })],
-);
-export const customerLeases = mysqlTable('pos_rewrite_customer_cart_leases', {
-  customerId: varchar('customer_id', { length: 32 }).primaryKey(),
-  checkoutId: varchar('checkout_id', { length: 36 }).notNull(),
-  expiresAt: bigint('expires_at_ms', { mode: 'number' }).notNull(),
-});
-export const giftCardLeases = mysqlTable('pos_rewrite_gift_card_leases', {
-  serial: varchar('serial', { length: 32 }).primaryKey(),
-  checkoutId: varchar('checkout_id', { length: 36 }).notNull(),
-  expiresAt: bigint('expires_at_ms', { mode: 'number' }).notNull(),
-});
