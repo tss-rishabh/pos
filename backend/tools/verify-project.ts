@@ -826,6 +826,11 @@ const checks: Check[] = [
       'tests/order-history/tsconfig.json',
     ],
   },
+  {
+    id: 'daily-reports-browser-fixture-typecheck',
+    directory: 'frontend',
+    args: ['node_modules/typescript/bin/tsc', '--noEmit', '-p', 'tests/reports/tsconfig.json'],
+  },
 ];
 for (const [id, directory, config] of [
   ['backend-vitest-config-typecheck', 'backend', 'tsconfig.vitest.json'],
@@ -851,10 +856,18 @@ if (flags.has('--browser')) {
       environment: { ORDER_DETAIL_BROWSER_TEST: 'true' },
     });
   }
+  // Real-stack harnesses (frontend/tests/harness): each starts its own e2e stack and adds its rows.
+  const harness = (path: string) => [
+    'node_modules/@playwright/test/cli.js',
+    'test',
+    '-c',
+    'tests/harness/playwright.config.ts',
+    path,
+  ];
   checks.push({
     id: 'daily-reports-browser-tests',
     directory: 'frontend',
-    args: ['tools/run-browser-fixture.mjs', 'daily-reports'],
+    args: harness('reports/'),
   });
   checks.push({
     id: 'report-columns-browser-tests',
@@ -869,7 +882,7 @@ if (flags.has('--browser')) {
   checks.push({
     id: 'order-search-browser-tests',
     directory: 'frontend',
-    args: ['tests/order-search/browser-check.mjs'],
+    args: harness('order-search/'),
   });
   checks.push(
     {
@@ -881,7 +894,7 @@ if (flags.has('--browser')) {
     {
       id: 'order-history-browser-tests',
       directory: 'frontend',
-      args: ['tests/order-history/browser-check.mjs'],
+      args: harness('order-history/'),
     },
   );
   checks.push({

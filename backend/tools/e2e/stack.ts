@@ -33,6 +33,11 @@ const backend = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const port = process.env.E2E_BACKEND_PORT ?? '4410',
   webOrigin = process.env.E2E_WEB_ORIGIN ?? 'http://localhost:4173',
   timeZone = 'Asia/Kolkata';
+// The verify-project browser harnesses (frontend/tests/harness) run daily reporting for real, so
+// they select the production rollout default (COCO); the Playwright suite keeps the unseeded '0'.
+const dayCloseRollout = process.env.E2E_DAY_CLOSE_ENABLED_STORE_IDS ?? '0';
+if (!/^(?:COCO|FOFO|0|[1-9]\d{0,9}(?:,[1-9]\d{0,9}){0,20})$/.test(dayCloseRollout))
+  throw new Error('E2E_DAY_CLOSE_ENABLED_STORE_IDS must be COCO, FOFO, 0 or store ids.');
 
 const log = (message: string) => process.stdout.write(`[e2e-stack] ${message}\n`);
 const cleanups: (() => Promise<void>)[] = [];
@@ -143,7 +148,7 @@ try {
     // Legacy day-close rollout limited to a store id that is not seeded: the blocking
     // "Day close pending" reminder is not under test here and would cover the workspace.
     // The same rollout also gates daily reporting, so that resource answers 403 here.
-    DAY_CLOSE_ENABLED_STORE_IDS: '0',
+    DAY_CLOSE_ENABLED_STORE_IDS: dayCloseRollout,
     // Every spec drives the backend from one loopback client IP; the default per-IP budget
     // (240/min) is sized for one counter, not a whole suite back to back.
     API_RATE_LIMIT_PER_MINUTE: '20000',
