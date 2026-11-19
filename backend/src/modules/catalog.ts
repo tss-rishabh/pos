@@ -1,12 +1,15 @@
 import { and, asc, eq, gt, inArray, isNull, like, ne, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import {
+  HoldStockStore,
   Product,
   ProductBarcode,
   ProductStore,
   PriceList,
+  StockStorage,
   Store,
   StoreCounter,
+  StoreStorage,
 } from '../db/legacy-schema.js';
 import type { Databases } from '../db/pools.js';
 import { requireStore, type Principal } from '../domain/access.js';
@@ -31,6 +34,18 @@ export function productImage(
   parentImagesNew: string | null,
 ): string | null {
   return firstProductImage(imagesNew) || firstProductImage(parentImagesNew);
+}
+
+/**
+ * Counter product row: the shared ProductDto plus the legacy `holded_stock` and `storage_stock`
+ * columns (core/datatables/store_products_datatable.py:276-312). Optional in the type only so
+ * other CatalogService implementations (demo) still compile; the MySQL service always sets them.
+ */
+export type CatalogProductDto = ProductDto & { holdedStock?: number; storageStock?: string };
+/** `get_storage_stock`: one `"<storage> : <n>\n"` line per stock_storages row, in id order. */
+export function legacyStorageStock(rows: readonly { name: string | null; stock: number }[]) {
+  const text = rows.map((row) => `${row.name ?? 'None'} : ${row.stock}\n`).join('');
+  return text || 'Not available in any storage';
 }
 
 export function catalogService(databases: Databases) {
@@ -84,7 +99,7 @@ export function catalogService(databases: Databases) {
       limit = 30,
       includeOutOfStock = false,
       exactBarcode?: string,
-    ): Promise<Page<ProductDto>> {
+    ): Promise<Page<CatalogProductDto>> {
       requireStore(user, storeId);
       const parent = alias(Product, 'catalog_parent');
       const pattern = `%${search.replace(/[\\%_]/g, '\\$&')}%`;
@@ -153,7 +168,36 @@ export function catalogService(databases: Databases) {
         .orderBy(asc(Product.id))
         .limit(limit + 1);
       const more = rows.length > limit;
-      const selected = rows.slice(0, limit);
+      const selected = rows.slice(0, limit),
+        ids = selected.map((row) => BigInt(row.id)),
+        holds = new Map<string, number>(),
+        storages = new Map<string, { name: string | null; stock: number }[]>();
+      if (ids.length) {
+        // get_holded_stock: HoldStockStore.filter(product, store).first() (lowest id) or 0.
+        for (const hold of await databases
+          .get('primary')
+          .select({ product: HoldStockStore.product, stock: HoldStockStore.stock })
+          .from(HoldStockStore)
+          .where(
+            and(eq(HoldStockStore.store, BigInt(storeId)), inArray(HoldStockStore.product, ids)),
+          )
+          .orderBy(asc(HoldStockStore.id)))
+          if (!holds.has(String(hold.product))) holds.set(String(hold.product), hold.stock);
+        for (const storage of await databases
+          .get('primary')
+          .select({
+            product: StockStorage.product,
+            name: StoreStorage.storage_name,
+            stock: StockStorage.stock,
+          })
+          .from(StockStorage)
+          .innerJoin(StoreStorage, eq(StoreStorage.id, StockStorage.storage))
+          .where(and(eq(StockStorage.store, BigInt(storeId)), inArray(StockStorage.product, ids)))
+          .orderBy(asc(StockStorage.id))) {
+          const key = String(storage.product);
+          storages.set(key, [...(storages.get(key) ?? []), storage]);
+        }
+      }
       return {
         data: selected.map((r) => ({
           id: String(r.id),
@@ -166,6 +210,8 @@ export function catalogService(databases: Databases) {
           exclusivePrice: r.exclusive === null ? '0.00' : String(r.exclusive),
           barcode: r.barcode === null ? null : String(r.barcode),
           stock: r.stock,
+          holdedStock: holds.get(String(r.id)) ?? 0,
+          storageStock: legacyStorageStock(storages.get(String(r.id)) ?? []),
           gst: r.gst,
           image: productImage(r.images, r.parentImages),
         })),
