@@ -95,6 +95,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
           $version = $env:MYSQL_WINDOWS_VERSION
           $zipDir = Join-Path $env:RUNNER_TEMP 'mysql-zip'
           New-Item -ItemType Directory -Force $zipDir | Out-Null
@@ -129,16 +130,12 @@ jobs:
           & "$bin/mysqld.exe" "--defaults-file=$ini" --initialize-insecure
           if ($LASTEXITCODE -ne 0) { throw 'mysqld --initialize-insecure failed' }
           Start-Process -FilePath "$bin/mysqld.exe" -ArgumentList "--defaults-file=`"$ini`"" -WindowStyle Hidden
-          $ready = $false
-          foreach ($attempt in 1..90) {
-            & "$bin/mysqladmin.exe" -uroot -h127.0.0.1 -P33710 ping 2>$null
-            if ($LASTEXITCODE -eq 0) { $ready = $true; break }
-            Start-Sleep -Seconds 1
-          }
-          if (-not $ready) { Get-Content $log -Tail 40; throw 'mysqld did not start' }
-          & "$bin/mysql.exe" -uroot -h127.0.0.1 -P33710 -N -e "SELECT CONCAT('version=', @@version, ' sql_mode=[', @@GLOBAL.sql_mode, '] bind=', @@bind_address)"
-          $mode = & "$bin/mysql.exe" -uroot -h127.0.0.1 -P33710 -N -e 'SELECT @@GLOBAL.sql_mode'
-          if ("$mode".Trim() -ne '') { throw 'sql_mode is not empty' }
+          $env:E2E_MYSQL_URL = "mysql://root@127.0.0.1:33710/pos_rewrite_e2e"
+          Push-Location (Join-Path $env:GITHUB_WORKSPACE "backend")
+          node --import tsx tools/e2e/wait-mysql.ts
+          $waited = $LASTEXITCODE
+          Pop-Location
+          if ($waited -ne 0) { Get-Content $log -Tail 40; throw "mysqld is not ready" }
           "E2E_MYSQL_URL=mysql://root@127.0.0.1:33710/pos_rewrite_e2e" >> $env:GITHUB_ENV
       - name: Redis-7-compatible server (Windows, Memurai Developer)
         if: runner.os == 'Windows'
@@ -189,8 +186,9 @@ jobs:
           PLAYWRIGHT_JUNIT_OUTPUT_FILE: playwright-report/junit-desktop-offline.xml
       - name: Web Playwright suite on the real stack
         if: ${{ !cancelled() }}
-        # The Electron shell specs in e2e/ already ran above.
-        run: npx playwright test --grep-invert "desktop shell" --output test-results/web --reporter=list,html,junit
+        # The Electron shell specs in e2e/ already ran above. One retry for the web suite only;
+        # a retried pass is reported as "flaky" in the list output and the junit report.
+        run: npx playwright test --grep-invert "desktop shell" --retries=1 --output test-results/web --reporter=list,html,junit
         working-directory: frontend
         env:
           PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/web

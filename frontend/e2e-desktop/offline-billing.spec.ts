@@ -183,6 +183,9 @@ async function printReceipt() {
   expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
   const pages = pdf.toString('latin1').match(/\/Type\s*\/Page\b/g)?.length ?? 0;
   expect(pages).toBeGreaterThanOrEqual(1);
+  await test
+    .info()
+    .attach('receipt-print-to-pdf.pdf', { body: pdf, contentType: 'application/pdf' });
   console.log(`[desktop-e2e] receipt printToPDF: ${pdf.length} bytes, ${pages} page(s)`);
   const printer = process.env.E2E_PRINTER_NAME,
     output = process.env.E2E_PRINTER_OUTPUT;
@@ -220,6 +223,9 @@ async function printReceipt() {
     .toBe(true);
   const spooled = await readFile(output);
   expect(spooled.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+  await test
+    .info()
+    .attach('receipt-spooled-windows.pdf', { body: spooled, contentType: 'application/pdf' });
   console.log(`[desktop-e2e] receipt spooled to "${printer}": ${spooled.length} bytes`);
 }
 async function goOffline() {
