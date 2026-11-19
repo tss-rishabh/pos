@@ -1,9 +1,25 @@
 import { Temporal } from '@js-temporal/polyfill';
-import { and, asc, eq, gt, gte, inArray, lt, ne, notInArray, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  eq,
+  exists,
+  gt,
+  gte,
+  inArray,
+  lt,
+  ne,
+  notInArray,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import {
+  Comments,
+  FlagHistory,
+  HyperlocalAvailabilityLog,
   HyperlocalFdLog,
   HyperlocalOrderLog,
   HyperlocalToOnlineOrderLog,
@@ -245,12 +261,67 @@ export async function scheduledMysqlRows(
       )
       .orderBy(asc(HyperlocalFdLog.id))
       .limit(scheduledRowLimit);
-  // W11 exception: delays/availability/platform read `comments.hl_status`, `flag_history` and
-  // `hyperlocal_availability_log`, which have no definition in legacy-schema.ts yet.
-  const rows = await reader.execute(
-    sql`${scheduledSourceQuery(kind, period, includeCompleted)} LIMIT ${scheduledRowLimit}`,
+  const isApp = exists(
+    reader
+      .select({ id: FlagHistory.id })
+      .from(FlagHistory)
+      .where(and(eq(FlagHistory.order_id, Order.id), eq(FlagHistory.flag_id, 18n))),
   );
-  return z.array(z.unknown()).parse(rows[0]);
+  if (kind === 'availability')
+    return reader
+      .select({
+        orderId: sql<string>`CAST(${HyperlocalAvailabilityLog.order_id} AS CHAR)`,
+        cartType: HyperlocalAvailabilityLog.cart_type,
+        stockThreshold: HyperlocalAvailabilityLog.stock_threshold,
+        storeAvailability: HyperlocalAvailabilityLog.store_availability,
+        slotVisible: HyperlocalAvailabilityLog.is_slot_visible,
+        isApp,
+      })
+      .from(HyperlocalAvailabilityLog)
+      .innerJoin(Order, eq(Order.id, HyperlocalAvailabilityLog.order_id))
+      .where(
+        and(
+          gte(HyperlocalAvailabilityLog.created_at, period.from),
+          lt(HyperlocalAvailabilityLog.created_at, period.end),
+          ne(Order.order_statuses, 0n),
+        ),
+      )
+      .orderBy(asc(HyperlocalAvailabilityLog.id))
+      .limit(scheduledRowLimit);
+  if (kind === 'platform')
+    return reader
+      .select({ orderId: sql<string>`CAST(${Order.id} AS CHAR)`, isApp })
+      .from(Order)
+      .where(
+        and(
+          gt(Order.location_id, 0),
+          inArray(Order.location_type, ['SW', 'NW']),
+          notInArray(Order.order_statuses, [0n, 17n]),
+          gte(Order.created_at, period.from),
+          lt(Order.created_at, period.end),
+        ),
+      )
+      .orderBy(asc(Order.id))
+      .limit(scheduledRowLimit);
+  return reader
+    .select({
+      orderId: sql<string>`CAST(${Order.id} AS CHAR)`,
+      totalDelay: sql<
+        string | null
+      >`ANY_VALUE(CAST(TIMEDIFF(${Comments.created_at},${Order.end_timeslot}) AS CHAR))`,
+    })
+    .from(Order)
+    .leftJoin(Comments, eq(Comments.order_id, Order.id))
+    .where(
+      and(
+        eq(Comments.hl_status, 'finished'),
+        gt(Comments.created_at, Order.end_timeslot),
+        gte(Order.created_at, period.from),
+        lt(Order.created_at, period.end),
+      ),
+    )
+    .groupBy(Order.id)
+    .limit(scheduledRowLimit);
 }
 function table(value: string | undefined) {
   if (!value) return unavailable('BigQuery scheduled-report compatible view');

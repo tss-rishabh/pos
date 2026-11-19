@@ -135,6 +135,8 @@ describe.skipIf(!connection)('scheduled report DATA reads: builder equals former
       [3, 1000, 'finished', '2026-11-16 10:00:00'],
       [4, '9007199254740993', 'finished', '2026-11-17 01:00:00'],
       [5, 1001, 'started', '2026-11-16 13:00:00'],
+      // Exactly at end_timeslot: excluded by the strict `>`.
+      [6, 1000, 'finished', '2026-11-16 11:00:00'],
     ] as const)
       await fixture.insert('comments', {
         id,
@@ -220,9 +222,10 @@ describe.skipIf(!connection)('scheduled report DATA reads: builder equals former
           );
           const old = plain(z.array(z.unknown()).parse(before)),
             current = plain(await scheduledMysqlRows(reader, kind, period, includeCompleted));
-          // Timing has no ORDER BY in either form; compare it as a multiset like the source.
+          // Timing and delays have no ORDER BY in either form; compare them as multisets.
           const key = (row: Record<string, unknown>) => JSON.stringify(row);
-          if (kind === 'timing') expect(current.map(key).sort()).toStrictEqual(old.map(key).sort());
+          if (kind === 'timing' || kind === 'delays')
+            expect(current.map(key).sort()).toStrictEqual(old.map(key).sort());
           else expect(current).toStrictEqual(old);
           compared += old.length;
         }
