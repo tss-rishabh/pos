@@ -6,7 +6,6 @@ import rateLimit from '@fastify/rate-limit';
 import { z, ZodError } from 'zod';
 import type { Config } from './config.js';
 import { createDatabases } from './db/pools.js';
-import { assertMigrationsCurrent } from './db/migrations.js';
 import { configuredStockProjection } from './db/stock-projection/options.js';
 import { identityService } from './auth/identity.js';
 import { registerAuth, authenticated } from './auth/routes.js';
@@ -517,14 +516,13 @@ export async function buildApp(
       ...(['writer', 'primary', 'data'] as const).map(async (reader) =>
         db.get(reader).execute(sql`SELECT 1`),
       ),
-      assertMigrationsCurrent(db),
     ]);
     const ready = result.every((value) => value.status === 'fulfilled');
     return reply.code(ready ? 200 : 503).send({
       status: ready ? 'ok' : 'unavailable',
       mode: 'live',
       dependencies: Object.fromEntries(
-        (['writer', 'primary', 'data', 'migrations'] as const).map((reader, index) => [
+        (['writer', 'primary', 'data'] as const).map((reader, index) => [
           reader,
           result[index]!.status === 'fulfilled' ? 'available' : 'unavailable',
         ]),

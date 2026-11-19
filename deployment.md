@@ -21,7 +21,7 @@ node tools/smoke-containers.cjs
 The smoke tool creates a uniquely named Docker network without Internet access,
 publishes no ports, runs both containers as non-root with read-only filesystems,
 drops capabilities, and removes its own containers/network afterward. It verifies
-the packaged migration plan, native Linux image decoding, proxying, static CSP,
+native Linux image decoding, proxying, static CSP,
 assets, offline-shell cache headers, synthetic login/cart
 round trips, browser-origin checks, demo isolation and log privacy canaries.
 It never receives live database, provider, S3 or AWS credentials. Evidence is
@@ -45,10 +45,9 @@ arbitrary client-supplied forwarded headers. NGINX forwards WebSocket upgrades.
 Keep containers read-only with a writable `/tmp` tmpfs (mode 1777). The frontend
 entrypoint prepares its generated configuration under `/tmp`. Health checks are
 `/health/static` for static serving, `/health/live` for backend process health,
-and `/health/ready` for writer/primary/data connectivity and current migration
-checksums with no unfinished DDL journal entries. Readiness performs no schema
-repairs and remains unavailable until the reviewed plan is applied. It does not
-certify external payment, warehouse or feature parity.
+and `/health/ready` for writer/primary/data connectivity. Readiness performs no
+schema checks or repairs. It does not certify external payment, warehouse or
+feature parity.
 
 Gateway access logs contain resource/event IDs, a request ID, method, status and
 duration. They omit URLs, query strings, IP addresses, cookies and headers.
@@ -56,7 +55,13 @@ Application logs carry the authenticated pseudonymous user ID. Raw NGINX error
 logging is disabled to keep request URLs and free-text report searches out of
 infrastructure logs; monitor health failures, structured status events and metrics.
 
-## Schema rollout
+## Schema freeze and verification
+
+The rewrite ships no migrations and executes no DDL. It uses only existing production
+tables, exactly as captured in `backend/tests/golden/schema/production-schema.json`,
+plus Redis for ephemeral state (sessions, OTP, idempotency, locks, claims and job
+queues). There is no migration step in a deployment. MySQL-backed tests build disposable
+local schemas from that snapshot only (`backend/tests/helpers/production-schema.ts`).
 
 Run the reproducible project checks on Node 24 before packaging:
 
@@ -105,29 +110,9 @@ deadlines.
 The workbook writer uses the existing durable report queue
 and private bounded spool; review `backend/parity/inventory-workbooks.md`.
 
-Build the backend, then inspect its deterministic plan:
-
-```sh
-npm run build
-npm run migrate:plan
-```
-
-Review the named SQL files and test the plan against an isolated restore before
-applying it to the writer with `npm run migrate:apply`. The runner accepts only
-rewrite-owned table DDL/seed statements, serializes runners with a dedicated
-connection lock, records file checksums, and journals each statement. Legacy
-tables are mapped but never schema-pushed. The live reader supplied for this
-task must never be used as a migration target.
-
-MySQL DDL implicitly commits. An interrupted `started` statement blocks replay
-with `MIGRATION_STEP_NEEDS_REVIEW`; inspect the journal and actual schema before
-an operator reconciles the step. An edited applied file also blocks rollout.
-After the first deployment, add forward migrations instead of editing applied
-SQL. Current migration files are not frozen while this rewrite is being built.
-
 Take a verified backup and retain the prior application/image version. Roll back
-application traffic first; retain rewrite session/idempotency/outbox tables so
-confirmed financial actions cannot be repeated. Reconcile uncertain external
+application traffic first; keep the Redis `pos:` idempotency and claim keys until
+they expire so confirmed financial actions cannot be repeated. Reconcile uncertain external
 actions before enabling retries. A blanket table drop is not a rollback strategy.
 
 ## Identity, reporting and background work
@@ -226,7 +211,7 @@ For the optional confidential Slack incoming-webhook flow, configure its approve
 app credentials, exact same-origin HTTPS callback and workspace IDs in the
 backend. Set desktop `POS_OAUTH_ORIGINS=https://slack.com` to permit same-window
 authorization. This allowlist never permits new windows.
-Apply the Slack migration and run the bounded security cleanup worker. The
+Run the bounded security cleanup worker. The
 provider callback carries a short-lived code/state in its query: ensure any
 external ingress/CDN also omits or redacts callback query strings. Application
 and bundled gateway logs already omit them. Only an opaque completion UUID
