@@ -790,7 +790,6 @@ export function registerCheckout(
   });
   registerReturns(app, config, db, {
     ...shared,
-    customerOtp,
     customers: repository,
     signing: environment,
     orderGateway: gateway,

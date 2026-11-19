@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import mysql, { type Connection } from 'mysql2/promise';
 import { getTableConfig, type MySqlTable } from 'drizzle-orm/mysql-core';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
