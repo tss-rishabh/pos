@@ -24,6 +24,7 @@ import { PaymentPanel, type ConfirmedPayment } from './PaymentPanel';
 import { FastCashCheckout } from './FastCashCheckout';
 import { WalletControls } from './WalletControls';
 import { CustomerLookup } from './CustomerLookup';
+import { BirthdayPrompt } from './BirthdayPrompt';
 import { SalespersonAssignments } from './SalespersonAssignments';
 import { confirmedPaymentSchema } from './receipts';
 import { InvoiceActions } from './InvoiceActions';
@@ -986,7 +987,24 @@ export function CheckoutReview({
               />
             )}
             {checkout.customerId && (
+              <BirthdayPrompt
+                key={`birthday:${checkout.id}:${checkout.customerId}`}
+                scope={{
+                  operatorId: draft.ownerId,
+                  storeId: draft.storeId,
+                  checkoutId: checkout.id,
+                  customerId: checkout.customerId,
+                }}
+                checkoutVersion={checkout.version}
+                disabled={disabled}
+                onSaved={async () => {
+                  await adopt(await readCheckout(draft.storeId, checkout.id, draft.ownerId));
+                }}
+              />
+            )}
+            {checkout.customerId && (
               <CustomerInsights
+                initiallyOpen
                 key={`insights:${draft.ownerId}:${checkout.id}:${checkout.customerId}:${checkout.version}`}
                 scope={{
                   operatorId: draft.ownerId,

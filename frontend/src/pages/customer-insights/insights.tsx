@@ -189,13 +189,16 @@ export function CustomerInsights({
   checkoutVersion,
   online,
   disabled,
+  initiallyOpen = false,
 }: {
   scope: ProfileScope;
   checkoutVersion: number;
   online: boolean;
   disabled: boolean;
+  /** Legacy opens insights right after a customer is connected (create_order.html:3021). */
+  initiallyOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen);
   const [problem, setProblem] = useState('');
   const briefing = useQuery({
     queryKey: [
