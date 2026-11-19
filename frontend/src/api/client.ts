@@ -13,7 +13,21 @@ export function captureOperatorScope(expectedOperatorId: string): AbortSignal {
     throw new DOMException('The signed-in operator changed.', 'AbortError');
   return operatorScope.signal;
 }
-export type OperatorRequestInit = RequestInit & { operatorId?: string };
+/**
+ * `requestId` is sent as `X-Request-Id`. Each logical request gets a fresh UUID; a caller that
+ * retries the same logical request passes the ID it used before (or the same `X-Request-Id`
+ * header), so the server correlates every attempt under one trace.
+ */
+export type OperatorRequestInit = RequestInit & { operatorId?: string; requestId?: string };
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** A new request ID for one logical request; reuse it for that request's retries. */
+export function newRequestId(): string {
+  return crypto.randomUUID();
+}
+/** The server's request ID, when it is a well-formed UUID (shown to support, never parsed further). */
+export function serverRequestId(value: string | null | undefined): string | undefined {
+  return value && uuid.test(value) ? value.toLowerCase() : undefined;
+}
 const errorEnvelope = z.object({
   error: z.object({ code: z.string(), message: z.string(), requestId: z.string().optional() }),
 });
@@ -32,6 +46,10 @@ export class NetworkError extends Error {
     super('Could not connect to the store service. Check your connection and try again.');
   }
 }
+/** The server request ID support can quote for a failed request, if the server answered. */
+export function errorRequestId(error: unknown): string | undefined {
+  return error instanceof ApiError ? error.requestId : undefined;
+}
 async function openResponse(
   path: string,
   options: OperatorRequestInit = {},
@@ -48,7 +66,12 @@ async function openResponse(
   const expectedOperator = options.operatorId ?? operatorId;
   if (expectedOperator && !headers.has('X-Operator-ID'))
     headers.set('X-Operator-ID', expectedOperator);
-  const { operatorId: _operatorId, ...transport } = options;
+  const requestId =
+    serverRequestId(options.requestId) ??
+    serverRequestId(headers.get('X-Request-Id')) ??
+    newRequestId();
+  headers.set('X-Request-Id', requestId);
+  const { operatorId: _operatorId, requestId: _requestId, ...transport } = options;
   const signal = path.startsWith('/api/v1/auth/')
     ? options.signal || AbortSignal.timeout(12000)
     : AbortSignal.any([operatorScope.signal, options.signal || AbortSignal.timeout(12000)]);
@@ -81,7 +104,9 @@ async function openResponse(
       response.status,
       error?.code || 'REQUEST_FAILED',
       error?.message || 'Could not connect to the store service.',
-      error?.requestId,
+      serverRequestId(error?.requestId) ??
+        serverRequestId(response.headers.get('X-Request-Id')) ??
+        requestId,
     );
   }
   return { response, signal };

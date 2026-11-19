@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { AlertCircle, ArrowUpRight, LoaderCircle, PackageOpen } from 'lucide-react';
+import { errorRequestId } from '../api/client';
 
 export function Loading() {
   return (
@@ -14,12 +15,23 @@ export function ErrorState({ error, retry }: { error: unknown; retry?: () => voi
     <div role="alert" className="empty error">
       <AlertCircle size={28} />
       <p>{error instanceof Error ? error.message : 'Something went wrong.'}</p>
+      <RequestReference error={error} />
       {retry && (
         <button className="button secondary" onClick={retry}>
           Try again
         </button>
       )}
     </div>
+  );
+}
+/** The server request ID of a failed call, for support to look up the request's logs. */
+export function RequestReference({ error }: { error: unknown }) {
+  const requestId = errorRequestId(error);
+  if (!requestId) return null;
+  return (
+    <p className="request-reference">
+      Reference <code>{requestId}</code>
+    </p>
   );
 }
 export function Empty({ title, children }: { title: string; children?: ReactNode }) {

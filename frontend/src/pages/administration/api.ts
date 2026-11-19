@@ -1,7 +1,15 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
-import { ApiError, NetworkError, captureOperatorScope, params, request } from '../../api/client';
+import {
+  ApiError,
+  NetworkError,
+  captureOperatorScope,
+  newRequestId,
+  params,
+  request,
+  serverRequestId,
+} from '../../api/client';
 
 export const administrationIdentifier = z
   .string()
@@ -281,13 +289,18 @@ export async function submitAdministrationForm(
   operatorId: string,
 ) {
   const scope = captureOperatorScope(operatorId),
-    signal = AbortSignal.any([scope, AbortSignal.timeout(30000)]);
+    signal = AbortSignal.any([scope, AbortSignal.timeout(30000)]),
+    requestId = newRequestId();
   let response: Response;
   try {
     response = await fetch(path, {
       method,
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json', 'X-Operator-ID': operatorId },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Operator-ID': operatorId,
+        'X-Request-Id': requestId,
+      },
       body: JSON.stringify(body),
       signal,
     });
@@ -308,7 +321,9 @@ export async function submitAdministrationForm(
       response.status,
       parsed?.code || 'REQUEST_FAILED',
       parsed?.message || 'Could not connect to the store service.',
-      parsed?.requestId,
+      serverRequestId(parsed?.requestId) ??
+        serverRequestId(response.headers.get('X-Request-Id')) ??
+        requestId,
     );
   }
   return successSchema.parse(await response.json());

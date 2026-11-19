@@ -43,6 +43,8 @@ export async function replay(
       body,
       {
         headers: { 'X-Operator-Id': ownerId },
+        // Every retry of this mutation shares one trace on the server.
+        requestId: body.mutationId,
       },
       draftSchema,
     ),
