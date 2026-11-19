@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 /**
  * Live schema drift check: for every production table Drizzle maps under `src/`, live
  * `INFORMATION_SCHEMA.COLUMNS` and `SHOW CREATE TABLE` (without `AUTO_INCREMENT=`) must equal the
@@ -90,6 +91,17 @@ export function crossVersionDdl(ddl: string): string {
 }
 
 /** Compares one table; returns `undefined` when it matches the snapshot exactly. */
+/**
+ * A column type as printed in the aggregate summary. Long enum/set types (for example the
+ * 800-character `has_products.status` enum) exceed the summary's 200-character field limit, so
+ * they are shortened to their first 60 characters plus the full length and a short digest.
+ */
+export function summarizeColumnType(type: string): string {
+  if (type.length <= 120 && /^[A-Za-z0-9_ .:,()'<>/=+-]*$/.test(type)) return type;
+  const digest = createHash('sha256').update(type).digest('hex').slice(0, 12);
+  const head = type.slice(0, 60).replace(/[^A-Za-z0-9_ .:,()'<>/=+-]/g, '_');
+  return `${head}... (${type.length} chars, sha256 ${digest})`;
+}
 export function compareTable(
   table: string,
   snapshot: SchemaSnapshot['tables'][string] | undefined,
@@ -117,7 +129,10 @@ export function compareTable(
         column: name,
         attributes: [...attributes],
         ...(attributes.includes('COLUMN_TYPE')
-          ? { snapshotType: String(row['COLUMN_TYPE']), liveType: String(actual['COLUMN_TYPE']) }
+          ? {
+              snapshotType: summarizeColumnType(String(row['COLUMN_TYPE'])),
+              liveType: summarizeColumnType(String(actual['COLUMN_TYPE'])),
+            }
           : {}),
       });
   }
