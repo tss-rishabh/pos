@@ -85,9 +85,7 @@ describe.skipIf(!integration)(
       schema = `pos_rewrite_checkout_test_benefit_${process.pid}_${randomUUID().slice(0, 8)}`;
       await connection.query(`CREATE DATABASE ${mysql.escapeId(schema)}`);
       await connection.changeUser({ database: schema });
-      await verifiedMysqlFixture(connection, ['evidence/mysql-global-benefits-schema.json']).create(
-        tables,
-      );
+      await verifiedMysqlFixture(connection).create(tables);
       await connection.query(
         "SET SESSION sql_mode='STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'",
       );

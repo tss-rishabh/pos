@@ -14,7 +14,11 @@ import {
   cancellationLockKey,
   pendingCancellationRepository,
 } from '../../src/modules/checkout/cancellations/repository.js';
-import { executeStockProcedure } from '../../src/modules/administration/stock-procedure.js';
+import {
+  executeStockProcedure,
+  type StockProcedure,
+  type StockProcedureInput,
+} from '../../src/modules/administration/stock-procedure.js';
 import { memoryStateStore } from '../../src/modules/checkout/state-store.js';
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
 
@@ -65,6 +69,11 @@ describe('API-v2 cancel-pos-order wire format', () => {
 
 describe.skipIf(!template)('pending order cancellation against unpatched API-v2', () => {
   let connection: mysql.Connection, db: Databases, config: Config, schema: string;
+  const procedureCalls: StockProcedureInput[] = [];
+  const recordingStockProcedure: StockProcedure = async (transaction, input) => {
+    procedureCalls.push(input);
+    await executeStockProcedure(transaction, input);
+  };
   beforeAll(async () => {
     const url = new URL(template!);
     if (url.protocol !== 'mysql:' || !['localhost', '127.0.0.1'].includes(url.hostname))
@@ -95,11 +104,11 @@ describe.skipIf(!template)('pending order cancellation against unpatched API-v2'
       'amount_to_be_refunded_log',
       'product_store',
     ]);
+    // `tss.pos_stock_syncer` is an existing production routine (legacy `Helpers.sync_pos_inventory`,
+    // helpers/helpers.py:213). The fixture stands it in as a no-op with the production signature so
+    // the bound CALL still executes; the calls are recorded in-process by `stockProcedure` below.
     await connection.query(
-      'CREATE TABLE inventory_calls (store_id BIGINT, product_id BIGINT, stock INT, admin BIGINT, comment VARCHAR(255))',
-    );
-    await connection.query(
-      'CREATE PROCEDURE pos_stock_syncer(IN s BIGINT, IN p BIGINT, IN st INT, IN u BIGINT, IN a BIGINT, IN c VARCHAR(255)) INSERT INTO inventory_calls VALUES (s,p,st,a,c)',
+      'CREATE PROCEDURE pos_stock_syncer(IN s BIGINT, IN p BIGINT, IN st INT, IN u BIGINT, IN a BIGINT, IN c VARCHAR(255)) BEGIN END',
     );
     await fixture.insert('pos_user', { id: 44, role: 3, is_active: 1, user_type: 1 });
     await fixture.insert('stores', { id: 1, category: 'COCO' });
@@ -174,7 +183,7 @@ describe.skipIf(!template)('pending order cancellation against unpatched API-v2'
       service = pendingCancellationRepository(db, config, {
         stateStore: state,
         client,
-        stockProcedure: executeStockProcedure,
+        stockProcedure: recordingStockProcedure,
         syncProducts: async (_id, ids) => {
           synced.push(ids);
         },
@@ -242,11 +251,10 @@ describe.skipIf(!template)('pending order cancellation against unpatched API-v2'
     // Golden oracle "duplicate-sku": per-line restoration 10 -> 12 -> 15; missing association skipped.
     expect(await rows('SELECT stock FROM product_store WHERE id=1')).toEqual([{ stock: 15 }]);
     expect(
-      (await rows('SELECT stock, admin, comment FROM inventory_calls ORDER BY stock')).map((r) => [
-        r.stock,
-        r.admin,
-        r.comment,
-      ]),
+      procedureCalls
+        .filter((call) => call.comment.endsWith('[Order ID:900]'))
+        .sort((left, right) => left.stock - right.stock)
+        .map((call) => [call.stock, call.operatorId, call.comment]),
     ).toEqual([
       [12, '44', 'Product inventory added from admin panel on order cancel, [Order ID:900]'],
       [15, '44', 'Product inventory added from admin panel on order cancel, [Order ID:900]'],
@@ -269,7 +277,7 @@ describe.skipIf(!template)('pending order cancellation against unpatched API-v2'
       service = pendingCancellationRepository(db, config, {
         stateStore: state,
         client: { cancel: async () => ({ accepted: false, status: 400 }) },
-        stockProcedure: executeStockProcedure,
+        stockProcedure: recordingStockProcedure,
       });
     await expect(service.create(operator, '1', '901')).rejects.toMatchObject({
       status: 409,
@@ -285,7 +293,7 @@ describe.skipIf(!template)('pending order cancellation against unpatched API-v2'
   it('refuses another store, a missing order and an unconfigured API-v2 before calling it', async () => {
     const service = pendingCancellationRepository(db, config, {
       stateStore: memoryStateStore(),
-      stockProcedure: executeStockProcedure,
+      stockProcedure: recordingStockProcedure,
     });
     await expect(service.create(operator, '1', '901')).rejects.toMatchObject({ status: 503 });
     const configured = pendingCancellationRepository(db, config, {
@@ -295,7 +303,7 @@ describe.skipIf(!template)('pending order cancellation against unpatched API-v2'
           throw new Error('must not be called');
         },
       },
-      stockProcedure: executeStockProcedure,
+      stockProcedure: recordingStockProcedure,
     });
     await expect(configured.create(operator, '2', '901')).rejects.toMatchObject({ status: 403 });
     await expect(configured.create(operator, '1', '999')).rejects.toMatchObject({ status: 404 });

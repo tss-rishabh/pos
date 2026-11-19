@@ -11,6 +11,7 @@ import {
 } from '../../src/modules/checkout/benefit-adjustments/contracts.js';
 import { memoryStateStore, type PosStateStore } from '../../src/modules/checkout/state-store.js';
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
+import { injectWriteFailure } from '../helpers/production-schema.js';
 
 const integration = process.env.CHECKOUT_MYSQL_TEST_URL;
 describe.skipIf(!integration)('approved atomic global wallet writer in isolated MySQL', () => {
@@ -237,13 +238,15 @@ describe.skipIf(!integration)('approved atomic global wallet writer in isolated 
   });
   it('rolls every balance/history/command mutation back after a late audit failure and permits the same exact retry', async () => {
     const request = input();
-    await connection.query(
-      "CREATE TRIGGER fail_wallet_audit BEFORE INSERT ON pos_special_permission_activity_log FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='isolated audit failure'",
-    );
+    const restore = await injectWriteFailure(connection, {
+      table: 'pos_special_permission_activity_log',
+      event: 'INSERT',
+      message: 'isolated audit failure',
+    });
     try {
       await expect(repository.adjust(operator, request)).rejects.toThrow();
     } finally {
-      await connection.query('DROP TRIGGER fail_wallet_audit');
+      await restore();
     }
     expect((await balances()).money).toBe('100');
     expect((await rows('SELECT COUNT(*) count FROM tss_money_history'))[0]?.count).toBe(0);

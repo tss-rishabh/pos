@@ -35,7 +35,6 @@ export async function paymentMysqlFixture(template: string) {
       'user_stores',
       'products',
       'payment_status',
-      'order_attributes',
       'exchange_order_log',
       'has_categories',
       'categories',

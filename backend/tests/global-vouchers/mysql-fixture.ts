@@ -28,10 +28,7 @@ export async function globalVoucherFixture(template: string) {
   try {
     await connection.query(`CREATE DATABASE ${mysql.escapeId(schema)}`);
     await connection.changeUser({ database: schema });
-    const fixture = verifiedMysqlFixture(connection, [
-      'evidence/mysql-global-benefits-schema.json',
-      'evidence/mysql-gift-card-batches-schema.json',
-    ]);
+    const fixture = verifiedMysqlFixture(connection);
     await fixture.create([
       'users',
       'pos_user',
@@ -46,9 +43,6 @@ export async function globalVoucherFixture(template: string) {
       'pos_special_permission_activity_log',
       'gift_card_collection',
     ]);
-    await connection.query(
-      'ALTER TABLE gift_vouchers ADD UNIQUE KEY fixture_verified_code(voucher_code)',
-    );
     url.pathname = '/' + schema;
     const config = readConfig({
       NODE_ENV: 'test',
