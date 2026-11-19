@@ -6,6 +6,7 @@ import type { Principal } from '../../api/types';
 import { request } from '../../api/client';
 import { Empty, ErrorState, Loading } from '../../components/common';
 import { useOnline } from '../../hooks/use-pos';
+import { useStoreCheckIn } from '../../hooks/use-store-check-in';
 import {
   notificationEventSchema,
   storeNoticesSchema,
@@ -26,6 +27,10 @@ export function NotificationsPanel({ user, storeId }: { user: Principal; storeId
     [reconnectVersion, setReconnectVersion] = useState(0),
     [alerts, setAlerts] = useState<IncomingNotificationAlert[]>([]);
   const online = useOnline();
+  // Legacy shows store notifications only to an operator checked into that store; the server
+  // refuses the feed and stream otherwise (403 CHECK_IN_REQUIRED), so nothing is requested.
+  const storeCheckIn = useStoreCheckIn(user.id, storeId, online && !!storeId);
+  const checkedIn = storeCheckIn.checkedIn;
   const sound = useNotificationSound(user.id, storeId);
   const seen = useRef(new Set<string>());
   const knownNotices = useRef(new Set<string>());
@@ -34,7 +39,7 @@ export function NotificationsPanel({ user, storeId }: { user: Principal; storeId
   const initialized = useRef(false);
   const feed = useQuery({
     queryKey: [user.id, 'notifications', storeId],
-    enabled: !!storeId && online && !accessChanged,
+    enabled: !!storeId && online && checkedIn && !accessChanged,
     queryFn: ({ signal }) =>
       request(
         `/api/v1/stores/${encodeURIComponent(storeId)}/notifications`,
@@ -46,7 +51,7 @@ export function NotificationsPanel({ user, storeId }: { user: Principal; storeId
   const expiry = useFulfillmentExpiryAlerts(
     user.id,
     storeId,
-    connected && online && !accessChanged,
+    connected && online && checkedIn && !accessChanged,
   );
   const queueCount = expiry.data?.bannerCounts.unaccepted ?? 0;
   const scope = { operatorId: user.id, storeId };
@@ -68,12 +73,13 @@ export function NotificationsPanel({ user, storeId }: { user: Principal; storeId
   });
   const resetRead = markRead.reset;
   const visit = (notice: StoreNotice) => {
-    if (!notice.isViewed && online && !accessChanged) markRead.mutate(notice.id);
+    if (!notice.isViewed && online && checkedIn && !accessChanged) markRead.mutate(notice.id);
     setOpen(false);
   };
-  const unreadCount = online && !accessChanged && !feed.isError ? (feed.data?.unreadCount ?? 0) : 0;
+  const live = online && checkedIn && !accessChanged;
+  const unreadCount = live && !feed.isError ? (feed.data?.unreadCount ?? 0) : 0;
   useEffect(() => {
-    if (!online || accessChanged || feed.isError) {
+    if (!live || feed.isError) {
       setAlerts([]);
       return;
     }
@@ -118,21 +124,16 @@ export function NotificationsPanel({ user, storeId }: { user: Principal; storeId
     )
       resetRead();
   }, [
-    accessChanged,
+    live,
     connected,
     feed.data,
     feed.isError,
-    online,
     sound.play,
     markRead.isError,
     markRead.variables,
     resetRead,
   ]);
   useEffect(() => {
-    let stopped = false,
-      socket: WebSocket | undefined,
-      timer: ReturnType<typeof setTimeout> | undefined,
-      attempt = 0;
     seen.current.clear();
     knownNotices.current.clear();
     pendingNotices.current.clear();
@@ -140,7 +141,14 @@ export function NotificationsPanel({ user, storeId }: { user: Principal; storeId
     initialized.current = false;
     setAlerts([]);
     setAccessChanged(false);
-    if (!storeId) {
+  }, [user.id, storeId, reconnectVersion]);
+  useEffect(() => {
+    let stopped = false,
+      socket: WebSocket | undefined,
+      timer: ReturnType<typeof setTimeout> | undefined,
+      attempt = 0;
+    // No stream without a network or a check-in at this store: the handshake could only fail.
+    if (!storeId || !online || !checkedIn) {
       setConnected(false);
       return;
     }
@@ -196,6 +204,7 @@ export function NotificationsPanel({ user, storeId }: { user: Principal; storeId
         if (event.code === 1008) {
           setAccessChanged(true);
           void client.invalidateQueries({ queryKey: ['operator'] });
+          void client.invalidateQueries({ queryKey: [user.id, 'administration', 'my-check-in'] });
           return;
         }
         timer = setTimeout(connect, Math.min(30000, 1000 * 2 ** Math.min(attempt++, 5)));
@@ -208,7 +217,7 @@ export function NotificationsPanel({ user, storeId }: { user: Principal; storeId
       socket?.close();
       setConnected(false);
     };
-  }, [user.id, storeId, client, reconnectVersion]);
+  }, [user.id, storeId, client, reconnectVersion, online, checkedIn]);
   return (
     <div className="notification-widget">
       <div className="notification-controls">
@@ -265,7 +274,7 @@ export function NotificationsPanel({ user, storeId }: { user: Principal; storeId
         </button>
       </div>
       <IncomingNotificationAlerts
-        alerts={online && !accessChanged && !feed.isError ? alerts : []}
+        alerts={live && !feed.isError ? alerts : []}
         scope={scope}
         dismiss={dismiss}
         visit={visit}
@@ -280,7 +289,11 @@ export function NotificationsPanel({ user, storeId }: { user: Principal; storeId
               ) : (
                 <>
                   <CloudOff size={12} />
-                  {accessChanged ? 'Store access changed' : 'Reconnecting'}
+                  {accessChanged
+                    ? 'Store access changed'
+                    : online && !storeCheckIn.pending && !checkedIn
+                      ? 'Not checked in'
+                      : 'Reconnecting'}
                 </>
               )}
             </span>
@@ -299,6 +312,12 @@ export function NotificationsPanel({ user, storeId }: { user: Principal; storeId
             </p>
           ) : !online ? (
             <p className="notification-access-note">Notifications refresh when you reconnect.</p>
+          ) : storeCheckIn.pending ? (
+            <Loading />
+          ) : !checkedIn ? (
+            <p className="notification-access-note">
+              Check into this store to see its notifications.
+            </p>
           ) : feed.isPending ? (
             <Loading />
           ) : feed.isError ? (
@@ -332,7 +351,7 @@ export function NotificationsPanel({ user, storeId }: { user: Principal; storeId
                     {!notice.isViewed && (
                       <button
                         className="text-button"
-                        disabled={markRead.isPending || !online || accessChanged}
+                        disabled={markRead.isPending || !live}
                         onClick={() => markRead.mutate(notice.id)}
                       >
                         <Check size={12} />

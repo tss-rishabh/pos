@@ -78,6 +78,12 @@ async function openResponse(
     : AbortSignal.any([operatorScope.signal, options.signal || AbortSignal.timeout(12000)]);
   if (options.body !== undefined && !headers.has('Content-Type'))
     headers.set('Content-Type', 'application/json');
+  // The browser already knows there is no network: answer as unreachable without a request that
+  // can only fail, so callers take their offline path (cached reads, queued work).
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    signal.throwIfAborted();
+    throw new NetworkError();
+  }
   let response: Response;
   try {
     response = await fetch(path, {

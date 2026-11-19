@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { post, request } from '../api/client';
 import { capabilitiesSchema, loginChallengeSchema, sessionSchema } from '../api/schemas';
 import { ErrorState } from '../components/common';
+import { loginChallengePendingKey } from '../hooks/use-pos';
 import { useWorkspace } from '../state/workspace';
 
 type Challenge = z.infer<typeof loginChallengeSchema>;
@@ -32,8 +33,10 @@ export function Login() {
     setNotice(value.message);
     setCode('');
   }
+  // Only a browser holding an unexpired password-step cookie has a challenge to restore.
+  const challengePending = client.getQueryData<boolean>(loginChallengePendingKey) === true;
   useEffect(() => {
-    if (!options.data?.password) return;
+    if (!options.data?.password || !challengePending) return;
     let active = true;
     void request('/api/v1/auth/challenges/current', {}, loginChallengeSchema)
       .then((value) => {
@@ -43,7 +46,7 @@ export function Login() {
     return () => {
       active = false;
     };
-  }, [options.data?.password]);
+  }, [options.data?.password, challengePending]);
   async function complete() {
     await client.invalidateQueries({ queryKey: ['operator'] });
   }

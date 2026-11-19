@@ -6,7 +6,7 @@ import { db, type LocalDraft, type Operation } from '../offline/database';
 import { replay } from '../offline/sync';
 import { liveQuery } from 'dexie';
 import {
-  sessionSchema,
+  sessionStateSchema,
   storeListSchema,
   counterListSchema,
   productPageSchema,
@@ -30,6 +30,8 @@ export function useOnline() {
   }, []);
   return online;
 }
+/** Set by the operator probe: this browser holds an unexpired password-step challenge. */
+export const loginChallengePendingKey = ['login-challenge-pending'] as const;
 export function useOperator() {
   const client = useQueryClient();
   useEffect(() => {
@@ -56,25 +58,33 @@ export function useOperator() {
     queryFn: async ({ signal }) => {
       if (localStorage.getItem('pos-pending-logout'))
         throw new ApiError(401, 'SIGNED_OUT', 'You are signed out.');
+      const signedOut = async () => {
+        const previous = await db.sessions.get('current');
+        if (previous) await clearLocalIdentity(client, previous.user.id, true);
+        else {
+          await db.sessions.clear();
+          client.removeQueries({ predicate: (query) => query.queryKey[0] !== 'operator' });
+        }
+        return null;
+      };
       try {
-        const { user, sessionExpiresAt } = await request(
-          '/api/v1/auth/sessions/current',
+        // Public probe: signed out answers 200 `{ session: null }`, so no 401 is expected here.
+        const { session, loginChallengePending } = await request(
+          '/api/v1/auth/session-state',
           { signal },
-          sessionSchema,
+          sessionStateSchema,
         );
+        if (!session) {
+          await signedOut();
+          client.setQueryData(loginChallengePendingKey, loginChallengePending);
+          return null;
+        }
+        const { user, sessionExpiresAt } = session;
         await db.sessions.put({ id: 'current', user, expiresAt: sessionExpiresAt });
         return user;
       } catch (error) {
         if (signal.aborted) throw error;
-        if (error instanceof ApiError && error.status === 401) {
-          const previous = await db.sessions.get('current');
-          if (previous) await clearLocalIdentity(client, previous.user.id, true);
-          else {
-            await db.sessions.clear();
-            client.removeQueries({ predicate: (query) => query.queryKey[0] !== 'operator' });
-          }
-          return null;
-        }
+        if (error instanceof ApiError && error.status === 401) return await signedOut();
         if (!(error instanceof NetworkError)) throw error;
         const previous = await db.sessions.get('current');
         if (previous && previous.expiresAt > Date.now())
@@ -115,9 +125,18 @@ export function useStores(ownerId: string) {
     queryKey: [ownerId, 'stores'],
     queryFn: async () => {
       try {
-        const result = await request<{ data: Store[] }>('/api/v1/stores', {}, storeListSchema);
-        const old = await db.lookups.get(ownerId);
-        await db.lookups.put({ ownerId, stores: result.data, counters: old?.counters || [] });
+        // Owner-bound: after sign-out (operator cleared) this aborts locally instead of a 401.
+        const result = await request<{ data: Store[] }>(
+          '/api/v1/stores',
+          { operatorId: ownerId },
+          storeListSchema,
+        );
+        // Stores and counters share one lookup row and load concurrently: read-modify-write in
+        // one transaction so neither write drops the other's half.
+        await db.transaction('rw', db.lookups, async () => {
+          const old = await db.lookups.get(ownerId);
+          await db.lookups.put({ ownerId, stores: result.data, counters: old?.counters || [] });
+        });
         return result.data;
       } catch (error) {
         if (!(error instanceof NetworkError)) throw error;
@@ -136,14 +155,19 @@ export function useCounters(ownerId: string, storeId: string) {
       try {
         const result = await request<{ data: Counter[] }>(
           `/api/v1/stores/${storeId}/counters`,
-          {},
+          { operatorId: ownerId },
           counterListSchema,
         );
-        const old = await db.lookups.get(ownerId);
-        await db.lookups.put({
-          ownerId,
-          stores: old?.stores || [],
-          counters: [...(old?.counters || []).filter((c) => c.storeId !== storeId), ...result.data],
+        await db.transaction('rw', db.lookups, async () => {
+          const old = await db.lookups.get(ownerId);
+          await db.lookups.put({
+            ownerId,
+            stores: old?.stores || [],
+            counters: [
+              ...(old?.counters || []).filter((c) => c.storeId !== storeId),
+              ...result.data,
+            ],
+          });
         });
         return result.data;
       } catch (error) {
