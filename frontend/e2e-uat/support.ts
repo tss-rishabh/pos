@@ -149,3 +149,44 @@ export async function mainText(page: Page) {
       .catch(() => '')
   ).slice(0, 4000);
 }
+
+/**
+ * The allowlisted test customer's own contact, read at run time from UAT through the mysql
+ * client config (never printed). Used only to look up customer 12132565 in the app.
+ */
+export async function testCustomerContact(): Promise<{ telephone: string; email: string }> {
+  const { execFileSync } = await import('node:child_process');
+  const out = execFileSync(
+    'mysql',
+    [
+      `--defaults-extra-file=${join(homedir(), '.config/pos-uat/my.cnf')}`,
+      '-N',
+      '-B',
+      '-e',
+      `SELECT telephone, email FROM users WHERE id = ${Number(uat.customerId)}`,
+    ],
+    {
+      encoding: 'utf8',
+      env: { ...process.env, PATH: `/opt/homebrew/opt/mysql@8.4/bin:${process.env.PATH ?? ''}` },
+    },
+  ).trim();
+  const [telephone = '', email = ''] = out.split('\t');
+  if (!telephone && !email) throw new Error('The test customer has no contact on record.');
+  return { telephone, email };
+}
+
+/** Read-only UAT query through the mysql client config; returns tab-separated rows. */
+export async function uatQuery(sql: string): Promise<string[][]> {
+  const { execFileSync } = await import('node:child_process');
+  if (!/^\s*select\b/i.test(sql) || sql.includes(';'))
+    throw new Error('Read-only single SELECT only.');
+  const out = execFileSync(
+    'mysql',
+    [`--defaults-extra-file=${join(homedir(), '.config/pos-uat/my.cnf')}`, '-N', '-B', '-e', sql],
+    {
+      encoding: 'utf8',
+      env: { ...process.env, PATH: `/opt/homebrew/opt/mysql@8.4/bin:${process.env.PATH ?? ''}` },
+    },
+  ).trim();
+  return out ? out.split('\n').map((line) => line.split('\t')) : [];
+}

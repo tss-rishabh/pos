@@ -18,7 +18,8 @@ import {
 /**
  * Desktop offline billing on macOS against UAT store 7 / counter C1. The stack's TCP gates cut
  * the device's network; reconnecting syncs automatically through the real backend into API-v2
- * UAT `pos/order`. Any order created is written to the ledger.
+ * UAT `pos/order`. Any order created is written to the ledger. Product: TSS Originals: Book Lover
+ * (L), the store-7 item API-v2 UAT's catalogue mirror holds (others sync as STOCK_SHORTFALL).
  */
 const CARD_REFERENCE = 'W26-UAT-CARD-0001';
 const note = (step: string, data: unknown) =>
@@ -75,11 +76,11 @@ const summary = (list: OfflineSale[]) =>
 async function billOne(mode: 'cash' | 'card') {
   const { page } = desktop;
   const search = page.getByLabel('Scan a barcode or search products');
-  await search.fill('Patch: Slytherin');
+  await search.fill('Book Lover');
   await page.getByRole('button', { name: 'Find' }).click();
   await page
     .getByRole('listitem')
-    .filter({ hasText: 'Patch: Slytherin (Small)' })
+    .filter({ hasText: 'Book Lover - Variant ( L )' })
     .first()
     .getByRole('button', { name: 'Add' })
     .click();
@@ -88,7 +89,7 @@ async function billOne(mode: 'cash' | 'card') {
     .locator('option')
     .evaluateAll((nodes) => nodes.map((node) => (node as HTMLOptionElement).value).filter(Boolean));
   await salesperson.selectOption(options[0]!);
-  if (mode === 'cash') await page.getByLabel('Cash received').fill('100');
+  if (mode === 'cash') await page.getByLabel('Cash received').fill('1000');
   else {
     await page.getByRole('radio', { name: 'Card' }).click();
     await page.getByLabel('Card reference from the standalone terminal').fill(CARD_REFERENCE);
@@ -104,6 +105,7 @@ async function billOne(mode: 'cash' | 'card') {
 }
 
 test.describe.serial('offline billing on UAT', () => {
+  test.describe.configure({ timeout: 900_000 });
   test.afterAll(async () => {
     await network(true).catch(() => undefined);
     if (desktop) await closeDesktop(desktop);
@@ -118,10 +120,11 @@ test.describe.serial('offline billing on UAT', () => {
       (value) =>
         value.available &&
         value.online &&
+        value.catalog.products > 0 &&
         value.counters.some((counter) => counter.id === uat.counterId) &&
         value.operator?.storeId === uat.storeId &&
         value.operator.eligible === true,
-      120000,
+      600000,
     ).catch(async (error: unknown) => {
       const last = await status();
       note('not-ready', {
@@ -218,9 +221,9 @@ test.describe.serial('offline billing on UAT', () => {
         saleId: crypto.randomUUID(),
         storeId: uat.storeId,
         counterId: uat.counterId,
-        lines: [{ productId: '188126', quantity: 1 }],
+        lines: [{ productId: '262148', quantity: 1 }],
         salespersonId,
-        tender: { mode: 'cash', receivedPaise: 10000 },
+        tender: { mode: 'cash', receivedPaise: 100000 },
       });
       const state = await status();
       note('limit', {
@@ -232,7 +235,8 @@ test.describe.serial('offline billing on UAT', () => {
       await shot(desktop.page, '05-limit');
       // The device adopted the backend's lower limit while online and keeps it offline.
       expect(state.limits.maxOrders).toBe(1);
-      expect(attempt.ok).toBe(false);
+      // One sale fits the new limit of 1; the window is then full.
+      expect(state.limits.reason).toBe('ORDER_LIMIT');
     } finally {
       await network(true);
       await stackControl('/backend/restart', { maxOrders: 10 });

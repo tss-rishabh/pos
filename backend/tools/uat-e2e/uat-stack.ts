@@ -82,6 +82,8 @@ const uatHosts = new Set([
   'instore-ism.uat.pinelabs.com',
   'securegw-stage.paytm.in',
   'uat-backend-tss-sync.thesouledstore.com',
+  // Vinculum WMS UAT tenant (return inbound).
+  'thesouledstoreuat.vineretail.com',
 ]);
 /** Browser-facing UAT links (never called by the backend). */
 const browserHosts = new Set([
@@ -227,6 +229,20 @@ const childEnvironment = (overrides: Record<string, string>) => {
 
 // ---- Logs ---------------------------------------------------------------------------------
 const callLog = createWriteStream(resolve(logDirectory, 'outbound-calls.jsonl'), { flags: 'a' });
+/** A 4xx/5xx error title with digits, emails and long tokens masked (diagnosis only). */
+const errorTitle = (body: unknown, status: number) => {
+  if (status < 400 || !body || typeof body !== 'object') return undefined;
+  const title =
+    (body as Record<string, unknown>)['title'] ?? (body as Record<string, unknown>)['message'];
+  return typeof title === 'string'
+    ? title
+        .replace(/\S+@\S+/g, '<email>')
+        .replace(/\d+/g, '<n>')
+        .replace(/[A-Za-z0-9_-]{24,}/g, '<tok>')
+        .slice(0, 160)
+    : undefined;
+};
+const shapeLog = createWriteStream(resolve(logDirectory, 'reply-shapes.jsonl'), { flags: 'a' });
 interface Call {
   at: string;
   via: 'reverse' | 'egress';
@@ -303,6 +319,31 @@ const reverse = createHttpServer((incoming: IncomingMessage, outgoing: ServerRes
         if (value !== undefined && !hopHeaders.has(key)) replyHeaders[key] = value;
       outgoing.writeHead(reply.statusCode ?? 502, replyHeaders);
       reply.pipe(outgoing);
+      // W26_SHAPES=1: record the key/type shape of JSON replies (never a value) for contract
+      // diagnosis against UAT API-v2. Compressed replies are skipped.
+      if (process.env.W26_SHAPES === '1' && !reply.headers['content-encoding']) {
+        const chunks: Buffer[] = [];
+        reply.on('data', (chunk: Buffer) => chunks.push(chunk));
+        reply.on('end', () => {
+          try {
+            const shape = (value: unknown, depth = 0): unknown => {
+              if (depth > 6) return '…';
+              if (Array.isArray(value)) return value.length ? [shape(value[0], depth + 1)] : [];
+              if (value && typeof value === 'object')
+                return Object.fromEntries(
+                  Object.entries(value).map(([k, v]) => [k, shape(v, depth + 1)]),
+                );
+              return value === null ? 'null' : typeof value;
+            };
+            const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown;
+            shapeLog.write(
+              `${JSON.stringify({ at: new Date().toISOString(), method, path, status: reply.statusCode, shape: shape(body), title: errorTitle(body, reply.statusCode ?? 0) })}\n`,
+            );
+          } catch {
+            /* not JSON */
+          }
+        });
+      }
     },
   );
   upstream.on('timeout', () => upstream.destroy(new Error('timeout')));
