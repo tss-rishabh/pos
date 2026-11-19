@@ -1,9 +1,16 @@
 import { Temporal } from '@js-temporal/polyfill';
-import { and, asc, eq, gte, inArray, lt, ne, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, gt, gte, inArray, lt, ne, notInArray, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
-import { PosHyperlocalSlot, Store } from '../../db/legacy-schema.js';
+import {
+  HyperlocalFdLog,
+  HyperlocalOrderLog,
+  HyperlocalToOnlineOrderLog,
+  Order,
+  PosHyperlocalSlot,
+  Store,
+} from '../../db/legacy-schema.js';
 import { AppError, unavailable } from '../../domain/errors.js';
 import { boundedJson } from '../../domain/http-json.js';
 import { warehouseService } from '../warehouse.js';
@@ -121,6 +128,129 @@ export function scheduledSourceQuery(
       ),
     sql``,
   );
+}
+type ScheduledReader = ReturnType<Databases['get']>;
+const scheduledRowLimit = 70001;
+/**
+ * DATA-reader rows for the scheduled reports, built with Drizzle. Each statement is the
+ * builder form of {@link scheduledSourceQuery} for the same kind plus `LIMIT 70001`, returning
+ * the same column names and raw driver values (CASTs stay CASTs; plain columns are string,
+ * enum or tinyint columns whose decoders return the driver value unchanged).
+ */
+export async function scheduledMysqlRows(
+  reader: ScheduledReader,
+  kind: ReadKind,
+  period: Period,
+  includeCompleted: boolean,
+): Promise<unknown[]> {
+  if (kind === 'timing')
+    return reader
+      .select({
+        orderId: sql<string | null>`CAST(${Order.id} AS CHAR)`,
+        createdAt: sql<string | null>`ANY_VALUE(${Order.created_at})`,
+        storeId: sql<string | null>`CAST(ANY_VALUE(${Store.id}) AS CHAR)`,
+        storeName: sql<string | null>`ANY_VALUE(${Store.store_name})`,
+        acceptedAt: sql<string>`ANY_VALUE(${HyperlocalOrderLog.updated_at})`,
+      })
+      .from(HyperlocalOrderLog)
+      .leftJoin(Order, eq(Order.id, HyperlocalOrderLog.order_id))
+      .leftJoin(Store, eq(Store.id, Order.location_id))
+      .where(
+        and(
+          eq(HyperlocalOrderLog.action, 'ACCEPTED'),
+          gte(HyperlocalOrderLog.updated_at, period.from),
+          lt(HyperlocalOrderLog.updated_at, period.end),
+        ),
+      )
+      .groupBy(Order.id)
+      .limit(scheduledRowLimit);
+  if (kind === 'summary') {
+    const firstLogs = reader
+      .select({
+        orderId: sql<string>`CAST(${Order.id} AS CHAR)`.as('orderId'),
+        storeId: sql<string>`CAST(${Order.location_id} AS CHAR)`.as('storeId'),
+        action: HyperlocalOrderLog.action,
+        isTransfer: Order.is_transfer,
+        mainStoreId: sql<string | null>`CAST(${HyperlocalOrderLog.main_location_id} AS CHAR)`.as(
+          'mainStoreId',
+        ),
+        nextLocationIds: Order.next_location_ids,
+        position:
+          sql<number>`ROW_NUMBER() OVER(PARTITION BY ${Order.id} ORDER BY ${HyperlocalOrderLog.id})`.as(
+            'position',
+          ),
+      })
+      .from(Order)
+      .innerJoin(HyperlocalOrderLog, eq(HyperlocalOrderLog.order_id, Order.id))
+      .where(
+        and(
+          gt(Order.location_id, 0),
+          inArray(Order.location_type, ['SW', 'NW']),
+          notInArray(Order.order_statuses, [0n, 17n]),
+          gte(Order.created_at, period.windowStart),
+          lt(Order.created_at, period.end),
+          gte(HyperlocalOrderLog.updated_at, period.from),
+          lt(HyperlocalOrderLog.updated_at, period.end),
+        ),
+      )
+      .as('first_logs');
+    return reader
+      .select({
+        orderId: firstLogs.orderId,
+        storeId: firstLogs.storeId,
+        action: firstLogs.action,
+        isTransfer: firstLogs.isTransfer,
+        mainStoreId: firstLogs.mainStoreId,
+        nextLocationIds: firstLogs.nextLocationIds,
+      })
+      .from(firstLogs)
+      .where(eq(firstLogs.position, 1))
+      .orderBy(asc(firstLogs.orderId))
+      .limit(scheduledRowLimit);
+  }
+  if (kind === 'cancellations')
+    return reader
+      .select({
+        storeName: Store.store_name,
+        orderId: sql<string>`CAST(${HyperlocalToOnlineOrderLog.order_id} AS CHAR)`,
+        reason: HyperlocalToOnlineOrderLog.reason,
+        comment: HyperlocalToOnlineOrderLog.remark,
+        convertedAt: HyperlocalToOnlineOrderLog.created_at,
+      })
+      .from(HyperlocalToOnlineOrderLog)
+      .leftJoin(Store, eq(Store.id, HyperlocalToOnlineOrderLog.location_id))
+      .where(
+        and(
+          gte(HyperlocalToOnlineOrderLog.created_at, period.from),
+          lt(HyperlocalToOnlineOrderLog.created_at, period.end),
+          eq(HyperlocalToOnlineOrderLog.platform, 'CONVERT_ONLINE'),
+        ),
+      )
+      .orderBy(asc(HyperlocalToOnlineOrderLog.id))
+      .limit(scheduledRowLimit);
+  if (kind === 'tickets')
+    return reader
+      .select({
+        orderId: sql<string | null>`CAST(${HyperlocalFdLog.order_id} AS CHAR)`,
+        ticketId: HyperlocalFdLog.fd_ticket_id,
+        createdAt: HyperlocalFdLog.created_at,
+      })
+      .from(HyperlocalFdLog)
+      .where(
+        and(
+          gte(HyperlocalFdLog.created_at, period.from),
+          lt(HyperlocalFdLog.created_at, period.end),
+          includeCompleted ? undefined : notInArray(HyperlocalFdLog.fd_ticket_status, ['CLOSED']),
+        ),
+      )
+      .orderBy(asc(HyperlocalFdLog.id))
+      .limit(scheduledRowLimit);
+  // W11 exception: delays/availability/platform read `comments.hl_status`, `flag_history` and
+  // `hyperlocal_availability_log`, which have no definition in legacy-schema.ts yet.
+  const rows = await reader.execute(
+    sql`${scheduledSourceQuery(kind, period, includeCompleted)} LIMIT ${scheduledRowLimit}`,
+  );
+  return z.array(z.unknown()).parse(rows[0]);
 }
 function table(value: string | undefined) {
   if (!value) return unavailable('BigQuery scheduled-report compatible view');
@@ -276,10 +406,8 @@ export function scheduledReportBuilder(
           { from: 'DATETIME', end: 'DATETIME', windowStart: 'DATETIME', includeCompleted: 'BOOL' },
           input.kind,
         );
-      const rows = await db
-        .get('data')
-        .execute(sql`${scheduledSourceQuery(kind, period, input.includeCompleted)} LIMIT 70001`);
-      return z.array(z.record(z.string(), z.unknown())).parse(rows[0]);
+      const rows = await scheduledMysqlRows(db.get('data'), kind, period, input.includeCompleted);
+      return z.array(z.record(z.string(), z.unknown())).parse(rows);
     };
     const parsed = async <T>(kind: ReadKind, schema: z.ZodType<T>) => {
       const rows = await read(kind);
