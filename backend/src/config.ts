@@ -87,6 +87,8 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
       SESSION_SECRET: z.string().min(32),
       // Secure session cookies; false only for local http development, refused in production.
       SESSION_COOKIE_SECURE: flag(true),
+      // Global per-client-IP request budget (@fastify/rate-limit, per minute).
+      API_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(60).max(100000).default(240),
       LOGIN_MFA_PENDING_TTL: z.coerce.number().int().min(60).max(900).default(300),
       LOGIN_OTP_EXPIRY: z.coerce.number().int().min(30).max(600).default(180),
       LOGIN_OTP_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),

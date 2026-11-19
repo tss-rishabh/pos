@@ -167,7 +167,7 @@ export async function buildApp(
     exposedHeaders: ['X-Request-Id'],
   });
   await app.register(helmet);
-  await app.register(rateLimit, { max: 240, timeWindow: '1 minute' });
+  await app.register(rateLimit, { max: config.API_RATE_LIMIT_PER_MINUTE, timeWindow: '1 minute' });
   const authEvents = authEventLogger(app.log);
   // Legacy redis_instance database 0: sessions, login OTP state, check-in lists, mPOS QR.
   const authRedis =
