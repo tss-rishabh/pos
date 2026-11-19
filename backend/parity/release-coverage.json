@@ -237,7 +237,7 @@
       "implementation": [],
       "tests": [],
       "evidence": [],
-      "notes": "Component tests and implemented route counts do not certify complete legacy behavior. W18 on f600dd54 (backend/parity/w18-verification.md): all local suites green on loopback, 396 surfaces still pending in the gate, 9 remaining-code groups in source-surface-map.json."
+      "notes": "Component tests and implemented route counts do not certify complete legacy behavior. W18 on f600dd54 (backend/parity/w18-verification.md): all local suites green on loopback, 396 surfaces still pending in the gate, 9 remaining-code groups in source-surface-map.json. W22 on b481fa91 (backend/parity/w22-verification.md): backend 1189/1189 x2, frontend 409/409 x3, web e2e 41/41 x2 on one stack with 0 unexpected console errors/failed requests, desktop 12/12 x2; verify-project 84/85 executed checks (order-payments-browser-fixture-typecheck fails, browser-tests not run). Still 396 surfaces pending; no certification."
     },
     {
       "id": "legacy-authentication",
@@ -293,7 +293,7 @@
       "implementation": [],
       "tests": [],
       "evidence": [],
-      "notes": "S1-S57 recorded in backend/parity/security-decisions.md, pending user review. Route validation 335/335 and log redaction tests pass (W18). No independent security review or penetration test."
+      "notes": "S1-S57 recorded in backend/parity/security-decisions.md, pending user review. Route validation 335/335 and log redaction tests pass (W18). No independent security review or penetration test. W22 (b481fa91): S1-S58 recorded (S58 public session-state probe); route validation 336/336 and log redaction pass. Still no independent review."
     },
     {
       "id": "offline-web-and-desktop",
@@ -301,7 +301,7 @@
       "implementation": [],
       "tests": [],
       "evidence": [],
-      "notes": "Desktop offline billing (encrypted SQLite, cash + manual card/UPI reference, provisional reference as a comments row, env limits) passes 12/12 Electron e2e scenarios on loopback (W17; W18 rerun 12/12 after one flaky run). Web clients need internet (AGENTS.md). Real keychain/DPAPI, physical printers and devices on both operating systems remain uncertified."
+      "notes": "Desktop offline billing (encrypted SQLite, cash + manual card/UPI reference, provisional reference as a comments row, env limits) passes 12/12 Electron e2e scenarios on loopback (W17; W18 rerun 12/12 after one flaky run). Web clients need internet (AGENTS.md). Real keychain/DPAPI, physical printers and devices on both operating systems remain uncertified. W22 (b481fa91): 12/12 in two consecutive runs, no lost window or SIGTERM fallback; the cause of W18's one DevTools disconnect remains unconfirmed (W21 bounded the teardown)."
     },
     {
       "id": "desktop-signing",
@@ -309,7 +309,7 @@
       "implementation": [],
       "tests": [],
       "evidence": [],
-      "notes": "Unsigned macOS arm64 package builds (W18). Needs an Apple Developer ID certificate, notarisation credentials and a Windows Authenticode certificate (backend/parity/w17-report.md section 4)."
+      "notes": "Unsigned macOS arm64 package builds (W18). Needs an Apple Developer ID certificate, notarisation credentials and a Windows Authenticode certificate (backend/parity/w17-report.md section 4). W22 (b481fa91): the unsigned macOS arm64 package rebuilds (ad-hoc signature, no Team ID). No signing material yet."
     },
     {
       "id": "deployment-and-rollback",
@@ -317,7 +317,7 @@
       "implementation": [],
       "tests": [],
       "evidence": [],
-      "notes": "Backend and frontend images build and the container smoke passes 10/10 (backend/evidence/container-smoke-f600dd54-single-stack.json). Staff must sign in again at cut-over; Redis must run with maxmemory-policy noeviction. No staged deployment or rollback rehearsal."
+      "notes": "Backend and frontend images build and the container smoke passes 10/10 (backend/evidence/container-smoke-f600dd54-single-stack.json). Staff must sign in again at cut-over; Redis must run with maxmemory-policy noeviction. No staged deployment or rollback rehearsal. W22 (b481fa91): images rebuilt and container smoke 10/10 again (backend/evidence/container-smoke-b481fa91-w22.json). Still no staged deployment or rollback rehearsal."
     },
     {
       "id": "background-workers",
