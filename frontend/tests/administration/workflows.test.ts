@@ -1660,11 +1660,39 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
           size: imageBytes.length,
           checksum: createHash('sha256').update(imageBytes).digest('base64'),
         });
-        await page.getByRole('button', { name: 'Retry image attachment', exact: true }).click();
+        // Hold the post-attachment profile reload so the "saved, still reloading" state is
+        // asserted deterministically instead of depending on how fast the reload is.
+        let releaseReload: () => void = () => undefined,
+          reloadRequested: () => void = () => undefined;
+        const reloadGate = new Promise<void>((resolve) => {
+            releaseReload = resolve;
+          }),
+          reloadStarted = new Promise<void>((resolve) => {
+            reloadRequested = resolve;
+          });
+        await page.route(
+          (url) => url.pathname === '/api/v1/operators/current/profile',
+          async (route) => {
+            reloadRequested();
+            await reloadGate;
+            await route.fallback();
+          },
+          { times: 1 },
+        );
+        try {
+          await page.getByRole('button', { name: 'Retry image attachment', exact: true }).click();
+          await reloadStarted;
+          // Only the current attempt's state is announced: one status, the saved message.
+          await browserExpect(page.getByRole('status')).toHaveCount(1);
+          await browserExpect(page.getByRole('status')).toHaveText('Image saved.');
+          await browserExpect(
+            page.getByRole('button', { name: 'Retry image attachment', exact: true }),
+          ).toHaveCount(0);
+        } finally {
+          releaseReload();
+        }
+        await browserExpect(page.getByLabel('Change profile image', { exact: true })).toBeEnabled();
         await browserExpect(page.getByRole('status')).toHaveText('Image saved.');
-        await browserExpect(
-          page.getByRole('button', { name: 'Retry image attachment', exact: true }),
-        ).toHaveCount(0);
         const image = page.getByRole('img', { name: 'Profile image', exact: true });
         await browserExpect(image).toBeVisible();
         expect(
@@ -1687,6 +1715,9 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         ).toBeVisible();
         expect(state.imageUploads.at(-1)?.kind).toBe('cover-image');
         expect(state.s3Posts).toBe(2);
+        // The cover attempt has finished its reload before the next file is chosen.
+        await browserExpect(page.getByLabel('Change profile image', { exact: true })).toBeEnabled();
+        await browserExpect(page.getByRole('status')).toHaveText('Image saved.');
         const uploadCount = state.imageUploads.length;
         await page.getByLabel('Change profile image', { exact: true }).setInputFiles({
           name: 'Unsafe.svg',
@@ -1742,9 +1773,39 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         ).toHaveAttribute('type', 'password');
         await dialog.getByLabel('New authenticator secret', { exact: true }).fill(secret);
         await dialog.getByLabel('New authenticator code', { exact: true }).fill('123456');
-        await dialog
-          .getByRole('button', { name: 'Apply authenticator reset', exact: true })
-          .click();
+        // Hold the operator list refresh that follows a reset, so the "replaced, still
+        // refreshing" state is asserted deterministically instead of depending on its speed.
+        let releaseRefresh: () => void = () => undefined,
+          refreshRequested: () => void = () => undefined;
+        const refreshGate = new Promise<void>((resolve) => {
+            releaseRefresh = resolve;
+          }),
+          refreshStarted = new Promise<void>((resolve) => {
+            refreshRequested = resolve;
+          });
+        const heldRefresh = (url: URL) =>
+          url.pathname.startsWith('/api/v1/') && url.pathname !== '/api/v1/admin/operators/4/mfa';
+        await page.route(heldRefresh, async (route) => {
+          if (route.request().method() !== 'GET') return route.fallback();
+          refreshRequested();
+          await refreshGate;
+          await route.fallback();
+        });
+        try {
+          await dialog
+            .getByRole('button', { name: 'Apply authenticator reset', exact: true })
+            .click();
+          await refreshStarted;
+          // Only the current action's state is announced: one status, the replaced message.
+          await browserExpect(dialog.getByRole('status')).toHaveCount(1);
+          await browserExpect(dialog.getByRole('status')).toHaveText('Authenticator replaced.');
+        } finally {
+          releaseRefresh();
+          await page.unroute(heldRefresh);
+        }
+        await browserExpect(
+          dialog.getByRole('button', { name: 'Close authenticator', exact: true }),
+        ).toBeEnabled();
         await browserExpect(dialog.getByRole('status')).toHaveText('Authenticator replaced.');
         await browserExpect(
           dialog.getByLabel('New authenticator secret', { exact: true }),

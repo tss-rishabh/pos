@@ -164,6 +164,15 @@ export function PrivateImages({
     await attach(pending, controller);
   }
   const busy = phase !== 'idle';
+  // One status for the current attempt. Once its attachment is confirmed the saved message
+  // replaces the progress text, even while the follow-up reload still holds the controls.
+  const status =
+    message ||
+    (phase === 'uploading'
+      ? 'Uploading your image…'
+      : phase === 'attaching'
+        ? 'Checking and attaching your image…'
+        : '');
   return (
     <section className="surface profile-images">
       <h2>{title}</h2>
@@ -196,12 +205,7 @@ export function PrivateImages({
         </div>
       ))}
       {!available && <p>Image uploads are currently unavailable.</p>}
-      {busy && (
-        <p role="status">
-          {phase === 'uploading' ? 'Uploading your image…' : 'Checking and attaching your image…'}
-        </p>
-      )}
-      {message && <p role="status">{message}</p>}
+      {status && <p role="status">{status}</p>}
       {attachment && !busy && (
         <p>Your upload is ready. Retry attaching it before choosing another image.</p>
       )}

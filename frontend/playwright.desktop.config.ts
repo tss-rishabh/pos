@@ -1,5 +1,6 @@
 import { defineConfig } from '@playwright/test';
 import { delimiter, dirname } from 'node:path';
+import { desktopControl, desktopPorts, desktopWorkspace } from './e2e-desktop/ports';
 
 if (process.versions.node.split('.')[0] !== '24')
   throw new Error('Playwright fixtures require the installed Node 24 runtime.');
@@ -16,7 +17,7 @@ if (!e2eMysqlUrl) throw new Error('Set E2E_MYSQL_URL to an isolated loopback MyS
  * Desktop (Electron) offline-billing e2e on the real stack (W17). The stack
  * (backend/tools/e2e/offline-billing-stack.ts) runs the real backend and the web origin behind TCP
  * gates, so a spec can cut and restore the device's network (the renderer then runs from its
- * service-worker shell, as on a store device without internet), and exposes a loopback control API on 4499. Build first: `npm run build`.
+ * service-worker shell, as on a store device without internet), and exposes a loopback control API (4499 by default; see e2e-desktop/ports.ts). Build first: `npm run build`.
  */
 export default defineConfig({
   testDir: 'e2e-desktop',
@@ -29,12 +30,17 @@ export default defineConfig({
     {
       command: 'node --import tsx tools/e2e/offline-billing-stack.ts',
       cwd: '../backend',
-      url: 'http://127.0.0.1:4499/ready',
+      url: `${desktopControl}/ready`,
       timeout: 180000,
       env: {
         ...nodeEnvironment,
         E2E_MYSQL_URL: e2eMysqlUrl,
-        E2E_WEB_ORIGIN: 'http://localhost:4173',
+        E2E_WEB_ORIGIN: desktopWorkspace,
+        E2E_WEB_PORT: String(desktopPorts.web),
+        E2E_WEB_PRIVATE_PORT: String(desktopPorts.webPrivate),
+        E2E_BACKEND_PORT: String(desktopPorts.backend),
+        E2E_BACKEND_PRIVATE_PORT: String(desktopPorts.backendPrivate),
+        E2E_CONTROL_PORT: String(desktopPorts.control),
       },
       reuseExistingServer: false,
       gracefulShutdown: { signal: 'SIGTERM', timeout: 20000 },
@@ -42,10 +48,9 @@ export default defineConfig({
       stderr: 'pipe',
     },
     {
-      // On a private port: the stack gates the public web origin (4173) in front of it.
-      command:
-        'node node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port 4174 --strictPort',
-      url: 'http://127.0.0.1:4174',
+      // On a private port: the stack gates the public web origin in front of it.
+      command: `node node_modules/vite/bin/vite.js preview --config e2e-desktop/vite.preview.config.ts --host 127.0.0.1 --port ${desktopPorts.webPrivate} --strictPort`,
+      url: `http://127.0.0.1:${desktopPorts.webPrivate}`,
       env: nodeEnvironment,
       reuseExistingServer: false,
       stdout: 'pipe',
