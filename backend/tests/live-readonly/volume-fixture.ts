@@ -6,9 +6,10 @@
  * (`products` range, estimate 181,046, evidence `live-readonly-2026-11-19.json`). This adds a
  * synthetic catalog of the same order of magnitude on top of that fixture: ~360k `products`
  * (60k configurable parents and 300k variants; a PK range from id 0 then estimates ~180k rows,
- * about half the table, as on production), `product_store` rows for 40 stores (~22k per store),
- * one GS1 record per variant, a membership price per parent, and hold/storage rows for store 1.
- * No real data.
+ * about half the table, as on production), and `product_store` at production per-store density:
+ * 4 stores each holding 90% of the catalog (~324k rows per store; production estimates 318,880
+ * rows for a `store_id` ref), about a fifth of them in stock. Plus one GS1 record per variant, a
+ * membership price per parent, and hold/storage rows for store 1. No real data.
  * Then `ANALYZE TABLE` so EXPLAIN estimates come from statistics, as on production.
  *
  * Refuses any host other than loopback and any schema not named `pos_live_readonly_*`.
@@ -22,7 +23,7 @@ import mysql from 'mysql2/promise';
 export const volumeShape = {
   parents: 60_000,
   variants: 300_000,
-  stores: 40,
+  stores: 4,
   firstParentId: 200_001,
   firstVariantId: 400_001,
 } as const;
@@ -63,18 +64,20 @@ export async function addLoopbackVolume(target: string): Promise<void> {
               1, 0, 0, 12, if(k % 50 = 0, 1, 0), '{}'
        from n`,
     );
-    // Store s holds the variants with k % 16 = s % 16 (~18.75k) plus their parents at stock 0.
+    // Store s holds every variant with k % 10 <> s (90%), a fifth of them in stock, plus the
+    // matching parents at stock 0.
     await connection.query(
       `insert into product_store (product_id, store_id, stock, is_avail, is_del)
        ${sequence(variants)}, s (store) as (select 1 union all select store + 1 from s where store < ${stores})
-       select ${firstVariantId - 1} + k, store, (k * 7 + store) % 5, if(k % 41 = 0, 0, 1), if(k % 53 = 0, 1, 0)
-       from n join s on k % 16 = store % 16`,
+       select ${firstVariantId - 1} + k, store, if((k * 7 + store) % 5 = 0, 1 + k % 3, 0),
+              if(k % 41 = 0, 0, 1), if(k % 53 = 0, 1, 0)
+       from n join s on k % 10 <> store`,
     );
     await connection.query(
       `insert into product_store (product_id, store_id, stock, is_avail, is_del)
        ${sequence(parents)}, s (store) as (select 1 union all select store + 1 from s where store < ${stores})
        select ${firstParentId - 1} + k, store, 0, 1, 0
-       from n join s on k % 16 = store % 16`,
+       from n join s on k % 10 <> store`,
     );
     await connection.query(
       `insert into products_gs1 (product_id, gtin)

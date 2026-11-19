@@ -54,20 +54,36 @@ export function inventoryService(config: Config, db: Databases, options: Invento
   return {
     async list(user: Principal, storeId: string, page: AdminPage) {
       authorize(user, storeId);
-      const reader = db.get('primary'),
-        store = BigInt(storeId);
-      // W16: choose the page of product ids first from this store's `product_store` index
-      // (never a `products` PRIMARY range over the whole catalog), then read the columns and the
-      // first barcode for those rows only, in the same statement.
-      const selected = reader
+      // Legacy pages this store's products by id. `products` PRIMARY serves the ORDER BY in
+      // index order (no filesort) and each product's row in this store is a point read on
+      // `uq_product_store (product_id, store_id)`, so LIMIT stops the scan early. The hint rides
+      // on the first column because it must follow SELECT; `mapWith` keeps the bigint id.
+      const rows = await db
+        .get('primary')
         .select({
-          id: sql<bigint>`/*+ JOIN_ORDER(product_store, products) */ ${Product.id}`.as('page_id'),
+          id: sql<bigint>`/*+ JOIN_ORDER(products, product_store) */ ${Product.id}`.mapWith(
+            Product.id,
+          ),
+          name: Product.product,
+          erpName: Product.erp_product,
+          parentId: Product.parent_prod_id,
+          type: Product.prod_type,
+          stock: ProductStore.stock,
+          available: ProductStore.is_avail,
+          archived: ProductStore.is_del,
+          barcode: sql<string | null>`${db
+            .get('primary')
+            .select({ gtin: ProductBarcode.gtin })
+            .from(ProductBarcode)
+            .where(eq(ProductBarcode.product, Product.id))
+            .orderBy(asc(ProductBarcode.id))
+            .limit(1)}`,
         })
-        .from(ProductStore, { forceIndex: 'idx_store_id_stock_is_avail_is_del' })
-        .innerJoin(Product, eq(Product.id, ProductStore.product))
+        .from(ProductStore, { forceIndex: 'uq_product_store' })
+        .innerJoin(Product, eq(Product.id, ProductStore.product), { forceIndex: 'PRIMARY' })
         .where(
           and(
-            eq(ProductStore.store, store),
+            eq(ProductStore.store, BigInt(storeId)),
             gt(Product.id, BigInt(page.after)),
             page.active === 'all' ? undefined : eq(ProductStore.is_del, page.active === 'false'),
             page.search
@@ -79,35 +95,7 @@ export function inventoryService(config: Config, db: Databases, options: Invento
           ),
         )
         .orderBy(asc(Product.id))
-        .limit(page.limit + 1)
-        .as('inventory_page');
-      // Drizzle renders a subquery's SQL field unqualified; name the derived column explicitly.
-      const pageId = sql`${sql.identifier('inventory_page')}.${sql.identifier('page_id')}`;
-      const rows = await reader
-        .select({
-          id: Product.id,
-          name: Product.product,
-          erpName: Product.erp_product,
-          parentId: Product.parent_prod_id,
-          type: Product.prod_type,
-          stock: ProductStore.stock,
-          available: ProductStore.is_avail,
-          archived: ProductStore.is_del,
-          barcode: sql<string | null>`${reader
-            .select({ gtin: ProductBarcode.gtin })
-            .from(ProductBarcode)
-            .where(eq(ProductBarcode.product, Product.id))
-            .orderBy(asc(ProductBarcode.id))
-            .limit(1)}`,
-        })
-        .from(selected)
-        .innerJoin(Product, eq(Product.id, pageId))
-        .innerJoin(
-          ProductStore,
-          and(eq(ProductStore.product, pageId), eq(ProductStore.store, store)),
-          { forceIndex: 'uq_product_store' },
-        )
-        .orderBy(asc(Product.id));
+        .limit(page.limit + 1);
       return {
         data: rows.slice(0, page.limit),
         nextCursor: rows.length > page.limit ? String(rows[page.limit - 1]!.id) : null,

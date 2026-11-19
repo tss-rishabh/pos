@@ -9,7 +9,8 @@
  *    locking reads are downgraded to plain consistent reads, and each SELECT is EXPLAINed first.
  *    The plan gate refuses a full scan of a table with more than `planRowLimit` rows
  *    (`information_schema.TABLES.table_rows`, or the EXPLAIN estimate for aliases and derived
- *    tables) and any access whose estimate exceeds the same limit.
+ *    tables) and any access whose estimate exceeds the same limit, unless that access is an
+ *    index-ordered, LIMIT-bounded driving scan with no filesort/temporary (plan-gate.ts).
  * 3. Every core mysql2 connection: `query`, `execute` and `prepare` are wrapped on the instance
  *    with the strict guard (locking reads refused), so even a path that bypassed layers 1 and 2
  *    fails loudly. Each new connection first runs exactly `SET SESSION TRANSACTION READ ONLY` and
@@ -28,6 +29,7 @@ import mysql from 'mysql2/promise';
 import type { PoolConnection as CorePoolConnection } from 'mysql2';
 import { z } from 'zod';
 import type { Databases } from '../../src/db/pools.js';
+import { planShape, planVerdict, trailingLimit } from './plan-gate.js';
 import {
   guardStatement,
   maxExecutionTimeLimit,
@@ -50,7 +52,8 @@ export const liveEnvSchema = z.object({
     .max(maxExecutionTimeLimit)
     .default(maxExecutionTimeLimit),
   POS_PROD_RO_PLAN_ROW_LIMIT: z.coerce.number().int().min(1).max(100_000).default(100_000),
-  POS_PROD_RO_LOCKING_READS: z.enum(['downgrade', 'refuse']).default('downgrade'),
+  // W16: the read paths take no locks any more, so strict refusal is the default.
+  POS_PROD_RO_LOCKING_READS: z.enum(['downgrade', 'refuse']).default('refuse'),
   /**
    * How read-only is proven. `session` (default) requires @@SESSION.transaction_read_only = 1.
    * `grants` is for servers behind a proxy that does not keep transaction_read_only (for
@@ -116,6 +119,12 @@ export interface PlanRejection {
   access: string;
   estimate: number;
 }
+/** A plan accepted only because a LIMIT-bounded, index-ordered scan drives it (plan-gate.ts). */
+export interface PlanBounded {
+  table: string;
+  access: string;
+  estimate: number;
+}
 export interface GuardStats {
   statements: number;
   reads: number;
@@ -126,6 +135,7 @@ export interface GuardStats {
   refused: number;
   refusedCodes: string[];
   planRejected: PlanRejection[];
+  planBounded: PlanBounded[];
   connections: number;
   verifiedConnections: number;
 }
@@ -140,6 +150,7 @@ export function emptyStats(): GuardStats {
     refused: 0,
     refusedCodes: [],
     planRejected: [],
+    planBounded: [],
     connections: 0,
     verifiedConnections: 0,
   };
@@ -153,6 +164,7 @@ export function statsDelta(after: GuardStats, before: GuardStats) {
     refused: after.refused - before.refused,
     refusedCodes: after.refusedCodes.slice(before.refusedCodes.length),
     planRejected: after.planRejected.slice(before.planRejected.length),
+    planBounded: after.planBounded.slice(before.planBounded.length),
   };
 }
 
@@ -199,14 +211,6 @@ export interface Queryable {
   query(argument: QueryArgument, values?: unknown): Promise<unknown>;
   execute(argument: QueryArgument, values?: unknown): Promise<unknown>;
 }
-
-const explainRow = z
-  .object({
-    table: z.string().nullable(),
-    type: z.string().nullable(),
-    rows: z.union([z.number(), z.string()]).nullable(),
-  })
-  .loose();
 
 export interface GuardedDatabase {
   databases: Databases;
@@ -380,24 +384,38 @@ export async function openGuardedDatabase(env: LiveEnv): Promise<GuardedDatabase
     )
       return;
     stats.explains += 1;
-    const [rows] = (await target.query(`EXPLAIN ${sql}`, values)) as [unknown, unknown];
-    for (const row of z.array(explainRow).parse(rows)) {
-      const table = row.table ?? '<none>',
-        access = row.type ?? 'NULL',
-        estimate = Number(row.rows ?? 0);
-      if (access === 'ALL') {
-        const physical = tableRows.get(table) ?? estimate;
-        if (physical > planRowLimit) {
-          const rejection = new PlanGuardError('RO_PLAN_FULL_SCAN', table, access, physical);
-          stats.planRejected.push({ code: rejection.code, table, access, estimate: physical });
-          throw rejection;
-        }
-      }
-      if (estimate > planRowLimit) {
-        const rejection = new PlanGuardError('RO_PLAN_ROWS', table, access, estimate);
-        stats.planRejected.push({ code: rejection.code, table, access, estimate });
-        throw rejection;
-      }
+    // FORMAT=JSON exposes per-block filesort/temporary flags; see plan-gate.ts for the rule.
+    const [rows] = (await target.query(`EXPLAIN FORMAT=JSON ${sql}`, values)) as [unknown, unknown];
+    const [explain] = z
+      .array(z.object({ EXPLAIN: z.string() }).loose())
+      .length(1)
+      .parse(rows);
+    const verdict = planVerdict(
+      planShape(JSON.parse(explain!.EXPLAIN) as unknown),
+      trailingLimit(sql, values),
+      (table) => tableRows.get(table),
+      planRowLimit,
+    );
+    if (verdict.kind === 'bounded')
+      stats.planBounded.push({
+        table: verdict.table,
+        access: verdict.access,
+        estimate: verdict.estimate,
+      });
+    if (verdict.kind === 'reject') {
+      const rejection = new PlanGuardError(
+        verdict.code,
+        verdict.table,
+        verdict.access,
+        verdict.estimate,
+      );
+      stats.planRejected.push({
+        code: verdict.code,
+        table: verdict.table,
+        access: verdict.access,
+        estimate: verdict.estimate,
+      });
+      throw rejection;
     }
   }
 
@@ -432,12 +450,20 @@ export async function openGuardedDatabase(env: LiveEnv): Promise<GuardedDatabase
     if (env.POS_PROD_RO_READONLY_PROOF === 'grants' && !state.readOnly) {
       // The account itself must be unable to write: only SELECT/USAGE privileges, anywhere.
       const privileges: string[] = [];
-      for (const view of ['USER_PRIVILEGES', 'SCHEMA_PRIVILEGES', 'TABLE_PRIVILEGES', 'COLUMN_PRIVILEGES']) {
+      for (const view of [
+        'USER_PRIVILEGES',
+        'SCHEMA_PRIVILEGES',
+        'TABLE_PRIVILEGES',
+        'COLUMN_PRIVILEGES',
+      ]) {
         const [rows] = (await guardedPool.query(
           `SELECT PRIVILEGE_TYPE AS privilege FROM information_schema.${view}`,
         )) as [unknown, unknown];
         privileges.push(
-          ...z.array(z.object({ privilege: z.string() })).parse(rows).map((row) => row.privilege),
+          ...z
+            .array(z.object({ privilege: z.string() }))
+            .parse(rows)
+            .map((row) => row.privilege),
         );
       }
       if (privileges.length === 0 || privileges.some((p) => p !== 'SELECT' && p !== 'USAGE'))
