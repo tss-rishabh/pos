@@ -195,25 +195,19 @@ export function returnedOrdersReportService(
               and(eq(HasProduct.return_mode, 5), eq(HasProduct.status, 'EXCHANGE_COMPLETED')),
             ),
             gt(ReturnOrder.store_id, 0),
-            inArray(
-              ReturnOrder.store_id,
-              sql`(${sql.join(
-                ids.map((id) => sql`${id}`),
-                sql`,`,
-              )})`,
-            ),
+            inArray(ReturnOrder.store_id, ids.map(Number)),
             gte(ReturnOrder.created_at, bounds.from),
             lte(ReturnOrder.created_at, bounds.to),
             input.search
               ? or(
                   like(Store.store_name, search),
-                  sql`cast(${ReturnOrder.order_id} as char) like ${search}`,
-                  sql`cast(${ReturnOrder.prod_id} as char) like ${search}`,
-                  sql`cast(${ReturnOrder.qty} as char) like ${search}`,
+                  like(sql`cast(${ReturnOrder.order_id} as char)`, search),
+                  like(sql`cast(${ReturnOrder.prod_id} as char)`, search),
+                  like(sql`cast(${ReturnOrder.qty} as char)`, search),
                   like(ReversePickupReason.reason, search),
                   like(SubReason.sub_reason, search),
                   like(ReturnOrder.comment, search),
-                  sql`cast(${ReturnOrder.created_at} as char) like ${search}`,
+                  like(sql`cast(${ReturnOrder.created_at} as char)`, search),
                 )
               : undefined,
           ),
@@ -226,9 +220,9 @@ export function returnedOrdersReportService(
           .select({ count: sql<number>`count(distinct ${HasProduct.id})` })
           .from(HasProduct)
           .leftJoin(ReturnOrder, returned)
-          .leftJoin(ReversePickupReason, eq(ReversePickupReason.id, sql`${ReturnOrder.reason_id}`))
-          .leftJoin(SubReason, eq(SubReason.id, sql`${ReturnOrder.sub_reason_id}`))
-          .leftJoin(Store, eq(Store.id, sql`${ReturnOrder.store_id}`))
+          .leftJoin(ReversePickupReason, eq(ReversePickupReason.id, ReturnOrder.reason_id))
+          .leftJoin(SubReason, eq(SubReason.id, ReturnOrder.sub_reason_id))
+          .leftJoin(Store, eq(Store.id, ReturnOrder.store_id))
           .where(where);
         total = Number(counted?.count || 0);
         totalPages = Math.ceil(total / input.pageSize);
@@ -245,14 +239,14 @@ export function returnedOrdersReportService(
               eq(AmountToBeRefundedLog.has_product_id, HasProduct.id),
             ),
           )
-          .leftJoin(ReversePickupReason, eq(ReversePickupReason.id, sql`${ReturnOrder.reason_id}`))
-          .leftJoin(SubReason, eq(SubReason.id, sql`${ReturnOrder.sub_reason_id}`))
-          .leftJoin(Store, eq(Store.id, sql`${ReturnOrder.store_id}`))
+          .leftJoin(ReversePickupReason, eq(ReversePickupReason.id, ReturnOrder.reason_id))
+          .leftJoin(SubReason, eq(SubReason.id, ReturnOrder.sub_reason_id))
+          .leftJoin(Store, eq(Store.id, ReturnOrder.store_id))
           .leftJoin(Order, eq(Order.id, HasProduct.order))
           .leftJoin(
             ReturnReportMoneyHistory,
             and(
-              eq(ReturnReportMoneyHistory.orderId, sql`${Order.id}`),
+              eq(ReturnReportMoneyHistory.orderId, Order.id),
               eq(ReturnReportMoneyHistory.hasProductId, HasProduct.id),
               eq(ReturnReportMoneyHistory.platform, 'EXCHANGE'),
               gt(ReturnReportMoneyHistory.addedAmount, 0),

@@ -448,7 +448,7 @@ export function reportExportService(
                 like(ReportExport.report_name, pattern),
                 like(ReportExport.report_type, pattern),
                 like(ReportExport.message, pattern),
-                sql`cast(${ReportExport.created_at} as char) like ${pattern}`,
+                like(sql`cast(${ReportExport.created_at} as char)`, pattern),
               )
             : undefined,
         ),

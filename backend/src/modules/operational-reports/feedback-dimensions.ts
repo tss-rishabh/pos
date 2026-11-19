@@ -52,10 +52,7 @@ export function currentFeedbackDimensions(db: Databases): CurrentFeedbackDimensi
             .where(
               and(
                 eq(UserStore.django_user_id, BigInt(user.id)),
-                sql`${UserStore.store_id} IN (${sql.join(
-                  selected.map((value) => sql`${value}`),
-                  sql`,`,
-                )})`,
+                inArray(UserStore.store_id, selected.map(BigInt)),
               ),
             )
             .for('share'),

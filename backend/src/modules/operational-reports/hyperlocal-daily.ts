@@ -1,5 +1,5 @@
 import { Temporal } from '@js-temporal/polyfill';
-import { and, eq, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, lte, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
@@ -64,7 +64,7 @@ const reportRow = z.object({
   delivery_date: dateTime,
 });
 export type HyperlocalDailyRow = z.infer<typeof reportRow>;
-const partialRow = reportRow
+export const hyperlocalDailyPartialRow = reportRow
   .omit({ allocation_date: true, pack_date: true, pickup_date: true, delivery_date: true })
   .extend({ store_id: scalarId });
 export const hyperlocalDailyColumns = [
@@ -135,6 +135,95 @@ export function hyperlocalDailyScope(user: Principal, requested: readonly string
 const counts = z.array(
   z.object({ count: z.coerce.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER) }),
 );
+type HyperlocalDailyReader = ReturnType<Databases['get']>;
+interface HyperlocalDailyFilters {
+  from: string;
+  to: string;
+  scope: { ids: readonly string[]; global: boolean };
+}
+function hyperlocalDailyWhere(filters: HyperlocalDailyFilters) {
+  return and(
+    gte(ExpressLineItem.pending_expires_at, filters.from),
+    lte(ExpressLineItem.pending_expires_at, filters.to),
+    filters.scope.global
+      ? undefined
+      : inArray(ExpressLineItem.store_id, filters.scope.ids.map(Number)),
+  );
+}
+const hyperlocalDailyGroups = [
+  Order.id,
+  Order.user,
+  HasProduct.id,
+  Order.first_name,
+  Order.last_name,
+  Order.created_at,
+  Order.order_statuses,
+  HasProduct.status,
+  ExpressLineItem.status,
+  Store.id,
+  Store.location_code,
+  Store.store_name,
+] as const;
+/** Grouped source line count on the DATA reader (one row per order/line/status/store group). */
+export async function hyperlocalDailyMysqlCount(
+  reader: HyperlocalDailyReader,
+  filters: HyperlocalDailyFilters,
+) {
+  const counted = await reader.select({ count: count() }).from(
+    reader
+      .select({ id: HasProduct.id })
+      .from(ExpressLineItem)
+      .innerJoin(Order, eq(Order.id, ExpressLineItem.order))
+      .innerJoin(HasProduct, eq(HasProduct.id, ExpressLineItem.has_product))
+      .innerJoin(Store, eq(Store.id, ExpressLineItem.store_id))
+      .leftJoin(OrderStatus, eq(OrderStatus.id, Order.order_statuses))
+      .where(hyperlocalDailyWhere(filters))
+      .groupBy(...hyperlocalDailyGroups)
+      .as('report_rows'),
+  );
+  return counts.parse(counted)[0]?.count || 0;
+}
+/** One page of grouped source lines; lifecycle timings are joined separately per order/store. */
+export async function hyperlocalDailyMysqlPage(
+  reader: HyperlocalDailyReader,
+  filters: HyperlocalDailyFilters,
+  page: { direction: 'asc' | 'desc'; limit: number; offset: number },
+) {
+  const result = await reader
+    .select({
+      order_id: Order.id,
+      user_id: Order.user,
+      line_item_id: HasProduct.id,
+      sku_id: sql<string>`ANY_VALUE(${HasProduct.product})`,
+      customer_name: sql<string | null>`CONCAT(${Order.first_name},' ',${Order.last_name})`,
+      qty: sql<string>`SUM(${HasProduct.qty})`,
+      amount: sql<string>`ROUND(SUM(COALESCE(${HasProduct.pre_gst_amt},0)*(1+COALESCE(${HasProduct.gst},0)/100)),2)`,
+      order_status: sql<string | null>`ANY_VALUE(${OrderStatus.display_name})`,
+      line_item_status: HasProduct.status,
+      express_line_item_status: ExpressLineItem.status,
+      order_date: Order.created_at,
+      store_id: Store.id,
+      location_code: Store.location_code,
+      store_name: Store.store_name,
+    })
+    .from(ExpressLineItem)
+    .innerJoin(Order, eq(Order.id, ExpressLineItem.order))
+    .innerJoin(HasProduct, eq(HasProduct.id, ExpressLineItem.has_product))
+    .innerJoin(Store, eq(Store.id, ExpressLineItem.store_id))
+    .leftJoin(OrderStatus, eq(OrderStatus.id, Order.order_statuses))
+    .where(hyperlocalDailyWhere(filters))
+    .groupBy(...hyperlocalDailyGroups)
+    .orderBy(
+      page.direction === 'asc' ? asc(Order.created_at) : desc(Order.created_at),
+      desc(Order.id),
+      desc(HasProduct.id),
+      asc(Store.id),
+      asc(ExpressLineItem.status),
+    )
+    .limit(page.limit)
+    .offset(page.offset);
+  return z.array(hyperlocalDailyPartialRow).parse(result);
+}
 export function hyperlocalDailyReportService(
   config: Config,
   db: Databases,
@@ -211,21 +300,8 @@ export function hyperlocalDailyReportService(
             );
         } else {
           const reader = db.get('data'),
-            where = and(
-              sql`${ExpressLineItem.pending_expires_at}>=${bounds.from}`,
-              sql`${ExpressLineItem.pending_expires_at}<=${bounds.to}`,
-              scope.global
-                ? undefined
-                : sql`${ExpressLineItem.store_id} IN (${sql.join(
-                    scope.ids.map((id) => sql`${id}`),
-                    sql`,`,
-                  )})`,
-            ),
-            base = sql`FROM ${ExpressLineItem} JOIN ${Order} ON ${Order.id}=${ExpressLineItem.order} JOIN ${HasProduct} ON ${HasProduct.id}=${ExpressLineItem.has_product} JOIN ${Store} ON ${Store.id}=${ExpressLineItem.store_id} LEFT JOIN ${OrderStatus} ON ${OrderStatus.id}=${Order.order_statuses} WHERE ${where} GROUP BY ${Order.id},${Order.user},${HasProduct.id},${Order.first_name},${Order.last_name},${Order.created_at},${Order.order_statuses},${HasProduct.status},${ExpressLineItem.status},${Store.id},${Store.location_code},${Store.store_name}`,
-            counted = await reader.execute(
-              sql`SELECT COUNT(*) AS count FROM (SELECT ${HasProduct.id} ${base}) AS report_rows`,
-            );
-          total = counts.parse(counted[0])[0]?.count || 0;
+            filters = { from: bounds.from, to: bounds.to, scope };
+          total = await hyperlocalDailyMysqlCount(reader, filters);
           totalPages = Math.ceil(total / input.pageSize);
           page = all || input.page > totalPages ? 1 : input.page;
           if (all && total > 70000)
@@ -242,10 +318,11 @@ export function hyperlocalDailyReportService(
               page,
               totalPages,
             };
-          const result = await reader.execute(
-              sql`SELECT ${Order.id} AS order_id,${Order.user} AS user_id,${HasProduct.id} AS line_item_id,ANY_VALUE(${HasProduct.product}) AS sku_id,CONCAT(${Order.first_name},' ',${Order.last_name}) AS customer_name,SUM(${HasProduct.qty}) AS qty,ROUND(SUM(COALESCE(${HasProduct.pre_gst_amt},0)*(1+COALESCE(${HasProduct.gst},0)/100)),2) AS amount,ANY_VALUE(${OrderStatus.display_name}) AS order_status,${HasProduct.status} AS line_item_status,${ExpressLineItem.status} AS express_line_item_status,${Order.created_at} AS order_date,${Store.id} AS store_id,${Store.location_code} AS location_code,${Store.store_name} AS store_name ${base} ORDER BY order_date ${sql.raw(input.direction)},order_id DESC,line_item_id DESC,store_id ASC,express_line_item_status ASC LIMIT ${limit} OFFSET ${all ? 0 : (page - 1) * input.pageSize}`,
-            ),
-            partial = z.array(partialRow).parse(result[0]),
+          const partial = await hyperlocalDailyMysqlPage(reader, filters, {
+              direction: input.direction,
+              limit,
+              offset: all ? 0 : (page - 1) * input.pageSize,
+            }),
             pairs = [
               ...new Map(partial.map((row) => [`${row.order_id}:${row.store_id}`, row])).values(),
             ],
@@ -263,7 +340,7 @@ export function hyperlocalDailyReportService(
                 ...chunk.map((pair) =>
                   and(
                     eq(ExpressOrderStatusLog.order_id, BigInt(pair.order_id)),
-                    eq(ExpressOrderStatusLog.store_id, sql`${pair.store_id}`),
+                    eq(ExpressOrderStatusLog.store_id, Number(pair.store_id)),
                   ),
                 ),
               );
