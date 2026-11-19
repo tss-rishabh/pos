@@ -5,7 +5,8 @@ import {
 } from '../../../backend/src/modules/invoice-documents/presentation';
 import { sanitizeInvoiceHtml } from '../../../backend/src/modules/checkout/invoices';
 import { test, expect } from '@playwright/test';
-import { exchangeRecoverySchema, returnEligibilitySchema } from '../../src/pages/returns/client';
+import { exchangeRecoverySchema } from '../../src/pages/returns/client';
+import { eligibleLine } from '../support/eligibility';
 import { signIn } from '../support/login';
 
 test('exchange preserves stored picks after rejection and reload without retrying an uncertain child', async ({
@@ -99,15 +100,7 @@ test('exchange preserves stored picks after rejection and reload without retryin
       expect(query.get('kind')).toBe('exchange');
       eligibilityReads++;
       return route.fulfill({
-        json: returnEligibilitySchema.parse({
-          orderId: '8802',
-          lineId: '88021',
-          kind: 'exchange',
-          allowed: true,
-          until: null,
-          reason: '',
-          overrideAvailable: false,
-        }),
+        json: eligibleLine({ orderId: '8802', lineId: '88021', kind: 'exchange' }),
       });
     }
     if (path.endsWith('/orders/8802/return-lines'))
@@ -237,7 +230,11 @@ test('exchange preserves stored picks after rejection and reload without retryin
   await expect(page.getByRole('button', { name: 'Continue confirmed exchange' })).toHaveCount(0);
   expect(retries).toBe(1);
   expect(starts).toBe(1);
-  await page.getByRole('button', { name: 'Find confirmed replacement' }).click();
+  // The client-side replacement reconcile button was deleted with the replacement-proof flow
+  // (2babb90f); the backend has no exchange reconciliation route. The server's settled outcome
+  // is read with "Check exchange status".
+  phase = 'replacement-confirmed';
+  await page.getByRole('button', { name: 'Check exchange status' }).click();
   await page.getByRole('button', { name: 'Continue confirmed exchange' }).click();
   await expect(page.getByRole('heading', { name: 'Exchange completed' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Tax invoice', exact: true })).toBeVisible();
@@ -256,5 +253,5 @@ test('exchange preserves stored picks after rejection and reload without retryin
   expect(continuations).toBe(1);
   expect(starts).toBe(1);
   expect(retries).toBe(1);
-  expect(reconciliations).toBe(1);
+  expect(reconciliations).toBe(0);
 });
