@@ -2,8 +2,8 @@
 
 > Draft for https://github.com/thesouledstore-tss/pos/pull/2. The GitHub PR has **not** been edited; the
 > primary agent or the user pastes this text there. Branch `refactor/single-stack-schema-freeze`. The
-> verified head is `a2382b4e`. Product code is unchanged since the integration merge
-> `8a7530aa`; W18 changed only tests, tooling, docs and evidence.
+> verified head is `b481fa91` (W19–W21 merged on top of W18). W22's later commits change only the
+> source-surface map hashes, evidence and docs.
 
 ## Mandate and decisions
 
@@ -24,7 +24,7 @@ are recorded in [`AGENTS.md`](../../AGENTS.md) and bind every agent:
 ## Architecture now
 
 - **Backend** (`backend/`): Fastify on Node 24, Drizzle over MySQL with primary / data-reader / writer routing,
-  BigQuery for reports only. Every one of the 335 routes validates params, query, body and headers with zod.
+  BigQuery for reports only. Every one of the 336 routes validates params, query, body and headers with zod.
   Authentication runs before validation (S50). Structured logs carry trace, request, user and resource event IDs,
   with PII, bodies, cookies, OTPs and SQL stripped.
 - **Production tables plus Redis.** Drizzle defines only production tables; `tests/orm-metadata.test.ts` compares
@@ -61,23 +61,24 @@ are recorded in [`AGENTS.md`](../../AGENTS.md) and bind every agent:
   SSO, the groups/permissions admin, the product-store CSV upload page, the admin "export all", four rewrite-only
   exports, the old IndexedDB offline cash, and the extra day-close window check.
 
-## Verification matrix (loopback only; product code of `8a7530aa`, tooling of `a2382b4e`)
+## Verification matrix (loopback only; `b481fa91`)
 
-Full detail and root causes: [`backend/parity/w18-verification.md`](../../backend/parity/w18-verification.md).
+Full detail and root causes: [`backend/parity/w22-verification.md`](../../backend/parity/w22-verification.md).
+The earlier matrix (W18, `a2382b4e`) is in `w18-verification.md`.
 
 | Check | Result |
 |---|---|
 | `tsc --noEmit` backend / frontend / Electron | 0 errors / 0 / 0 |
 | `eslint .` backend / frontend | 0 problems / 0 |
-| Backend vitest, every MySQL gate on (MySQL 8.4.11, `sql_mode=''`, private Redis) | 221 files: 220 passed, 1 skipped. 1204 tests: **1187 passed, 0 failed**, 17 skipped (the live production suite, gated) |
-| `orm-metadata` / `route-validation` / `log-redaction` | 0 mismatches over 119 snapshot tables / 335/335 routes / 4/4 |
-| Frontend vitest, all 7 browser gates on | 74 files, 409 tests: 408 passed, **1 flaky** (admin profile image; passes 3/3 alone) |
-| Playwright web e2e on the real stack | **41/41 passed** (including the 2 Electron shell specs). Console errors and failed requests remain, listed in the report |
-| Electron offline billing, 12 scenarios | Run 1: 10 passed, 1 failed (page closed mid-wait), 1 not run. Run 2: **12/12 passed** |
+| Backend vitest, every MySQL gate on (MySQL 8.4.11, `sql_mode=''`, private Redis), **2 runs** | Both runs: 221 files, 220 passed and 1 skipped. 1206 tests: **1189 passed, 0 failed**, 17 skipped (the live production suite, gated) |
+| `orm-metadata` / `route-validation` / `log-redaction` | 0 mismatches over 119 snapshot tables / 336/336 routes / pass |
+| Frontend vitest, all 7 browser gates on, **3 runs** | All three: 74/74 files, **409/409 tests** |
+| Playwright web e2e on the real stack, **2 runs on one stack** | **41/41 both times** (including the 2 Electron shell specs). The shared fixture found **0 unexpected console errors, 0 unexpected failed requests and 0 page errors**. Each run declared the same deliberate failures: 23 negative cases and 1 timing-bound cancellation |
+| Electron offline billing, 12 scenarios, **2 runs** | **12/12 both times**, with no lost window and no SIGTERM fallback |
 | Builds | Backend `tsc` build, frontend web and Electron bundles, unsigned macOS arm64 package: all pass |
-| Container images and smoke | Both images build; smoke **10/10** (`backend/evidence/container-smoke-f600dd54-single-stack.json`) |
-| `tools/verify-project.ts --mysql --browser --release` | Run 2 on `a2382b4e`: exit 1, 84 of 85 checks ran, 81 passed. The 3 failures are stale mocked-API browser harnesses (order search, order history, daily reports). `browser-tests` does not run after an earlier failure, and the release gate fails. Run 1 on `f600dd54` failed 6 checks; 3 were then fixed mechanically and 1 was environment-only. Evidence: `backend/evidence/verification-a2382b4e-single-stack.json` and `verification-f600dd54-single-stack.json` |
-| Integrity greps | No `.py/.go/.php`; no DDL outside the allowed places; `pos_rewrite_` in `backend/src` only in comments; no `DEMO_MODE` in code; no `any`; no credentials |
+| Container images and smoke | Both images build; smoke **10/10** (`backend/evidence/container-smoke-b481fa91-w22.json`) |
+| `tools/verify-project.ts --mysql --browser --release` | Exit 1. 85 of 86 checks ran and **84 passed**, including the three W19 real-stack harnesses. **Failed:** `order-payments-browser-fixture-typecheck`, a test-tooling typing regression from `6e2dcdfe` (see Known gaps). `browser-tests` is therefore not run, and the release gate fails. Evidence: `backend/evidence/verification-b481fa91-w22.json` |
+| Integrity greps | No `.py/.go/.php`; no DDL outside the allowed places; `pos_rewrite_` in `backend/src` only in comments; no `DEMO_MODE` in code; no `any`; no credentials (the PEM marker appears only in the public RDS CA bundle and in report prose) |
 | Release gate (`tools/parity-gate.ts`) | **Fails, as required**: 396 surfaces and 12 requirements pending |
 
 **Live read-only production suite** (run by the primary agent; read-only, SELECT-only account):
@@ -89,7 +90,7 @@ Full detail and root causes: [`backend/parity/w18-verification.md`](../../backen
 
 ## Approved divergences
 
-Where legacy behaviour was a security hole, the rewrite takes the secure option. Decisions S1–S57 are in
+Where legacy behaviour was a security hole, the rewrite takes the secure option. Decisions S1–S58 are in
 [`backend/parity/security-decisions.md`](../../backend/parity/security-decisions.md), pending the user's review.
 Examples: S1 password always checked; S3 hashed login OTP; S4 proper HTTP statuses; S24 cross-store lookup
 audited; S35 server-side exchange guards; S45 franchise store scope; S54 log redaction.
@@ -115,7 +116,7 @@ The approved business divergences are recorded in `AGENTS.md`:
   honoured.
 - Payment mode 1001 ("Others") must be active in `pos_terminal_payment_modes`. It already is.
 - The offline billing environment, `OFFLINE_BILLING_MAX_MINUTES` / `OFFLINE_BILLING_MAX_ORDERS`. The defaults are
-  120 and 10, and the variables are not yet listed in `backend/.env.example`.
+  120 and 10, as listed in `backend/.env.example`.
 - Rotate the read-only MySQL password. It was shared in chat for the live suite.
 
 ## Known gaps
@@ -127,18 +128,13 @@ The approved business divergences are recorded in `AGENTS.md`:
   stock procedures `pos_stock_syncer*` and `worker:jobs` have never run against real services.
 - **Legacy evidence.** The administration forms workflow (24 cases) and the browser halves of the native workflows
   have no legacy golden (`w15-report.md`).
-- **Console errors in the e2e suite.**
-  - Pre-login session probes answer 401 on every sign-in.
-  - Notifications for a store the operator is not checked into answer 403.
-  - The invoice preview logs "Blocked script execution" from its sandboxed frame.
-  - Wallet specs hit unmocked fixture requests.
-  - The rest are intentional negative cases. See the report.
-- **Flaky tests.**
-  - The admin profile-image browser test races two `role=status` paragraphs.
-  - One desktop run lost the Electron page mid-wait; the root cause is unconfirmed.
-- **Stale browser harnesses.** Three standalone mocked-API harnesses (order search, order history, daily
-  reports) predate the contract changes and fail in `verify-project`. The real-stack Playwright specs for those
-  pages pass.
+- **Verifier fixture typecheck.** `order-payments-browser-fixture-typecheck` fails with six TS2769 errors.
+  - **Cause.** Since `6e2dcdfe`, `e2e/checkout/order-payments.spec.ts` imports `backend/tools/e2e/fixture-orders.ts`
+    and `seed.ts`. Their inserts omit NOT NULL columns, which MySQL defaults under `sql_mode=''`.
+  - **Effect.** `verify-project` stops before its Playwright stage. The suite itself passes 41/41 twice on one stack.
+  - **Fix.** It needs type-complete e2e inserts, not an exclusion (`w22-verification.md` §2).
+- **Desktop disconnect cause.** One W18 desktop run lost its DevTools connection, and the cause is unconfirmed. W21
+  bounded the teardown, and it has not recurred in 12 later complete runs.
 - **Stale families.** Several remaining-code families in `tools/parity/source-surface-families.json` describe work
   that later workstreams completed (fast checkout, type-8 guard, whole-order status push, contacts, website
   handoff). They need an owner review before the map is used for planning.
