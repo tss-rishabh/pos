@@ -1,20 +1,15 @@
-import mysql from 'mysql2/promise';
 import { getTableConfig, type MySqlTable } from 'drizzle-orm/mysql-core';
+import { productionCreateTable } from '../../tests/helpers/production-schema.js';
 
 export type LegacyFixtureValue = string | number | bigint | boolean | null;
 
-/** Pure SQL construction only. Callers must enforce an isolated local test schema. */
+/**
+ * Production DDL for a mapped legacy table, taken verbatim from the committed production snapshot
+ * (`tests/golden/schema/production-schema.json`). Callers must enforce an isolated local test
+ * schema. Prefer `createProductionTables` from `tests/helpers/production-schema.ts`.
+ */
 export function legacyFixtureTableSql(table: MySqlTable): string {
-  const config = getTableConfig(table);
-  const definitions = config.columns.map(
-    (column) =>
-      `${mysql.escapeId(column.name)} ${column.getSQLType()}${column.notNull ? ' NOT NULL' : ''}${'autoIncrement' in column && column.autoIncrement ? ' AUTO_INCREMENT' : ''}`,
-  );
-  const primary = config.columns
-    .filter((column) => column.primary)
-    .map((column) => mysql.escapeId(column.name));
-  if (primary.length) definitions.push(`PRIMARY KEY (${primary.join(',')})`);
-  return `CREATE TABLE ${mysql.escapeId(config.name)} (${definitions.join(',')}) ENGINE=InnoDB`;
+  return productionCreateTable(table);
 }
 
 /** Model-derived defaults let tests supply only fields material to their scenario. */
