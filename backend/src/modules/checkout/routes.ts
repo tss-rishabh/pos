@@ -94,6 +94,7 @@ export interface CheckoutRegistrationOptions {
   stateStore?: PosStateStore;
   sessions?: CheckoutSessionStore;
   jobs?: JobProducer;
+  checkoutFlags?: ReturnType<typeof checkoutFlagsReader>;
 }
 export function registerCheckout(
   app: FastifyInstance,
@@ -148,7 +149,7 @@ export function registerCheckout(
       }),
   });
   const returns = returnReadService(db, gateway, assertCheckIn);
-  const flags = checkoutFlagsReader(db, config);
+  const flags = overrides.checkoutFlags || checkoutFlagsReader(db, config);
   function response(result: MutationReply) {
     return { ...result, state: publicState(result.state, config.CASHBACK_CREDIT_MESSAGE) };
   }

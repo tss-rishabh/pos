@@ -6,6 +6,7 @@ import { createDatabases } from '../../src/db/pools.js';
 import { registerCheckout } from '../../src/modules/checkout/index.js';
 import { AppError } from '../../src/domain/errors.js';
 import { registerEventCatalog, resourceRoutes } from '../../src/observability/events.js';
+import { checkoutFlags } from '../../src/modules/checkout/legacy-flags.js';
 import {
   FixtureGateway,
   MemoryCheckoutRepository,
@@ -40,6 +41,7 @@ beforeEach(async () => {
     environment: signingEnvironment,
     assertCheckIn: async () => {},
     finalizeOrder: async () => ({ transactionId: 'FIXTURE', invoice: 'FIXTURE' }),
+    checkoutFlags: async (user) => checkoutFlags(config, 'IN_HOUSE', user.userType),
   });
   app.addHook('onClose', async () => db.close());
   await app.ready();
@@ -66,11 +68,11 @@ describe('validated checkout HTTP boundaries', () => {
   });
   it('records explicit resource trace metadata for every checkout and payment route', () => {
     const routes = resourceRoutes(app);
-    expect(routes).toHaveLength(91);
+    expect(routes).toHaveLength(80);
     expect(
       routes.every((route) => route.module === 'checkout' && route.authentication === 'session'),
     ).toBe(true);
-    expect(new Set(routes.map((route) => `${route.method} ${route.path}`)).size).toBe(91);
+    expect(new Set(routes.map((route) => `${route.method} ${route.path}`)).size).toBe(80);
     const returnWindow = '/api/v1/stores/:storeId/orders/:orderId/line-items/:lineId/return-window';
     expect(routes.filter((route) => route.resource === 'return-window-extension')).toEqual([
       {
@@ -90,17 +92,18 @@ describe('validated checkout HTTP boundaries', () => {
         authentication: 'session',
       },
     ]);
+    // Legacy order copy is one action (ajax-fetch-the-products); no review/cancellation journal.
     expect(
       routes.filter((route) => ['order-copy', 'order-copy-review'].includes(route.resource)),
-    ).toHaveLength(7);
-    expect(routes.filter((route) => route.resource === 'order-copy-cancellation')).toHaveLength(2);
+    ).toHaveLength(1);
+    expect(routes.filter((route) => route.resource === 'order-copy-cancellation')).toHaveLength(0);
     expect(
       routes.filter((route) =>
         ['order-payment-status', 'order-payment-context', 'pending-order-cancellation'].includes(
           route.resource,
         ),
       ),
-    ).toHaveLength(5);
+    ).toHaveLength(4);
   });
   it('rejects unbound cancellation/payment-status bodies and anonymous actors before any writer use', async () => {
     const root = '/api/v1/stores/1/orders/9007199254740993';
@@ -117,7 +120,8 @@ describe('validated checkout HTTP boundaries', () => {
         400,
       );
     for (const [path, payload] of [
-      ['/cancellations', { operationId: crypto.randomUUID(), snapshotHash: 'a'.repeat(64) }],
+      // Legacy AjaxOrderCancelView takes no body.
+      ['/cancellations', {}],
       ['/payment-status', { payType: 0 }],
     ] as const)
       expect(
@@ -131,10 +135,10 @@ describe('validated checkout HTTP boundaries', () => {
         ).statusCode,
       ).toBe(401);
   });
-  it('accepts only six digits and original opaque action IDs at verification HTTP boundaries', async () => {
+  it('accepts only four digits (legacy customer OTP) and original opaque action IDs at verification HTTP boundaries', async () => {
     const checkoutId = crypto.randomUUID(),
       verificationId = crypto.randomUUID();
-    for (const otp of ['1234', '123_456', '0000000', 'abcdef']) {
+    for (const otp of ['123', '12_34', '12345', 'abcd']) {
       const response = await app.inject({
         method: 'POST',
         url: `${base}/${checkoutId}/customer-verification/confirmations`,
