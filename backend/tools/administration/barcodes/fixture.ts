@@ -1,7 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import mysql from 'mysql2/promise';
-import { z } from 'zod';
 import { readConfig } from '../../../src/config.js';
 import { createDatabases } from '../../../src/db/pools.js';
 import {
@@ -18,21 +16,6 @@ const tables = [
   'countries',
   'stores',
 ] as const;
-const indexMetadata = z.object({
-  indexes: z
-    .record(
-      z.string(),
-      z.array(
-        z.object({
-          name: z.string().regex(/^[A-Za-z0-9_]+$/),
-          column: z.string().regex(/^[A-Za-z0-9_]+$/),
-          position: z.number(),
-          unique: z.boolean(),
-        }),
-      ),
-    )
-    .default({}),
-});
 export async function barcodeFixture(connection: string) {
   const url = new URL(connection);
   if (url.protocol !== 'mysql:' || !['localhost', '127.0.0.1'].includes(url.hostname))
@@ -50,43 +33,9 @@ export async function barcodeFixture(connection: string) {
   await admin.query('CREATE DATABASE ' + mysql.escapeId(schema));
   try {
     await admin.changeUser({ database: schema });
-    const fixture = verifiedMysqlFixture(admin, ['evidence/mysql-inventory-workbooks-schema.json']);
+    const fixture = verifiedMysqlFixture(admin);
     await fixture.create(tables);
     await admin.query("SET SESSION sql_mode='STRICT_TRANS_TABLES'");
-    const metadata = {
-      ...indexMetadata.parse(
-        JSON.parse(readFileSync('evidence/mysql-extra-schema.json', 'utf8')) as unknown,
-      ).indexes,
-      ...indexMetadata.parse(
-        JSON.parse(
-          readFileSync('evidence/mysql-inventory-workbooks-schema.json', 'utf8'),
-        ) as unknown,
-      ).indexes,
-    };
-    for (const table of tables) {
-      const indexes = new Map<
-        string,
-        { unique: boolean; columns: { name: string; position: number }[] }
-      >();
-      for (const row of metadata[table] || []) {
-        if (row.name === 'PRIMARY') continue;
-        const value = indexes.get(row.name) || { unique: row.unique, columns: [] };
-        value.columns.push({ name: row.column, position: row.position });
-        indexes.set(row.name, value);
-      }
-      for (const [name, index] of indexes)
-        await admin.query(
-          `CREATE ${index.unique ? 'UNIQUE ' : ''}INDEX ${mysql.escapeId(name)} ON ${mysql.escapeId(table)}(${index.columns
-            .sort((a, b) => a.position - b.position)
-            .map((row) => mysql.escapeId(row.name))
-            .join(',')})`,
-        );
-    }
-    for (const migration of ['src/modules/catalog-details/maintenance-migration.sql'])
-      for (const statement of readFileSync(migration, 'utf8')
-        .split(';')
-        .filter((value) => value.trim()))
-        await admin.query(statement);
     url.pathname = '/' + schema;
     const config = readConfig({
         NODE_ENV: 'test',
@@ -106,14 +55,7 @@ export async function barcodeFixture(connection: string) {
       url: url.href,
       async reset() {
         await admin.query('DROP TRIGGER IF EXISTS reject_barcode_audit');
-        for (const table of [
-          'pos_rewrite_catalog_reconciliations',
-          'pos_rewrite_catalog_deliveries',
-          'pos_rewrite_catalog_commands',
-          ...tables,
-          'pos_rewrite_catalog_locks',
-        ])
-          await admin.query('DELETE FROM ' + mysql.escapeId(table));
+        for (const table of [...tables]) await admin.query('DELETE FROM ' + mysql.escapeId(table));
         for (const [id, role, type, active] of [
           ['900001', 1, 1, 1],
           ['900002', 2, 1, 1],

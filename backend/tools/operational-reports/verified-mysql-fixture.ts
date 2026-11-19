@@ -7,13 +7,17 @@ import {
 
 export type FixtureValue = string | number | null;
 
+let uniqueFiller = 0;
+
 /**
  * Production-DDL fixture for an isolated local schema the caller created.
  *
  * `create` builds tables only from the committed production snapshot
  * (`tests/golden/schema/production-schema.json`) through the shared snapshot helper, with their
  * production keys and indexes. `insert` fills every column the scenario does not set with a
- * type-appropriate value, using the snapshot's production columns.
+ * type-appropriate value, using the snapshot's production columns. An unset NOT NULL text column
+ * that is part of a production UNIQUE KEY gets a distinct `fixture-N` value, so several rows can
+ * coexist under the production keys.
  *
  * The second argument is accepted for callers that still pass the former per-feature evidence
  * metadata files; it is ignored because the production snapshot is the only schema authority.
@@ -35,6 +39,9 @@ export function verifiedMysqlFixture(
         values = selected.map((value) => {
           if (value.name in overrides) return overrides[value.name];
           if (value.nullable) return null;
+          const text = /^(?:var)?char\((\d+)\)$/i.exec(value.type);
+          if (value.unique && text)
+            return ('fixture-' + String(++uniqueFiller)).slice(0, Number(text[1]));
           if (/^(date|timestamp)/i.test(value.type))
             return value.type === 'date' ? '2026-11-16' : '2026-11-16 10:00:00';
           if (value.type.startsWith('time')) return '10:00:00';

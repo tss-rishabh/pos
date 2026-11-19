@@ -41,6 +41,8 @@ export interface ProductionColumn {
   default: string | null;
   autoIncrement: boolean;
   generatedDefault: boolean;
+  /** Part of a production UNIQUE KEY (not the primary key). */
+  unique: boolean;
 }
 
 let cached: z.infer<typeof snapshotSchema>['tables'] | undefined;
@@ -70,6 +72,11 @@ export function productionColumns(table: string | MySqlTable): readonly Producti
   const name = tableName(table),
     entry = snapshot()[name];
   if (!entry) throw new Error(`Table ${name} is not in the production schema snapshot.`);
+  const unique = new Set(
+    [...entry.createTable.matchAll(/^\s*UNIQUE KEY `\w+` \(([^)]+)\)/gm)].flatMap((match) =>
+      match[1]!.split(',').map((column) => column.replace(/`|\(\d+\)/g, '').trim()),
+    ),
+  );
   return [...entry.columns]
     .sort((left, right) => left.ORDINAL_POSITION - right.ORDINAL_POSITION)
     .map((column) => ({
@@ -79,6 +86,7 @@ export function productionColumns(table: string | MySqlTable): readonly Producti
       default: column.COLUMN_DEFAULT,
       autoIncrement: column.EXTRA.includes('auto_increment'),
       generatedDefault: column.EXTRA.includes('DEFAULT_GENERATED'),
+      unique: unique.has(column.COLUMN_NAME),
     }));
 }
 
