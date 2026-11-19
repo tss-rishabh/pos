@@ -1,8 +1,40 @@
 # POS rewrite checkpoint
 
+## Final combined verification — 19 November 2026 (W22)
+
+This section supersedes the W18 section below, and everything below that.
+
+- **Head.** `refactor/single-stack-schema-freeze` at `b481fa91`. This is W18's `a2382b4e` plus W19 (`ecc966a9`), W20
+  (`feb995c7`, `719a66a6`), S58 (`83391337`) and W21 (`b481fa91`). The W22 commits after it are hashes, evidence and
+  docs only.
+- **Verification.** All on loopback, with W22 as the only agent; the full matrix is in
+  `backend/parity/w22-verification.md`.
+  - Static checks: clean.
+  - Backend vitest with every MySQL gate, run twice: 1189 passed, 0 failed, 17 gated-live skipped (both runs).
+  - ORM: 0 mismatches. Route validation: 336/336.
+  - Frontend vitest with all 7 browser gates, run 3 times: 409/409 each.
+  - Playwright web, twice on one stack: 41/41 each, with 0 unexpected console errors or failed requests.
+  - Electron shell specs 2/2, and offline billing 12/12, both twice.
+  - Builds, the unsigned macOS package and both images pass; container smoke 10/10.
+- **`verify-project --mysql --browser --release`.** 84 of 85 executed checks passed.
+  - **Failed:** `order-payments-browser-fixture-typecheck`. Since `6e2dcdfe` the spec imports
+    `backend/tools/e2e/fixture-orders.ts`/`seed.ts`, whose inserts omit NOT NULL columns. Not fixed; it is not a
+    small mechanical fix.
+  - **Not run:** `browser-tests`.
+  - **Release gate:** fails.
+  - Evidence: `backend/evidence/verification-b481fa91-w22.json`.
+- **Release blockers 1–3 (W18).**
+  - Resolved: the stale harnesses (W19), the console errors and failed requests (W20), and the flaky tests (W21).
+  - The cause of the one W18 desktop disconnect remains unconfirmed, but it is bounded and has not recurred.
+- **Mechanical fix.** `4981db00`: the source-surface map was stale (hashes only) and has been regenerated.
+- **Release gate.** Fails: 396 surfaces and 12 requirements pending. No production readiness is claimed.
+- **New evidence.** `backend/evidence/verification-b481fa91-w22.json` and
+  `backend/evidence/container-smoke-b481fa91-w22.json`. No existing evidence file was changed.
+- **Next steps.** See `HANDOFF.md`, "Open items".
+
 ## Single-stack Phase F verification — 19 November 2026 (W18)
 
-This section supersedes everything below. The sections below describe the pre-freeze tree: Google OIDC,
+This section was superseded by W22 above. It supersedes everything below it. The sections below describe the pre-freeze tree: Google OIDC,
 `pos_rewrite_*` tables, Python/Go oracles, IndexedDB offline cash and demo mode, all since deleted. They remain
 as history only.
 
