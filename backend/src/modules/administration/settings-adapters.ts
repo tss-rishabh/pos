@@ -6,7 +6,7 @@ import type { Databases } from '../../db/pools.js';
 import { PosUser, Store } from '../../db/legacy-schema.js';
 import { AppError } from '../../domain/errors.js';
 import type { SettingsEffect, SettingsEffectDelivery } from './settings-domain.js';
-import type { SettingsWorkerOptions } from './settings-options.js';
+import type { SettingsOptionsEnvironment } from './settings-options.js';
 
 export interface SettingsCache {
   set(key: string, value: string, signal?: AbortSignal): Promise<void>;
@@ -126,16 +126,8 @@ export function settingsNotice(
 export function createSettingsDelivery(
   config: Config,
   db: Databases,
-  options: SettingsWorkerOptions,
-  injected: {
-    cache?: SettingsCache;
-    fetcher?: typeof fetch;
-    synchronizeEcommerce?: (
-      id: string,
-      storeId: string,
-      signal?: AbortSignal,
-    ) => Promise<void | 'pending'>;
-  } = {},
+  options: SettingsOptionsEnvironment,
+  injected: { cache?: SettingsCache; fetcher?: typeof fetch } = {},
 ): SettingsEffectDelivery {
   const fetcher = injected.fetcher || fetch;
   const cache =
@@ -161,27 +153,14 @@ export function createSettingsDelivery(
     );
   return {
     supports(kind) {
-      return kind === 'setting.cache'
-        ? !!cache
-        : kind === 'ecommerce.inventory.sync'
-          ? !!injected.synchronizeEcommerce
-          : !!webhook;
+      return kind === 'setting.cache' ? !!cache : !!webhook;
     },
-    async deliver(id, effect, signal) {
+    async deliver(effect, signal) {
       if (effect.kind === 'setting.cache') {
         if (!cache)
           throw new AppError(503, 'COMMON_CACHE_UNAVAILABLE', 'The common cache is unavailable.');
         await cache.set(effect.key, String(effect.value), signal);
         return;
-      }
-      if (effect.kind === 'ecommerce.inventory.sync') {
-        if (!injected.synchronizeEcommerce)
-          throw new AppError(
-            503,
-            'ECOMMERCE_SYNC_UNAVAILABLE',
-            'Verified store inventory synchronization is unavailable.',
-          );
-        return injected.synchronizeEcommerce(id, effect.storeId, signal);
       }
       if (!webhook)
         throw new AppError(
