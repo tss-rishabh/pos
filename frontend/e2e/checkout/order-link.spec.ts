@@ -8,6 +8,14 @@ test('opens exact order links in the current store and clears selection before a
 }) => {
   const id = '9007199254740993',
     requests: string[] = [];
+  // Navigating to another order link or store supersedes the store-1 order list search that is
+  // still in flight; the browser aborts it. Timing decides whether one is pending.
+  network.expectFailure({
+    method: 'POST',
+    path: '/api/v1/stores/1/orders/searches',
+    outcome: 'net::ERR_ABORTED',
+    upTo: 2,
+  });
   // The fixture order exists only in this spec, so its detail sub-resources are fixtures too.
   const fixtureOrder = async (route: Route) => {
     const path = new URL(route.request().url()).pathname;
