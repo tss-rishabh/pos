@@ -748,9 +748,7 @@ export function administrationService(
             eq(Store.type, 'STORE'),
             user.role === 1 && user.userType === 1
               ? undefined
-              : user.storeIds.length
-                ? inArray(Store.id, user.storeIds.map(BigInt))
-                : sql`false`,
+              : inArray(Store.id, user.storeIds.map(BigInt)),
           ),
         )
         .orderBy(asc(Store.store_name));
