@@ -365,17 +365,29 @@ export function checkoutRepository(
           };
         },
       );
-      if (state.phase === 'cleared') {
-        // Detach clears customerId before this checkpoint; release whichever customer and
-        // cards the stored sale still held.
-        for (const customerId of new Set([state.customerId, previous.customerId]))
-          if (customerId) await sessions.releaseLease('customer', customerId, state.id);
-        for (const card of [
-          ...Object.values(state.giftCards),
-          ...Object.values(previous.giftCards),
-        ])
+      // Release what the stored sale held but this checkpoint dropped (detach/clear may span
+      // several checkpoints, so compare with the previously stored state, not only on 'cleared').
+      const kept = new Set(Object.values(state.giftCards).map((card) => card.number));
+      for (const card of Object.values(previous.giftCards))
+        if (state.phase === 'cleared' || !kept.has(card.number))
           await sessions.releaseLease('gift-card', card.number, state.id);
+      if (state.phase === 'cleared')
+        for (const card of Object.values(state.giftCards))
+          await sessions.releaseLease('gift-card', card.number, state.id);
+      else {
+        // A serial carried to a replacement item (value change) is held again.
+        const held = new Set(Object.values(previous.giftCards).map((card) => card.number));
+        for (const card of Object.values(state.giftCards))
+          if (!held.has(card.number))
+            await sessions.acquireLease('gift-card', card.number, state.id);
       }
+      if (
+        previous.customerId &&
+        (state.phase === 'cleared' || previous.customerId !== state.customerId)
+      )
+        await sessions.releaseLease('customer', previous.customerId, state.id);
+      if (state.phase === 'cleared' && state.customerId)
+        await sessions.releaseLease('customer', state.customerId, state.id);
     },
     finish(state, operationId, result) {
       return sessions.exclusive(state.operatorId, state.storeId, state.id, async (current) => {
