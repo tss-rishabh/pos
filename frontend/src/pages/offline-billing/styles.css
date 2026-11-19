@@ -93,19 +93,50 @@
   border: 1px dashed currentColor;
   padding: 6px 8px;
 }
+/* Print the open receipt exactly once. Everything outside it is removed from layout (hiding it
+   with visibility kept the page's height, so the document ran to a second page), and its modal
+   ancestors lose their fixed positioning (Chromium repeats a fixed layer on every printed page,
+   which printed the receipt twice). */
 @media print {
-  body * {
-    visibility: hidden;
+  html:has(.offline-receipt),
+  body:has(.offline-receipt) {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: none !important;
   }
-  .offline-receipt,
-  .offline-receipt * {
-    visibility: visible;
+  body:has(.offline-receipt)
+    *:not(:has(.offline-receipt)):not(.offline-receipt):not(.offline-receipt *) {
+    display: none !important;
+  }
+  body:has(.offline-receipt) *:has(.offline-receipt) {
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
   }
   .offline-receipt {
-    position: absolute;
-    inset: 0;
+    position: static !important;
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    break-inside: avoid;
   }
   .offline-receipt button {
-    display: none;
+    display: none !important;
   }
 }

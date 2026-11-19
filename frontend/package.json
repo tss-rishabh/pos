@@ -1,6 +1,7 @@
 {
   "name": "@pos/frontend",
   "version": "0.1.0",
+  "productName": "Souled POS",
   "private": true,
   "type": "module",
   "main": "electron/main.cjs",
@@ -58,8 +59,10 @@
     ],
     "npmRebuild": false,
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
+    "icon": "build/icon.png",
     "mac": {
       "target": [
         {

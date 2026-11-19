@@ -11,6 +11,8 @@ on:
 permissions:
   contents: read
 
+# Synthetic data and loopback services only: logs and artifacts of this public repository must
+# never carry credentials, production URLs or personal data.
 jobs:
   desktop:
     name: Desktop on ${{ matrix.os }}
@@ -19,10 +21,12 @@ jobs:
       matrix:
         os: [windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 120
     env:
       CI: 'true'
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      MYSQL_WINDOWS_VERSION: '8.4.6'
+      PLAYWRIGHT_HTML_OPEN: never
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -61,10 +65,11 @@ jobs:
         working-directory: frontend
       - run: npm test -- --maxWorkers=2
         working-directory: frontend
-      # Playwright runs against the real stack (backend/tools/e2e/stack.ts): a seeded loopback
-      # MySQL 8.4 schema, a private loopback redis-server and loopback fake adapters.
-      # No Windows-native redis-server is available on the runner, so these run on macOS only.
-      - name: Loopback MySQL and Redis for the e2e stack
+
+      # The real e2e stack (backend/tools/e2e/stack.ts, offline-billing-stack.ts): a seeded loopback
+      # MySQL 8.4 schema with an empty sql_mode, a private loopback Redis-7-compatible server, the
+      # real backend and loopback fake adapters.
+      - name: Loopback MySQL and Redis for the e2e stack (macOS)
         if: runner.os == 'macOS'
         run: |
           brew install mysql@8.4 redis
@@ -79,11 +84,117 @@ jobs:
             sleep 1
           done
           echo "E2E_MYSQL_URL=mysql://root@127.0.0.1:33710/pos_rewrite_e2e" >> "$GITHUB_ENV"
-      - name: Native Electron and offline browser checks
-        if: runner.os == 'macOS'
-        run: npm run test:e2e
+      - name: Cache the MySQL 8.4 Windows archive
+        if: runner.os == 'Windows'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}\mysql-zip
+          key: mysql-${{ env.MYSQL_WINDOWS_VERSION }}-winx64
+      - name: Loopback MySQL 8.4 for the e2e stack (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $version = $env:MYSQL_WINDOWS_VERSION
+          $zipDir = Join-Path $env:RUNNER_TEMP 'mysql-zip'
+          New-Item -ItemType Directory -Force $zipDir | Out-Null
+          $zip = Join-Path $zipDir "mysql-$version-winx64.zip"
+          if (-not (Test-Path $zip)) {
+            $urls = @(
+              "https://cdn.mysql.com/archives/mysql-8.4/mysql-$version-winx64.zip",
+              "https://dev.mysql.com/get/Downloads/MySQL-8.4/mysql-$version-winx64.zip"
+            )
+            foreach ($url in $urls) {
+              try { Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing; break } catch { Remove-Item $zip -ErrorAction SilentlyContinue }
+            }
+            if (-not (Test-Path $zip)) { throw "MySQL $version archive unavailable" }
+          }
+          $root = Join-Path $env:RUNNER_TEMP 'mysql'
+          Expand-Archive -Path $zip -DestinationPath $root -Force
+          $base = (Join-Path $root "mysql-$version-winx64") -replace '\\', '/'
+          $data = (Join-Path $env:RUNNER_TEMP 'e2e-mysql-data') -replace '\\', '/'
+          $ini = Join-Path $env:RUNNER_TEMP 'e2e-my.ini'
+          $log = (Join-Path $env:RUNNER_TEMP 'e2e-mysql.err') -replace '\\', '/'
+          @(
+            '[mysqld]',
+            "basedir=$base",
+            "datadir=$data",
+            'port=33710',
+            'bind-address=127.0.0.1',
+            'mysqlx=OFF',
+            'sql-mode=""',
+            "log-error=$log"
+          ) | Set-Content -Path $ini -Encoding ascii
+          $bin = "$base/bin"
+          & "$bin/mysqld.exe" "--defaults-file=$ini" --initialize-insecure
+          if ($LASTEXITCODE -ne 0) { throw 'mysqld --initialize-insecure failed' }
+          Start-Process -FilePath "$bin/mysqld.exe" -ArgumentList "--defaults-file=`"$ini`"" -WindowStyle Hidden
+          $env:E2E_MYSQL_URL = "mysql://root@127.0.0.1:33710/pos_rewrite_e2e"
+          Push-Location (Join-Path $env:GITHUB_WORKSPACE "backend")
+          node --import tsx tools/e2e/wait-mysql.ts
+          $waited = $LASTEXITCODE
+          Pop-Location
+          if ($waited -ne 0) { Get-Content $log -Tail 40; throw "mysqld is not ready" }
+          "E2E_MYSQL_URL=mysql://root@127.0.0.1:33710/pos_rewrite_e2e" >> $env:GITHUB_ENV
+      - name: Redis-7-compatible server (Windows, Memurai Developer)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          choco install memurai-developer --no-progress -y
+          if ($LASTEXITCODE -ne 0) { throw 'Memurai installation failed' }
+          # The installer registers a service on 6379; the e2e stacks start their own private
+          # loopback instances, so the shared service is stopped.
+          Get-Service -Name 'Memurai*' -ErrorAction SilentlyContinue | Stop-Service -Force
+          $server = Get-ChildItem -Path "$env:ProgramFiles\Memurai" -Filter 'memurai.exe' -Recurse | Select-Object -First 1
+          if (-not $server) { throw 'memurai.exe not found' }
+          & $server.FullName --version
+          "E2E_REDIS_SERVER=$($server.FullName)" >> $env:GITHUB_ENV
+      - name: Redis command compatibility (SET NX EX, Lua, BLMOVE, pub/sub)
+        run: node --import tsx tools/e2e/redis-compat.ts
+        working-directory: backend
+      - name: Print-to-file printer on the Windows spooler
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Start-Service -Name Spooler
+          if (-not (Get-Printer -Name 'Microsoft Print to PDF' -ErrorAction SilentlyContinue)) {
+            Enable-WindowsOptionalFeature -Online -FeatureName Printing-PrintToPDFServices-Features -All -NoRestart | Out-Null
+          }
+          $output = Join-Path $env:RUNNER_TEMP 'pos-receipt.pdf'
+          Add-PrinterPort -Name $output
+          Add-Printer -Name 'POS Receipt to PDF' -DriverName 'Microsoft Print To PDF' -PortName $output
+          Get-Printer | Select-Object Name, DriverName, PortName | Format-Table -AutoSize
+          "E2E_PRINTER_NAME=POS Receipt to PDF" >> $env:GITHUB_ENV
+          "E2E_PRINTER_OUTPUT=$output" >> $env:GITHUB_ENV
+
+      - name: Electron shell specs (real sign-in, sandbox, navigation policy)
+        if: ${{ !cancelled() }}
+        run: npx playwright test e2e/electron.spec.ts --output test-results/electron-shell --reporter=list,html,junit
         working-directory: frontend
+        env:
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/electron-shell
+          PLAYWRIGHT_JUNIT_OUTPUT_FILE: playwright-report/junit-electron-shell.xml
+      - name: Desktop offline billing e2e (12 scenarios, real Electron and stack)
+        if: ${{ !cancelled() }}
+        run: npx playwright test -c playwright.desktop.config.ts --output test-results/desktop-offline --reporter=list,html,junit
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/desktop-offline
+          PLAYWRIGHT_JUNIT_OUTPUT_FILE: playwright-report/junit-desktop-offline.xml
+      - name: Web Playwright suite on the real stack
+        if: ${{ !cancelled() }}
+        # The Electron shell specs in e2e/ already ran above. One retry for the web suite only;
+        # a retried pass is reported as "flaky" in the list output and the junit report.
+        run: npx playwright test --grep-invert "desktop shell" --retries=1 --output test-results/web --reporter=list,html,junit
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/web
+          PLAYWRIGHT_JUNIT_OUTPUT_FILE: playwright-report/junit-web.xml
       - name: Browser sign-in, customer and order recovery
+        if: ${{ !cancelled() }}
         # Each file owns Chromium/Vite; bound resource use on the native runners.
         run: npx vitest run tests/customer-profile/browser.test.ts tests/customer-otp/otp.browser.test.ts tests/product-feedback/browser.test.ts tests/order-payments/order-payments.browser.test.ts tests/global-vouchers/vouchers.browser.test.ts tests/dashboard/browser.test.ts tests/administration/barcodes/browser.test.ts tests/administration/model-accounts/browser.test.ts tests/offline-worksheet/browser.test.ts --maxWorkers=1
         working-directory: frontend
@@ -94,31 +205,104 @@ jobs:
           PRODUCT_FEEDBACK_BROWSER_TESTS: 'true'
           OFFLINE_WORKSHEET_BROWSER_TESTS: 'true'
       - name: Scoped invoice browser checks
+        if: ${{ !cancelled() }}
         run: node tools/run-browser-fixture.mjs invoice-documents
         working-directory: frontend
       - name: Historical order browsing and checkout copy recovery
+        if: ${{ !cancelled() }}
         run: npx vitest run tests/order-copy --maxWorkers=1
         working-directory: frontend
         env:
           ORDER_COPY_BROWSER_TESTS: 'true'
-      - name: Historical order reader browser checks
-        run: node tests/order-history/browser-check.mjs
+      - name: Historical order reader browser checks (real-stack harness)
+        if: ${{ !cancelled() }}
+        run: npx playwright test -c tests/harness/playwright.config.ts order-history/
         working-directory: frontend
-      - name: Source order-list filters, formatter and queues
-        run: node tests/order-search/browser-check.mjs
+      - name: Source order-list filters, formatter and queues (real-stack harness)
+        if: ${{ !cancelled() }}
+        run: npx playwright test -c tests/harness/playwright.config.ts order-search/
         working-directory: frontend
-      - name: Package unsigned review artifact on its target OS
+
+      - name: Package unsigned review artifact (macOS directory build)
+        if: ${{ !cancelled() && runner.os == 'macOS' }}
         run: node node_modules/electron-builder/out/cli/cli.js --dir
         working-directory: frontend
         env:
           # Review packaging has no production tenant. Native smoke fixtures
           # supply their own validated origin when launching the packaged app.
           POS_DESKTOP_URL: 'https://desktop-review.invalid'
-      - name: Verify packaged integrity, native restart, sandbox and offline profile
+      - name: Package unsigned review NSIS installer (Windows x64)
+        if: ${{ !cancelled() && runner.os == 'Windows' }}
+        run: node node_modules/electron-builder/out/cli/cli.js --win nsis --x64 --publish never
+        working-directory: frontend
+        env:
+          POS_DESKTOP_URL: 'https://desktop-review.invalid'
+      - name: Package the CI-only native-smoke flavour (never uploaded)
+        if: ${{ !cancelled() }}
+        # The only packaged build with a test seam (electron/runtime-mode.cjs): the baked
+        # posDesktopNativeSmoke key plus POS_DESKTOP_NATIVE_SMOKE=1 at launch allow a loopback origin
+        # and an isolated profile. Release packages are verified to carry no such key.
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then target="--win dir --x64"; else target="--dir"; fi
+          node node_modules/electron-builder/out/cli/cli.js $target --publish never \
+            -c.extraMetadata.posDesktopNativeSmoke=true -c.directories.output=release-smoke
+        working-directory: frontend
+        env:
+          POS_DESKTOP_URL: 'https://desktop-review.invalid'
+      - name: Verify packaged integrity, flavours, NODE_ENV refusal, switch refusal, keystore, restart and offline profile
+        if: ${{ !cancelled() }}
         run: node tools/smoke-desktop-package.mjs
         working-directory: frontend
-      - name: Retain review artifacts
-        if: always()
+      - name: Package the next version's installer for the upgrade check (Windows x64)
+        if: ${{ !cancelled() && runner.os == 'Windows' }}
+        shell: pwsh
+        working-directory: frontend
+        run: |
+          $next = node -p "const [a,b,c]=require('./package.json').version.split('.');[a,b,Number(c)+1].join('.')"
+          node node_modules/electron-builder/out/cli/cli.js --win nsis --x64 --publish never "-c.extraMetadata.version=$next" "-c.directories.output=release-upgrade"
+          if ($LASTEXITCODE -ne 0) { throw 'upgrade installer build failed' }
+        env:
+          POS_DESKTOP_URL: 'https://desktop-review.invalid'
+      - name: Per-run loopback TLS certificate for the release-build workspace (Windows)
+        if: ${{ !cancelled() && runner.os == 'Windows' }}
+        # Release builds accept only https workspaces, so the installed app is provisioned the
+        # production way (POS_DESKTOP_URL=https://localhost:<port>). The certificate is generated
+        # for this job, trusted in the runner's LocalMachine root store and removed afterwards.
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $cert = New-SelfSignedCertificate -DnsName 'localhost' -CertStoreLocation 'Cert:\CurrentUser\My' -NotAfter (Get-Date).AddDays(1) -KeyExportPolicy Exportable -KeyAlgorithm RSA -KeyLength 2048 -FriendlyName 'POS desktop e2e loopback'
+          $pass = [guid]::NewGuid().ToString('N')
+          Write-Output "::add-mask::$pass"
+          $pfx = Join-Path $env:RUNNER_TEMP 'pos-loopback.pfx'
+          $cer = Join-Path $env:RUNNER_TEMP 'pos-loopback.cer'
+          Export-PfxCertificate -Cert $cert -FilePath $pfx -Password (ConvertTo-SecureString $pass -AsPlainText -Force) -CryptoAlgorithmOption AES256_SHA256 | Out-Null
+          Export-Certificate -Cert $cert -FilePath $cer | Out-Null
+          Import-Certificate -FilePath $cer -CertStoreLocation 'Cert:\LocalMachine\Root' | Out-Null
+          "DESKTOP_TLS_PFX=$pfx" >> $env:GITHUB_ENV
+          "DESKTOP_TLS_PASSPHRASE=$pass" >> $env:GITHUB_ENV
+          "DESKTOP_TLS_THUMBPRINT=$($cert.Thumbprint)" >> $env:GITHUB_ENV
+      - name: NSIS install, NODE_ENV refusal, DPAPI database, upgrade and uninstall (Windows x64)
+        if: ${{ !cancelled() && runner.os == 'Windows' }}
+        shell: pwsh
+        working-directory: frontend
+        run: |
+          $env:DESKTOP_INSTALLER = (Get-ChildItem release -Filter '*-win-x64.exe' | Select-Object -First 1).FullName
+          $env:DESKTOP_UPGRADE_INSTALLER = (Get-ChildItem release-upgrade -Filter '*-win-x64.exe' | Select-Object -First 1).FullName
+          Get-ChildItem release, release-upgrade -Filter '*-win-x64.exe' | Select-Object Name, Length | Format-Table -AutoSize
+          node tools/smoke-desktop-installer.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'installer smoke failed' }
+      - name: Remove the loopback TLS certificate (Windows)
+        if: ${{ always() && runner.os == 'Windows' }}
+        shell: pwsh
+        run: |
+          if ($env:DESKTOP_TLS_THUMBPRINT) {
+            Get-ChildItem Cert:\LocalMachine\Root, Cert:\CurrentUser\My | Where-Object Thumbprint -eq $env:DESKTOP_TLS_THUMBPRINT | Remove-Item
+          }
+          if ($env:DESKTOP_TLS_PFX) { Remove-Item $env:DESKTOP_TLS_PFX -ErrorAction SilentlyContinue }
+      - name: Retain review artifacts (macOS)
+        if: always() && runner.os == 'macOS'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: desktop-${{ matrix.os }}
@@ -126,6 +310,23 @@ jobs:
           retention-days: 14
           path: |
             frontend/release/
+            frontend/test-results/
+            frontend/playwright-report/
+            backend/evidence/desktop-package-*.json
+            backend/evidence/desktop-runtime-*.json
+      - name: Retain review installer and reports (Windows)
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: desktop-${{ matrix.os }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            frontend/release/*.exe
+            frontend/release/*.blockmap
+            frontend/release/*.yml
+            frontend/release/*.json
+            frontend/release-upgrade/*.exe
             frontend/test-results/
             frontend/playwright-report/
             backend/evidence/desktop-package-*.json
