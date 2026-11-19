@@ -38,8 +38,8 @@ export function registerApplicationLinks(
 ) {
   const service = applicationLinkService(config, db, options, {
     ephemeral: runtime.ephemeral,
-    staffPackage: dependencies.staffPackage ?? createStaffApplicationPackage(config, options),
-    customerLink: dependencies.customerLink ?? createCustomerApplicationProvider(config, options),
+    staffPackage: dependencies.staffPackage ?? createStaffApplicationPackage(options),
+    customerLink: dependencies.customerLink ?? createCustomerApplicationProvider(options),
   });
   const trace = (resource: string, action: string, max = 30, publicProof = false) => ({
       config: {

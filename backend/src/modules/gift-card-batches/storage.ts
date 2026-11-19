@@ -22,11 +22,11 @@ const unavailable = () =>
  * holds card codes and PINs), and SSE is requested; legacy performs neither check.
  */
 export function createGiftCardBatchStorage(
-  config: Pick<Config, 'NODE_ENV' | 'DEMO_MODE'>,
+  config: Pick<Config, 'NODE_ENV'>,
   options: GiftCardBatchOptions,
   injected?: S3Client,
 ): GiftCardBatchStorage | undefined {
-  if (config.DEMO_MODE || !options.AWS_STORAGE_BUCKET_NAME) return undefined;
+  if (!options.AWS_STORAGE_BUCKET_NAME) return undefined;
   validatePrivateS3Options(config, options);
   const client = injected || createPrivateS3Client(config, options),
     bucket = options.AWS_STORAGE_BUCKET_NAME;

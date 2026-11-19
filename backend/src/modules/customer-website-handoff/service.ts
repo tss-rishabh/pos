@@ -80,7 +80,7 @@ export function customerWebsiteHandoffService(
      * which is exactly when the legacy page shows the link (`create_order.html:657`).
      */
     async issue(user: Principal, scope: WebsiteHandoffScope): Promise<WebsiteHandoffResult> {
-      const base = websiteBase(config, options);
+      const base = websiteBase(options);
       return withCheckout(user, scope, 'share', async (tx, state) => {
         if (!state.verifiedCustomerUntil || state.verifiedCustomerUntil <= clock())
           throw new AppError(

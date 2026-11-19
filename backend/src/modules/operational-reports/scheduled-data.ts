@@ -149,7 +149,6 @@ export type FreshdeskReader = (ticketId: string, signal: AbortSignal) => Promise
 export function freshdeskReader(config: Config, options: ScheduledReportOptions): FreshdeskReader {
   return async (ticketId, signal) => {
     if (
-      config.DEMO_MODE ||
       !options.FRESHDESK_TICKET_URL ||
       !options.FRESHDESK_BASIC_AUTH_USERNAME ||
       !options.FRESHDESK_BASIC_AUTH_PASSWORD

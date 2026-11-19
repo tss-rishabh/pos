@@ -29,7 +29,7 @@ export function customerProfileEditable(state: CheckoutState): boolean {
 export function customerCheckoutScope(config: Config, db: Databases) {
   const checkIns = checkInService(db, config);
   // W4: checkout sales live in the Redis session store (pos_rewrite_checkout_sessions removed).
-  const sessions = config.DEMO_MODE ? null : checkoutSessionStore(configuredStateStore(config));
+  const sessions = checkoutSessionStore(configuredStateStore(config));
   return async function withCheckout<T>(
     user: Principal,
     scope: CustomerProfileScope,
@@ -39,18 +39,12 @@ export function customerCheckoutScope(config: Config, db: Databases) {
       state: CheckoutState & { customerId: string },
     ) => Promise<T>,
   ): Promise<T> {
-    if (config.DEMO_MODE)
-      throw new AppError(
-        503,
-        'CUSTOMER_PROFILE_UNAVAILABLE',
-        'Customer details are unavailable in this workspace.',
-      );
     requireStore(user, scope.storeId);
-    const preflight = await sessions!.readScoped(user.id, scope.storeId, scope.checkoutId);
+    const preflight = await sessions.readScoped(user.id, scope.storeId, scope.checkoutId);
     if (!preflight) throw missingCustomerProfile();
     return db.get('writer').transaction(async (tx) => {
       await checkIns.assertCheckIn(user.id, scope.storeId, preflight.counterId, tx);
-      const state = await sessions!.readScoped(user.id, scope.storeId, scope.checkoutId);
+      const state = await sessions.readScoped(user.id, scope.storeId, scope.checkoutId);
       if (
         !state ||
         state.id !== scope.checkoutId ||

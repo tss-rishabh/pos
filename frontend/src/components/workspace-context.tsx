@@ -13,17 +13,15 @@ export function WorkspaceContext({
   user,
   stores,
   online,
-  native,
 }: {
   user: Principal;
   stores: readonly Store[];
   online: boolean;
-  native: boolean;
 }) {
   const [now, setNow] = useState(Date.now);
   const current = useQuery({
     queryKey: [user.id, 'administration', 'my-check-in'],
-    enabled: native && online,
+    enabled: online,
     queryFn: ({ signal }) =>
       request(
         '/api/v1/operators/me/check-in',
@@ -58,11 +56,9 @@ export function WorkspaceContext({
   }
   return (
     <div className="workspace-context" aria-label="Operator context">
-      {native && (
-        <NavLink to="/check-in" aria-label={`Server check-in: ${status}`}>
-          {status}
-        </NavLink>
-      )}
+      <NavLink to="/check-in" aria-label={`Server check-in: ${status}`}>
+        {status}
+      </NavLink>
       <ReleaseNotes role={user.role} />
       <span className="account-type" aria-label="Account type">
         {user.userType === 2 ? 'Franchise' : 'In-House'}

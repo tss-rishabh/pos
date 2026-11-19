@@ -159,13 +159,6 @@ export function applicationLinkService(
   }
   return {
     async capabilities(user: Principal) {
-      if (config.DEMO_MODE)
-        return {
-          staffAvailable: false,
-          customerAvailable: false,
-          checkedInStore: null,
-          qrPeriodSeconds: options.MPOS_DOWNLOAD_QR_EXP_SEC,
-        };
       return {
         staffAvailable: Boolean(user.userType !== 2 && dependencies.staffPackage),
         customerAvailable: Boolean(dependencies.customerLink),
@@ -285,7 +278,7 @@ export function applicationLinkService(
     },
     /** `MposUserDownloadApp` (core/views.py:3161-3179): QR for the operator's check-in store. */
     async issueCustomer(user: Principal) {
-      if (config.DEMO_MODE || !dependencies.customerLink) throw unavailable();
+      if (!dependencies.customerLink) throw unavailable();
       const selected = await checkIns.checkedInStore(user.id);
       if (!selected)
         throw new AppError(
@@ -319,7 +312,7 @@ export function applicationLinkService(
      * operation (Redis receipt, EX 3600) does not log a second pos_to_app_logs row.
      */
     async scanCustomer(value: { operationId: string; token: string }) {
-      if (config.DEMO_MODE || !dependencies.customerLink) throw unavailable();
+      if (!dependencies.customerLink) throw unavailable();
       const input = customerScan.parse(value),
         storeId = input.token.split('.')[0]!;
       if (!sameToken(input.token, customerToken(storeId))) throw expired();
@@ -345,7 +338,7 @@ export function applicationLinkService(
      * redirects. Security decisions: bound INSERT (legacy formats SQL), active stores only.
      */
     async scanLegacy(storeId: string) {
-      if (config.DEMO_MODE || !dependencies.customerLink) throw unavailable();
+      if (!dependencies.customerLink) throw unavailable();
       await activeStore(storeId);
       await logScan(storeId);
       return destination(storeId);

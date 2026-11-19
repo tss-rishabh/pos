@@ -83,7 +83,6 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
             }),
           'Configure explicit proxy IPs or CIDR ranges.',
         ),
-      DEMO_MODE: flag(false),
       CASHBACK_CREDIT_MESSAGE: z.string().max(2000).default(sourceCashbackCreditMessage),
       SESSION_SECRET: z.string().min(32),
       // Secure session cookies; false only for local http development, refused in production.
@@ -155,7 +154,6 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
     })
     .parse(env);
   if (config.NODE_ENV === 'production') {
-    if (config.DEMO_MODE) throw new Error('DEMO_MODE is forbidden in production');
     if (!config.WEB_ORIGIN.startsWith('https:'))
       throw new Error('Production WEB_ORIGIN must use HTTPS');
     if (config.MYSQL_ALLOW_LOCAL_PLAINTEXT)
@@ -186,18 +184,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
     webOrigin.pathname !== '/'
   )
     throw new Error('WEB_ORIGIN must contain only the web application origin.');
-  if (config.DEMO_MODE)
-    for (const raw of [
-      config.MYSQL_WRITER_URL,
-      config.MYSQL_PRIMARY_READER_URL,
-      config.MYSQL_DATA_READER_URL,
-      config.REDIS_URL,
-      config.TSS_API_BASE_URL,
-    ])
-      if (raw && !['localhost', '127.0.0.1', '[::1]'].includes(new URL(raw).hostname))
-        throw new Error('Demo mode only supports isolated local dependencies.');
-  if (!config.DEMO_MODE && !config.MYSQL_PRIMARY_READER_URL)
-    throw new Error('Configure MYSQL_PRIMARY_READER_URL');
+  if (!config.MYSQL_PRIMARY_READER_URL) throw new Error('Configure MYSQL_PRIMARY_READER_URL');
   return config;
 }
 export type Config = ReturnType<typeof readConfig>;

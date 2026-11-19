@@ -84,12 +84,11 @@ export function mediaContentTypeFromKey(key: string): string {
   );
 }
 export function createDocumentationMediaStore(
-  config: Pick<Config, 'NODE_ENV' | 'DEMO_MODE'>,
+  config: Pick<Config, 'NODE_ENV'>,
   options: DocumentationMediaOptions,
   injectedClient?: S3Client,
 ): DocumentationMediaStore | undefined {
-  if (config.DEMO_MODE || !options.AWS_STORAGE_BUCKET_NAME || !options.S3_TUTORIAL_FOLDER_PATH)
-    return undefined;
+  if (!options.AWS_STORAGE_BUCKET_NAME || !options.S3_TUTORIAL_FOLDER_PATH) return undefined;
   return createScopedMediaStore(
     config,
     options,
@@ -100,13 +99,13 @@ export function createDocumentationMediaStore(
 }
 /** Shared private upload/verification/stream/delete mechanics; callers own authorization/reservations. */
 export function createScopedMediaStore(
-  config: Pick<Config, 'NODE_ENV' | 'DEMO_MODE'>,
+  config: Pick<Config, 'NODE_ENV'>,
   options: PrivateS3Options,
   objectPrefix: string,
   paths: Readonly<Partial<Record<MediaKind, string>>>,
   injectedClient?: S3Client,
 ): DocumentationMediaStore | undefined {
-  if (config.DEMO_MODE || !options.AWS_STORAGE_BUCKET_NAME) return undefined;
+  if (!options.AWS_STORAGE_BUCKET_NAME) return undefined;
   const validPath = (value: string) =>
     /^[A-Za-z0-9][A-Za-z0-9/_.-]{0,299}$/.test(value) &&
     !value.split('/').some((part) => part === '.' || part === '..');

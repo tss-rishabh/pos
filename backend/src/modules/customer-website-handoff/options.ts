@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import type { Config } from '../../config.js';
 import { AppError } from '../../domain/errors.js';
 const text = (schema: z.ZodString) =>
   z.preprocess((value) => (value === '' ? undefined : value), schema.optional());
@@ -32,11 +31,7 @@ export function handoffUnavailable() {
   );
 }
 /** Security (W5): the URL carries a login token, so it is built only over HTTPS. */
-export function websiteBase(
-  config: Pick<Config, 'DEMO_MODE'>,
-  options: CustomerWebsiteHandoffOptions,
-) {
-  if (config.DEMO_MODE) throw handoffUnavailable();
+export function websiteBase(options: CustomerWebsiteHandoffOptions) {
   const url = new URL(options.WEB_URL);
   if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash)
     throw handoffUnavailable();

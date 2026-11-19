@@ -1,6 +1,5 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { z } from 'zod';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   NavLink,
   Route,
@@ -304,11 +303,6 @@ function Workspace({ user }: { user: Principal }) {
   useCheckoutPerformance(user.id, state.storeId, state.counterId, sync.online);
   useOfflineBillingAutoSwitch(sync.online);
   const [logoutError, setLogoutError] = useState<unknown>(null);
-  const capabilities = useQuery({
-    queryKey: ['capabilities'],
-    queryFn: () => request('/api/v1/auth/capabilities', {}, z.object({ demo: z.boolean() })),
-    staleTime: 300000,
-  });
   useEffect(() => {
     if (stores.data && !stores.data.some((s) => s.id === state.storeId))
       state.setStore(stores.data[0]?.id || '');
@@ -426,13 +420,11 @@ function Workspace({ user }: { user: Principal }) {
             </select>
           </label>
           <div className="topbar-right">
-            {capabilities.data?.demo === false && (
-              <NotificationsPanel
-                key={`${user.id}:${state.storeId}`}
-                user={user}
-                storeId={state.storeId}
-              />
-            )}
+            <NotificationsPanel
+              key={`${user.id}:${state.storeId}`}
+              user={user}
+              storeId={state.storeId}
+            />
             <NavLink to="/sync" className={`connection ${sync.online ? '' : 'offline'}`}>
               {sync.online ? <Cloud size={15} /> : <CloudOff size={15} />}
               <span>
@@ -464,27 +456,16 @@ function Workspace({ user }: { user: Principal }) {
           user={user}
           stores={stores.isError ? [] : stores.data || []}
           online={sync.online}
-          native={capabilities.data?.demo === false}
         />
         <GlobalFulfillmentExpiryAlerts
           operatorId={user.id}
           storeId={state.storeId}
-          enabled={
-            sync.online &&
-            capabilities.data?.demo === false &&
-            !stores.isError &&
-            Boolean(currentStore?.active)
-          }
+          enabled={sync.online && !stores.isError && Boolean(currentStore?.active)}
         />
         <DayCloseReminder
           user={user}
           storeId={state.storeId}
-          enabled={
-            sync.online &&
-            capabilities.data?.demo === false &&
-            !stores.isError &&
-            Boolean(currentStore?.active)
-          }
+          enabled={sync.online && !stores.isError && Boolean(currentStore?.active)}
         />
         {!sync.online && (
           <div className="offline-banner" role="status">

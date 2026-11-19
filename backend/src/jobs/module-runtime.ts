@@ -27,7 +27,7 @@ export function createModuleRuntime(
   config: Config,
   jobsOverride?: JobProducer,
 ): ModuleRuntime & { queue: JobProducer | undefined; close(): Promise<void> } {
-  if (config.REDIS_URL && !config.DEMO_MODE) {
+  if (config.REDIS_URL) {
     const redis = connectRedis(config.REDIS_URL, config.NODE_ENV),
       queue = jobsOverride ?? redisJobProducer(redis);
     return {

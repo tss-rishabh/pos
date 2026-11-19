@@ -1,7 +1,7 @@
 import type { Config } from '../../src/config.js';
 import type { Databases } from '../../src/db/pools.js';
 import { activeAccountReader, redisSessions } from '../../src/auth/sessions.js';
-import { memoryRedisPort } from '../../src/redis/memory.js';
+import { memoryRedisPort } from './memory-redis.js';
 
 /**
  * One in-process auth Redis per test module. Pass it to `buildApp(config, { authRedis })`

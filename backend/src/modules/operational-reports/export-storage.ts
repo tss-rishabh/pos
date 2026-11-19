@@ -63,11 +63,11 @@ async function discard(body: GetObjectCommandOutput['Body']) {
   else await body?.transformToWebStream().cancel();
 }
 export function createReportExportStore(
-  config: Pick<Config, 'NODE_ENV' | 'DEMO_MODE'>,
+  config: Pick<Config, 'NODE_ENV'>,
   options: ReportExportOptions,
   injected?: S3Client,
 ): ReportExportStore | undefined {
-  if (config.DEMO_MODE || !options.AWS_STORAGE_BUCKET_NAME) return undefined;
+  if (!options.AWS_STORAGE_BUCKET_NAME) return undefined;
   const client = injected || createPrivateS3Client(config, options),
     bucket = options.AWS_STORAGE_BUCKET_NAME,
     owner = options.AWS_S3_EXPECTED_BUCKET_OWNER;

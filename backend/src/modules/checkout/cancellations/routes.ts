@@ -43,10 +43,7 @@ export function registerPendingOrderCancellations(
       client: options.client ?? (target ? apiV2CancelPosOrderClient(target) : undefined),
       stockProcedure: options.stockProcedure,
       syncProducts:
-        options.syncProducts ??
-        (config.DEMO_MODE
-          ? undefined
-          : createProductSyncAdapter(config, readAdministrationWorkerOptions())),
+        options.syncProducts ?? createProductSyncAdapter(config, readAdministrationWorkerOptions()),
       logger: app.log,
     }),
     base = '/api/v1/stores/:storeId/orders/:orderId/cancellations',

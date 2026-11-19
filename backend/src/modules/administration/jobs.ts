@@ -20,9 +20,7 @@ export const registerJobHandlers: JobModuleRegistration = (registry, runtime) =>
   const { config, db, ephemeral, log } = runtime;
   const syncOptions = readAdministrationWorkerOptions();
   const productSync = productSynchronizer(
-    config.DEMO_MODE
-      ? undefined
-      : createProductSyncAdapter(config, syncOptions, fetch, { requireReplaySafe: false }),
+    createProductSyncAdapter(config, syncOptions, fetch, { requireReplaySafe: false }),
     log,
   );
   const imports = inventoryImportJobs({
@@ -43,7 +41,7 @@ export const registerJobHandlers: JobModuleRegistration = (registry, runtime) =>
     ecommerceInventoryJob({
       db,
       syncerBk: mysqlStockSyncerBk(db),
-      fullSync: httpFullEcommerceSync(config.DEMO_MODE ? undefined : syncOptions.MAIN_API_V2_URL),
+      fullSync: httpFullEcommerceSync(syncOptions.MAIN_API_V2_URL),
       log,
     }),
   );

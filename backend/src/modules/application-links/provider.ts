@@ -1,6 +1,5 @@
 import { Readable } from 'node:stream';
 import { z } from 'zod';
-import type { Config } from '../../config.js';
 import { AppError } from '../../domain/errors.js';
 import { boundedJson } from '../../domain/http-json.js';
 import { safeApplicationDestination, type ApplicationLinkOptions } from './contracts.js';
@@ -24,11 +23,10 @@ const unavailable = () =>
  * fallback, so a provider response cannot become an open redirect.
  */
 export function createCustomerApplicationProvider(
-  config: Pick<Config, 'DEMO_MODE'>,
   options: ApplicationLinkOptions,
   fetcher: typeof fetch = fetch,
 ): CustomerApplicationProvider | undefined {
-  if (config.DEMO_MODE || !options.MAIN_SITE_API_V2) return undefined;
+  if (!options.MAIN_SITE_API_V2) return undefined;
   const endpoint = new URL('firebase-dynamic-link', options.MAIN_SITE_API_V2.replace(/\/?$/, '/')),
     accepts = (value: string) =>
       safeApplicationDestination(value, options.POS_CUSTOMER_APP_ORIGINS);
@@ -75,11 +73,10 @@ export interface StaffApplicationPackage {
 }
 /** Streams the configured `APP_APK_URL` instead of buffering it as legacy did. */
 export function createStaffApplicationPackage(
-  config: Pick<Config, 'DEMO_MODE'>,
   options: ApplicationLinkOptions,
   fetcher: typeof fetch = fetch,
 ): StaffApplicationPackage | undefined {
-  if (config.DEMO_MODE || !options.APP_APK_URL) return undefined;
+  if (!options.APP_APK_URL) return undefined;
   const source = options.APP_APK_URL;
   return {
     async open(signal) {

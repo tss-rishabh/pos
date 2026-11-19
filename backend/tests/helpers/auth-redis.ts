@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { connectRedisPort } from '../../src/redis/node-client.js';
-import { memoryRedisPort } from '../../src/redis/memory.js';
+import { memoryRedisPort } from './memory-redis.js';
 import type { RedisPort } from '../../src/redis/port.js';
 import { privateRedisFixture } from './private-redis.js';
 

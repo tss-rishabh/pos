@@ -261,7 +261,7 @@ export function configuredStateStore(config: Config): PosStateStore {
   const key = config.REDIS_URL ?? 'memory:';
   const existing = configuredStores.get(key);
   if (existing) return existing;
-  if (!config.REDIS_URL && config.NODE_ENV === 'production' && !config.DEMO_MODE)
+  if (!config.REDIS_URL && config.NODE_ENV === 'production')
     throw new Error('Production requires REDIS_URL for checkout state.');
   const created = config.REDIS_URL ? redisStateStore(config, config.REDIS_URL) : memoryStateStore();
   configuredStores.set(key, created);

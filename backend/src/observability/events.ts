@@ -25,11 +25,6 @@ const resources: Record<string, ResourceTrace> = {
     action: 'capabilities',
   },
   'POST /api/v1/auth/sessions': { module: 'identity', resource: 'session', action: 'create' },
-  'POST /api/v1/auth/demo-sessions': {
-    module: 'identity',
-    resource: 'demo-session',
-    action: 'create',
-  },
   'GET /api/v1/auth/sessions/current': { module: 'identity', resource: 'session', action: 'read' },
   'DELETE /api/v1/auth/sessions/current': {
     module: 'identity',

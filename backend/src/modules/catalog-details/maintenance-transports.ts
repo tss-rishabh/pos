@@ -27,8 +27,7 @@ function inventoryTarget(config: Config, value: string) {
     url.search ||
     url.hash ||
     (url.protocol !== 'https:' &&
-      !(config.NODE_ENV !== 'production' && local && url.protocol === 'http:')) ||
-    (config.DEMO_MODE && !local)
+      !(config.NODE_ENV !== 'production' && local && url.protocol === 'http:'))
   )
     throw new AppError(
       503,

@@ -48,7 +48,7 @@ export function Login() {
     await client.invalidateQueries({ queryKey: ['operator'] });
   }
   async function clearPendingLogout() {
-    // Explicit password/demo/SSO sign-in supersedes an in-flight mount restore.
+    // Explicit password/SSO sign-in supersedes an in-flight mount restore.
     // Its late response must not replace the new challenge or erase entered OTP.
     mayRestoreChallenge.current = false;
     if (localStorage.getItem('pos-pending-logout')) {
@@ -56,28 +56,22 @@ export function Login() {
       localStorage.removeItem('pos-pending-logout');
     }
   }
-  async function login(demo: boolean, form?: HTMLFormElement) {
+  async function login(form: HTMLFormElement) {
     if (busy) return;
     // Disabled controls are omitted by FormData. Capture before locking the UI
     // or awaiting a pending logout, while keeping credentials in this call only.
-    const data = form ? new FormData(form) : undefined;
+    const data = new FormData(form);
     setBusy(true);
     setError(null);
     try {
       await clearPendingLogout();
-      if (demo) {
-        await post('/api/v1/auth/demo-sessions', undefined, sessionSchema);
-        await complete();
-      } else {
-        if (!data) return;
-        showChallenge(
-          await post(
-            '/api/v1/auth/sessions',
-            { username: data.get('username'), password: data.get('password') },
-            loginChallengeSchema,
-          ),
-        );
-      }
+      showChallenge(
+        await post(
+          '/api/v1/auth/sessions',
+          { username: data.get('username'), password: data.get('password') },
+          loginChallengeSchema,
+        ),
+      );
     } catch (error) {
       setError(error);
     } finally {
@@ -241,7 +235,7 @@ export function Login() {
               <form
                 onSubmit={(event) => {
                   event.preventDefault();
-                  void login(false, event.currentTarget);
+                  void login(event.currentTarget);
                 }}
               >
                 <label>
@@ -273,19 +267,6 @@ export function Login() {
                   <ArrowRight size={18} />
                 </button>
               </form>
-            )}
-            {options.data?.demo && (
-              <div className="demo-note">
-                <span>LOCAL PREVIEW · SAMPLE DATA</span>
-                <button
-                  className="button secondary full"
-                  disabled={busy}
-                  onClick={() => void login(true)}
-                >
-                  Explore demo workspace
-                  <ArrowRight size={16} />
-                </button>
-              </div>
             )}
           </>
         )}

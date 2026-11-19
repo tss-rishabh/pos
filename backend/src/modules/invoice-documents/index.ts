@@ -47,7 +47,6 @@ export function registerInvoiceDocuments(
     return user;
   }
   async function assertCurrentSession(request: FastifyRequest) {
-    if (!request.authSessionValid && config.DEMO_MODE) return;
     if (!request.authSessionValid || !(await request.authSessionValid()))
       throw new AppError(401, 'SESSION_EXPIRED', 'Sign in again to load this invoice.');
   }
