@@ -238,7 +238,9 @@ export async function seedE2e(
       updated_at: stamp,
     },
     {
-      id: 2n,
+      // Production ids: legacy marks a paid store order payment_statuses=4, order_statuses=3
+      // (order/views.py:1225, helpers/helpers.py:633).
+      id: 3n,
       order_status: 'DELIVERED',
       display_name: 'Delivered',
       cat: 1,
@@ -248,7 +250,10 @@ export async function seedE2e(
   ]);
   await db
     .insert(PaymentStatus)
-    .values([{ id: 1n, payment_status: 'Paid', created_at: stamp, updated_at: stamp }]);
+    .values([
+      { id: 1n, payment_status: 'Pending', created_at: stamp, updated_at: stamp },
+      { id: 4n, payment_status: 'Paid', created_at: stamp, updated_at: stamp },
+    ]);
   const customers = [
     ['Walk-in', 'customer'],
     ['Alex', 'Morgan'],
@@ -290,14 +295,14 @@ export async function seedE2e(
       order_amt: Number(product.price),
       pay_amt: Number(product.price),
       payment_methods: 0n,
-      payment_statuses: 1n,
+      payment_statuses: 4n,
       transaction_id: '',
       transaction_status: '',
       description: '',
       reward_points_cron: '0',
       shiplabel_tracking_id: '',
       referal_code_used: '',
-      order_statuses: index === 0 ? 1n : 2n,
+      order_statuses: index === 0 ? 1n : 3n,
       ship_date: created,
       ship_flag: '0',
       order_comment: '',
