@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { createHash } from 'node:crypto';
 import { isIP } from 'node:net';
 import { sourceCashbackCreditMessage } from './domain/checkout-quote-display.js';
 
@@ -52,6 +53,94 @@ export const exchangeStoreIds = z
     }
     return { all: false as const, storeIds };
   });
+
+/**
+ * Indian-number normalisation for allowlist matching. The senders pass `users.telephone` /
+ * `orders.phone_no` to the providers as stored (10 digits, which Gupshup reads as +91); stored
+ * values also appear as `+91…`, `91…` or `0…`. All of them compare as the 10-digit subscriber
+ * number; other lengths keep their digits.
+ */
+export function normaliseIndianPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
+  if (digits.length === 11 && digits.startsWith('0')) return digits.slice(1);
+  return digits;
+}
+export const normaliseAllowlistEmail = (raw: string) => raw.trim().toLowerCase();
+/** Slack webhooks are bearer credentials: the allowlist keeps only their SHA-256. */
+export function slackWebhookDigest(raw: string | URL): string {
+  let value = String(raw).trim();
+  try {
+    value = new URL(value).href;
+  } catch {
+    /* Compared verbatim when it is not a URL. */
+  }
+  return createHash('sha256').update(value).digest('hex');
+}
+const commaList = (variable: string, valid: (value: string) => boolean) =>
+  z
+    .string()
+    .default('')
+    .transform((raw, context) => {
+      const values = raw
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean);
+      // The message never echoes a value: the lists hold real contacts and webhook secrets.
+      if (!values.every(valid)) {
+        context.addIssue({ code: 'custom', message: `${variable} contains an invalid entry.` });
+        return z.NEVER;
+      }
+      return values;
+    });
+/**
+ * UAT outbound-recipient allowlist (backend/parity/w25-allowlist.md). Optional; when enabled at
+ * least one list must be non-empty, and every sender delivers only to listed recipients.
+ */
+export const outboundAllowlistEnvironment = z.object({
+  // An empty value (the .env.example placeholder) means the default, false.
+  OUTBOUND_ALLOWLIST_ENABLED: z.preprocess((v) => (v === '' ? undefined : v), flag(false)),
+  OUTBOUND_ALLOWLIST_PHONES: commaList('OUTBOUND_ALLOWLIST_PHONES', (value) =>
+    /^\d{8,15}$/.test(normaliseIndianPhone(value)),
+  ),
+  OUTBOUND_ALLOWLIST_EMAILS: commaList(
+    'OUTBOUND_ALLOWLIST_EMAILS',
+    (value) => z.email().safeParse(value).success,
+  ),
+  OUTBOUND_ALLOWLIST_SLACK_WEBHOOKS: commaList(
+    'OUTBOUND_ALLOWLIST_SLACK_WEBHOOKS',
+    (value) => z.url({ protocol: /^https$/ }).safeParse(value).success,
+  ),
+});
+export interface OutboundAllowlist {
+  enabled: boolean;
+  phones: ReadonlySet<string>;
+  emails: ReadonlySet<string>;
+  slackWebhookDigests: ReadonlySet<string>;
+}
+export function outboundAllowlistFrom(
+  value: z.infer<typeof outboundAllowlistEnvironment>,
+): OutboundAllowlist {
+  const allowlist = {
+    enabled: value.OUTBOUND_ALLOWLIST_ENABLED,
+    phones: new Set(value.OUTBOUND_ALLOWLIST_PHONES.map(normaliseIndianPhone)),
+    emails: new Set(value.OUTBOUND_ALLOWLIST_EMAILS.map(normaliseAllowlistEmail)),
+    slackWebhookDigests: new Set(value.OUTBOUND_ALLOWLIST_SLACK_WEBHOOKS.map(slackWebhookDigest)),
+  };
+  if (
+    allowlist.enabled &&
+    !allowlist.phones.size &&
+    !allowlist.emails.size &&
+    !allowlist.slackWebhookDigests.size
+  )
+    throw new Error(
+      'OUTBOUND_ALLOWLIST_ENABLED requires at least one of OUTBOUND_ALLOWLIST_PHONES, OUTBOUND_ALLOWLIST_EMAILS or OUTBOUND_ALLOWLIST_SLACK_WEBHOOKS.',
+    );
+  return allowlist;
+}
+export function readOutboundAllowlist(env: NodeJS.ProcessEnv = process.env): OutboundAllowlist {
+  return outboundAllowlistFrom(outboundAllowlistEnvironment.parse(env));
+}
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env) {
   const config = z
@@ -153,8 +242,11 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
       ENABLE_VOUCHER_TO_MONEY_CHECK_AND_COVERT: legacyInt(0),
       TEN_PER_SWITCH: legacyInt(1),
       EXCHANGE_ENABLED_STORE_IDS: exchangeStoreIds,
+      ...outboundAllowlistEnvironment.shape,
     })
     .parse(env);
+  // Allowed in every environment, production included: it only ever stops messages.
+  const outboundAllowlist = outboundAllowlistFrom(config);
   if (config.NODE_ENV === 'production') {
     if (!config.WEB_ORIGIN.startsWith('https:'))
       throw new Error('Production WEB_ORIGIN must use HTTPS');
@@ -187,6 +279,6 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
   )
     throw new Error('WEB_ORIGIN must contain only the web application origin.');
   if (!config.MYSQL_PRIMARY_READER_URL) throw new Error('Configure MYSQL_PRIMARY_READER_URL');
-  return config;
+  return { ...config, outboundAllowlist };
 }
 export type Config = ReturnType<typeof readConfig>;

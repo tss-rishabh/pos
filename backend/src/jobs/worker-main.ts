@@ -12,6 +12,8 @@ import { createJobHandlerRegistry } from './registry.js';
 import type { JobLogger } from './runtime.js';
 import { jobWorker } from './worker.js';
 import { applicationLogger } from '../observability/logger.js';
+import { installOutboundAllowlist } from '../outbound/allowlist.js';
+import { databaseRecipientDirectory } from '../outbound/recipients.js';
 
 /**
  * `npm run worker:jobs` — the single job worker (phase-c-legacy-jobs.md §4.5), replacing
@@ -96,6 +98,12 @@ try {
       blocking = connectRedis(config.REDIS_URL, config.NODE_ENV);
     connections.push(blocking);
     databases = createDatabases(config);
+    // Same outbound allowlist as the API process (w25-allowlist.md).
+    installOutboundAllowlist({
+      allowlist: config.outboundAllowlist,
+      log: runtime.log,
+      directory: databaseRecipientDirectory(databases),
+    });
     const handlers = createJobHandlerRegistry();
     registerAllJobHandlers(handlers, {
       config,

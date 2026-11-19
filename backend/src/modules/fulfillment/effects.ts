@@ -5,6 +5,7 @@ import type { Databases } from '../../db/pools.js';
 import { HasProduct, Store } from '../../db/legacy-schema.js';
 import { boundedJson } from '../../domain/http-json.js';
 import { currentRequestTrace, tracedFetch } from '../../observability/context.js';
+import { outboundAllowlistEnabled, outboundPermitted } from '../../outbound/allowlist.js';
 import { syncRepoStatusApi, type CallStatusApi } from '../legacy-order-status/transport.js';
 import type { FulfillmentOptions } from './options.js';
 import { slackText } from './slack-text.js';
@@ -143,6 +144,17 @@ export function fulfillmentEffects(
       });
       return;
     }
+    // Allowlist guard (w25): a suppressed alert is dropped silently, like a posted one.
+    if (
+      outboundAllowlistEnabled() &&
+      !(await outboundPermitted({
+        channel: 'slack',
+        module: 'fulfillment',
+        flow: 'fulfillment-slack-alert',
+        targets: [{ kind: 'slack-webhook', value: url }],
+      }))
+    )
+      return;
     try {
       const response = await post(
         url,
@@ -332,6 +344,7 @@ export function fulfillmentEffects(
     headers: Record<string, string>,
     body: unknown,
     orderId: string,
+    message = false,
   ) {
     if (!url) {
       log('warn', {
@@ -342,6 +355,18 @@ export function fulfillmentEffects(
       });
       return;
     }
+    // Allowlist guard (w25): only messaging posts name an order whose contacts must be listed.
+    if (
+      message &&
+      outboundAllowlistEnabled() &&
+      !(await outboundPermitted({
+        channel: 'api-v2',
+        module: 'fulfillment',
+        flow: resource,
+        targets: [{ kind: 'order', id: orderId }],
+      }))
+    )
+      return;
     try {
       const response = await post(url, headers, body, 10000);
       await response.body?.cancel();
@@ -378,6 +403,7 @@ export function fulfillmentEffects(
         {},
         { order_id: orderId, awb },
         orderId,
+        true,
       ),
     /** Legacy `_call_vinculum_rto_api` (`order/views.py:5169-5205`). */
     vinculumRto: (orderId: string, hasProductIds: readonly string[]) =>

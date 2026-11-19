@@ -113,6 +113,8 @@ import { draftMutationSchema, draftService } from './modules/drafts.js';
 import { registerEventCatalog, requestEvent } from './observability/events.js';
 import { createModuleRuntime } from './jobs/module-runtime.js';
 import { registerRequestTrace, requestIdFor, tracedFetch } from './observability/context.js';
+import { installOutboundAllowlist } from './outbound/allowlist.js';
+import { databaseRecipientDirectory } from './outbound/recipients.js';
 import { identifier, cursor } from './domain/validation.js';
 import {
   noQuery,
@@ -179,6 +181,12 @@ export async function buildApp(
   bindCheckInRedis(authRedis);
   const db = createDatabases(config),
     identity = identityService(config, db, authEvents);
+  // UAT outbound-recipient allowlist (w25-allowlist.md): one guard for every sender.
+  installOutboundAllowlist({
+    allowlist: config.outboundAllowlist,
+    log: app.log,
+    directory: databaseRecipientDirectory(db),
+  });
   /**
    * Job producer (src/jobs, phase-c-legacy-jobs.md §4) + ephemeral Redis state. `jobs` is the
    * Redis queue producer when REDIS_URL is set (or `options.jobs` in tests),

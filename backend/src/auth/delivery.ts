@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { AppError } from '../domain/errors.js';
 import { boundedText } from '../domain/http-json.js';
 import type { AuthEventLogger } from './events.js';
+import { outboundAllowlistEnabled, outboundPermitted } from '../outbound/allowlist.js';
 
 const optionalText = z.preprocess(
   (value) => (value === '' ? undefined : value),
@@ -119,6 +120,17 @@ function phoneSender(transport: ReturnType<typeof createOtpTransport>): PhoneOtp
           'OTP_DELIVERY_INPUT_INVALID',
           'OTP delivery parameters are invalid.',
         );
+      // Allowlist guard (w25): a suppressed OTP resolves like a delivered one.
+      if (
+        outboundAllowlistEnabled() &&
+        !(await outboundPermitted({
+          channel,
+          module: 'checkout',
+          flow: 'customer-registration-otp',
+          targets: [{ kind: 'phone', value: phone }],
+        }))
+      )
+        return;
       try {
         if (channel === 'sms')
           await formPost('https://enterprise.smsgupshup.com/GatewayAPI/rest', {
@@ -261,6 +273,16 @@ export function liveLoginOtpTransport(
     mode: 'live',
     async email(message) {
       if (!options.NETCORE_API_KEY) throw notConfigured();
+      if (
+        outboundAllowlistEnabled() &&
+        !(await outboundPermitted({
+          channel: 'email',
+          module: 'identity',
+          flow: 'staff-login-otp',
+          targets: [{ kind: 'email', value: message.to }],
+        }))
+      )
+        return;
       const response = await fetcher(httpsEndpoint(options.NETCORE_EMAIL_URL), {
         method: 'POST',
         headers: { api_key: options.NETCORE_API_KEY, 'content-type': 'application/json' },
@@ -279,6 +301,16 @@ export function liveLoginOtpTransport(
     },
     async sms(phone, text) {
       if (!options.GUPSHUP_SMS_USER_ID || !options.GUPSHUP_SMS_PASSWORD) throw notConfigured();
+      if (
+        outboundAllowlistEnabled() &&
+        !(await outboundPermitted({
+          channel: 'sms',
+          module: 'identity',
+          flow: 'staff-login-otp',
+          targets: [{ kind: 'phone', value: phone }],
+        }))
+      )
+        return;
       const response = await form(
         httpsEndpoint('https://enterprise.smsgupshup.com/GatewayAPI/rest'),
         {
@@ -299,6 +331,17 @@ export function liveLoginOtpTransport(
     async whatsapp(phone, text, footer) {
       if (!options.GUPSHUP_WHATSAPP_USER_ID || !options.GUPSHUP_WHATSAPP_PASSWORD)
         throw notConfigured();
+      // A suppressed WhatsApp resend reports Gupshup's "success", so no failure alert follows.
+      if (
+        outboundAllowlistEnabled() &&
+        !(await outboundPermitted({
+          channel: 'whatsapp',
+          module: 'identity',
+          flow: 'staff-login-otp-resend',
+          targets: [{ kind: 'phone', value: phone }],
+        }))
+      )
+        return true;
       const response = await form(
         httpsEndpoint(
           options.WHATSAPP_GUPSHUP_API_URL ?? 'https://mediaapi.smsgupshup.com/GatewayAPI/rest',
@@ -325,16 +368,24 @@ export function liveLoginOtpTransport(
           ? (options.LOGIN_SECURITY_SLACK_WEBHOOK ?? options.SLACK_WHATSAPP_ALERT_WEBHOOK)
           : options.SLACK_WHATSAPP_ALERT_WEBHOOK;
       if (!raw) return;
-      const response = await fetcher(
-        httpsEndpoint(raw, ['hooks.slack.com', 'hooks.slack-gov.com']),
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text }),
-          signal: AbortSignal.timeout(5000),
-          redirect: 'error',
-        },
-      );
+      const webhook = httpsEndpoint(raw, ['hooks.slack.com', 'hooks.slack-gov.com']);
+      if (
+        outboundAllowlistEnabled() &&
+        !(await outboundPermitted({
+          channel: 'slack',
+          module: 'identity',
+          flow: channel === 'login-security' ? 'login-security-alert' : 'whatsapp-failure-alert',
+          targets: [{ kind: 'slack-webhook', value: raw }],
+        }))
+      )
+        return;
+      const response = await fetcher(webhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+        signal: AbortSignal.timeout(5000),
+        redirect: 'error',
+      });
       await response.body?.cancel().catch(() => undefined);
       if (!response.ok) throw new Error('Slack rejected');
     },

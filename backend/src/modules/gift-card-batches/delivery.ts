@@ -2,6 +2,7 @@ import { AppError } from '../../domain/errors.js';
 import type { GiftCardBatchDelivery } from './contracts.js';
 import type { GiftCardBatchOptions } from './options.js';
 import { maxGiftCardArchiveBytes } from './generation.js';
+import { outboundAllowlistEnabled, outboundPermitted } from '../../outbound/allowlist.js';
 
 /**
  * Legacy `Helpers.send_mail` → `send_netcore_email` (helpers/helpers.py:1434-1475): one Netcore
@@ -35,6 +36,17 @@ export function createGiftCardBatchDelivery(
         input.archive.length > maxGiftCardArchiveBytes
       )
         return false;
+      // Allowlist guard (w25): a suppressed batch mail reports success; the archive stays in S3.
+      if (
+        outboundAllowlistEnabled() &&
+        !(await outboundPermitted({
+          channel: 'email',
+          module: 'gift-card-batches',
+          flow: 'gift-card-batch-mail',
+          targets: [{ kind: 'email', value: input.recipient }],
+        }))
+      )
+        return true;
       const timeout = AbortSignal.timeout(options.GIFT_CARD_BATCH_DELIVERY_TIMEOUT_MS);
       let response: Response | undefined;
       try {
