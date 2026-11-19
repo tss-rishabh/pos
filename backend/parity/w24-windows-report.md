@@ -211,12 +211,12 @@ as written. No backend source, schema, `backend/evidence/**` or security-decisio
 
 ## 8. Left over
 
-1. **The offline receipt prints twice** (2 identical pages, §5): frontend offline-billing owner.
-2. **Packaged builds still honour `NODE_ENV=development` + `POS_DESKTOP_URL`/`POS_DESKTOP_PROFILE_DIR`**
+1. ~~The offline receipt prints twice~~: fixed in the follow-up (§9).
+2. ~~Packaged builds still honour `NODE_ENV=development`~~: fixed in the follow-up (§9). Original note: packaged builds honoured `NODE_ENV=development` + `POS_DESKTOP_URL`/`POS_DESKTOP_PROFILE_DIR`
    (W17 §6 leftover): a loopback http origin and a profile override. The native smokes rely on it.
    Refusing it in packaged builds would need a different smoke seam (for example a test-only build
    flavour); NEEDS DECISION.
-3. **Default menu** on Windows (G12): keep Electron's default, hide it (`autoHideMenuBar`) or replace
+3. ~~Default menu on Windows~~: hidden in the follow-up (§9), by user decision. Original note (G12): keep Electron's default, hide it (`autoHideMenuBar`) or replace
    it with a minimal menu; NEEDS USER DECISION (kiosk-style counters may prefer no menu).
 4. Signing (§6) needs the user's certificate; SmartScreen will warn on the unsigned review installer.
 5. Not run on hosted runners: Windows on ARM64 (no `windows-11-arm` leg; the `win32-arm64` prebuild
@@ -226,3 +226,112 @@ as written. No backend source, schema, `backend/evidence/**` or security-decisio
    CI. Production stores keep using the backend's Redis; the desktop app never talks to Redis.
 7. GitHub warns that `actions/cache` and `actions/upload-artifact` v4 run on deprecated Node 20; bump
    the pinned SHAs to their Node 24 releases when convenient.
+
+## 9. Follow-up (coordinator round 2)
+
+The coordinator gave this round ownership of `frontend/src/pages/offline-billing/**` too.
+Commits `814fa9bf`, `8cc14de7`, `13fd291a`, `82f7aab4`.
+
+**Green run:** <https://github.com/tss-rishabh/pos/actions/runs/44594187321> (head `82f7aab4`), both legs green.
+
+### 9.1 No menu bar on Windows (user decision)
+- `electron/main.cjs` `installMenu()`: Windows and Linux get an application menu that is never shown
+  (`setMenuBarVisibility(false)`, `autoHideMenuBar: false`, so Alt does not reveal it). Its roles keep the
+  shortcuts: undo (Ctrl+Z), redo (Ctrl+Y and Ctrl+Shift+Z), cut/copy/paste/delete, select-all, reset
+  zoom (Ctrl+0), zoom in (Ctrl+Plus and Ctrl+=), zoom out (Ctrl+-). Reload, Force Reload, DevTools,
+  close-window (Ctrl+W) and the electronjs.org help links are gone. macOS is untouched: Electron's
+  standard app menu.
+- `e2e/electron.spec.ts` (both OSes): Ctrl+A/C/V (Cmd on macOS) in an input really copies and pastes
+  through the OS clipboard (pasted twice to prove it). Windows only: `isMenuBarVisible() === false`,
+  not auto-hide, still hidden after Alt, menu = exactly Edit/View with exactly the roles above, and
+  Ctrl+= / Ctrl+- / Ctrl+0 change the zoom level. The zoom keys are sent with
+  `webContents.sendInputEvent` (native raw key-downs that reach the window's accelerators, as a
+  physical key does); Playwright's CDP keys reach only the renderer, so they cannot exercise
+  browser-side accelerators (that was the only failure of run 44590442688). macOS: the standard menu
+  with copy/paste/select-all roles is present.
+
+### 9.2 Packaged builds ignore NODE_ENV (security-decision candidate)
+**Decision candidate (for the coordinator to number):** a packaged desktop build ignores
+`NODE_ENV` entirely. DevTools, a loopback `http:` workspace origin and the `POS_DESKTOP_PROFILE_DIR`
+profile override exist only in an unpackaged `electron .` run with `NODE_ENV=development`. Previously a
+user (or malware running as the user) could start an installed app with `NODE_ENV=development` to get
+DevTools on the renderer that holds the offline-billing bridge, point it at an `http://localhost`
+page that the bridge would trust as the workspace origin, or redirect its profile.
+
+- `electron/runtime-mode.cjs` computes `{ development, nativeSmoke, devTools, allowLoopbackHttp,
+  profileDirectory }` from `app.isPackaged`, the environment and the packaged `package.json`.
+  `main.cjs` uses it for `userData`, `webPreferences.devTools` and the workspace validation
+  (`workspace-config.cjs` now takes `allowLoopbackHttp` as an argument and no longer reads `NODE_ENV`).
+  `POS_DESKTOP_URL` itself remains the documented explicit provisioning path, `https:` only when packaged.
+- **Test seam: a CI-only build flavour.** `posDesktopNativeSmoke: true` is baked into the packaged
+  `package.json` by `-c.extraMetadata.posDesktopNativeSmoke=true` in CI's separate
+  `release-smoke/` packaging, and is honoured only together with `POS_DESKTOP_NATIVE_SMOKE=1` at
+  launch. It enables the loopback origin and the isolated profile, never DevTools. Why this one:
+  - an environment variable alone cannot enable it, because the key lives inside `app.asar`. Its
+    header hash is embedded in the executable and enforced by the ASAR-integrity fuse (and covered by
+    the signature once signed). Editing the archive of a release build makes it refuse to start;
+  - release packages are verified not to carry the key (`verify-desktop-package.mjs` fails with
+    `DESKTOP_PACKAGE_FLAVOUR`); `release-smoke/` is never uploaded and is git-ignored;
+  - redirecting `APPDATA`/`LOCALAPPDATA` was rejected: Chromium resolves the Windows profile through
+    the shell known-folder API, not those variables, so it would not isolate anything.
+- **Release builds are tested with no seam at all.** The installer smoke provisions the installed
+  release app the production way, `POS_DESKTOP_URL=https://localhost:<port>`, served with a per-run
+  self-signed certificate. CI generates it, trusts it in the runner's LocalMachine root store, masks
+  its passphrase, and removes the certificate and PFX in an `always()` step.
+- **Proof:**
+  - `tests/desktop-runtime-mode.test.ts` (5 tests): an unpackaged dev run gets everything. A packaged
+    release build with `NODE_ENV=development` (with or without the smoke variable) gets no DevTools, no
+    loopback http and no profile override. The smoke flavour needs both the key and the variable and
+    never gets DevTools. Only boolean `true` and exactly `"1"` count.
+  - The static verifier proves the packaged `main.cjs`, `runtime-mode.cjs` and `workspace-config.cjs`
+    are byte-identical to the tested source.
+  - Packaged smoke, both OSes: the release build with `NODE_ENV=development` +
+    `POS_DESKTOP_NATIVE_SMOKE=1`, and the smoke build with `NODE_ENV=development` but without the
+    variable, each started against a loopback `http:` origin with `POS_DESKTOP_PROFILE_DIR` set: the
+    origin got **0 requests** and the override directory stayed **empty**.
+  - Installer smoke (Windows, installed release build): with `NODE_ENV=development`, the loopback
+    `http:` origin got 0 requests. With `NODE_ENV=development` + `POS_DESKTOP_PROFILE_DIR` + the smoke
+    variable, the app loaded the https workspace, created its DB in `%APPDATA%\Souled POS` and left the
+    override empty.
+  - DevTools are not observable from outside a packaged app without a debugging port, which it
+    refuses. So the DevTools part rests on the unit test plus the byte-identity check above.
+
+### 9.3 The offline receipt prints once
+- Root cause, confirmed from the run-44580343629 PDFs: `@media print` hid the screen with
+  `visibility: hidden`, which kept its layout height (two pages). The receipt lives in the modal's
+  `position: fixed` layer, which Chromium repeats on every printed page, so both pages carried a
+  full receipt.
+- Fix (`src/pages/offline-billing/styles.css`, print only, scoped to a page that shows a receipt):
+  - everything outside the receipt is `display: none`;
+  - the receipt's ancestors (backdrop, layout) become static, with no height or padding;
+  - the receipt itself is static, borderless and unbreakable;
+  - its buttons are hidden.
+- `printReceipt()` now requires **exactly 1 page**, both for `printToPDF` and for the PDF spooled by the
+  Windows print queue. Run 44590442688: Windows printToPDF 55,499 B with 1 page, spooled 124,582 B
+  with 1 page; macOS printToPDF 1 page. Local macOS: 81,063 B, 1 page.
+
+### 9.4 Results
+| Check | Windows | macOS |
+|---|---|---|
+| Electron shell specs incl. menu/clipboard/zoom | **2/2** | 2/2 |
+| Desktop offline billing (receipt = 1 page) | **12/12**; printToPDF 56,473 B, **1 page**; Windows queue 125,525 B, **1 page** | 12/12; printToPDF 82,985 B, **1 page** |
+| Packaged smoke incl. flavours + NODE_ENV refusal | pass | pass (runner login Keychain) |
+| NSIS lifecycle incl. https provisioning + NODE_ENV refusal | pass; installer 122,658,676 B | n/a |
+| Web suite / browser vitest / harnesses | 39/39, 0 flaky; 69/69; 8/8; 1/1, 1/1 | 39/39 with 1 flaky (`e2e/retail.spec.ts` desktop web flow, passed on retry; web owner); 69/69; 8/8; 1/1, 1/1 |
+| Frontend unit tests | 299 passed, 115 skipped | 299 passed, 115 skipped |
+
+Run 44590442688 (<https://github.com/tss-rishabh/pos/actions/runs/44590442688>) was green except the Windows
+zoom-key assertion (§9.1); every other check above already passed there, including the NSIS
+lifecycle (installer 122,658,681 B), the NODE_ENV refusals and the one-page receipt on the Windows
+print queue.
+
+**Local macOS:** shell specs 2/2 (with the new clipboard and menu checks) and the desktop suite 12/12
+(6.2 min, receipt 1 page) on the follow-up code; the runtime-mode and offline-billing unit tests pass
+(49/49 incl. 5 new).
+
+Files: `electron/main.cjs`, `electron/runtime-mode.cjs` (new), `electron/workspace-config.cjs`,
+`src/pages/offline-billing/styles.css`, `tests/desktop-runtime-mode.test.ts` (new),
+`e2e/electron.spec.ts`, `e2e-desktop/offline-billing.spec.ts`, `tools/desktop-native-fixture.mjs` (https
+mode, no default `NODE_ENV`), `tools/smoke-desktop-package.mjs`, `tools/smoke-desktop-installer.mjs`,
+`tools/verify-desktop-package.mjs`, `.github/workflows/desktop-platforms.yml`, `.gitignore`
+(`release-smoke/`, `release-upgrade/`).
