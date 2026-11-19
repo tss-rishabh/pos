@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/cashier-shortcuts/source-help.py (W15 capture copy: git-show baseline only)",
+  "runtime": "CPython 3.10.22 (uv venv: django 4.2.5, asgiref 3.7.2, sqlparse 0.4.4, whitenoise 6.12.0); no database",
+  "capturedAt": "2026-11-19T11:34:54Z",
+  "test": "tests/cashier-shortcuts/source-help.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": ["-B", "tools/cashier-shortcuts/source-help.py", "<backend-pos-web@78d5b63>"],
+      "status": 0,
+      "output": {
+        "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "sourceSha256": {
+          "order/templates/order/shortcuts.html": "8204b5456e893a76abebfb20216fe68a491d29dcb6bddbed5a0d519ac8111dbe",
+          "users/templates/admin/layouts/base_no_sidebar_navbar.html": "61170b15ed87e1f272a8c439986a4c94e352ec9edbdd736e57be5a4069849c36",
+          "users/templates/admin/includes/header.html": "b02e70730b0ed2d449dbfc89c6de12d5c3a2670eb93cde7f26e0425b7ad9864c",
+          "requirements.txt": "a4c6a9c5fbfa3a65cae9e3426fdd96e1b7f3a291997cb2d45f8389d4e37c572a",
+          "POSAdmin/settings.py": "fc9dfcd408ddd9744b87a3d4408e32114502b993a1a16d2bcb2bc4b8f505694b",
+          "order/views.py": "3a91805d0f0006a90c6cebb744dc3cc742a384f449f60344469d2941875f1eea",
+          "POSAdmin/connection_handler.py": "6428375099041804585c1132286742e2ba3fee1d05af37507664073a533b09da",
+          "order/urls.py": "072291b1b3da04ab20ef2c1326f457337b29590f64b23322a982f7069134ce49",
+          "POSAdmin/urls.py": "b7f20586c37833b4d93dceddd686e54b52420f7451c4519aaec8342f7f1ff1d2"
+        },
+        "framework": {
+          "django": "4.2.5",
+          "asgiref": "3.7.2",
+          "sqlparse": "0.4.4",
+          "whitenoise": "6.12.0"
+        },
+        "rows": [
+          ["1", "R", "Press 'R' To Refresh the Cart"],
+          ["2", "P", "Press 'P' To Proceed For Payment"],
+          [
+            "3",
+            "PP",
+            "Press 'PP' To Proceed For Payment without extra steps(Fast) or Double click"
+          ],
+          ["4", "F", "Press 'F' For Fast Cash"],
+          ["5", "N", "Press 'N' To Enable/Disable NPS Feedback"],
+          ["6", "E", "Press 'E' To Enable/Disable Exclusive Benifits"],
+          ["7", "B", "Press 'B + Scan' the Product' To Focus/Add Product in Cart"],
+          ["8", "S", "Press 'S + Enter' To Select Salesperson From Dropdown"],
+          ["9", "T", "Press 'T' To Create New Order"]
+        ],
+        "cases": [
+          {
+            "mount": "api/v1/orders/",
+            "identityFixture": 1,
+            "authenticatedGet": 200,
+            "authenticatedHead": 200,
+            "authenticatedPost": 405,
+            "missingCsrfPost": 403,
+            "tamperedCookie": 302
+          },
+          {
+            "mount": "api/v1/orders/",
+            "identityFixture": 2,
+            "authenticatedGet": 200,
+            "authenticatedHead": 200,
+            "authenticatedPost": 405,
+            "missingCsrfPost": 403,
+            "tamperedCookie": 302
+          },
+          {
+            "mount": "api/v1/orders/",
+            "identityFixture": 3,
+            "authenticatedGet": 200,
+            "authenticatedHead": 200,
+            "authenticatedPost": 405,
+            "missingCsrfPost": 403,
+            "tamperedCookie": 302
+          },
+          {
+            "mount": "api/v1/orders/",
+            "identityFixture": 4,
+            "authenticatedGet": 200,
+            "authenticatedHead": 200,
+            "authenticatedPost": 405,
+            "missingCsrfPost": 403,
+            "tamperedCookie": 302
+          },
+          {
+            "mount": "api/v1/orders/",
+            "identityFixture": 5,
+            "authenticatedGet": 200,
+            "authenticatedHead": 200,
+            "authenticatedPost": 405,
+            "missingCsrfPost": 403,
+            "tamperedCookie": 302
+          },
+          {
+            "mount": "orders/",
+            "identityFixture": 1,
+            "authenticatedGet": 200,
+            "authenticatedHead": 200,
+            "authenticatedPost": 405,
+            "missingCsrfPost": 403,
+            "tamperedCookie": 302
+          },
+          {
+            "mount": "orders/",
+            "identityFixture": 2,
+            "authenticatedGet": 200,
+            "authenticatedHead": 200,
+            "authenticatedPost": 405,
+            "missingCsrfPost": 403,
+            "tamperedCookie": 302
+          },
+          {
+            "mount": "orders/",
+            "identityFixture": 3,
+            "authenticatedGet": 200,
+            "authenticatedHead": 200,
+            "authenticatedPost": 405,
+            "missingCsrfPost": 403,
+            "tamperedCookie": 302
+          },
+          {
+            "mount": "orders/",
+            "identityFixture": 4,
+            "authenticatedGet": 200,
+            "authenticatedHead": 200,
+            "authenticatedPost": 405,
+            "missingCsrfPost": 403,
+            "tamperedCookie": 302
+          },
+          {
+            "mount": "orders/",
+            "identityFixture": 5,
+            "authenticatedGet": 200,
+            "authenticatedHead": 200,
+            "authenticatedPost": 405,
+            "missingCsrfPost": 403,
+            "tamperedCookie": 302
+          }
+        ],
+        "anonymousStatus": 302,
+        "databaseUsed": false,
+        "identityBoundary": "in-memory fixture backend; real signed-cookie auth/session middleware",
+        "middleware": [
+          "django.middleware.security.SecurityMiddleware",
+          "whitenoise.middleware.WhiteNoiseMiddleware",
+          "django.contrib.sessions.middleware.SessionMiddleware",
+          "django.middleware.common.CommonMiddleware",
+          "django.middleware.csrf.CsrfViewMiddleware",
+          "django.contrib.auth.middleware.AuthenticationMiddleware",
+          "django.contrib.messages.middleware.MessageMiddleware",
+          "django.middleware.clickjacking.XFrameOptionsMiddleware"
+        ],
+        "sourceApplicationBooted": false
+      }
+    }
+  ]
+}
