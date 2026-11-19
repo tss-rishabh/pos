@@ -25,6 +25,7 @@ import { FastCashCheckout } from './FastCashCheckout';
 import { WalletControls } from './WalletControls';
 import { CustomerLookup } from './CustomerLookup';
 import { BirthdayPrompt } from './BirthdayPrompt';
+import { MembershipEmailPrompt } from './MembershipEmailPrompt';
 import { SalespersonAssignments } from './SalespersonAssignments';
 import { confirmedPaymentSchema } from './receipts';
 import { InvoiceActions } from './InvoiceActions';
@@ -986,6 +987,15 @@ export function CheckoutReview({
                 }}
               />
             )}
+            <MembershipEmailPrompt
+              checkout={checkout}
+              operatorId={draft.ownerId}
+              disabled={disabled}
+              onNotice={setNotice}
+              onSaved={async () => {
+                await adopt(await readCheckout(draft.storeId, checkout.id, draft.ownerId));
+              }}
+            />
             {checkout.customerId && (
               <BirthdayPrompt
                 key={`birthday:${checkout.id}:${checkout.customerId}`}
