@@ -1,5 +1,19 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/mysql-core';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  exists,
+  gt,
+  inArray,
+  like,
+  ne,
+  not,
+  notExists,
+  or,
+  sql,
+} from 'drizzle-orm';
+import { alias, QueryBuilder } from 'drizzle-orm/mysql-core';
 import { z } from 'zod';
 import type { Databases } from '../../db/pools.js';
 import { Product, ProductStore, Store } from '../../db/legacy-schema.js';
@@ -20,7 +34,42 @@ export const inventoryMatrixInput = z
     draw: z.number().int().min(0).max(2147483647).default(0),
   })
   .strict();
-const matrixEligible = sql`${Product.product}<>'' and not(${Product.parent_prod_id}=0 and ${Product.prod_type}=3) and ((${Product.is_del}=0 and not exists(select 1 from products removed_parent where removed_parent.id=${Product.parent_prod_id} and removed_parent.is_del=1 and removed_parent.prod_type=3 and removed_parent.parent_prod_id=0)) or exists(select 1 from ${ProductStore} where ${ProductStore.product}=${Product.id} and ${ProductStore.is_del}=0 and ${ProductStore.stock}>0))`;
+const subquery = new QueryBuilder(),
+  removedParent = alias(Product, 'removed_parent');
+const matrixEligible = and(
+  ne(Product.product, ''),
+  not(and(eq(Product.parent_prod_id, 0n), eq(Product.prod_type, 3n))!),
+  or(
+    and(
+      eq(Product.is_del, 0),
+      notExists(
+        subquery
+          .select({ id: removedParent.id })
+          .from(removedParent)
+          .where(
+            and(
+              eq(removedParent.id, Product.parent_prod_id),
+              eq(removedParent.is_del, 1),
+              eq(removedParent.prod_type, 3n),
+              eq(removedParent.parent_prod_id, 0n),
+            ),
+          ),
+      ),
+    ),
+    exists(
+      subquery
+        .select({ id: ProductStore.id })
+        .from(ProductStore)
+        .where(
+          and(
+            eq(ProductStore.product, Product.id),
+            eq(ProductStore.is_del, false),
+            gt(ProductStore.stock, 0),
+          ),
+        ),
+    ),
+  ),
+);
 export function inventoryMatrixService(db: Databases) {
   return {
     async search(user: Principal, value: z.infer<typeof inventoryMatrixInput>) {
@@ -82,19 +131,20 @@ export function inventoryMatrixService(db: Databases) {
       // Django icontains escapes SQL wildcards, unlike the raw products datatable.
       const pattern = `%${input.search.replace(/[\\%_]/g, '\\$&')}%`,
         match = input.search
-          ? sql`(${Product.product} like ${pattern} or cast(${Product.id} as char) like ${pattern})`
-          : sql`true`;
-      const [counts] = z
-        .array(z.object({ unfiltered: countValue, filtered: countValue }))
-        .parse(
-          (
-            await db
-              .get('primary')
-              .execute(
-                sql`select count(*) as unfiltered,coalesce(sum(case when ${match} then 1 else 0 end),0) as filtered from ${Product} where ${matrixEligible}`,
-              )
-          )[0],
-        );
+          ? or(like(Product.product, pattern), like(sql`cast(${Product.id} as char)`, pattern))
+          : undefined;
+      const [counts] = z.array(z.object({ unfiltered: countValue, filtered: countValue })).parse(
+        await db
+          .get('primary')
+          .select({
+            unfiltered: sql<string>`count(*)`,
+            filtered: match
+              ? sql<string>`coalesce(sum(case when ${match} then 1 else 0 end),0)`
+              : sql<string>`count(*)`,
+          })
+          .from(Product)
+          .where(matrixEligible),
+      );
       const filtered = counts?.filtered || 0,
         start = sourcePageStart(input.start, input.length, filtered),
         parent = alias(Product, 'inventory_parent');
@@ -112,9 +162,7 @@ export function inventoryMatrixService(db: Databases) {
         .leftJoin(parent, eq(parent.id, Product.parent_prod_id))
         .where(and(matrixEligible, match))
         .orderBy(
-          input.direction === 'asc'
-            ? sql`${Product[input.sort]} asc`
-            : sql`${Product[input.sort]} desc`,
+          input.direction === 'asc' ? asc(Product[input.sort]) : desc(Product[input.sort]),
           asc(Product.id),
         )
         .limit(input.length)
