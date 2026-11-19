@@ -136,12 +136,22 @@ test('desktop shell blocks external links, redirects and new windows', async ({ 
         app.evaluate(({ BrowserWindow }) =>
           BrowserWindow.getAllWindows()[0]!.webContents.getZoomLevel(),
         );
-      await window.keyboard.press('Control+Equal');
+      // Zoom shortcuts are browser-side accelerators of the hidden menu. Playwright's CDP keys
+      // reach only the renderer, so the keys are sent as native raw key-downs through
+      // webContents.sendInputEvent; an unhandled key then goes to the window's accelerators,
+      // as a physical key press does.
+      const press = (keyCode: string) =>
+        app.evaluate(({ BrowserWindow }, code) => {
+          const contents = BrowserWindow.getAllWindows()[0]!.webContents;
+          contents.sendInputEvent({ type: 'keyDown', keyCode: code, modifiers: ['control'] });
+          contents.sendInputEvent({ type: 'keyUp', keyCode: code, modifiers: ['control'] });
+        }, keyCode);
+      await press('=');
       await expect.poll(zoom).toBeGreaterThan(0);
-      await window.keyboard.press('Control+Minus');
-      await window.keyboard.press('Control+Minus');
+      await press('-');
+      await press('-');
       await expect.poll(zoom).toBeLessThan(0);
-      await window.keyboard.press('Control+Digit0');
+      await press('0');
       await expect.poll(zoom).toBe(0);
     }
     const [redirect] = await Promise.all([
