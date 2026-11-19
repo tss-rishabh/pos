@@ -1,6 +1,5 @@
 import { randomInt } from 'node:crypto';
 import Hashids from 'hashids';
-import { z } from 'zod';
 import { AppError } from '../../domain/errors.js';
 import { giftCardAlphabet } from '../checkout/gift-cards.js';
 
@@ -91,9 +90,14 @@ export function giftCardCsv(cards: readonly GeneratedGiftCard[]): Buffer {
     throw new AppError(503, 'GIFT_CARD_BATCH_CAPACITY', 'Choose a smaller gift card batch.');
   return bytes;
 }
-/** Exact source prefix/digit cleanup, followed by validation instead of source IndexError/invalid delivery. */
+/**
+ * `Helpers.clean_email` (helpers/helpers.py:1418-1431): strip one `pos.`/`emp.` prefix (every
+ * occurrence, as `str.replace` does), digit runs when the address starts with a digit, then a
+ * leading dot. Legacy raises IndexError on an empty result; this returns ''.
+ */
 export function giftCardRecipient(email: string | null): string {
   let value = email || '';
+  if (!value) return '';
   for (const prefix of ['pos.', 'emp.'])
     if (value.startsWith(prefix)) {
       value = value.replaceAll(prefix, '');
@@ -101,11 +105,29 @@ export function giftCardRecipient(email: string | null): string {
     }
   if (/^\p{Nd}/u.test(value)) value = value.replace(/(^|[^\p{L}\p{N}_])\p{Nd}+/gu, '');
   if (value.startsWith('.')) value = value.slice(1);
-  if (!z.email().safeParse(value).success)
-    throw new AppError(
-      422,
-      'GIFT_CARD_BATCH_CONTACT_INVALID',
-      'Ask your administrator to configure a valid gift card delivery email.',
-    );
   return value;
+}
+/**
+ * Legacy archive password (helpers/helpers.py:1345-1350): `'123456' + collection_no`, or the
+ * last six characters of the creator's phone + collection_no when the phone is set.
+ * User-mandated (AGENTS.md, 19 November 2026) although it is weak and predictable.
+ */
+export function giftCardArchivePassword(phone: string | null, collectionId: string): string {
+  return (phone ? phone.slice(-6) : '123456') + collectionId;
+}
+/**
+ * Legacy file name (helpers/helpers.py:1323-1340): `GFTCRDS-` + str(datetime.now().timestamp())
+ * without the dot + six random digits 1-9. Returns the CSV entry name and the storage key
+ * `uploads/csv/giftcards/GFTCRDS-….zip` written to gift_card_collection.filename.
+ */
+export function giftCardArchiveNames(
+  epochMicroseconds: bigint,
+  integer: RandomInteger = (min, max) => randomInt(min, max + 1),
+) {
+  const seconds = epochMicroseconds / 1_000_000n,
+    fraction = (epochMicroseconds % 1_000_000n).toString().padStart(6, '0').replace(/0+$/, '');
+  let random = '';
+  for (let index = 0; index < 6; index++) random += String(integer(1, 9));
+  const stem = 'GFTCRDS-' + seconds.toString() + (fraction || '0') + random;
+  return { entry: stem + '.csv', key: 'uploads/csv/giftcards/' + stem + '.zip' };
 }

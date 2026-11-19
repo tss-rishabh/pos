@@ -74,8 +74,31 @@ describe.skipIf(!integration)(
         const alternate = await read('0009007199254740994');
         expect(alternate).toMatchObject({
           matchedBarcode: '9007199254740994',
-          product: { id: '11', barcode: '9007199254740993', stock: 3 },
+          product: {
+            id: '11',
+            barcode: '9007199254740993',
+            stock: 3,
+            holdedStock: 0,
+            storageStock: 'Not available in any storage',
+          },
         });
+        // store_products_datatable.py:276-312: first hold row and one line per storage row.
+        await native().query(
+          'INSERT INTO hold_stock_store(id,product_id,store_id,stock) VALUES(5,20,1,4),(6,20,1,9)',
+        );
+        await native().query(
+          'INSERT INTO stock_storages(id,storage_id,store_id,product_id,stock) VALUES(8,7,1,20,1)',
+        );
+        try {
+          const page = await catalog.products(principal, '1', 'Café', '0', 30, true);
+          expect(page.data.find((row) => row.id === '20')).toMatchObject({
+            holdedStock: 4,
+            storageStock: 'Actual bin : 2\nLegacy storage ID : 1\n',
+          });
+        } finally {
+          await native().query('DELETE FROM hold_stock_store');
+          await native().query('DELETE FROM stock_storages WHERE id=8');
+        }
         await expect(read('900719925474099')).rejects.toMatchObject({ code: 'BARCODE_NOT_FOUND' });
         await expect(read('9007199254740995')).rejects.toMatchObject({ code: 'BARCODE_NOT_FOUND' });
         await expect(read('9007199254740993', '3')).rejects.toMatchObject({
@@ -134,6 +157,7 @@ describe.skipIf(!integration)(
         'stock_storage_logs',
         'stock_storages',
         'store_storages',
+        'hold_stock_store',
         'users',
         'pos_user',
         'user_stores',
@@ -636,7 +660,7 @@ describe.skipIf(!integration)(
         catalog.search({ ...franchise, role: 1 }, productSearchInput.parse({ storeIds: ['2'] })),
       ).rejects.toMatchObject({ status: 403 });
     });
-    it('builds the distinct offline seven-column profile and blocks ambiguous prices and unsafe IDs', async () => {
+    it('builds the distinct offline seven-column profile, resolves repeated prices as legacy and keeps exact IDs', async () => {
       const snapshot = await catalogSnapshotService(db()).read(principal, '1');
       expect(snapshot.data).toEqual([
         ['11', 'Blue S', '9007199254740994', '10.00', '9.00', 8.25, 3],
@@ -680,9 +704,12 @@ describe.skipIf(!integration)(
           productSearchInput.parse({ storeIds: ['1'], search: 'Café' }),
         ),
       ).rejects.toMatchObject({ code: 'CATALOG_PRICE_RECONCILIATION_REQUIRED' });
-      await expect(catalogSnapshotService(db()).read(principal, '1')).rejects.toMatchObject({
-        code: 'CATALOG_PRICE_RECONCILIATION_REQUIRED',
-      });
+      // Legacy AjaxCatalogueView keeps the last pricelist-2 row (core/views.py:1704-1709).
+      expect(
+        (await catalogSnapshotService(db()).read(principal, '1')).data.find(
+          (row) => row[0] === '20',
+        )?.[5],
+      ).toBe(1);
     });
     it('preserves the full all-SKU stock matrix, source ERP inheritance and literal ORM search semantics', async () => {
       const [products] = await native().query<mysql.RowDataPacket[]>(

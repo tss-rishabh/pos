@@ -30,7 +30,7 @@ function ApplicationLinkWorkspace({ user, storeId = '' }: ApplicationLinksProps)
     [staffQr, setStaffQr] = useState<(StaffApplicationQr & { receivedAt: number }) | null>(null),
     [customerQr, setCustomerQr] = useState<CustomerApplicationQr | null>(null),
     [remaining, setRemaining] = useState(0),
-    [busy, setBusy] = useState<'staff' | 'customer' | 'download' | 'revoke' | null>(null),
+    [busy, setBusy] = useState<'staff' | 'customer' | 'download' | null>(null),
     [error, setError] = useState<unknown>(),
     download = useRef<ReturnType<typeof applicationDownloadSession> | null>(null),
     lastRenewed = useRef<string | null>(null);
@@ -125,26 +125,6 @@ function ApplicationLinkWorkspace({ user, storeId = '' }: ApplicationLinksProps)
       setError(failure);
     }
   }
-  async function revokeStaff() {
-    if (!staffQr || busy || !online) return;
-    setBusy('revoke');
-    setError(undefined);
-    try {
-      await request(applicationBase + '/staff-qr/' + staffQr.id, {
-        method: 'DELETE',
-        operatorId: user.id,
-        signal: lifetime.current.signal,
-        cache: 'no-store',
-        redirect: 'error',
-      });
-      setStaffQr(null);
-      download.current = null;
-    } catch (failure) {
-      if (!lifetime.current.signal.aborted) setError(failure);
-    } finally {
-      if (!lifetime.current.signal.aborted) setBusy(null);
-    }
-  }
   const urgency =
     remaining < Math.floor((meta.data?.qrPeriodSeconds || 60) / 3) * 1000
       ? 'red'
@@ -185,13 +165,6 @@ function ApplicationLinkWorkspace({ user, storeId = '' }: ApplicationLinksProps)
                     onClick={() => void downloadStaff()}
                   >
                     Download staff installer
-                  </button>
-                  <button
-                    className="button secondary"
-                    disabled={!online || busy !== null}
-                    onClick={() => void revokeStaff()}
-                  >
-                    Revoke staff QR
                   </button>
                 </div>
               )}

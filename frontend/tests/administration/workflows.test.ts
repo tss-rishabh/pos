@@ -377,17 +377,14 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
               qrDataUrl: 'data:image/png;base64,' + imageBytes.toString('base64'),
               serverNow: Date.now(),
               expiresAt: Date.now() + 60000,
-              filename: 'mpos.apk',
-              bytes: 4,
             });
           if (path.endsWith('/customer-qr'))
             return json({
               storeId: '1',
               storeName: 'Fixture checked-in store',
-              url: origin + '/application-links/customer#' + 'C'.repeat(43),
+              url: origin + '/application-links/customer#1.' + 'C'.repeat(43),
               qrDataUrl: 'data:image/png;base64,' + imageBytes.toString('base64'),
             });
-          if (method === 'DELETE') return json({ status: 'revoked' });
           if (path.endsWith('/staff-download-activations')) {
             const input = z
               .object({ token: z.string(), operationId: z.uuid() })
@@ -400,9 +397,6 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
               activationToken: 'B'.repeat(43),
               serverNow: Date.now(),
               expiresAt: Date.now() + 60000,
-              filename: 'mpos.apk',
-              bytes: 4,
-              checksum: 'a'.repeat(64),
             });
           }
           if (path.endsWith('/staff-download-content')) {
@@ -1515,7 +1509,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
       });
       await page.goto(
         applicationScreen
-          ? `${origin}/application-links/${applicationScreen}#${(applicationScreen === 'staff' ? 'A' : 'C').repeat(43)}`
+          ? `${origin}/application-links/${applicationScreen}#${applicationScreen === 'staff' ? 'A'.repeat(43) : '1.' + 'C'.repeat(43)}`
           : `${origin}/__administration-test__?screen=${screen}`,
       );
       return state;
@@ -2519,8 +2513,6 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         const apk = await apkReady;
         expect(apk.suggestedFilename()).toBe('mpos.apk');
         expect(readFileSync((await apk.path())!)).toEqual(Buffer.from([80, 75, 3, 4]));
-        await page.getByRole('button', { name: 'Revoke staff QR', exact: true }).click();
-        await browserExpect(page.getByAltText('Staff installer QR code')).toHaveCount(0);
         expect(
           state.applicationRequests
             .filter((call) => call.path.startsWith('/api/v1/auth/'))

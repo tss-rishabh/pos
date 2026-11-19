@@ -398,12 +398,12 @@ export async function buildApp(
     ...(config.DEMO_MODE ? { demoStores: services.catalog.stores } : {}),
   });
   await registerOperationalReports(app, config, db, { jobs: moduleRuntime.jobs });
-  await registerCatalogDetails(app, config, db);
+  await registerCatalogDetails(app, config, db, { ephemeral: moduleRuntime.ephemeral });
   registerSpecialPermissionHistory(app, config, db, readSpecialPermissionHistoryOptions());
-  registerApplicationLinks(app, config, db);
+  registerApplicationLinks(app, config, db, moduleRuntime);
   registerMotivationalQuotes(app);
   registerDashboard(app, config, db);
-  registerGiftCardBatches(app, config, db, readGiftCardBatchOptions());
+  registerGiftCardBatches(app, config, db, readGiftCardBatchOptions(), moduleRuntime);
   registerAdministrationHistory(app, config, db, readAdministrationHistoryOptions());
   app.get('/api/v1/reports/daily-store-sales', async (request) => {
     const user = authenticated(request);

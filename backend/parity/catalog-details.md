@@ -14,8 +14,8 @@ Implemented by `src/modules/catalog-details/`, `frontend/src/pages/catalog/` and
 | `ShowStorageStockInventoryView`, `AjaxStorageStockInventoryListView` | Storage audit, original stock-row-ID storage join and page-local sequence numbering; all original fields and export controls                                                                                                |
 | `CatalogueView`, `AjaxCatalogueView`                                 | Distinct seven-column all-store snapshot; inherited parent prices, last GS1 by primary key, zero-price and missing-barcode fallbacks, all-match CSV/Excel, 10-minute refresh and offline copy                               |
 | `AssignProductStockView`, `AjaxProductStatusChangeView`              | Shared administration mutation APIs, now accessible from product detail and stock matrix editors; no duplicate mutation authority                                                                                           |
-| `InventorySyncView`, `download_demo_file`                            | Manual forty-SKU input, CSV `sku` import, exact four-byte `sku\n` sample download, simple-product selection and distinct source manual/CSV delivery bodies; durable command receipts and outcome reconciliation             |
-| `AjaxTroubleshootProductView`                                        | Reviewed parent visibility, empty image initialization and duplicate-GTIN suffix repair, atomic local changes and durable source-compatible troubleshooting synchronization                                                 |
+| `InventorySyncView`, `download_demo_file`                            | Manual forty-SKU input, CSV `sku` import, exact four-byte `sku\n` sample download, simple-product selection and distinct source manual/CSV bodies, posted synchronously in the request with the source messages             |
+| `AjaxTroubleshootProductView`                                        | Parent visibility, empty image initialization and duplicate-GTIN suffix repair committed first, then `is_troubleshoot` product sync; constant 200 message, errors logged and swallowed                                      |
 
 Catalog source `recordsTotal` becomes the filtered count when searching. That compatibility behavior is retained alongside `recordsFiltered`; the new `unfilteredCount` reports the true pre-search size. Invalid fractional/out-of-range source pages still reset to the first page. IDs and GTINs are strings to preserve values above JavaScript's safe integer range.
 
@@ -30,7 +30,7 @@ Offline snapshots contain product/store stock data, never customer contacts or o
 Source corrections are explicit:
 
 - Search/sort/IDs are validated and bound. SQL injection and arbitrary SQL ordering are removed.
-- Conflicting location membership prices, including NULL versus a value, fail with `CATALOG_PRICE_RECONCILIATION_REQUIRED`. Equal duplicated prices retain source output. The source group projects an arbitrary price; the rewrite does not invent one.
+- Product search: conflicting location membership prices, including NULL versus a value, fail with `CATALOG_PRICE_RECONCILIATION_REQUIRED`. The catalogue snapshot (C10) instead follows `AjaxCatalogueView`: the last pricelist-2 row in primary-key order (highest `location_id`) wins, NULL/0 prints 0.
 - A matrix variant with no parent fails with `CATALOG_PARENT_RECONCILIATION_REQUIRED`; the source ERP helper raises an attribute error.
 - Stored description HTML is rendered as inert readable text. Image URLs remain on the fixed source CDN with encoded paths. CSV cells cannot execute spreadsheet formulas; XLSX cells are inline strings so long IDs and formula-like text remain literal.
 - Duplicate-GS1 detail behavior retains the source zip instead of repairing its missing-barcode quirk. Explicit primary-key ordering stabilizes otherwise unordered source querysets. Production duplicate/interleaved GS1 cases still require source runtime reconciliation before certification; the snapshot uses the distinct last-GS1 profile.
@@ -38,12 +38,44 @@ Source corrections are explicit:
 
 Evidence: `tests/catalog-details/` executes the pinned source datatable bodies against verified-schema local MySQL rows, including 24 parent-catalog cases, 30 audit cases, 18 stock-matrix cases and the pinned detail body/helpers. Additional cases cover source dictionary insertion order/duplicate keys, long IDs, missing associations, scope denial, malformed input, explicit route traces and historical named bindings. `frontend/tests/catalog/` tests the actual shipped DataTables smart-search function, owner/session cache boundaries and independently decodes the XLSX with Python ZIP/XML readers. Browser fixtures cover paging, export visibility, safe descriptions, optimistic stock/visibility, zero-stock association creation, all audit kinds and offline restoration. These fixtures use synthetic data and no live provider calls. See `parity/evidence/catalog-details/` for query plans and browser artifacts.
 
-Maintenance is restricted to writer-current internal role 1 because the source upstream payload changes global SKUs and cannot enforce a selected-store boundary. This corrects legacy login-only global mutation access. Manual input preserves the source forty-entry check before deduplication and includes `priority:1`; CSV selects the same simple-product IDs without `priority`. Both preserve long numeric JSON identifiers without converting them through JavaScript numbers. CSV validation adds a 500 KB/10,000-row limit, accepts a UTF-8 BOM and case-insensitive `.csv` extension, requires the literal `sku` header and never logs or persists the raw file. The sample is the committed source asset's exact `sku\n` bytes with no data rows.
+## Maintenance (W8d, schema freeze)
 
-Troubleshooting previews a hash of its locked footprint and refuses a stale plan. It changes only the source parent visibility flags, empty image metadata and other SKUs' duplicate barcodes; quantities remain intact. The original SKU receives `is_troubleshoot:true`; additional changed SKUs receive ordinary synchronization to avoid leaving their downstream barcode copies stale. Missing parents, overflowing signed-BIGINT suffixes, preexisting temporary-barcode collisions, orphan duplicate SKUs and unusually large repair groups fail before local changes. The legacy handler always returned HTTP 200, even after an exception. The rewrite reports validation/authorization failures and a durable delivery status instead.
+Inventory pull and troubleshooting run synchronously in the request, as legacy does; the command ledger, deliveries,
+reconciliations, in-process worker and the `pos_rewrite_catalog_*` tables are no longer used.
 
-`maintenance-migration.sql` creates command, delivery, mutex and append-only reconciliation tables. A command UUID is bound to the actor, kind and immutable input hash. Local repair and its outbox insert commit together. The bounded worker sends outside the database transaction, uses a fresh lease token on every attempt and cannot let an old response overwrite a newer attempt. Network, timeout, unclassified status and expired-lease outcomes become `UNCERTAIN`; they never trigger an automatic resend. An authorized operator must check the service and record accepted/not-accepted, with an idempotent append-only decision, before a resend is allowed. Pending inventory pulls recheck current operator authority and simple-SKU eligibility immediately before dispatch. Already committed repairs finish their derivative synchronization even if the issuer subsequently loses access. These checks do not claim that an upstream idempotency header is honored or that a 2xx response proves downstream completion.
+- Access: any signed-in operator (legacy `LoginRequiredMixin` only, `core/views.py:1558,2987`). The rewrite's internal
+  role-1 restriction is removed.
+- Inventory pull (`core/views.py:1564-1620`): manual input keeps the forty-entry check before deduplication and sends
+  `{"productIds":[…],"priority":1}`; CSV sends `{"productIds":[…]}`. Only `prod_type=1` ids are sent, ascending.
+  Legacy ignores the upstream status; the rewrite logs a non-2xx status and still answers with the source message. CSV
+  validation adds a 500 KB/10,000-row limit and requires the literal `sku` header.
+- Troubleshoot (`core/views.py:2996-3030`): in one writer transaction, under the Redis lock
+  `pos:lock:catalog:barcode-mutations` (shared with barcode assignment), every `product_store` row of the parent becomes
+  `is_avail=1,is_del=0`, empty `images_new` becomes `{"unisex":[],"male":[],"female":[]}`, and every other
+  `products_gs1` row sharing the product's first barcode becomes `<gtin>0123`. After commit, `sync_pos_product([id],
+is_troubleshoot=True)` runs. Any error (including a busy lock or a suffix beyond signed BIGINT) is logged and
+  swallowed; the response is always 200 "Troubleshooting started for the Product, Just wait for a few seconds".
+  Removed rewrite-only pieces: preview/plan hash, collision/orphan/size refusals, syncing the other changed SKUs.
 
-Startup options are validated in `maintenance-options.ts`: `CATALOG_MAINTENANCE_WORKER_ENABLED` defaults false, interval 3000 ms, per-operator open-command limit 20 and inventory HTTP timeout 90000 ms. Inventory pull needs `INVENTORY_SYNC_URL` and `INVENTORY_SYNC_API_KEY`; troubleshooting reuses the validated administration `PRODUCT_SYNC_*` adapter and its replay-safety gate. Production requires HTTPS and rejects embedded credentials, URL query strings and redirects; demo mode cannot target non-local endpoints. An enabled worker without a transport fails startup. Required external configuration and the deployment readiness gate must be satisfied before enabling delivery. No live requests were sent by these tests.
+| Case                       | Legacy message                                                           | Rewrite                                                    |
+| -------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| Manual success             | "Sku(s) registered successfully. Please check inventory after sometime." | 200, same                                                  |
+| CSV processed              | "All SKUs processed successfully.Data may take some time to reflect."    | 200, same                                                  |
+| No simple SKUs (manual)    | "No Sku(s) found for inventory pull."                                    | 422 `INVENTORY_SKUS_NOT_FOUND`, same text                  |
+| More than 40               | "Please enter only 40 Sku(s)."                                           | 400 `INVENTORY_MANUAL_LIMIT` "Enter at most 40 SKU IDs."   |
+| Empty input                | "Please enter correct input."                                            | 400 `INVENTORY_SKUS_REQUIRED` "Enter at least one SKU ID." |
+| No file / not `.csv`       | "No file uploaded" / "Invalid file format Please import csv file only"   | page message, same text                                    |
+| Upstream unreachable       | manual: HTTP 500; CSV: warning with the exception text                   | 503 `INVENTORY_PULL_UNAVAILABLE`                           |
+| Not configured             | request error                                                            | 503 `INVENTORY_PULL_UNAVAILABLE`                           |
+| Troubleshoot (any outcome) | 200 constant message                                                     | 200 constant message                                       |
 
-Maintenance evidence adds seven real-MySQL transactions against fresh local schemas plus source-extracted Python handler comparisons, runtime input/transport tests, actor-bound client continuation tests and safe worker-log assertions. The expanded catalog browser harness passes twelve workflows with 39 mocked API requests, no unexpected requests and no page errors, including exact sample bytes, manual uncertainty/reconciliation, CSV import and reviewed repair receipts. Captured screenshots are in `parity/evidence/catalog-details/`. Actual warehouse mapping/LIKE collation proof, source duplicate/ambiguous data reconciliation, deployment transports and the stock procedure verification remain release requirements.
+Configuration: `INVENTORY_SYNC_URL`, `INVENTORY_SYNC_API_KEY`, `INVENTORY_SYNC_HTTP_TIMEOUT_MS` (default 90000);
+troubleshooting reuses the administration `PRODUCT_SYNC_*` adapter. Evidence: `tests/catalog-details/
+maintenance.mysql.integration.test.ts` (source oracle for the repair effects, payload modes, swallowed failures, busy
+lock) and `maintenance-domain.test.ts`.
+
+## Counter product list (C1)
+
+`catalogService.products` now returns `holdedStock` (first `hold_stock_store` row by id for the product and store, else 0) and `storageStock` (one `"<storage_name> : <stock>\n"` line per `stock_storages` row in id order, else "Not available
+in any storage"), as `store_products_datatable.py:276-312`. The counter UI (`frontend/src/pages/counter.tsx`, W4) does
+not show them yet.

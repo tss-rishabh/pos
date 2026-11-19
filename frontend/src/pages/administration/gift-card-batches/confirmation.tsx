@@ -1,29 +1,20 @@
 import { useEffect, useRef } from 'react';
 import { ErrorState } from '../../../components/common';
 
-export type BatchConfirmation = {
-  operationId: string;
-  batchId: string;
-  expectedVersion: string;
-  action: 'print' | 'block' | 'unblock' | 'retry';
-  requiresResend: boolean;
-};
+/** Legacy `$.confirm` dialogs (gift_card/index.html:160-235): "Block", "Activate", "Mark As Printed". */
+export type BatchConfirmation = { batchId: string; action: 'print' | 'block' | 'active' };
 export function BatchConfirmationDialog({
   command,
   busy,
   online,
-  resend,
   error,
-  onResend,
   onClose,
   onConfirm,
 }: {
   command: BatchConfirmation;
   busy: boolean;
   online: boolean;
-  resend: boolean;
   error: unknown;
-  onResend: (value: boolean) => void;
   onClose: () => void;
   onConfirm: () => void;
 }) {
@@ -35,12 +26,10 @@ export function BatchConfirmationDialog({
   }, []);
   const title =
     command.action === 'print'
-      ? 'Mark this batch as printed?'
-      : command.action === 'retry'
-        ? 'Retry delivery of this batch?'
-        : command.action === 'block'
-          ? 'Block this batch?'
-          : 'Unblock this batch?';
+      ? 'Mark As Printed'
+      : command.action === 'block'
+        ? 'Block'
+        : 'Activate';
   return (
     <dialog
       ref={ref}
@@ -52,32 +41,14 @@ export function BatchConfirmationDialog({
       }}
     >
       <h2>{title}</h2>
-      <p>Batch {command.batchId}</p>
-      {command.action === 'print' && (
-        <p>This records that you printed or distributed the existing cards.</p>
-      )}
-      {command.requiresResend && (
-        <label>
-          <input
-            type="checkbox"
-            checked={resend}
-            disabled={busy}
-            onChange={(event) => onResend(event.target.checked)}
-          />
-          I checked the inbox and want to send the same encrypted file again.
-        </label>
-      )}
+      <p>Collection {command.batchId}</p>
       {error !== undefined && <ErrorState error={error} />}
       <div className="administration-actions">
         <button className="button secondary" disabled={busy} onClick={onClose}>
           Cancel
         </button>
-        <button
-          className="button primary"
-          disabled={!online || busy || (command.requiresResend && !resend)}
-          onClick={onConfirm}
-        >
-          {busy ? 'Working…' : 'Confirm batch change'}
+        <button className="button primary" disabled={!online || busy} onClick={onConfirm}>
+          {busy ? 'Working…' : 'Confirm'}
         </button>
       </div>
     </dialog>

@@ -15,7 +15,7 @@ export function ApplicationLinkLandingPage({ kind }: { kind: 'staff' | 'customer
     <ApplicationLandingFlow
       key={kind + ':' + location.search + ':' + location.hash}
       kind={kind}
-      initialToken={location.search ? null : applicationFragment(location.hash)}
+      initialToken={location.search ? null : applicationFragment(location.hash, kind)}
     />
   );
 }
@@ -75,7 +75,7 @@ function ApplicationLandingFlow({
           <>
             <p>
               {kind === 'staff'
-                ? 'Download the approved staff installer.'
+                ? 'Download the staff installer.'
                 : 'Continue to the store’s application link.'}
             </p>
             <button

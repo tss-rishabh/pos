@@ -1,4 +1,3 @@
-import { isAbsolute } from 'node:path';
 import { z } from 'zod';
 
 const optional = <T>(schema: z.ZodType<T>) =>
@@ -16,29 +15,23 @@ const origin = https
     return url.pathname === '/' && !url.search;
   })
   .transform((value) => new URL(value).origin);
+/**
+ * Legacy settings (POSAdmin/settings.py:526-603): `APP_APK_URL`, `MPOS_DOWNLOAD_QR_EXP_SEC`,
+ * `MPOS_DOWNLOAD_LINK_EXP`, `MAIN_SITE_API_V2`, `POS_APP_REDIRECT`. `POS_CUSTOMER_APP_ORIGINS`
+ * is the rewrite's redirect allowlist (security decision).
+ */
 export function readApplicationLinkOptions(env: NodeJS.ProcessEnv = process.env) {
   return z
     .object({
-      POS_STAFF_APK_ENABLED: z.preprocess(
-        (value) =>
-          value === undefined || value === 'false' ? false : value === 'true' ? true : value,
-        z.boolean(),
-      ),
-      POS_STAFF_APK_PATH: optional(
-        z.string().max(4096).refine(isAbsolute, 'Use an absolute approved package path.'),
-      ),
-      POS_STAFF_APK_SHA256: optional(z.string().regex(/^[a-f0-9]{64}$/)),
-      POS_STAFF_APK_BYTES: optional(z.coerce.number().int().min(4).max(536870912)),
+      APP_APK_URL: optional(https),
       MPOS_DOWNLOAD_QR_EXP_SEC: z.coerce.number().int().min(30).max(300).default(60),
       MPOS_DOWNLOAD_LINK_EXP: z.coerce.number().int().min(30).max(300).default(60),
-      POS_CUSTOMER_APP_MODE: z.enum(['disabled', 'fallback', 'provider']).default('disabled'),
-      POS_CUSTOMER_APP_LINK_ENDPOINT: optional(
+      MAIN_SITE_API_V2: optional(
         https.refine(
           (value) => !new URL(value).search,
           'The application provider endpoint cannot contain query credentials.',
         ),
       ),
-      POS_CUSTOMER_APP_LINK_CONTRACT: optional(z.literal('verified-pos-app-link-v1')),
       POS_CUSTOMER_APP_ORIGINS: z
         .string()
         .max(4096)
@@ -51,26 +44,9 @@ export function readApplicationLinkOptions(env: NodeJS.ProcessEnv = process.env)
         )
         .pipe(z.array(origin).min(1).max(20))
         .transform((values) => [...new Set(values)]),
-      POS_CUSTOMER_APP_WEBSITE: origin.default('https://www.thesouledstore.com'),
       POS_APP_REDIRECT: https.default('https://www.thesouledstore.com'),
     })
     .superRefine((value, context) => {
-      if (
-        value.POS_STAFF_APK_ENABLED &&
-        (!value.POS_STAFF_APK_PATH || !value.POS_STAFF_APK_SHA256 || !value.POS_STAFF_APK_BYTES)
-      )
-        context.addIssue({
-          code: 'custom',
-          message: 'The staff package needs an approved file, checksum and size.',
-        });
-      if (
-        value.POS_CUSTOMER_APP_MODE === 'provider' &&
-        (!value.POS_CUSTOMER_APP_LINK_ENDPOINT || !value.POS_CUSTOMER_APP_LINK_CONTRACT)
-      )
-        context.addIssue({
-          code: 'custom',
-          message: 'The customer link provider needs a verified contract and endpoint.',
-        });
       if (!safeApplicationDestination(value.POS_APP_REDIRECT, value.POS_CUSTOMER_APP_ORIGINS))
         context.addIssue({
           code: 'custom',
@@ -85,7 +61,16 @@ export const operation = z.object({ operationId: z.uuid() }).strict();
 export const opaqueToken = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 export const staffActivation = operation.extend({ token: opaqueToken }).strict();
 export const staffContent = operation.extend({ activationToken: opaqueToken }).strict();
-export const customerScan = operation.extend({ token: opaqueToken }).strict();
+/** `{storeId}.{HMAC}`: the store id plus its deterministic per-store token. */
+export const customerToken = z.string().regex(/^[1-9]\d{0,9}\.[A-Za-z0-9_-]{43}$/);
+export const customerScan = operation.extend({ token: customerToken }).strict();
+/** Legacy `GET /user_to_app?store_id=` (core/views.py:3182-3213). */
+export const legacyCustomerScan = z.object({
+  store_id: z
+    .string()
+    .regex(/^[1-9]\d{0,9}$/)
+    .refine((value) => /^\d+$/.test(value) && BigInt(value) <= 2147483647n),
+});
 export function safeApplicationDestination(value: string, origins: readonly string[]) {
   try {
     if (value.length > 2048) return false;
