@@ -143,3 +143,9 @@ These supersede earlier WIP patterns. Every agent must follow them.
   - connection setup and the health check
   - seven legacy report statements copied verbatim from the pinned source, with values bound (identical output by
     construction; flash sales needs `@rownum`)
+- **Offline card/UPI, 19 November 2026 (user):**
+  - At sync, a manually entered card or UPI reference from a standalone terminal is accepted.
+  - The order is created with that payment, and the typed reference is recorded the way legacy records a manually
+    entered payment reference.
+  - Where a matching row exists in the terminal tables, it is checked. A missing match does not block the sale and
+    is flagged for finance reconciliation.
