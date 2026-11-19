@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/catalog-details/native-ui-workflow/source.py configure()/extend()/page_call() (d7cfa66) via capture runner w15n-catalog-pages.py; rendered HTML reduced to its SHA-256",
+  "runtime": "CPython 3.10.22 (uv venv: django 4.2.5, pymysql 1.1.1); isolated loopback MySQL 8.4.11, read-only",
+  "capturedAt": "2026-11-19T11:37:53Z",
+  "test": "tests/catalog-details/legacy-page-dispatch.mysql.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "0e33500771f2fd3597b78cd1da9ae87ac87c05544549587f5cfd701e63e59ab9",
+      "args": ["tools/catalog-details/native-ui-workflow/source.py"],
+      "status": 0,
+      "output": [
+        {
+          "context": {
+            "selectedStoreIds": ["1"],
+            "stores": [
+              {
+                "id": "1",
+                "name": "Bravo store"
+              },
+              {
+                "id": "2",
+                "name": "Alpha store"
+              },
+              {
+                "id": "3",
+                "name": "Core warehouse"
+              },
+              {
+                "id": "5",
+                "name": "Charlie store"
+              }
+            ]
+          },
+          "htmlSha256": "28ecb40a3c7fac371965cd78743a64e150dec730beccbd485aa4b7c1c46f1bab",
+          "kind": "page",
+          "status": 200
+        },
+        {
+          "context": {
+            "selectedStoreIds": [],
+            "stores": [
+              {
+                "id": "1",
+                "name": "Bravo store"
+              },
+              {
+                "id": "2",
+                "name": "Alpha store"
+              },
+              {
+                "id": "3",
+                "name": "Core warehouse"
+              },
+              {
+                "id": "5",
+                "name": "Charlie store"
+              }
+            ]
+          },
+          "htmlSha256": "55a2c1dbb76dae3f437f459ae76ef244c74084351e8883d86f5e1d4847b6c60a",
+          "kind": "page",
+          "status": 200
+        },
+        {
+          "context": {
+            "selectedStoreIds": ["5"],
+            "stores": [
+              {
+                "id": "2",
+                "name": "Alpha store"
+              },
+              {
+                "id": "5",
+                "name": "Charlie store"
+              }
+            ]
+          },
+          "htmlSha256": "ca84632815bde57eb3a740ae4b0517674b81d46a7a6f21a51d7d9d834c7e139f",
+          "kind": "page",
+          "status": 200
+        },
+        {
+          "context": {
+            "selectedStoreIds": [],
+            "stores": [
+              {
+                "id": "1",
+                "name": "Bravo store"
+              },
+              {
+                "id": "2",
+                "name": "Alpha store"
+              },
+              {
+                "id": "3",
+                "name": "Core warehouse"
+              },
+              {
+                "id": "5",
+                "name": "Charlie store"
+              }
+            ]
+          },
+          "htmlSha256": "55a2c1dbb76dae3f437f459ae76ef244c74084351e8883d86f5e1d4847b6c60a",
+          "kind": "page",
+          "status": 200
+        },
+        {
+          "context": {
+            "selectedStoreIds": [],
+            "stores": [
+              {
+                "id": "1",
+                "name": "Bravo store"
+              },
+              {
+                "id": "2",
+                "name": "Alpha store"
+              },
+              {
+                "id": "3",
+                "name": "Core warehouse"
+              },
+              {
+                "id": "5",
+                "name": "Charlie store"
+              }
+            ]
+          },
+          "htmlSha256": "55a2c1dbb76dae3f437f459ae76ef244c74084351e8883d86f5e1d4847b6c60a",
+          "kind": "page",
+          "status": 200
+        },
+        {
+          "context": {
+            "selectedStoreIds": [],
+            "stores": [
+              {
+                "id": "1",
+                "name": "Bravo store"
+              },
+              {
+                "id": "2",
+                "name": "Alpha store"
+              },
+              {
+                "id": "3",
+                "name": "Core warehouse"
+              },
+              {
+                "id": "5",
+                "name": "Charlie store"
+              }
+            ]
+          },
+          "htmlSha256": "9ff3a91144c2af948ab8e53f5f4679886362fc225988941de3018fe03e81fc9c",
+          "kind": "page",
+          "status": 200
+        },
+        {
+          "context": {
+            "selectedStoreIds": [],
+            "stores": [
+              {
+                "id": "1",
+                "name": "Bravo store"
+              },
+              {
+                "id": "2",
+                "name": "Alpha store"
+              }
+            ]
+          },
+          "htmlSha256": "5b86886beedcfeb44dd32374fb2e50e934466dac93b14bf0b74f13abbe32818b",
+          "kind": "page",
+          "status": 200
+        },
+        {
+          "context": null,
+          "htmlSha256": null,
+          "kind": "page",
+          "status": 302
+        },
+        {
+          "context": null,
+          "htmlSha256": null,
+          "kind": "page",
+          "status": 302
+        },
+        {
+          "context": {
+            "selectedStoreIds": [],
+            "stores": [
+              {
+                "id": "1",
+                "name": "Bravo store"
+              }
+            ]
+          },
+          "htmlSha256": "22611646fb56cc689406dc161916854cd97abd87dd1ee6b5397d5043c3ca306b",
+          "kind": "page",
+          "status": 200
+        },
+        {
+          "context": null,
+          "htmlSha256": null,
+          "kind": "page",
+          "status": 302
+        }
+      ]
+    }
+  ]
+}

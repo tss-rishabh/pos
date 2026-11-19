@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/global-reminders/source-release-notes.py",
+  "runtime": "CPython 3.10.22 (uv venv: django 4.2.5, asgiref 3.7.2, sqlparse 0.4.4)",
+  "capturedAt": "2026-11-19T11:32:05Z",
+  "test": "tests/global-reminders/release-notes.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": ["-B", "tools/global-reminders/source-release-notes.py", "<backend-pos-web@78d5b63>"],
+      "status": 0,
+      "output": {
+        "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "sourceHashes": {
+          "users/templates/admin/includes/whatsnew.html": "18653125399abee36f2d36cd0022f17fdd51d21ca21851f99982e26f760ac95a"
+        },
+        "roles": [
+          {
+            "role": 1,
+            "mappings": [
+              ["Merchant", "OPM"],
+              ["Staff", "SM"],
+              ["Cashier", "Staff"]
+            ],
+            "headings": [
+              "User role names updated",
+              "“Cashier Performance” is now “Staff Performance”"
+            ],
+            "reportNote": true,
+            "updated": "8 Sep 2026",
+            "dateTime": "2026-09-08",
+            "newBadge": true,
+            "renderSha256": "8be877ee0dc2079ae70171ff3166cc08a87181a0bf65d67ba9aa9148f33e58b9"
+          },
+          {
+            "role": 2,
+            "mappings": [
+              ["Merchant", "OPM"],
+              ["Staff", "SM"],
+              ["Cashier", "Staff"]
+            ],
+            "headings": ["User role names updated"],
+            "reportNote": false,
+            "updated": "8 Sep 2026",
+            "dateTime": "2026-09-08",
+            "newBadge": true,
+            "renderSha256": "a920eb44c7e21178d025e50464222714837c14c782fedfbab5a8b036503cb504"
+          },
+          {
+            "role": 3,
+            "mappings": [
+              ["Merchant", "OPM"],
+              ["Staff", "SM"],
+              ["Cashier", "Staff"]
+            ],
+            "headings": ["User role names updated"],
+            "reportNote": false,
+            "updated": "8 Sep 2026",
+            "dateTime": "2026-09-08",
+            "newBadge": true,
+            "renderSha256": "a920eb44c7e21178d025e50464222714837c14c782fedfbab5a8b036503cb504"
+          },
+          {
+            "role": 4,
+            "mappings": [
+              ["Merchant", "OPM"],
+              ["Staff", "SM"],
+              ["Cashier", "Staff"]
+            ],
+            "headings": ["User role names updated"],
+            "reportNote": false,
+            "updated": "8 Sep 2026",
+            "dateTime": "2026-09-08",
+            "newBadge": true,
+            "renderSha256": "a920eb44c7e21178d025e50464222714837c14c782fedfbab5a8b036503cb504"
+          },
+          {
+            "role": 5,
+            "mappings": [
+              ["Merchant", "OPM"],
+              ["Staff", "SM"],
+              ["Cashier", "Staff"]
+            ],
+            "headings": ["User role names updated"],
+            "reportNote": false,
+            "updated": "8 Sep 2026",
+            "dateTime": "2026-09-08",
+            "newBadge": true,
+            "renderSha256": "a920eb44c7e21178d025e50464222714837c14c782fedfbab5a8b036503cb504"
+          }
+        ],
+        "scope": "Informational partial render only; no whole-layout/auth/view certification."
+      }
+    }
+  ]
+}

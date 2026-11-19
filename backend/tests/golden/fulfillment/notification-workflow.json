@@ -1,0 +1,289 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/fulfillment/notification-workflow-source.py environment() (d7cfa66) via capture runner w15n-notification.py: private schema copy, check_in_list seeded on loopback Redis, Helpers.now_ist frozen per step, notification_order group listener, legacy login URL names",
+  "runtime": "CPython 3.10.22 (uv venv: django 4.2.5, pymysql 1.1.1, redis 4.6.0, channels 4.0.0, channels-redis 4.1.0); isolated loopback MySQL 8.4.11 and Redis",
+  "capturedAt": "2026-11-19T11:34:53Z",
+  "test": "tests/fulfillment/legacy-notification-workflow.mysql.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e506acb8e013a8cd37a11cd249dd00c1578a0dcd3f5d85e8e94e6fbd7ae61571",
+      "args": ["tools/fulfillment/notification-workflow-source.py"],
+      "status": 0,
+      "output": {
+        "steps": [
+          {
+            "op": "publish",
+            "received": [
+              {
+                "event": {
+                  "is_new_order": true,
+                  "noti_id": "1",
+                  "order_id": "\"1001\"",
+                  "store_id": "\"1\"",
+                  "title": "\"New order received to Synthetic one\"",
+                  "type": "send_notification",
+                  "users": [7, 8]
+                },
+                "websocket": [
+                  {
+                    "is_new_order": true,
+                    "noti_id": 1,
+                    "order_id": "1001",
+                    "store_id": "1",
+                    "title": "New order received to Synthetic one",
+                    "users": [7, 8]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "publish",
+            "received": [
+              {
+                "event": {
+                  "is_new_order": false,
+                  "noti_id": "2",
+                  "order_id": "\"1002\"",
+                  "store_id": "\"1\"",
+                  "title": "\"Order transferred to Synthetic one | Reason: Out of stock\"",
+                  "type": "send_notification",
+                  "users": [7, 8]
+                },
+                "websocket": [
+                  {
+                    "is_new_order": false,
+                    "noti_id": 2,
+                    "order_id": "1002",
+                    "store_id": "1",
+                    "title": "Order transferred to Synthetic one | Reason: Out of stock",
+                    "users": [7, 8]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "publish",
+            "received": [
+              {
+                "event": {
+                  "is_new_order": true,
+                  "noti_id": "3",
+                  "order_id": "\"1003\"",
+                  "store_id": "\"2\"",
+                  "title": "\"New order received to Synthetic two\"",
+                  "type": "send_notification",
+                  "users": [9]
+                },
+                "websocket": [
+                  {
+                    "is_new_order": true,
+                    "noti_id": 3,
+                    "order_id": "1003",
+                    "store_id": "2",
+                    "title": "New order received to Synthetic two",
+                    "users": [9]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "publish",
+            "received": []
+          },
+          {
+            "op": "publish",
+            "received": [
+              {
+                "event": {
+                  "is_new_order": false,
+                  "noti_id": "4",
+                  "order_id": "\"1004\"",
+                  "store_id": "\"3\"",
+                  "title": "\"Unknown store order\"",
+                  "type": "send_notification",
+                  "users": []
+                },
+                "websocket": [
+                  {
+                    "is_new_order": false,
+                    "noti_id": 4,
+                    "order_id": "1004",
+                    "store_id": "3",
+                    "title": "Unknown store order",
+                    "users": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "body": {
+              "message": "Recorded",
+              "status": "success"
+            },
+            "location": null,
+            "op": "dispatch",
+            "status": 200
+          },
+          {
+            "body": {
+              "message": "Provide the id",
+              "status": "fail"
+            },
+            "location": null,
+            "op": "dispatch",
+            "status": 200
+          },
+          {
+            "body": null,
+            "location": "/users/login/?next=/notification/ajax-notification-update/",
+            "op": "dispatch",
+            "status": 302
+          },
+          {
+            "body": {
+              "message": "Recorded",
+              "status": "success"
+            },
+            "location": null,
+            "op": "dispatch",
+            "status": 200
+          },
+          {
+            "body": {
+              "message": "Recorded",
+              "status": "success"
+            },
+            "location": null,
+            "op": "dispatch",
+            "status": 200
+          },
+          {
+            "op": "list",
+            "rows": [
+              {
+                "isViewed": 0,
+                "notificationId": "2"
+              },
+              {
+                "isViewed": 1,
+                "notificationId": "1"
+              }
+            ],
+            "unread": 1
+          },
+          {
+            "op": "list",
+            "rows": [
+              {
+                "isViewed": 0,
+                "notificationId": "2"
+              },
+              {
+                "isViewed": 0,
+                "notificationId": "1"
+              }
+            ],
+            "unread": 2
+          },
+          {
+            "op": "list",
+            "rows": [
+              {
+                "isViewed": 1,
+                "notificationId": "3"
+              }
+            ],
+            "unread": 0
+          }
+        ],
+        "tables": {
+          "pos_notifications": [
+            {
+              "created_at": "2026-11-17 11:30:20",
+              "id": "1",
+              "order_id": "1001",
+              "store_id": "1",
+              "title": "New order received to Synthetic one",
+              "updated_at": "2026-11-17 11:30:20",
+              "url_key": null
+            },
+            {
+              "created_at": "2026-11-17 11:30:20",
+              "id": "2",
+              "order_id": "1002",
+              "store_id": "1",
+              "title": "Order transferred to Synthetic one | Reason: Out of stock",
+              "updated_at": "2026-11-17 11:30:20",
+              "url_key": null
+            },
+            {
+              "created_at": "2026-11-17 11:30:20",
+              "id": "3",
+              "order_id": "1003",
+              "store_id": "2",
+              "title": "New order received to Synthetic two",
+              "updated_at": "2026-11-17 11:30:20",
+              "url_key": null
+            },
+            {
+              "created_at": "2026-11-17 11:30:20",
+              "id": "4",
+              "order_id": "1004",
+              "store_id": "3",
+              "title": "Unknown store order",
+              "updated_at": "2026-11-17 11:30:20",
+              "url_key": null
+            }
+          ],
+          "pos_user_notifications": [
+            {
+              "created_at": "2026-11-17 11:30:20",
+              "id": "1",
+              "is_viewed": "1",
+              "notification_id": "1",
+              "pos_admin_id": "7",
+              "updated_at": "2026-11-17 11:35:00"
+            },
+            {
+              "created_at": "2026-11-17 11:30:20",
+              "id": "2",
+              "is_viewed": "0",
+              "notification_id": "1",
+              "pos_admin_id": "8",
+              "updated_at": "2026-11-17 11:30:20"
+            },
+            {
+              "created_at": "2026-11-17 11:30:20",
+              "id": "3",
+              "is_viewed": "0",
+              "notification_id": "2",
+              "pos_admin_id": "7",
+              "updated_at": "2026-11-17 11:30:20"
+            },
+            {
+              "created_at": "2026-11-17 11:30:20",
+              "id": "4",
+              "is_viewed": "0",
+              "notification_id": "2",
+              "pos_admin_id": "8",
+              "updated_at": "2026-11-17 11:30:20"
+            },
+            {
+              "created_at": "2026-11-17 11:30:20",
+              "id": "5",
+              "is_viewed": "1",
+              "notification_id": "3",
+              "pos_admin_id": "9",
+              "updated_at": "2026-11-17 11:35:00"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

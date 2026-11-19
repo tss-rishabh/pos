@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/lookup-workflow/source-oracle.py (W15 capture copy: git-show baseline check, pos_rewrite_lookup_ schema prefix)",
+  "runtime": "CPython 3.10.22 (uv venv: django 4.2.5, pymysql 1.1.1); isolated loopback MySQL 8.4.11, empty server sql_mode",
+  "capturedAt": "2026-11-19T11:31:16Z",
+  "test": "tests/lookup-workflow/postal.mysql.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e342c86e042c17c0112133f4098ac0a777e07d7115be7f66832534ca13cb9e7b",
+      "args": ["tools/lookup-workflow/source-oracle.py"],
+      "status": 0,
+      "output": {
+        "countries": [],
+        "postals": [
+          {
+            "status": "success",
+            "message": "location fetched",
+            "data": {
+              "pincode": "400001",
+              "city": "Mumbai Fort",
+              "state": "Maharashtra",
+              "country": "India",
+              "country_id": 1,
+              "latitude": "18.9300",
+              "longitude": "72.8300",
+              "state_id": 1
+            }
+          },
+          {
+            "status": "success",
+            "message": "location fetched",
+            "data": {
+              "pincode": "400001",
+              "city": "Mumbai Fort",
+              "state": "Maharashtra",
+              "country": "India",
+              "country_id": 1,
+              "latitude": "18.9300",
+              "longitude": "72.8300",
+              "state_id": 1
+            }
+          },
+          {
+            "status": "success",
+            "message": "location fetched",
+            "data": {
+              "pincode": "SW1A 1AA",
+              "city": "St. John'S Wood",
+              "state": "Île Lagunes",
+              "country": "Côte d'Ivoire",
+              "country_id": 3,
+              "latitude": "5.3600",
+              "longitude": "-4.0083",
+              "state_id": 2
+            }
+          },
+          {
+            "status": "success",
+            "message": "location fetched",
+            "data": {
+              "pincode": "SW1A 1AA",
+              "city": "St. John'S Wood",
+              "state": "Île Lagunes",
+              "country": "Côte d'Ivoire",
+              "country_id": 3,
+              "latitude": "5.3600",
+              "longitude": "-4.0083",
+              "state_id": 2
+            }
+          },
+          {
+            "status": "success",
+            "message": "location fetched",
+            "data": {
+              "pincode": "110001",
+              "city": "",
+              "state": "Maharashtra",
+              "country": "India",
+              "country_id": 1,
+              "latitude": "28.6139",
+              "longitude": "77.2090",
+              "state_id": 1
+            }
+          },
+          {
+            "status": "success",
+            "message": "location fetched",
+            "data": {}
+          },
+          {
+            "status": "success",
+            "message": "location fetched",
+            "data": {
+              "pincode": "abc12",
+              "city": "Kolkata-North 2Nd",
+              "state": "Maharashtra",
+              "country": "India",
+              "country_id": 1,
+              "latitude": "22.5726",
+              "longitude": "88.3639",
+              "state_id": 1
+            }
+          },
+          {
+            "status": "success",
+            "message": "location fetched",
+            "data": {}
+          },
+          {
+            "status": "success",
+            "message": "location fetched",
+            "data": {}
+          },
+          {
+            "status": "success",
+            "message": "location fetched",
+            "data": {}
+          },
+          {
+            "status": "success",
+            "message": "location fetched",
+            "data": {}
+          }
+        ],
+        "anonymous": [302, 302],
+        "sourceHashes": {
+          "core/views.py": "20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349",
+          "core/urls.py": "d39946333ef88c2f9210844172d6191f2cf9c4adff4cb7c83be9d920d586a124",
+          "stores/models.py": "f47e80368fafa5e432af96eba63a16ad031dcb8ac563cc2a73a8c9eca3493d9e"
+        },
+        "nativeSelects": 9,
+        "nativeWrites": 0,
+        "pythonVersion": "3.10.22",
+        "djangoVersion": "4.2.5"
+      }
+    }
+  ]
+}

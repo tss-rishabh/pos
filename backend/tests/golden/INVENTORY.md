@@ -235,3 +235,69 @@ W7 (19 November 2026) deleted the offline cash module together with
 `checkout/offline-cash-reference.json`, `checkout/offline-cash-source-pricing.snapshot.json`
 and the tests that read them (`offline-cash-reference.test.ts`,
 `offline-cash-source-pricing.test.ts`). See `parity/w7-report.md`.
+
+## W15 disposition (19 November 2026)
+
+W15 recaptured the missing goldens from the pinned source (`backend-pos-web`
+78d5b63) outside the repository and rewired their consumers. Every row above that
+was `uncaptured`, `partially captured`, a W2 parity-evidence gap, a W9 recapture
+(D2) or a golden left without a consumer now ends in one of three states:
+**captured** (golden committed, test asserts the rewrite against it),
+**obsolete** (the feature or the code under test is gone; reason given) or
+**blocked** (reason given; still counts as missing parity evidence).
+
+Capture environment: CPython 3.10.22 (uv venv: django 4.2.5, pymysql 1.1.1,
+sqlparse 0.4.4, redis 4.6.0), an isolated loopback MySQL 8.4.11 with empty
+`sql_mode`, a loopback Redis, and the oracle runners restored from `d7cfa66`
+into a scratch directory. A capture-only vitest setup replaced this loader so the
+real oracle ran on the exact bytes each test passes; each case was captured
+twice and compared. No production system was contacted. Recapture steps are in
+`backend/parity/w15-report.md`.
+
+### Captured
+
+| Item | Golden | Consumer |
+| --- | --- | --- |
+| Order search: 42 of 43 datatable vectors (vector 0 was already compared) | `order-search/native-datatable.json` (4 invocations) | `tests/order-search/native.test.ts` |
+| Order search: source halves of the franchise N-type ID bypass, explicit-ID cross-store and split-order store cases; the >100 query count | same | same |
+| Order search: rendered default form (GET default window, type-switch POSTs, ajax range, selected radio, MRO) | `order-search/default-form.json` | `tests/order-search/default-range.mysql.test.ts` |
+| Order search: N and ST midnight end-minute datatable (consumer deleted in a3d42c52; fresh capture identical to the committed golden) | `order-search/default-range-mysql.json` (unchanged) | same |
+| W9 D2: catalog detail oracle (input `ac7b5d79…`) | `catalog-details/mysql-integration.detail-oracle.json` | `tests/catalog-details/mysql.integration.test.ts` |
+| W9 D2: shipping-label handler context (input `986f7ad2…`) | `fulfillment/shipping-label-mysql-integration.json` | `tests/fulfillment/shipping-label-mysql.integration.test.ts` |
+| Counter barcode dispatch (`frontend/tests/counter-catalog/source-barcode.py`, self-asserting) | `frontend/tests/golden/counter-catalog/source-barcode.json` | `frontend/tests/counter-catalog/barcode.test.ts` |
+| Gift-card batch datatable (consumer dropped in 90603810) | `administration/gift-card-batches-mysql.json` (recaptured) | `tests/administration/gift-card-batches.mysql.test.ts` |
+| Store and operator archival (`stores/urls.py:15-16`, `users/urls.py:19-20`), server-side dispatch | `administration/archival-workflow.json` | `tests/administration/legacy-archival.mysql.test.ts` |
+| Lookup: native postal view (`core/views.py:3358`), 11 pincodes (country search was already captured in `administration/barcodes`) | `lookup-workflow/postal-native.json` | `tests/lookup-workflow/postal.mysql.test.ts` |
+| Global reminders: hyperlocal expiry alerts (`order/views.py:5356`) | `global-reminders/expiry-native.json` | `tests/global-reminders/expiry.mysql.test.ts` |
+| Release notes render (consumer had been deleted; fresh capture identical) | `frontend/tests/golden/global-reminders/release-notes.json` | `frontend/tests/global-reminders/release-notes.test.ts` |
+| Cashier shortcuts: `key-shortcuts/` help rows | `frontend/tests/golden/cashier-shortcuts/source-help.json` | `frontend/tests/cashier-shortcuts/source-help.test.ts` |
+| Product feedback: `get_order` / `AjaxAddFeedback` reads and native rows | `product-feedback/native-workflow.json` | `tests/product-feedback-legacy.mysql.test.ts` |
+| Customer profile: type/GSTIN and birthday/anniversary/gender updates | `customer-profile/native-workflow.json` | `tests/customer-profile-legacy.mysql.test.ts` |
+| Fulfillment notification workflow: helpers, consumer, mark-as-read, list | `fulfillment/notification-workflow.json` | `tests/fulfillment/legacy-notification-workflow.mysql.test.ts` |
+| Catalog native UI: products and stock-matrix page dispatch, five profiles plus anonymous | `catalog-details/page-dispatch.json` | `tests/catalog-details/legacy-page-dispatch.mysql.test.ts` |
+| Legacy fulfillment (orphans since 7a2635ab): courier status, outbound helper calls, money rounding, holds, pack/RTO, transfer, arrival scheduling | `legacy-fulfillment/domain.json`, `lifecycle-domain.json` (recaptured) | `tests/legacy-fulfillment/legacy-golden.test.ts` |
+
+### Obsolete
+
+| Item | Reason |
+| --- | --- |
+| `inventory-workbooks/xlsx.test.ts` (10 cases, `report/tasks.py:25-164`) | The current-inventory workbook export is deleted (AGENTS.md background jobs: the 4 rewrite-only exports; legacy URL commented out). See `parity/inventory-workbooks.md`. |
+| `customer-contacts/references.mysql.test.ts` (4 reference-carry differentials) | The verified contact-change challenge and its reference carry were deleted (970ca9f9); contacts now update `users.telephone`/`email` as `AjaxUpdateUserMobile/Email` do. The API-v2 reference helpers belonged to the deleted customer-contacts service (decision 3). |
+| `invoice-documents/source.test.ts` unittest case | `test_documents.py` tested `compatibility/upstream/invoice-documents`, the rewrite's own API-v2 patch, not legacy source (decision 3). The `source-oracle.py` half stays captured. |
+| Offline cash pricing unittests (3), `offline-cash-source-pricing.mysql`, `offline-cash-import.mysql`, `--native-snapshot`, `--native-driver-template` | The offline cash module is deleted (W7). Desktop offline billing has no benefits and no source pricing service; CSV order import is deleted. |
+| Every `legacy-import-*`, `legacy-order-imports/*` uncaptured row and the `legacy-import-benefits-composed-source-native-tests` stage | CSV order punch-in/import is deleted (AGENTS.md revision 19 Nov; legacy has it disabled, `core/urls.py:72-76`). |
+| `source-runtime-acceptance/source.test.ts`, `checkout/cancellation-membership-context.test.ts` | Screening/compatibility code (decision 3). |
+| Order-history native UI candidate (`tools/order-history/native-ui-workflow`) | Never executed. Its BigQuery publication routing is deleted (orders decision: MySQL for all dates); its MySQL datatable and default-form parts are captured above. |
+| Catalog-details workflow benchmark | Performance evidence, not parity (W16 owns query performance). |
+| `checkout/order-messages.json` (orphan) | Order SMS is `POST omnichannel-sms {order_id}` to API-v2, as legacy does; API-v2 composes the text. |
+| `checkout/cancellation-benefit-candidate.json`, `checkout/cancellation-benefits-mysql.json` (orphans) | Pending cancellation calls API-v2 `pos/cancel-pos-order` as legacy does (`order/views.py:2917-2928`); the wallet/membership arithmetic is API-v2's. |
+| `legacy-order-status/commands.json` (orphan) | The receiver protocol was dropped (91980604); the legacy `/store-order/status` request shape stays covered by `legacy-order-status/source.json`. |
+| Legacy-fulfillment exception-date formatter, `unhold_stock(order_push=True)`, saga-only checks (split-RTO plan, 255-char audit limit, request hash, demo, retries) | Report URL commented out (`report/urls.py:35`); the only `order_push` caller is `core/views.py:323`, outside this module; the saga code paths no longer exist. |
+
+### Blocked
+
+| Item | Reason |
+| --- | --- |
+| Administration forms workflow (`users/urls.py:17-18`, `stores/urls.py:11,14`; 24 cases) | Row-by-row persistence after each source POST: the oracle prints no rows, the ~750-line case/fixture harness needs re-authoring on the production snapshot and mapping onto the JSON operator/store APIs, and its fixture depended on deleted migrations and `pos_rewrite_*` tables. It never passed even with the oracle present (1 of 24, README r1-r4). |
+| Browser halves of every native workflow (lookup, feedback, profile, shortcuts, archival, reminders, notification, catalog UI) | Chromium/UI evidence (navigation, lost-reply reload, rendered controls). Out of W15 scope (Playwright/e2e); the server-side halves are listed above. |
+| `frontend/tests/finance/source-widget.mjs` browser half | Executes the pinned legacy jQuery/daterangepicker template in Chromium from the external checkout (`POS_PARITY_SOURCE_ROOT`); not a Python/Go/PHP oracle. The Python half stays captured (`tests/finance/source-defaults.json`). |

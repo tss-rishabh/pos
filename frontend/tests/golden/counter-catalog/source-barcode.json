@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "frontend/tests/counter-catalog/source-barcode.py, adapted to report the reached ProductBarcode filter, early response or exception per stdin case",
+  "runtime": "CPython 3.10.22 (uv venv); no database",
+  "capturedAt": "2026-11-19T11:28:06Z",
+  "test": "tests/counter-catalog/barcode.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "d00acefcddc6898b6aa0cd0c325c526f0f11dbb2f09339c4873670e93d59d236",
+      "args": ["frontend/tests/counter-catalog/source-barcode.py", "<backend-pos-web@78d5b63>"],
+      "status": 0,
+      "output": [
+        {
+          "outcome": "filter",
+          "query": {
+            "gtin": "222"
+          }
+        },
+        {
+          "outcome": "filter",
+          "query": {
+            "gtin": "9007199254740993"
+          }
+        },
+        {
+          "outcome": "filter",
+          "query": {
+            "gtin": "1234"
+          }
+        },
+        {
+          "outcome": "filter",
+          "query": {
+            "gtin": "12"
+          }
+        },
+        {
+          "outcome": "filter",
+          "query": {
+            "gtin": "9223372036854775807"
+          }
+        },
+        {
+          "outcome": "filter",
+          "query": {
+            "product": "0"
+          }
+        },
+        {
+          "outcome": "filter",
+          "query": {
+            "product": "0"
+          }
+        },
+        {
+          "outcome": "filter",
+          "query": {
+            "product": "0"
+          }
+        },
+        {
+          "outcome": "response",
+          "body": {
+            "status": "fail",
+            "message": "Please Provide Barcode",
+            "data": {}
+          }
+        },
+        {
+          "outcome": "error",
+          "type": "ValueError"
+        },
+        {
+          "outcome": "error",
+          "type": "ValueError"
+        },
+        {
+          "outcome": "error",
+          "type": "ValueError"
+        },
+        {
+          "outcome": "error",
+          "type": "ValueError"
+        },
+        {
+          "outcome": "filter",
+          "query": {
+            "gtin": "-1"
+          }
+        },
+        {
+          "outcome": "filter",
+          "query": {
+            "gtin": "12"
+          }
+        }
+      ]
+    }
+  ]
+}

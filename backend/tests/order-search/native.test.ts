@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { beforeAll, afterAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
@@ -19,6 +18,8 @@ import type { Principal } from '../../src/domain/access.js';
 import { orderSearchFixture } from './mysql-fixture.js';
 import { bindCheckInRedis } from '../../src/modules/administration/checkins.js';
 import { memoryRedisPort } from '../helpers/memory-redis.js';
+import { goldenStdout } from '../golden/load.js';
+import { fixturePlaceholders } from '../golden/fixture-placeholders.js';
 
 // Check-ins are the legacy Redis keys; bind an in-process port for this file.
 const checkInRedis = memoryRedisPort();
@@ -95,6 +96,46 @@ const vectors: OrderSearchRequest[] = [
   { orderType: 'HL', notPacked: true },
   { orderType: 'ST', inQueue: true, notPacked: true },
 ];
+/** The Django datatable POST the pinned `AjaxOrderListView.datatables` reads for a request. */
+function legacyCase(raw: OrderSearchRequest) {
+  const value = orderSearchInput.parse(raw);
+  return {
+    order_type: value.orderType,
+    'selected_stores[]': value.storeIds,
+    order_ids: value.orderIds.join(','),
+    mobile: value.mobile,
+    email: value.email,
+    not_packed: value.notPacked ? 1 : 0,
+    in_queue: value.inQueue ? 1 : 0,
+    'selected_payment_method[]': value.paymentMethodIds,
+    'selected_payment_status[]': value.paymentStatusIds,
+    'selected_order_status[]': value.orderStatusIds,
+    'search[value]': value.search,
+    'order[0][column]': '0',
+    'order[0][dir]': value.sort.direction,
+    'columns[0][data]': value.sort.field,
+    start: (value.page - 1) * value.pageSize,
+    draw: value.draw,
+    length: value.pageSize,
+    order_date_range: value.placedFrom
+      ? toLegacy(value.placedFrom) + ' - ' + toLegacy(value.placedTo!)
+      : '11/17/2026 12:00 AM - 11/17/2026 11:59 PM',
+  };
+}
+function toLegacy(value: string) {
+  const hour = Number(value.slice(11, 13));
+  return (
+    value.slice(5, 7) +
+    '/' +
+    value.slice(8, 10) +
+    '/' +
+    value.slice(0, 4) +
+    ' ' +
+    String(hour % 12 || 12).padStart(2, '0') +
+    value.slice(13, 16) +
+    (hour < 12 ? ' AM' : ' PM')
+  );
+}
 const original = z.object({
   response: z.object({
     draw: z.number(),
@@ -105,7 +146,28 @@ const original = z.object({
   queries: z.number(),
 });
 describe.skipIf(!template)('pinned Django datatable and optimized native search', () => {
-  let native: Awaited<ReturnType<typeof orderSearchFixture>>;
+  let native: Awaited<ReturnType<typeof orderSearchFixture>>, oracle: z.infer<typeof original>[];
+  /**
+   * Pinned `order/datatables/orders_datatable.py` (78d5b63) run by the legacy oracle on this
+   * fixture database, replayed from `tests/golden/order-search/native-datatable.json`.
+   */
+  function source(cases: OrderSearchRequest[], userType?: number) {
+    return z.array(original).parse(
+      JSON.parse(
+        goldenStdout(
+          'order-search',
+          'native-datatable',
+          JSON.stringify({
+            url: native.url,
+            ...(userType === undefined ? {} : { userType }),
+            cases: cases.map(legacyCase),
+          }),
+          undefined,
+          fixturePlaceholders(native.url),
+        ),
+      ) as unknown,
+    );
+  }
   beforeAll(async () => {
     native = await orderSearchFixture(template!);
     for (const id of ['1', '2', '11']) {
@@ -262,23 +324,15 @@ describe.skipIf(!template)('pinned Django datatable and optimized native search'
       is_rto: 0,
       is_refunded: 0,
     });
+    oracle = source(vectors);
   }, 40000);
   afterAll(async () => {
     await native?.close();
   });
-  it('matches the captured original response for the first source vector in real MySQL', async () => {
-    // Captured pinned-source datatable response for vectors[0]; the other 42 vectors
-    // had no capture when the Python oracle was removed (see parity/w2-followups.md).
-    const captured = z
-      .object({ response: original.shape.response })
-      .passthrough()
-      .parse(
-        JSON.parse(
-          readFileSync('../frontend/tests/order-search/source-snapshot.json', 'utf8'),
-        ) as unknown,
-      );
+  it('matches every original field/count/filter/sort/page in real MySQL across 43 source vectors', async () => {
     const reader = sourceNativeRepository(native.db);
-    for (let index = 0; index < 1; index++) {
+    expect(oracle).toHaveLength(vectors.length);
+    for (let index = 0; index < vectors.length; index++) {
       const raw = vectors[index]!,
         input = orderSearchInput.parse(raw),
         selection = scope(raw),
@@ -303,7 +357,7 @@ describe.skipIf(!template)('pinned Django datatable and optimized native search'
       expect(
         { draw: input.draw, recordsTotal: result.count, recordsFiltered: result.count, data },
         'source vector ' + index,
-      ).toEqual(captured.response);
+      ).toEqual(oracle[index]!.response);
     }
   }, 30000);
   it('preserves the original reverse-join multiplication and raw-case HasProduct revert rule', async () => {
@@ -313,6 +367,7 @@ describe.skipIf(!template)('pinned Django datatable and optimized native search'
     expect(result.rows.filter((row) => row.fact.id === '102')).toHaveLength(6);
     expect(result.rows.find((row) => row.fact.id === '102')!.fact.isRevert).toBe(false);
     expect(result.rows.find((row) => row.fact.id === '104')!.fact.isRevert).toBe(true);
+    expect(oracle[0]!.queries).toBeGreaterThan(100);
   });
   const actor: Principal = {
     id: '1',
@@ -345,6 +400,9 @@ describe.skipIf(!template)('pinned Django datatable and optimized native search'
     await native.connection.query('UPDATE pos_user SET role=1,user_type=2 WHERE id=1');
     await native.connection.query("UPDATE stores SET category='FRANCHISE' WHERE id=1");
     // Legacy `order_type == "N" and (user_type != 2 or order_id_list)`: IDs bypass the rule.
+    expect(
+      source([{ orderType: 'N', orderIds: ['107'] }], 2)[0]!.response.data.map((row) => row.id),
+    ).toEqual(['107']);
     await expect(
       capture(
         { ...actor, role: 1, userType: 2 },
@@ -361,6 +419,7 @@ describe.skipIf(!template)('pinned Django datatable and optimized native search'
       { orderType: 'ST', orderIds: ['103'] },
       { orderType: 'HE', storeIds: ['1'], orderIds: ['101'] },
     ];
+    expect(source(cases).map((value) => value.response.data.length)).toEqual([1, 1]);
     const capture = sourceSearchAuthority(native.config, native.db),
       reader = sourceNativeRepository(native.db);
     for (const raw of cases) {
@@ -377,6 +436,7 @@ describe.skipIf(!template)('pinned Django datatable and optimized native search'
     try {
       const raw: OrderSearchRequest = { orderType: 'ST', storeIds: ['1'], orderIds: ['101'] },
         input = orderSearchInput.parse(raw);
+      expect(source([raw])[0]!.response.data[0]!.store_name).toBe('Synthetic 2 (Counter 2)');
       const selection = await sourceSearchAuthority(native.config, native.db)(actor, '1', input),
         result = await sourceNativeRepository(native.db).search(selection, input, null);
       for (const row of result.rows) {

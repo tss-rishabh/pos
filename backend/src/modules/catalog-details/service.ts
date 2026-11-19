@@ -61,8 +61,11 @@ export function catalogDetailsService(config: Config, db: Databases) {
       ]);
       return {
         data,
+        // Legacy Helpers.get_checkin_store (helpers/helpers.py:1791-1800) preselects only an
+        // active type="STORE" check-in; a CORE_WAREHOUSE check-in selects nothing.
         selectedStoreIds:
-          checkedInStoreId && data.some((store) => store.id === checkedInStoreId)
+          checkedInStoreId &&
+          data.some((store) => store.id === checkedInStoreId && store.type === 'STORE')
             ? [checkedInStoreId]
             : [],
         stockManagementPath: '/inventory',

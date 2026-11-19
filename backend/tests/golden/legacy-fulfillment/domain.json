@@ -2,12 +2,12 @@
   "schemaVersion": 1,
   "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
   "oracle": "tools/legacy-fulfillment/source-oracle.py",
-  "runtime": "CPython 3.10.22",
-  "capturedAt": "2026-11-18T19:03:39Z",
-  "test": "tests/legacy-fulfillment/domain.test.ts",
+  "runtime": "CPython 3.10.22 (uv venv: django 4.2.5, pymysql 1.1.1); no database (inert ORM/HTTP doubles)",
+  "capturedAt": "2026-11-19T11:39:20Z",
+  "test": "tests/legacy-fulfillment/legacy-golden.test.ts",
   "invocations": [
     {
-      "inputSha256": "96049eb37b5497e5f849eb817dfe7b270f8e1bb2fcafe715f01061cd6143e386",
+      "inputSha256": "09f3a195d556eea2405ba03030df7a6a12a8cd30d806f9bb2a40cb1513998dc0",
       "args": ["tools/legacy-fulfillment/source-oracle.py"],
       "status": 0,
       "output": [
@@ -65,11 +65,16 @@
           "status": "400",
           "message": "Failed",
           "error": "Order not created"
+        },
+        {
+          "status": "400",
+          "message": "Failed",
+          "error": "Order creation failed at borzo, error : None"
         }
       ]
     },
     {
-      "inputSha256": "560d94c51ba201e1b0a4f19c70dffb7f180103743fde652131f10c68157b0ef6",
+      "inputSha256": "16daa2ea610a21e01e2843b901deab264567d37f5908fd422d080bbfd832d143",
       "args": ["tools/legacy-fulfillment/source-oracle.py"],
       "status": 0,
       "output": [
@@ -148,14 +153,7 @@
           ],
           "effects": [],
           "stocks": []
-        }
-      ]
-    },
-    {
-      "inputSha256": "ff3c02ed5a00e7ac008e3594b7c57394583f1cc8127438f545cb372a65e13b1a",
-      "args": ["tools/legacy-fulfillment/source-oracle.py"],
-      "status": 0,
-      "output": [
+        },
         {
           "flags": {
             "is_pack": 0,
@@ -257,32 +255,6 @@
             {
               "productId": "11",
               "stock": 14
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "inputSha256": "860cc1fe8729d7d828b9e5e963bb0feb177df9af204e89754009e7c50126dfdd",
-      "args": ["tools/legacy-fulfillment/source-oracle.py"],
-      "status": 0,
-      "output": [
-        {
-          "outcome": [true, {}],
-          "action": "ACCEPTED",
-          "transactions": [[1, 1, 0, 0, {}, "Hyperlocal Order Cancelled : Amount Refunded"]],
-          "effects": [
-            {
-              "storeId": "1",
-              "productId": "10",
-              "before": 5,
-              "after": 8
-            }
-          ],
-          "stocks": [
-            {
-              "productId": "10",
-              "stock": 8
             }
           ]
         }
