@@ -29,7 +29,8 @@ import mysql from 'mysql2/promise';
 import type { PoolConnection as CorePoolConnection } from 'mysql2';
 import { z } from 'zod';
 import type { Databases } from '../../src/db/pools.js';
-import { planShape, planVerdict, trailingLimit } from './plan-gate.js';
+import { failedStatement, type FailedStatement } from './fingerprint.js';
+import { planShape, planVerdict, trailingLimit, type PlanShape } from './plan-gate.js';
 import {
   guardStatement,
   maxExecutionTimeLimit,
@@ -79,6 +80,8 @@ export class PlanGuardError extends Error {
     table: string,
     access: string,
     estimate: number,
+    /** The rejected plan (table names, access types, keys and estimates only). */
+    readonly shape?: PlanShape,
   ) {
     super(`Plan gate skipped a statement (${code}) on ${table} (${access}, ~${estimate} rows).`);
     this.name = 'PlanGuardError';
@@ -136,6 +139,8 @@ export interface GuardStats {
   refusedCodes: string[];
   planRejected: PlanRejection[];
   planBounded: PlanBounded[];
+  /** Statements that failed (plan gate or server error): value-free template, code and plan. */
+  failedStatements: FailedStatement[];
   connections: number;
   verifiedConnections: number;
 }
@@ -151,6 +156,7 @@ export function emptyStats(): GuardStats {
     refusedCodes: [],
     planRejected: [],
     planBounded: [],
+    failedStatements: [],
     connections: 0,
     verifiedConnections: 0,
   };
@@ -165,6 +171,7 @@ export function statsDelta(after: GuardStats, before: GuardStats) {
     refusedCodes: after.refusedCodes.slice(before.refusedCodes.length),
     planRejected: after.planRejected.slice(before.planRejected.length),
     planBounded: after.planBounded.slice(before.planBounded.length),
+    failedStatements: after.failedStatements.slice(before.failedStatements.length),
   };
 }
 
@@ -264,7 +271,11 @@ export function guardCoreConnection(
   }
 }
 
-export type PlanGate = (target: Queryable, sql: string, values: unknown) => Promise<void>;
+export type PlanGate = (
+  target: Queryable,
+  sql: string,
+  values: unknown,
+) => Promise<PlanShape | undefined>;
 
 /**
  * Layers 1 and 2: a Drizzle database over a Proxy of the mysql2 promise pool. Every statement is
@@ -295,15 +306,29 @@ export function guardedDrizzle(
             if (guarded.downgraded) stats.downgradedLocks += 1;
             if (guarded.lock === 'update') stats.downgradedUpdateLocks += 1;
             const queryable = object as unknown as Queryable;
-            if (guarded.explainable && planGate) await planGate(queryable, guarded.sql, values);
-            const sent: QueryArgument = guarded.downgraded
-              ? typeof argument === 'string'
-                ? guarded.sql
-                : { ...argument, sql: guarded.sql }
-              : argument;
-            return property === 'query'
-              ? queryable.query(sent, values)
-              : queryable.execute(sent, values);
+            let shape: PlanShape | undefined;
+            try {
+              if (guarded.explainable && planGate)
+                shape = await planGate(queryable, guarded.sql, values);
+              const sent: QueryArgument = guarded.downgraded
+                ? typeof argument === 'string'
+                  ? guarded.sql
+                  : { ...argument, sql: guarded.sql }
+                : argument;
+              return await (property === 'query'
+                ? queryable.query(sent, values)
+                : queryable.execute(sent, values));
+            } catch (error) {
+              // Name the failed statement by its value-free template, never by its values.
+              stats.failedStatements.push(
+                failedStatement(
+                  guarded.sql,
+                  errorCode(error),
+                  shape ?? (error instanceof PlanGuardError ? error.shape : undefined),
+                ),
+              );
+              throw error;
+            }
           };
         if (property === 'getConnection' && isPool)
           return async () =>
@@ -382,7 +407,7 @@ export async function openGuardedDatabase(env: LiveEnv): Promise<GuardedDatabase
       /^\s*select\b[^;]*\bfrom\s+information_schema\.\w+(?:\s+where\b[^;]*)?$/i.test(sql) &&
       !/\bjoin\b/i.test(sql)
     )
-      return;
+      return undefined;
     stats.explains += 1;
     // FORMAT=JSON exposes per-block filesort/temporary flags; see plan-gate.ts for the rule.
     const [rows] = (await target.query(`EXPLAIN FORMAT=JSON ${sql}`, values)) as [unknown, unknown];
@@ -390,8 +415,9 @@ export async function openGuardedDatabase(env: LiveEnv): Promise<GuardedDatabase
       .array(z.object({ EXPLAIN: z.string() }).loose())
       .length(1)
       .parse(rows);
+    const shape = planShape(JSON.parse(explain!.EXPLAIN) as unknown);
     const verdict = planVerdict(
-      planShape(JSON.parse(explain!.EXPLAIN) as unknown),
+      shape,
       trailingLimit(sql, values),
       (table) => tableRows.get(table),
       planRowLimit,
@@ -408,6 +434,7 @@ export async function openGuardedDatabase(env: LiveEnv): Promise<GuardedDatabase
         verdict.table,
         verdict.access,
         verdict.estimate,
+        shape,
       );
       stats.planRejected.push({
         code: verdict.code,
@@ -417,6 +444,7 @@ export async function openGuardedDatabase(env: LiveEnv): Promise<GuardedDatabase
       });
       throw rejection;
     }
+    return shape;
   }
 
   const { pool: guardedPool, db } = guardedDrizzle(

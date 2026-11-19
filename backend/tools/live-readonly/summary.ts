@@ -7,6 +7,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { z } from 'zod';
 import { backendRoot, type PlanBounded, type PlanRejection } from './connection.js';
+import { isValueFreeTemplate, type FailedStatement } from './fingerprint.js';
 
 export type PathStatus = 'pass' | 'fail' | 'skip';
 export interface ColumnDrift {
@@ -38,6 +39,8 @@ export interface PathResult {
   planRejected: PlanRejection[];
   /** Plans accepted only because a LIMIT-bounded, index-ordered scan drives them. */
   planBounded?: PlanBounded[];
+  /** Failed statements: value-free template fingerprint, error code and plan. */
+  failedStatements?: FailedStatement[];
   durationMs: number;
 }
 export interface LiveSummary {
@@ -129,6 +132,12 @@ const safeText = /^[A-Za-z0-9_ .:,()'<>/=+-]*$/;
 export function assertAggregateOnly(summary: LiveSummary): void {
   const visit = (value: unknown, path: string): void => {
     if (typeof value === 'string') {
+      // A failed statement's SQL template: checked to be value-free instead (fingerprint.ts).
+      if (/\.failedStatements\[\d+\]\.template$/.test(path)) {
+        if (!isValueFreeTemplate(value))
+          throw new Error(`Summary field ${path} is not a value-free template.`);
+        return;
+      }
       if (value.length > 200 || !safeText.test(value))
         throw new Error(`Summary field ${path} is not an aggregate value.`);
       return;

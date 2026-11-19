@@ -25,6 +25,8 @@ import { z } from 'zod';
 export interface PlanAccess {
   table: string;
   access: string;
+  /** The index used, when any. */
+  key?: string;
   /** `rows_examined_per_scan`. */
   rows: number;
   /** In the outermost query block, outside every subquery, derived table and UNION member. */
@@ -65,6 +67,7 @@ const tableNode = z
   .object({
     table_name: z.string(),
     access_type: z.string().optional(),
+    key: z.string().optional(),
     rows_examined_per_scan: z.coerce.number().optional(),
   })
   .loose();
@@ -92,6 +95,7 @@ export function planShape(explainJson: unknown): PlanShape {
           accesses.push({
             table: parsed.data.table_name,
             access: parsed.data.access_type ?? 'NULL',
+            ...(parsed.data.key ? { key: parsed.data.key } : {}),
             rows: parsed.data.rows_examined_per_scan ?? 0,
             outermost,
             driving,

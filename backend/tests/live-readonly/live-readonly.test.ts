@@ -268,6 +268,7 @@ describe.skipIf(!enabled)('live read-only production parity (Phase F1)', () => {
       refusedCodes: [...stats.refusedCodes],
       planRejected: [...stats.planRejected],
       planBounded: [...stats.planBounded],
+      failedStatements: [...stats.failedStatements],
     };
   }
   async function run(
@@ -330,6 +331,9 @@ describe.skipIf(!enabled)('live read-only production parity (Phase F1)', () => {
       refused: delta.refused,
       planRejected: delta.planRejected,
       planBounded: delta.planBounded,
+      ...(status !== 'pass' && delta.failedStatements.length
+        ? { failedStatements: delta.failedStatements }
+        : {}),
       durationMs: Math.round(performance.now() - started),
     });
     if (status === 'fail') throw new Error(`${path} failed: ${reason ?? 'UNKNOWN'}`);
@@ -667,6 +671,37 @@ describe.skipIf(!enabled)('live read-only production parity (Phase F1)', () => {
           'stock-locations:held-int',
         );
         checks.push('stock-locations:shape');
+      }
+      // Search patterns the counter page sends (W16 round 3): a name fragment, an id/GTIN digit
+      // fragment and a term that matches nothing. In stock, these read the store's in-stock rows
+      // through idx_store_id_stock_is_avail_is_del. Values stay in memory and are never printed.
+      const sample = products[0];
+      const noMatch = 'w16-no-match-zz';
+      const terms = [
+        ...(sample && sample.name.length >= 4 ? [sample.name.slice(0, 4)] : []),
+        ...(sample ? [sample.id.slice(-3)] : []),
+        noMatch,
+      ];
+      for (const term of terms) {
+        const found = await catalog.products(principal, s.storeId, term, '0', 20, false);
+        parse(z.array(catalogProduct), found.data, 'catalog:search-in-stock');
+        check(
+          found.data.every((product) => product.stock > 0),
+          'catalog:search-in-stock-only',
+        );
+      }
+      checks.push('search:in-stock');
+      // With out-of-stock rows and no match, the page walks the whole catalog by id (no
+      // product_store read for non-matching products). Legacy runs the same request as a count
+      // plus a page over the store's ~319k joined rows, which is strictly more work (see
+      // parity/w16-report.md). A timeout here is a known legacy-equivalent cost, not a failure.
+      try {
+        const none = await catalog.products(principal, s.storeId, noMatch, '0', 20, true);
+        check(none.data.length === 0, 'catalog:search-no-match');
+        checks.push('search:oos-no-match');
+      } catch (error) {
+        if (errorCode(error) !== 'ER_QUERY_TIMEOUT') throw error;
+        checks.push('search:oos-no-match:legacy-equivalent-timeout');
       }
       return { rows: products.length, checks };
     }));
