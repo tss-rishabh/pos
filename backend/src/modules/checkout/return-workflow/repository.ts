@@ -1186,6 +1186,17 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
             'RETURN_LINE_INELIGIBLE',
             'This line is no longer available for a new return.',
           );
+        // return_processed checks the delivery, window and unrefunded amount before anything else.
+        if (!exchange) {
+          const failure = await returnWindow(
+            tx,
+            orderId,
+            lineId,
+            scope.line.product,
+            input.clickType,
+          );
+          if (failure) throw failure;
+        }
         const [reason] = await tx
           .select({ id: ReversePickupReason.id })
           .from(ReversePickupReason)
@@ -1319,15 +1330,6 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
               .where(eq(PosExchangeLog.id, saved.id));
             return new CommittedFailure(failure);
           }
-        } else {
-          const failure = await returnWindow(
-            tx,
-            orderId,
-            lineId,
-            scope.line.product,
-            input.clickType,
-          );
-          if (failure) throw failure;
         }
         const operation: ReturnOperation = {
           id: input.operationId,
@@ -1861,7 +1863,11 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
               .for('update');
             if (stores[0] && !stores[0].invoice) {
               const code = store.locationCode ?? 'None',
-                fy = financialYear(child.updatedAt || timestamp());
+                fy = financialYear(
+                  child.updatedAt && !child.updatedAt.startsWith('0000')
+                    ? child.updatedAt
+                    : timestamp(),
+                );
               const [last] = await savepoint
                 .select({ invoice: OrderStore.order_invoice })
                 .from(OrderStore)
