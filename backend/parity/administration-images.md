@@ -1,15 +1,31 @@
-# Shared private image lifecycle
+# Store images (store create/edit form)
 
-Store images cover `StoreCreateForm` / `CreateStoreView` / `EditStoreView` and the default Django Store administrator image field. Store create uses the source default image; the persisted store can then reserve and attach a verified private image. Store CRUD cannot assign another object's raw path or bypass verification. Existing-franchise association is also supported with a cursor picker; editing shared franchise details requires writer-current access to every associated store, including archived references.
+Legacy: `stores/forms.py:80` (`store_image` in `StoreCreateForm.Meta.fields`), `_form.html:376-389`
+(multipart file input in the same form), `stores/models.py:117` (default
+`uploads/stores/stores_image/default_store_image.jpeg`). Legacy never deletes a replaced image.
 
-`image-lifecycle/{schema,service,validation,cleanup,runner}.ts` implements one reusable reservation/attachment/cleanup lifecycle with injected owner authorization, persistent-field and reference adapters. The profile service, exported factory/API shapes and deployed `profile_revision` SQL column remain compatible; existing root profile SQL/native tests run unchanged. Store reservation ownership combines store ID and operator ID, preventing another authorized operator from consuming a pending upload. Writer-current role, active store, assignment, organization and whole-store HMAC revision are checked before publication. Self-profile reservations remain self-only and bind the full profile revision. Managed operator reservations use a purpose-separated opaque actor+target HMAC with writer-current model grants; they share profile tables/cleanup and never collide with self-upload ownership. Cleanup jobs retain the real initiating operator ID, not the opaque reservation owner.
+Rewrite (W8a, schema freeze):
+- The file is chosen in the store form. On Submit the browser reserves a private upload
+  (`POST /api/v1/admin/store-image-uploads {storeId?, upload}`), posts the bytes to S3 with the signed
+  form, then submits the store form with `store_image: <uploadId>`.
+- Reservation: Redis `pos:store_image_upload:{uploadId}` → JSON `{id, actorId, storeId|null,
+  objectKey, contentType, size, checksum, expiresAt}`, `EX 900`, `SET NX`; at most 5 open per actor.
+  It is consumed (deleted) after the store form commits.
+- The store service verifies the object (size, type, checksum, full decode) before the writer
+  transaction, then writes `stores.store_image` in the same transaction as the other fields.
+- Object key `uploads/stores/stores_image/{sanitised original name}_{uploadId}.{ext}` (legacy keeps
+  the original name; the UUID suffix replaces Django's random de-duplication suffix).
+- Replaced images are never deleted (legacy). The `worker:store-images` cleanup job and
+  `pos_rewrite_store_image_uploads/_jobs` are no longer used.
+- `GET /api/v1/admin/stores/:storeId/image` and `/image/content` stream the current image (edit
+  page header, `edit.html:18-22`).
 
-Signed uploads require all four bucket Block Public Access flags, optional expected AWS account binding, exact private key scope, checksum/type/size conditions and server-side encryption. New keys contain UUID leaves; no arbitrary file names become object paths. Both owners use the shared decoder to verify actual bytes/checksum/content type, complete JPEG/PNG/WebP/GIF pixels, bounded frames/16-megapixel total, bounded byte stream and decoder time. The process permits one decoder at a time. Existing legacy/default objects may be read under exact owner-specific prefixes but are never eligible for cleanup.
+| Case | Legacy message | Rewrite |
+|---|---|---|
+| Not an image / corrupt | "Upload a valid image. The file you uploaded was either not an image or a corrupted image." (field error) | 400 `fields.store_image` with the same text |
+| Reservation expired | — | 400 `fields.store_image`: "The store image upload expired. Choose the image again." |
 
-`frontend/src/components/private-images.tsx` is shared by `ProfileImages`, the store-image dialog and the other-operator administrative profile dialog. It retains no file/URL/seed in a query cache or browser storage. After a successful S3 POST it keeps only the pending upload ID, owner revision and expiry in mounted state. A dropped attachment response can be retried without another reservation or upload; the server recognizes an already attached image. Non-retryable ownership/revision/content errors discard that pending attachment. Closing/navigating aborts requests. All reserve/attach options explicitly capture the initiating operator ID and its abort scope; a paused-upload Chromium test changes global identity and proves the upload is cancelled and no stale attachment request is dispatched. Protected same-origin image streams use private no-store headers, MIME checks, nosniff and sandbox CSP.
-
-Apply `src/modules/administration/store-image-migration.sql` after the other owned migrations. It creates only store reservation/cleanup tables. The parent additionally applies `migrations/0005_profile_media.sql` for profile state. `createStoreImageStore(config,readPrivateS3Options())` supplies the `registerAdministration` option `storeImageStore`; close this store during application shutdown. The production frontend build must set `POS_MEDIA_ORIGINS` to the exact HTTPS S3 origin used by signed POST, with S3 CORS allowing the exact deployed web/Electron HTTPS origin. There is no broad wildcard or file/null Electron origin.
-
-Run `src/modules/administration/store-image-worker-main.ts` under a supervisor with `STORE_IMAGE_WORKER_ENABLED=true`; `STORE_IMAGE_WORKER_INTERVAL_MS` is bounded to 1–60 seconds (default30seconds). The default-disabled process does not create DB/storage clients. `--once` processes one bounded batch; `--retry-job UUID` explicitly requeues an exhausted job. The profile worker retains its current entrypoint and can adopt the same runner. Both use shared leases/SKIP LOCKED, bounded retries/backoff, shutdown cancellation and trace IDs without object keys, file names, account contact information or raw errors.
-
-Cleanup waits beyond the signed POST expiry, considers every current reference including archived stores/operators and both profile fields, retains shared/default/legacy objects and deletes only generated rewrite-owned keys. Jobs preserve the initiating operator ID and request ID independently of the image's store owner. The isolated SQL suite exercises cross-owner rejection, bad image bytes, protected streaming, stale revisions/revoked roles/assignments, cleanup leasing/retry/shared references and rejection of raw-path CRUD. A real MySQL AUTO_INCREMENT above 2^53 verifies exact native generated-ID handling for the same administration infrastructure. Chromium workflows upload synthetic complete PNGs through an exact fixture-S3 CSP origin, simulate a committed attachment with a dropped response, retry without a second S3 POST, render profile/cover/store images and reject SVG. All SDK/HTTP boundaries are fixtures; no live upload or deletion occurred. Full legacy/deployed storage parity remains unverified.
+Differences kept (security): only JPEG/PNG/WebP/GIF up to 10 MB and 16 MP are accepted (legacy: any
+Pillow format); the bytes go to private storage through a signed POST, not through the API server.
+Orphans (form rejected after upload, abandoned reservations) need an S3 lifecycle rule on the
+`uploads/stores/stores_image/` prefix scoped to rewrite-generated `_<uuid>` keys.

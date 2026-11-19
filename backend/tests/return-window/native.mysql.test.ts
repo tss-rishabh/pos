@@ -9,6 +9,7 @@ import type { Principal } from '../../src/domain/access.js';
 import { AppError } from '../../src/domain/errors.js';
 import { splitMigration } from '../../src/db/migrations.js';
 import { checkInService } from '../../src/modules/administration/checkins.js';
+import { clearCheckIn } from '../helpers/check-ins.js';
 import { checkoutRepository } from '../../src/modules/checkout/repository.js';
 import { registerReturns } from '../../src/modules/checkout/return-workflow/routes.js';
 import { returnRepository } from '../../src/modules/checkout/return-workflow/repository.js';
@@ -92,7 +93,6 @@ describe.skipIf(!template)('manager return date on verified native source tables
     for (const row of tables) {
       const name = String(Object.values(row)[0]);
       if (
-        name === 'pos_rewrite_operator_checkins' ||
         name === 'extend_applicability_for_return_exchange' ||
         name === 'reverse_pickup_reason'
       )
@@ -146,6 +146,7 @@ describe.skipIf(!template)('manager return date on verified native source tables
       status_id: 3,
       created_at: '2026-01-01 12:00:00',
     });
+    await clearCheckIn('1');
     await checkInService(f.db, f.config).set(currentActor, '1', '2');
     // The customer verification proof is Redis state (pos:return_verification:{id}); the OTP
     // exchange itself belongs to the customer-otp module and is outside this native test.
@@ -319,9 +320,7 @@ describe.skipIf(!template)('manager return date on verified native source tables
     await f.connection.query('UPDATE pos_user SET role=5 WHERE id=1');
     await expect(put(day(1), start.revision)).rejects.toMatchObject({ code: 'ROLE_ACCESS_DENIED' });
     await f.connection.query('UPDATE pos_user SET role=3 WHERE id=1');
-    await f.connection.query(
-      "UPDATE pos_rewrite_operator_checkins SET expires_at='2020-01-01 00:00:00'",
-    );
+    await clearCheckIn('1');
     await expect(put(day(1), start.revision)).rejects.toMatchObject({ code: 'CHECK_IN_REQUIRED' });
     expect(await rows()).toHaveLength(0);
   });

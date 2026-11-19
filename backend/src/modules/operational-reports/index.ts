@@ -15,7 +15,6 @@ import {
   type ReportExportStore,
 } from './export-storage.js';
 import { reportExportService, type ExportBuilder } from './export-service.js';
-import { reportExportWorker } from './export-worker.js';
 import { registerReportExportRoutes } from './export-routes.js';
 import { acceptanceReportService, acceptanceInputSchema } from './acceptance.js';
 import {
@@ -30,26 +29,30 @@ import {
 } from './order-transactions.js';
 import { hyperlocalDailyReportService, hyperlocalDailyInputSchema } from './hyperlocal-daily.js';
 import { flashSalesReportService, flashSalesInputSchema } from './flash-sales.js';
+import { scheduledReportOptions, type ScheduledReportOptions } from './scheduled-options.js';
+import { scheduledReportBuilder } from './scheduled-data.js';
 import {
-  scheduledReportOptions,
-  assertScheduledWorkerOptions,
-  type ScheduledReportOptions,
-} from './scheduled-options.js';
-import { scheduledReportService } from './scheduled-service.js';
-import { scheduledReportWorker } from './scheduled-worker.js';
-import { registerScheduledReportRoutes } from './scheduled-routes.js';
+  registerScheduledReportRoutes,
+  scheduledReportRunner,
+  type ScheduledBuilder,
+} from './scheduled-routes.js';
+import type { SlackPoster } from './slack.js';
+import type { JobProducer } from '../../jobs/contract.js';
 interface RegistrationOptions {
+  /** Export routes only enqueue E1-E6; the worker process runs them (`jobs.ts`). */
+  jobs: JobProducer;
   exportOptions?: ReportExportOptions;
   exportStore?: ReportExportStore;
   exportBuilder?: ExportBuilder;
   scheduledOptions?: ScheduledReportOptions;
-  scheduledService?: ReturnType<typeof scheduledReportService>;
+  scheduledBuilder?: ScheduledBuilder;
+  slack?: SlackPoster;
 }
 export async function registerOperationalReports(
   app: FastifyInstance,
   config: Config,
   db: Databases,
-  options: RegistrationOptions = {},
+  options: RegistrationOptions,
 ) {
   const feedback = customerFeedbackService(config, db),
     acceptance = acceptanceReportService(config, db),
@@ -167,32 +170,26 @@ export async function registerOperationalReports(
   );
   const exportOptions = options.exportOptions || reportExportOptions(),
     exportStore = options.exportStore || createReportExportStore(config, exportOptions),
-    exports = reportExportService(config, db, exportOptions, exportStore, options.exportBuilder),
-    exportWorker = reportExportWorker(exports, exportOptions, (level, event, message) =>
-      app.log[level](event, message),
-    );
-  if (exportOptions.REPORT_EXPORT_WORKER_ENABLED && !config.DEMO_MODE && !exportStore)
-    throw new AppError(
-      503,
-      'REPORT_STORAGE_UNAVAILABLE',
-      'Configure private report storage before enabling the export worker.',
+    exports = reportExportService(
+      config,
+      db,
+      exportOptions,
+      exportStore,
+      options.jobs,
+      options.exportBuilder,
     );
   await registerReportExportRoutes(app, exports);
   const scheduledOptions = options.scheduledOptions || scheduledReportOptions(),
-    scheduled = options.scheduledService || scheduledReportService(config, db, scheduledOptions),
-    scheduledWorker = scheduledReportWorker(scheduled, scheduledOptions, (level, event, message) =>
-      app.log[level](event, message),
+    scheduled = scheduledReportRunner(
+      config,
+      scheduledOptions,
+      options.scheduledBuilder || scheduledReportBuilder(config, db, scheduledOptions),
+      options.slack,
     );
-  assertScheduledWorkerOptions(config, scheduledOptions);
   await registerScheduledReportRoutes(app, scheduled, scheduledOptions);
   app.addHook('onClose', async () => {
-    await scheduledWorker.stop();
-    await exportWorker.stop();
     exportStore?.close();
   });
-  if (exportOptions.REPORT_EXPORT_WORKER_ENABLED && !config.DEMO_MODE) exportWorker.start();
-  if (scheduledOptions.SCHEDULED_REPORT_WORKER_ENABLED && !config.DEMO_MODE)
-    scheduledWorker.start();
   app.post(
     '/api/v1/reports/returned-orders/search',
     {
@@ -246,8 +243,6 @@ export async function registerOperationalReports(
     hyperlocalDaily,
     flashSales,
     exports,
-    exportWorker,
     scheduled,
-    scheduledWorker,
   };
 }

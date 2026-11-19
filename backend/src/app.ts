@@ -36,15 +36,15 @@ import { redisDeviceHandoffStore } from './auth/device-handoff-store.js';
 import { registerDeviceHandoffs } from './auth/device-handoff-routes.js';
 import { registerProfileMedia } from './auth/profile-media-routes.js';
 import { bindCheckInRedis } from './modules/administration/checkins.js';
-import { createProductSyncAdapter } from './modules/administration/product-sync.js';
+import { useAdministrationEphemeralStore } from './modules/administration/ephemeral-runtime.js';
+import {
+  createProductSyncAdapter,
+  productSynchronizer,
+} from './modules/administration/product-sync.js';
 import { readAdministrationWorkerOptions } from './modules/administration/worker-options.js';
 import { createSettingsDelivery } from './modules/administration/settings-adapters.js';
-import { readSettingsWorkerOptions } from './modules/administration/settings-options.js';
-import {
-  ecommerceInventorySynchronization,
-  readEcommerceSynchronizationOptions,
-  registerEcommerceInventorySynchronization,
-} from './modules/administration/ecommerce-sync/index.js';
+import { readSettingsOptions } from './modules/administration/settings-options.js';
+import { createCsvUploadStorage } from './modules/administration/import-storage.js';
 import {
   createDocumentationMediaStore,
   createScopedMediaStore,
@@ -56,10 +56,6 @@ import { registerAdministration } from './modules/administration/index.js';
 import { registerBarcodeAssignments } from './modules/administration/barcodes/index.js';
 import { registerSecondaryCountrySearch } from './modules/administration/country-search.js';
 import { registerOperatorModelAccounts } from './modules/administration/model-accounts/index.js';
-import {
-  registerParentStoreImports,
-  readParentStoreImportOptions,
-} from './modules/administration/parent-store-imports/index.js';
 import { registerApplicationLinks } from './modules/application-links/index.js';
 import { registerMotivationalQuotes } from './modules/motivational-quotes/index.js';
 import { registerDashboard } from './modules/dashboard/index.js';
@@ -116,6 +112,7 @@ import { demoOrderSearch } from './modules/order-history/search/demo.js';
 import { draftMutationSchema, draftService } from './modules/drafts.js';
 import { demoServices, demoUser } from './modules/demo.js';
 import { registerEventCatalog, requestEvent } from './observability/events.js';
+import { createModuleRuntime } from './jobs/module-runtime.js';
 import { registerRequestTrace } from './observability/context.js';
 import { identifier, cursor } from './domain/validation.js';
 import { reportService, dailyReportRange } from './modules/reports.js';
@@ -210,10 +207,14 @@ export async function buildApp(
         drafts: draftService(db, posState ?? memoryStateStore()),
       };
   const orderRedis = config.DEMO_MODE ? memoryOrderRedis() : nodeOrderRedis(config);
+  /** Job producer + ephemeral Redis state for the W8 modules (src/jobs). */
+  const moduleRuntime = createModuleRuntime(config);
+  useAdministrationEphemeralStore(moduleRuntime.ephemeral);
   app.addHook('onClose', async () => {
     await identity.close();
     await orderRedis.close();
     await db.close();
+    await moduleRuntime.close();
   });
   app.addHook('onRequest', async (request, reply) => {
     reply.header('Cache-Control', 'no-store');
@@ -364,9 +365,14 @@ export async function buildApp(
     app,
     deviceHandoffService(config, db, handoffOptions, handoffStore, identity),
   );
-  const productSync = config.DEMO_MODE
-    ? undefined
-    : createProductSyncAdapter(config, readAdministrationWorkerOptions());
+  const productSync = productSynchronizer(
+    config.DEMO_MODE
+      ? undefined
+      : createProductSyncAdapter(config, readAdministrationWorkerOptions(), fetch, {
+          requireReplaySafe: false,
+        }),
+    (level, event, message) => app.log[level](event, message),
+  );
   const stockProjection = configuredStockProjection(config);
   const mediaStore = config.DEMO_MODE
     ? undefined
@@ -374,16 +380,9 @@ export async function buildApp(
   const storeImageStore = config.DEMO_MODE
     ? undefined
     : createStoreImageStore(config, readPrivateS3Options());
-  const settingsOptions = config.DEMO_MODE ? undefined : readSettingsWorkerOptions();
-  const ecommerceSync = ecommerceInventorySynchronization(
-    config,
-    db,
-    readEcommerceSynchronizationOptions(),
-  );
+  const settingsOptions = config.DEMO_MODE ? undefined : readSettingsOptions();
   const settingsDelivery = settingsOptions
-    ? createSettingsDelivery(config, db, settingsOptions, {
-        synchronizeEcommerce: ecommerceSync.ready ? ecommerceSync.synchronizeEcommerce : undefined,
-      })
+    ? createSettingsDelivery(config, db, settingsOptions)
     : undefined;
   app.addHook('onClose', async () => {
     profileStore?.close();
@@ -392,29 +391,24 @@ export async function buildApp(
     await settingsDelivery?.close?.();
   });
   registerAdministration(app, config, db, {
+    ephemeral: moduleRuntime.ephemeral,
     ...(stockProjection ? { procedureVerified: true, stockProcedure: stockProjection } : {}),
     slackOAuth: createSlackOAuthProvider(config, readSlackOAuthOptions()),
-    syncProducts: productSync || undefined,
+    productSync,
+    moduleRuntime,
+    csvStorage: createCsvUploadStorage(config, readPrivateS3Options()),
     mediaStore,
     storeImageStore,
     operatorImageStore: profileStore,
     operatorImageReservations: authRedis,
     settingsDelivery,
-    ecommerceSyncVerified: ecommerceSync.ready,
     ecommerceCooldownSeconds: settingsOptions?.ECOM_DELIVERY_CHANGES_TIME,
   });
-  registerEcommerceInventorySynchronization(app, ecommerceSync);
   const customerOtpOptions = readCustomerOtpOptions(),
     customerOtp = customerOtpService(config, db, customerOtpOptions, checkoutShared);
-  registerBarcodeAssignments(app, config, db);
+  registerBarcodeAssignments(app, config, db, moduleRuntime.ephemeral);
   registerOperatorModelAccounts(app, config, db);
   registerSecondaryCountrySearch(app, db);
-  registerParentStoreImports(app, config, db, {
-    stockProcedure: stockProjection,
-    procedureVerified: Boolean(stockProjection),
-    syncProducts: productSync || undefined,
-    historyOptions: readParentStoreImportOptions(),
-  });
   const wholeOrderOptions = readWholeOrderStatusOptions(config.DEMO_MODE ? {} : process.env);
   const checkout = await registerCheckout(app, config, db, {
     ...checkoutShared,
@@ -442,16 +436,17 @@ export async function buildApp(
   registerInvoiceDocuments(app, config, db);
   registerCustomerContacts(app, config, db);
   await registerFinance(app, config, db, {
+    ephemeral: moduleRuntime.ephemeral,
     paymentCorrections,
     ...(config.DEMO_MODE ? { demoStores: services.catalog.stores } : {}),
   });
-  await registerOperationalReports(app, config, db);
-  await registerCatalogDetails(app, config, db);
+  await registerOperationalReports(app, config, db, { jobs: moduleRuntime.jobs });
+  await registerCatalogDetails(app, config, db, { ephemeral: moduleRuntime.ephemeral });
   registerSpecialPermissionHistory(app, config, db, readSpecialPermissionHistoryOptions());
-  registerApplicationLinks(app, config, db);
+  registerApplicationLinks(app, config, db, moduleRuntime);
   registerMotivationalQuotes(app);
   registerDashboard(app, config, db);
-  registerGiftCardBatches(app, config, db, readGiftCardBatchOptions());
+  registerGiftCardBatches(app, config, db, readGiftCardBatchOptions(), moduleRuntime);
   registerAdministrationHistory(app, config, db, readAdministrationHistoryOptions());
   app.get('/api/v1/reports/daily-store-sales', async (request) => {
     const user = authenticated(request);

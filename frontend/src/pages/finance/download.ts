@@ -7,10 +7,8 @@ export async function downloadReportFile(
   format: 'CSV' | 'XLSX',
 ) {
   if (
-    (path !== '/api/v1/catalog/inventory-pulls/sample' &&
-      !path.startsWith('/api/v1/reports/') &&
-      !/^\/api\/v1\/report-exports\/(?:legacy\/)?[a-f0-9-]+\/file$/.test(path)) ||
-    path.startsWith('//')
+    path !== '/api/v1/catalog/inventory-pulls/sample' &&
+    !/^\/api\/v1\/report-exports\/[1-9]\d*\/file$/.test(path)
   )
     throw new Error('Invalid report download path.');
   if (!/^[1-9]\d*$/.test(ownerId))

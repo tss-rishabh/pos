@@ -1,9 +1,9 @@
 import QRCode from 'qrcode';
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
 import type { Databases } from '../../db/pools.js';
-import { POSFranchise, Store } from '../../db/legacy-schema.js';
+import { POSFranchise, PosMachine, PosPaytmMachine, Store } from '../../db/legacy-schema.js';
 import { authenticated } from '../../auth/routes.js';
 import { identifier } from '../../domain/validation.js';
 import { AppError } from '../../domain/errors.js';
@@ -57,8 +57,40 @@ export function registerAdministrationStoreDetails(app: FastifyInstance, db: Dat
             .where(eq(POSFranchise.id, BigInt(row.franchiseId)))
             .limit(1)
         : [];
+      // `ShowStoreView` lists every Pine Labs and Paytm terminal of the store
+      // (`stores/views.py:166-178`, `show.html:66-122`); secrets are not shown there.
+      const pinelab = await tx
+          .select({
+            id: PosMachine.id,
+            machineName: PosMachine.machine_name,
+            merchantName: PosMachine.merchant_name,
+            clientId: PosMachine.client_id,
+            hardwareId: PosMachine.hardware_id,
+            imei: PosMachine.imei_no,
+            tid: PosMachine.tid,
+            merchantId: PosMachine.merchant_id,
+            merchantStorePosCode: PosMachine.merchant_store_pos_code,
+          })
+          .from(PosMachine)
+          .where(eq(PosMachine.store_id, Number(storeId)))
+          .orderBy(asc(PosMachine.id)),
+        paytm = await tx
+          .select({
+            id: PosPaytmMachine.id,
+            machineName: PosPaytmMachine.machine_name,
+            merchantName: PosPaytmMachine.merchant_name,
+            mid: PosPaytmMachine.paytm_mid,
+            tid: PosPaytmMachine.paytm_tid,
+            channelId: PosPaytmMachine.channel_id,
+            storeName: PosPaytmMachine.store_name,
+          })
+          .from(PosPaytmMachine)
+          .where(eq(PosPaytmMachine.store_id, Number(storeId)))
+          .orderBy(asc(PosPaytmMachine.id));
       return {
         ...row,
+        pinelabMachines: pinelab.map((machine) => ({ ...machine, id: String(machine.id) })),
+        paytmMachines: paytm.map((machine) => ({ ...machine, id: String(machine.id) })),
         id: String(row.id),
         franchiseId: row.franchiseId === null ? null : String(row.franchiseId),
         franchise: franchise ?? null,

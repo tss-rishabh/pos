@@ -8,7 +8,9 @@ import { requireRole, type Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
 import { manageableOperator } from './policies.js';
 import type { OperatorInput } from './contracts.js';
-import { lockAdministrationRegistry } from './locks.js';
+import { withAdministrationLock } from './locks.js';
+import type { EphemeralStore } from '../../jobs/ephemeral.js';
+import { administrationEphemeralStore } from './ephemeral-runtime.js';
 import { retryTransaction } from '../../db/retry.js';
 import { djangoPasswordHash } from '../../auth/crypto.js';
 import { assertPasswordPolicy } from '../../auth/password-policy.js';
@@ -88,7 +90,11 @@ export function operatorMirrorValues(
     artist_alias_name: '',
   };
 }
-export function operatorCreator(config: Config, db: Databases) {
+export function operatorCreator(
+  config: Config,
+  db: Databases,
+  ephemeral: EphemeralStore = administrationEphemeralStore(config),
+) {
   return async (user: Principal, input: OperatorInput) => {
     requireRole(user, [1, 2, 3]);
     manageableOperator(user, 'new-account', input.role, input.role);
@@ -111,77 +117,78 @@ export function operatorCreator(config: Config, db: Databases) {
         .toPlainDateTime()
         .toString({ smallestUnit: 'second' })
         .replace('T', ' ');
-    return retryTransaction(() =>
-      db.get('writer').transaction(async (transaction) => {
-        await lockAdministrationRegistry(transaction, 'operators');
-        // Hashing precedes the transaction. Hold current actor authority through
-        // both identity inserts so a revocation during hashing cannot admit them.
-        const identity = await assertCurrentOperatorIdentity(transaction, user.id, [1, 2, 3]);
-        manageableOperator({ ...user, ...identity }, 'new-account', input.role, input.role);
-        if (identity.userType === 2 && input.userType !== 2)
-          throw new AppError(
-            403,
-            'OPERATOR_SCOPE_DENIED',
-            'This user type is outside your organization.',
-          );
-        const [duplicate] = await transaction
-          .select({ id: PosUser.id })
-          .from(PosUser)
-          .where(
-            or(
-              eq(PosUser.email, input.email),
-              eq(PosUser.username, input.email),
-              eq(PosUser.phone, input.phone),
-              eq(PosUser.contact_email, input.contactEmail),
-            ),
-          )
-          .limit(1);
-        if (duplicate)
-          throw new AppError(
-            409,
-            'OPERATOR_ALREADY_EXISTS',
-            'Email, contact email, or phone is already in use.',
-          );
-        const [mirror] = await transaction
-          .select({ id: MUser.id })
-          .from(MUser)
-          .where(eq(MUser.email, input.email))
-          .limit(1);
-        if (mirror)
-          throw new AppError(
-            409,
-            'OPERATOR_MIRROR_CONFLICT',
-            'This email already belongs to an existing customer or staff identity.',
-          );
-        const inserted = await transaction.insert(PosUser).values({
-          username: input.email,
-          password: hash,
-          first_name: input.firstName,
-          last_name: input.lastName,
-          is_active: true,
-          is_staff: false,
-          is_superuser: false,
-          last_login: null,
-          date_joined: timestamp,
-          role: input.role,
-          gender: null,
-          age: null,
-          phone: input.phone,
-          email: input.email,
-          is_mfa: false,
-          mfa_hash: null,
-          profile_image: 'uploads/users/profile_image/default_profile_image.png',
-          cover_image: 'uploads/users/cover_image/default_cover_image.png',
-          contact_email: input.contactEmail,
-          otp_method: input.otpMethod,
-          user_type: input.userType,
-        });
-        const id = generatedId(inserted);
-        if (!id)
-          throw new AppError(500, 'OPERATOR_CREATE_FAILED', 'Could not create this operator.');
-        await transaction.insert(MUser).values(operatorMirrorValues(id, input, timestamp));
-        return { id: String(id), message: 'User has been created.' };
-      }),
+    return withAdministrationLock(ephemeral, 'operators', () =>
+      retryTransaction(() =>
+        db.get('writer').transaction(async (transaction) => {
+          // Hashing precedes the transaction. Hold current actor authority through
+          // both identity inserts so a revocation during hashing cannot admit them.
+          const identity = await assertCurrentOperatorIdentity(transaction, user.id, [1, 2, 3]);
+          manageableOperator({ ...user, ...identity }, 'new-account', input.role, input.role);
+          if (identity.userType === 2 && input.userType !== 2)
+            throw new AppError(
+              403,
+              'OPERATOR_SCOPE_DENIED',
+              'This user type is outside your organization.',
+            );
+          const [duplicate] = await transaction
+            .select({ id: PosUser.id })
+            .from(PosUser)
+            .where(
+              or(
+                eq(PosUser.email, input.email),
+                eq(PosUser.username, input.email),
+                eq(PosUser.phone, input.phone),
+                eq(PosUser.contact_email, input.contactEmail),
+              ),
+            )
+            .limit(1);
+          if (duplicate)
+            throw new AppError(
+              409,
+              'OPERATOR_ALREADY_EXISTS',
+              'Email, contact email, or phone is already in use.',
+            );
+          const [mirror] = await transaction
+            .select({ id: MUser.id })
+            .from(MUser)
+            .where(eq(MUser.email, input.email))
+            .limit(1);
+          if (mirror)
+            throw new AppError(
+              409,
+              'OPERATOR_MIRROR_CONFLICT',
+              'This email already belongs to an existing customer or staff identity.',
+            );
+          const inserted = await transaction.insert(PosUser).values({
+            username: input.email,
+            password: hash,
+            first_name: input.firstName,
+            last_name: input.lastName,
+            is_active: true,
+            is_staff: false,
+            is_superuser: false,
+            last_login: null,
+            date_joined: timestamp,
+            role: input.role,
+            gender: null,
+            age: null,
+            phone: input.phone,
+            email: input.email,
+            is_mfa: false,
+            mfa_hash: null,
+            profile_image: 'uploads/users/profile_image/default_profile_image.png',
+            cover_image: 'uploads/users/cover_image/default_cover_image.png',
+            contact_email: input.contactEmail,
+            otp_method: input.otpMethod,
+            user_type: input.userType,
+          });
+          const id = generatedId(inserted);
+          if (!id)
+            throw new AppError(500, 'OPERATOR_CREATE_FAILED', 'Could not create this operator.');
+          await transaction.insert(MUser).values(operatorMirrorValues(id, input, timestamp));
+          return { id: String(id), message: 'User has been created.' };
+        }),
+      ),
     );
   };
 }

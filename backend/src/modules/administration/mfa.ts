@@ -1,26 +1,26 @@
-import { createHmac } from 'node:crypto';
-import { Temporal } from '@js-temporal/polyfill';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { Secret, TOTP } from 'otpauth';
-import { and, asc, eq, inArray, lt, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import { PosUser, Store, UserStore } from '../../db/legacy-schema.js';
 import { retryTransaction } from '../../db/retry.js';
-import { credentialVersion, seal, unseal } from '../../auth/crypto.js';
+import { credentialVersion } from '../../auth/crypto.js';
 import { verifyTotp } from '../../auth/totp.js';
-import { invalidateOperatorAuthentication } from '../../auth/revocation.js';
+import {
+  currentAuthenticationVersion,
+  invalidateOperatorAuthentication,
+} from '../../auth/revocation.js';
 import { qrDataUrl } from '../../domain/qr.js';
 import { requireRole, type Principal } from '../../domain/access.js';
-import { identifier } from '../../domain/validation.js';
 import { AppError } from '../../domain/errors.js';
-import { currentRequestTrace } from '../../observability/context.js';
+import type { EphemeralStore } from '../../jobs/ephemeral.js';
 import { assertCurrentOperatorRole } from './authorization.js';
 import type { AdministrationTransaction } from './checkins.js';
-import { lockAdministrationRegistry } from './locks.js';
+import { administrationEphemeralStore } from './ephemeral-runtime.js';
+import { withAdministrationLock } from './locks.js';
 import { manageableOperator } from './policies.js';
-import { utcMediaTimestamp } from './media-domain.js';
-import { operatorMfaEnrollments, operatorMfaMutations } from './mfa-schema.js';
 
 const version = z.string().regex(/^[a-f0-9]{64}$/);
 const code = z.string().regex(/^\d{6}$/);
@@ -46,13 +46,37 @@ export const mfaControlInput = z.discriminatedUnion('mode', [
     })
     .strict(),
 ]);
-const secretPayload = z
+/**
+ * Pending enrollment (ledger administration/mfa): the legacy GET writes the new base32 secret to
+ * `pos_user.mfa_hash` while `is_mfa` stays 0 (`users/views.py:1017-1022`); the POST verifies it and
+ * sets `is_mfa=1` (`:1038-1042`). The rewrite-only attempt budget and replay binding live in
+ * `pos:mfa_enroll:{operatorId}` for ten minutes; it never holds the secret.
+ */
+export const mfaEnrollmentKey = (operatorId: string) => `pos:mfa_enroll:${operatorId}`;
+/** Super-administrator replace/disable receipts: `pos:idem:mfa:{operationId}`, 24 h. */
+export const mfaMutationKey = (operationId: string) => `pos:idem:mfa:${operationId}`;
+const enrollmentSeconds = 600;
+const enrollmentState = z
   .object({
-    purpose: z.literal('operator-mfa'),
     id: z.uuid(),
-    actorId: identifier,
-    operatorId: identifier,
-    secret: z.string().regex(/^[A-Z2-7]{32}$/),
+    actorId: z.string(),
+    /** Authentication versions (credentials + epoch) after the pending secret was written. */
+    actorVersion: z.string(),
+    operatorVersion: z.string(),
+    secretDigest: z.string(),
+    attempts: z.number().int().min(0),
+    lastAttemptAt: z.number().nullable(),
+    verified: z.boolean(),
+    expiresAt: z.number(),
+  })
+  .strict();
+type EnrollmentState = z.infer<typeof enrollmentState>;
+const mutationReceipt = z
+  .object({
+    actorId: z.string(),
+    operatorId: z.string(),
+    hash: z.string(),
+    result: z.object({ status: z.literal('success'), message: z.string() }).strict(),
   })
   .strict();
 type Account = typeof PosUser.$inferSelect;
@@ -64,16 +88,38 @@ const stale = () =>
     'MFA_SETTINGS_CHANGED',
     'Authenticator settings changed. Refresh before continuing.',
   );
+const same = (left: string, right: string) =>
+  left.length === right.length && timingSafeEqual(Buffer.from(left), Buffer.from(right));
 export function operatorMfaService(
   config: Config,
   db: Databases,
   clock = () => Date.now(),
   encodeQr = qrDataUrl,
+  ephemeral: EphemeralStore = administrationEphemeralStore(config),
 ) {
   const encryptionKey = config.SESSION_SECRET + ':administration-mfa';
   const fingerprint = (account: Account) =>
     createHmac('sha256', encryptionKey).update(credentialVersion(account)).digest('hex');
-  const now = () => utcMediaTimestamp(Temporal.Instant.fromEpochMilliseconds(clock()));
+  const secretDigest = (operatorId: string, secret: string | null) =>
+    createHmac('sha256', encryptionKey)
+      .update(operatorId + ':' + (secret || ''))
+      .digest('hex');
+  const locked = <T>(run: () => Promise<T>) =>
+    withAdministrationLock(ephemeral, 'operators', () => retryTransaction(run));
+  async function enrollment(operatorId: string): Promise<EnrollmentState | null> {
+    const raw = await ephemeral.get(mfaEnrollmentKey(operatorId));
+    if (raw === null) return null;
+    try {
+      const value = enrollmentState.parse(JSON.parse(raw) as unknown);
+      return value.expiresAt > clock() ? value : null;
+    } catch {
+      return null;
+    }
+  }
+  const saveEnrollment = (operatorId: string, value: EnrollmentState) =>
+    ephemeral.set(mfaEnrollmentKey(operatorId), JSON.stringify(value), {
+      PX: Math.max(1, value.expiresAt - clock()),
+    });
   async function management(
     transaction: AdministrationTransaction,
     user: Principal,
@@ -81,7 +127,6 @@ export function operatorMfaService(
     write: boolean,
   ) {
     requireRole(user, [1, 2, 3]);
-    if (write) await lockAdministrationRegistry(transaction, 'operators');
     const actorRole = await assertCurrentOperatorRole(transaction, user.id, [1, 2, 3]);
     const rows = await transaction
       .select()
@@ -139,26 +184,6 @@ export function operatorMfaService(
     }
     return { actor, target, actorRole };
   }
-  function reveal(row: typeof operatorMfaEnrollments.$inferSelect): string {
-    try {
-      const payload = secretPayload.parse(unseal(row.sealedSecret, encryptionKey));
-      if (
-        payload.id !== row.id ||
-        payload.actorId !== row.actorId ||
-        payload.operatorId !== row.operatorId
-      )
-        throw expired();
-      return payload.secret;
-    } catch {
-      throw expired();
-    }
-  }
-  async function cleanup(transaction: AdministrationTransaction) {
-    await transaction
-      .delete(operatorMfaEnrollments)
-      .where(lt(operatorMfaEnrollments.expiresAt, now()))
-      .limit(100);
-  }
   return {
     async read(user: Principal, operatorId: string) {
       return db.get('writer').transaction(async (transaction) => {
@@ -171,78 +196,51 @@ export function operatorMfaService(
         };
       });
     },
+    /** `AjaxActivateMfaView.get`; QR generated locally instead of the Google Charts URL. */
     async start(user: Principal, operatorId: string, input: z.infer<typeof mfaEnrollmentInput>) {
-      const result = await retryTransaction(() =>
+      const previous = await enrollment(operatorId);
+      const result = await locked(() =>
         db.get('writer').transaction(async (transaction) => {
           const { actor, target } = await management(transaction, user, operatorId, true);
-          await cleanup(transaction);
           if (target.is_mfa) throw new AppError(409, 'MFA_ALREADY_ACTIVATED', 'Already Activated');
-          if (fingerprint(target) !== input.expectedVersion) throw stale();
-          const [previous] = await transaction
-            .select()
-            .from(operatorMfaEnrollments)
-            .where(eq(operatorMfaEnrollments.id, input.operationId))
-            .limit(1)
-            .for('update');
-          if (previous) {
+          const label = target.email || target.username || operatorId;
+          if (previous?.id === input.operationId) {
+            // Replay of the same enrollment: only while its secret is still the pending one.
             if (
               previous.actorId !== user.id ||
-              previous.operatorId !== operatorId ||
-              previous.state !== 'PENDING' ||
-              previous.expiresAt <= now() ||
-              previous.actorVersion !== fingerprint(actor) ||
-              previous.operatorVersion !== fingerprint(target)
+              previous.verified ||
+              !target.mfa_hash ||
+              !same(previous.secretDigest, secretDigest(operatorId, target.mfa_hash))
             )
               throw expired();
-            return {
-              id: previous.id,
-              expiresAt: previous.expiresAt,
-              secret: reveal(previous),
-              label: target.email || target.username || operatorId,
-            };
+            return { state: previous, secret: target.mfa_hash, label };
           }
+          if (fingerprint(target) !== input.expectedVersion) throw stale();
+          const secret = new Secret({ size: 20 }).base32;
           await transaction
-            .update(operatorMfaEnrollments)
-            .set({ state: 'CANCELLED' })
-            .where(
-              and(
-                eq(operatorMfaEnrollments.operatorId, operatorId),
-                eq(operatorMfaEnrollments.state, 'PENDING'),
-              ),
-            );
-          const secret = new Secret({ size: 20 }).base32,
-            expiresAt = utcMediaTimestamp(Temporal.Instant.fromEpochMilliseconds(clock() + 600000));
-          await transaction.insert(operatorMfaEnrollments).values({
+            .update(PosUser)
+            .set({ mfa_hash: secret })
+            .where(eq(PosUser.id, target.id));
+          const written = { ...target, mfa_hash: secret };
+          const state: EnrollmentState = {
             id: input.operationId,
             actorId: user.id,
-            operatorId,
-            actorVersion: fingerprint(actor),
-            operatorVersion: fingerprint(target),
-            sealedSecret: seal(
-              {
-                purpose: 'operator-mfa',
-                id: input.operationId,
-                actorId: user.id,
-                operatorId,
-                secret,
-              },
-              encryptionKey,
+            actorVersion: await currentAuthenticationVersion(
+              transaction,
+              user.id === operatorId ? written : actor,
             ),
-            state: 'PENDING',
+            operatorVersion: await currentAuthenticationVersion(transaction, written),
+            secretDigest: secretDigest(operatorId, secret),
             attempts: 0,
             lastAttemptAt: null,
-            expiresAt,
-            requestId: currentRequestTrace()?.requestId || null,
-            createdAt: now(),
-          });
-          return {
-            id: input.operationId,
-            expiresAt,
-            secret,
-            label: target.email || target.username || operatorId,
+            verified: false,
+            expiresAt: clock() + enrollmentSeconds * 1000,
           };
+          return { state, secret, label };
         }),
       );
+      // Written after commit; replaces (cancels) any other pending enrollment for this operator.
+      await saveEnrollment(operatorId, result.state);
       const uri = new TOTP({
         issuer: 'TssPosApp',
         label: result.label,
@@ -252,116 +250,104 @@ export function operatorMfaService(
         period: 30,
       }).toString();
       return {
-        id: result.id,
-        expiresAt: result.expiresAt.replace(' ', 'T') + 'Z',
+        id: result.state.id,
+        expiresAt: new Date(result.state.expiresAt).toISOString(),
         qrDataUrl: await encodeQr(uri),
       };
     },
+    /** `AjaxActivateMfaView.post`. */
     async confirm(
       user: Principal,
       operatorId: string,
       enrollmentId: string,
       input: z.infer<typeof mfaVerificationInput>,
     ) {
-      const result = await retryTransaction(() =>
+      const current = await enrollment(operatorId);
+      if (
+        !current ||
+        current.id !== enrollmentId ||
+        current.actorId !== user.id ||
+        current.attempts >= 5
+      )
+        throw expired();
+      const result = await locked(() =>
         db.get('writer').transaction(async (transaction) => {
           const { actor, target } = await management(transaction, user, operatorId, true);
-          const [row] = await transaction
-            .select()
-            .from(operatorMfaEnrollments)
-            .where(
-              and(
-                eq(operatorMfaEnrollments.id, enrollmentId),
-                eq(operatorMfaEnrollments.actorId, user.id),
-                eq(operatorMfaEnrollments.operatorId, operatorId),
-              ),
-            )
-            .limit(1)
-            .for('update');
-          if (!row || row.expiresAt <= now() || row.state === 'CANCELLED' || row.attempts >= 5)
-            throw expired();
-          if (row.state === 'VERIFIED') {
-            if (!target.is_mfa || target.mfa_hash !== reveal(row)) throw stale();
-            return { verified: true as const };
-          }
           if (
-            row.actorVersion !== fingerprint(actor) ||
-            row.operatorVersion !== fingerprint(target)
+            !target.mfa_hash ||
+            !same(current.secretDigest, secretDigest(operatorId, target.mfa_hash))
           )
             throw stale();
-          if (
-            row.lastAttemptAt &&
-            Date.parse(row.lastAttemptAt.replace(' ', 'T') + 'Z') + 1000 > clock()
-          )
+          if (current.verified) {
+            if (!target.is_mfa) throw stale();
+            return { verified: true as const };
+          }
+          if (target.is_mfa) throw new AppError(409, 'MFA_ALREADY_ACTIVATED', 'Already Activated');
+          if (current.operatorVersion !== (await currentAuthenticationVersion(transaction, target)))
+            throw stale();
+          // A revoked or changed actor credential cancels the actor-bound enrollment.
+          if (current.actorVersion !== (await currentAuthenticationVersion(transaction, actor)))
+            throw expired();
+          if (current.lastAttemptAt !== null && current.lastAttemptAt + 1000 > clock())
             throw new AppError(
               429,
               'MFA_VERIFICATION_WAIT',
               'Wait briefly before trying another code.',
             );
-          const secret = reveal(row),
-            valid = verifyTotp(secret, input.code, clock());
-          if (!valid) {
-            await transaction
-              .update(operatorMfaEnrollments)
-              .set({
-                attempts: row.attempts + 1,
-                lastAttemptAt: now(),
-                state: row.attempts + 1 >= 5 ? 'CANCELLED' : 'PENDING',
-              })
-              .where(eq(operatorMfaEnrollments.id, row.id));
+          if (!verifyTotp(target.mfa_hash, input.code, clock()))
             return { verified: false as const };
-          }
-          await transaction
-            .update(PosUser)
-            .set({ is_mfa: true, mfa_hash: secret })
-            .where(eq(PosUser.id, target.id));
+          await transaction.update(PosUser).set({ is_mfa: true }).where(eq(PosUser.id, target.id));
           await invalidateOperatorAuthentication(transaction, operatorId);
-          await transaction
-            .update(operatorMfaEnrollments)
-            .set({ state: 'VERIFIED', lastAttemptAt: now() })
-            .where(eq(operatorMfaEnrollments.id, row.id));
           return { verified: true as const };
         }),
       );
-      if (!result.verified)
+      if (!result.verified) {
+        const attempts = current.attempts + 1;
+        if (attempts >= 5) await ephemeral.del(mfaEnrollmentKey(operatorId));
+        else await saveEnrollment(operatorId, { ...current, attempts, lastAttemptAt: clock() });
         throw new AppError(422, 'MFA_CODE_INVALID', 'Wrong OTP, Enter correct OTP');
+      }
+      if (!current.verified) await saveEnrollment(operatorId, { ...current, verified: true });
       return {
         status: 'success' as const,
         message: 'Hash has been verified, MFA activated on your account',
       };
     },
     async cancel(user: Principal, operatorId: string, enrollmentId: string) {
-      return retryTransaction(() =>
-        db.get('writer').transaction(async (transaction) => {
-          const { actorRole } = await management(transaction, user, operatorId, true);
-          const [row] = await transaction
-            .select()
-            .from(operatorMfaEnrollments)
-            .where(
-              and(
-                eq(operatorMfaEnrollments.id, enrollmentId),
-                eq(operatorMfaEnrollments.operatorId, operatorId),
-              ),
-            )
-            .limit(1)
-            .for('update');
-          if (!row || (row.actorId !== user.id && actorRole !== 1))
-            throw new AppError(404, 'MFA_ENROLLMENT_NOT_FOUND', 'Enrollment was not found.');
-          if (row.state === 'VERIFIED')
-            throw new AppError(409, 'MFA_ALREADY_ACTIVATED', 'Already Activated');
-          await transaction
-            .update(operatorMfaEnrollments)
-            .set({ state: 'CANCELLED' })
-            .where(eq(operatorMfaEnrollments.id, enrollmentId));
-          return { status: 'success' as const, message: 'Authenticator enrollment cancelled.' };
-        }),
-      );
+      const { actorRole } = await db
+        .get('writer')
+        .transaction((transaction) => management(transaction, user, operatorId, false));
+      const current = await enrollment(operatorId);
+      if (
+        !current ||
+        current.id !== enrollmentId ||
+        (current.actorId !== user.id && actorRole !== 1)
+      )
+        throw new AppError(404, 'MFA_ENROLLMENT_NOT_FOUND', 'Enrollment was not found.');
+      if (current.verified) throw new AppError(409, 'MFA_ALREADY_ACTIVATED', 'Already Activated');
+      await ephemeral.del(mfaEnrollmentKey(operatorId));
+      return { status: 'success' as const, message: 'Authenticator enrollment cancelled.' };
     },
+    /** Super-administrator replace/disable (legacy Django `UserAdmin` `is_mfa`/`mfa_hash`). */
     async update(user: Principal, operatorId: string, input: z.infer<typeof mfaControlInput>) {
       const hash = createHmac('sha256', encryptionKey)
         .update(JSON.stringify({ operatorId, input }))
         .digest('hex');
-      return retryTransaction(() =>
+      const replay = async () => {
+        const raw = await ephemeral.get(mfaMutationKey(input.operationId));
+        if (raw === null) return null;
+        const previous = mutationReceipt.parse(JSON.parse(raw) as unknown);
+        if (
+          previous.actorId !== user.id ||
+          previous.operatorId !== operatorId ||
+          previous.hash !== hash
+        )
+          throw new AppError(409, 'MFA_OPERATION_REUSED', 'Choose a new authenticator operation.');
+        return previous.result;
+      };
+      const replayed = await replay();
+      if (replayed) return replayed;
+      const result = await locked(() =>
         db.get('writer').transaction(async (transaction) => {
           const { target, actorRole } = await management(transaction, user, operatorId, true);
           if (actorRole !== 1)
@@ -370,24 +356,6 @@ export function operatorMfaService(
               'MFA_RESET_DENIED',
               'Authenticator reset requires a super administrator.',
             );
-          const [previous] = await transaction
-            .select()
-            .from(operatorMfaMutations)
-            .where(eq(operatorMfaMutations.id, input.operationId))
-            .limit(1);
-          if (previous) {
-            if (
-              previous.actorId !== user.id ||
-              previous.operatorId !== operatorId ||
-              previous.hash !== hash
-            )
-              throw new AppError(
-                409,
-                'MFA_OPERATION_REUSED',
-                'Choose a new authenticator operation.',
-              );
-            return previous.result;
-          }
           if (fingerprint(target) !== input.expectedVersion) throw stale();
           if (input.mode === 'replace' && !verifyTotp(input.secret, input.code, clock()))
             throw new AppError(422, 'MFA_CODE_INVALID', 'Wrong OTP, Enter correct OTP');
@@ -399,53 +367,31 @@ export function operatorMfaService(
             })
             .where(eq(PosUser.id, target.id));
           await invalidateOperatorAuthentication(transaction, operatorId);
-          await transaction
-            .update(operatorMfaEnrollments)
-            .set({ state: 'CANCELLED' })
-            .where(
-              and(
-                eq(operatorMfaEnrollments.operatorId, operatorId),
-                eq(operatorMfaEnrollments.state, 'PENDING'),
-              ),
-            );
-          const result = {
+          return {
             status: 'success' as const,
             message:
               input.mode === 'replace'
                 ? 'Authenticator replaced.'
                 : 'Authenticator disabled. Login will use the configured OTP channel.',
           };
-          await transaction.insert(operatorMfaMutations).values({
-            id: input.operationId,
-            actorId: user.id,
-            operatorId,
-            hash,
-            result,
-            requestId: currentRequestTrace()?.requestId || null,
-            createdAt: now(),
-          });
-          return result;
         }),
       );
+      await ephemeral.del(mfaEnrollmentKey(operatorId));
+      await ephemeral.set(
+        mfaMutationKey(input.operationId),
+        JSON.stringify({ actorId: user.id, operatorId, hash, result }),
+        { NX: true, EX: 86400 },
+      );
+      return result;
     },
   };
 }
-export async function pruneOperatorMfaEnrollments(db: Databases, before: Date, limit = 500) {
-  if (
-    !Number.isSafeInteger(limit) ||
-    limit < 1 ||
-    limit > 1000 ||
-    !Number.isFinite(before.getTime())
-  )
-    throw new AppError(400, 'MFA_CLEANUP_BOUND_INVALID', 'Choose a bounded enrollment cleanup.');
-  return db
-    .get('writer')
-    .delete(operatorMfaEnrollments)
-    .where(
-      lt(
-        operatorMfaEnrollments.expiresAt,
-        utcMediaTimestamp(Temporal.Instant.fromEpochMilliseconds(before.getTime())),
-      ),
-    )
-    .limit(limit);
-}
+/**
+ * @deprecated Pending enrollments live in Redis with a TTL. No-op kept only because
+ * `src/auth/security-worker.ts` (W3) still calls it.
+ */
+export async function pruneOperatorMfaEnrollments(
+  _db: Databases,
+  _before: Date,
+  _limit = 500,
+): Promise<void> {}

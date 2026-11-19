@@ -1,8 +1,7 @@
 import { readStoreDefaultOperatorOptions } from './store-default-operators.js';
 import { administrationCollectionPageQuery } from './collection-page.js';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import { registerAdministrationStoreDetails } from './store-detail-routes.js';
-import { Readable } from 'node:stream';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
@@ -21,19 +20,20 @@ import {
   salespersonInput,
   statusInput,
   stockInput,
-  storageInput,
-  storageUpdateInput,
+  storageFormInput,
   locationCodeInput,
   deliverySlotInput,
-  storeInput,
   visibilityInput,
 } from './contracts.js';
 import { administrationService, type AdministrationOptions } from './service.js';
 import { checkInService } from './checkins.js';
+import type { EphemeralStore } from '../../jobs/ephemeral.js';
+import { administrationEphemeralStore } from './ephemeral-runtime.js';
 import { inventoryService } from './inventory.js';
 import { supportService } from './support.js';
 import { registerTerminalDirectory } from './terminal-directory.js';
 import { storeImageService, type StoreImageOptions } from './store-images.js';
+import { FormInvalid, storeFormInput } from './store-form.js';
 import { registerStoreImages } from './store-image-routes.js';
 import { administrationAccessService } from './access-control.js';
 import { registerAdministrationAccess } from './access-routes.js';
@@ -55,15 +55,7 @@ import {
   mfaVerificationInput,
 } from './mfa.js';
 import { inventoryImportService, type InventoryImportOptions } from './imports.js';
-import {
-  importIdInput,
-  importHistoryInput,
-  importListInput,
-  importRowListInput,
-  stockCsv,
-  stockImportInput,
-  stockTemplateRows,
-} from './import-domain.js';
+import { csvUploadInput, templateInput, uploadIdInput, uploadListInput } from './import-domain.js';
 import {
   allDeliveryAvailabilityInput,
   deliveryAvailabilityInput,
@@ -98,6 +90,24 @@ const wire = (value: unknown): unknown =>
     ),
   ) as unknown;
 
+/** Legacy forms re-render with per-field errors; return them with the field names. */
+async function sendForm(reply: FastifyReply, status: number, run: () => Promise<unknown>) {
+  try {
+    return reply.code(status).send(await run());
+  } catch (error) {
+    if (error instanceof FormInvalid)
+      return reply.code(400).send({
+        error: {
+          code: error.code,
+          message: error.message,
+          requestId: reply.request.id,
+          fields: error.fields,
+        },
+      });
+    throw error;
+  }
+}
+
 /** Register concrete administration resources. Parent owns auth, CSRF, errors and logging. */
 export function registerAdministration(
   app: FastifyInstance,
@@ -109,15 +119,22 @@ export function registerAdministration(
     StoreImageOptions &
     OperatorAdminOptions &
     SlackConnectionOptions &
-    SettingsOptions = {},
+    SettingsOptions & { ephemeral?: EphemeralStore } = {},
 ) {
+  const ephemeral = options.ephemeral ?? administrationEphemeralStore(config);
   registerTerminalDirectory(app, db);
   const storeDefaults =
     options.defaultStoreOperatorIds !== undefined ||
     options.defaultStoreOperatorContactEmails !== undefined
       ? {}
       : readStoreDefaultOperatorOptions();
-  const service = administrationService(config, db, { ...storeDefaults, ...options }),
+  const storeImages = storeImageService(config, db, options.storeImageStore, ephemeral);
+  const service = administrationService(config, db, {
+      ...storeDefaults,
+      ...options,
+      ephemeral,
+      storeImages,
+    }),
     checkins = checkInService(db, config),
     inventory = inventoryService(config, db, options),
     support = supportService(config, db);
@@ -176,7 +193,17 @@ export function registerAdministration(
 
   registerAdministrationStoreDetails(app, db);
   const terminals = terminalService(config, db);
-  const documentation = documentationService(config, db, options);
+  const documentation = documentationService(
+    config,
+    db,
+    {
+      ...options,
+      documentationLog:
+        options.documentationLog ??
+        ((event) => app.log.warn(event, 'Guide attachment deletion failed')),
+    },
+    ephemeral,
+  );
   app.post(
     '/api/v1/documentation/search',
     trace('documentation', 'search'),
@@ -192,9 +219,11 @@ export function registerAdministration(
         );
     },
   );
-  const settings = settingsService(config, db, options);
-  const mfa = operatorMfaService(config, db);
-  const storeImages = storeImageService(config, db, options.storeImageStore);
+  const settings = settingsService(config, db, {
+    ...options,
+    log: options.log ?? ((level, event, message) => app.log[level](event, message)),
+  });
+  const mfa = operatorMfaService(config, db, undefined, undefined, ephemeral);
   registerStoreImages(app, storeImages);
   const access = administrationAccessService(config, db);
   registerAdministrationAccess(app, access);
@@ -205,13 +234,10 @@ export function registerAdministration(
     options,
   );
   registerOperatorAdministration(app, operatorAdministration);
-  const slack = slackConnectionService(config, db, options);
+  const slack = slackConnectionService(config, db, options, ephemeral);
   registerSlackConnections(app, config, slack);
   const locations = locationLookupService(db);
   registerLocationLookups(app, locations);
-  app.get('/api/v1/admin/franchises', trace('franchise', 'list'), async (request) =>
-    wire(await service.franchises(authenticated(request), pageQuery.parse(request.query))),
-  );
   const enrollmentScope = operatorScope.extend({ enrollmentId: z.uuid() });
   app.get(
     '/api/v1/admin/operators/:operatorId/mfa',
@@ -283,98 +309,43 @@ export function registerAdministration(
   app.get(
     '/api/v1/admin/inventory-imports/capabilities',
     trace('inventory-import', 'capabilities'),
-    async (request) => imports.capabilities(authenticated(request)),
+    async (request) => {
+      z.object({}).strict().parse(request.query);
+      return imports.capabilities(authenticated(request));
+    },
   );
   app.get(
     '/api/v1/admin/inventory-imports/template',
     trace('inventory-import', 'download-template'),
     async (request, reply) => {
-      imports.capabilities(authenticated(request));
+      const { type } = templateInput.parse(request.query);
+      const file = imports.template(authenticated(request), type);
       return reply
         .type('text/csv; charset=utf-8')
-        .header('Content-Disposition', 'attachment; filename="ProductStock-template.csv"')
+        .header('Content-Disposition', `attachment; filename="${file.filename}"`)
         .header('Cache-Control', 'no-store')
-        .send(stockCsv(stockTemplateRows));
+        .send(file.content);
     },
-  );
-  app.post(
-    '/api/v1/admin/inventory-imports/preview',
-    trace('inventory-import', 'preview'),
-    async (request) =>
-      imports.preview(authenticated(request), stockImportInput.parse(request.body)),
   );
   app.post(
     '/api/v1/admin/inventory-imports',
     trace('inventory-import', 'create'),
-    async (request, reply) =>
-      reply
+    async (request, reply) => {
+      z.object({}).strict().parse(request.query);
+      return reply
         .code(201)
-        .send(await imports.create(authenticated(request), stockImportInput.parse(request.body))),
+        .send(await imports.upload(authenticated(request), csvUploadInput.parse(request.body)));
+    },
   );
   app.get('/api/v1/admin/inventory-imports', trace('inventory-import', 'list'), async (request) =>
-    imports.list(authenticated(request), importListInput.parse(request.query)),
+    imports.list(authenticated(request), uploadListInput.parse(request.query)),
   );
   app.get(
-    '/api/v1/admin/inventory-imports/history',
-    trace('inventory-import', 'history'),
-    async (request) =>
-      imports.history(authenticated(request), importHistoryInput.parse(request.query)),
-  );
-  app.get(
-    '/api/v1/admin/inventory-imports/:importId',
+    '/api/v1/admin/inventory-imports/:uploadId',
     trace('inventory-import', 'read'),
-    async (request) =>
-      imports.detail(authenticated(request), importIdInput.parse(request.params).importId),
-  );
-  app.get(
-    '/api/v1/admin/inventory-imports/:importId/rows',
-    trace('inventory-import', 'list-rows'),
-    async (request) =>
-      imports.rows(
-        authenticated(request),
-        importIdInput.parse(request.params).importId,
-        importRowListInput.parse(request.query),
-      ),
-  );
-  app.get(
-    '/api/v1/admin/inventory-imports/:importId/failures.csv',
-    trace('inventory-import', 'download-failures'),
-    async (request, reply) => {
-      const { importId } = importIdInput.parse(request.params);
-      const content = await imports.failedCsv(authenticated(request), importId);
-      return reply
-        .type('text/csv; charset=utf-8')
-        .header(
-          'Content-Disposition',
-          `attachment; filename="InventoryImport-${importId}-failed.csv"`,
-        )
-        .header('Cache-Control', 'no-store')
-        .header('X-Content-Type-Options', 'nosniff')
-        .send(Readable.from(content));
-    },
-  );
-  app.post(
-    '/api/v1/admin/inventory-imports/:importId/resume',
-    trace('inventory-import', 'resume'),
     async (request) => {
-      z.object({}).strict().parse(request.body);
-      return imports.control(
-        authenticated(request),
-        importIdInput.parse(request.params).importId,
-        'resume',
-      );
-    },
-  );
-  app.post(
-    '/api/v1/admin/inventory-imports/:importId/cancel',
-    trace('inventory-import', 'cancel'),
-    async (request) => {
-      z.object({}).strict().parse(request.body);
-      return imports.control(
-        authenticated(request),
-        importIdInput.parse(request.params).importId,
-        'cancel',
-      );
+      z.object({}).strict().parse(request.query);
+      return imports.detail(authenticated(request), uploadIdInput.parse(request.params).uploadId);
     },
   );
   app.get('/api/v1/admin/stores', trace('store', 'list'), async (request) =>
@@ -388,19 +359,58 @@ export function registerAdministration(
   app.get('/api/v1/admin/stores/:storeId', trace('store', 'read'), async (request) =>
     wire(await service.store(authenticated(request), scope.parse(request.params).storeId)),
   );
-  app.post('/api/v1/admin/stores', trace('store', 'create'), async (request, reply) => {
-    const result = await service.createStore(
-      authenticated(request),
-      storeInput.parse(request.body),
-    );
-    return reply.code(201).send(result);
-  });
-  app.put('/api/v1/admin/stores/:storeId', trace('store', 'update'), async (request) =>
-    service.updateStore(
-      authenticated(request),
-      scope.parse(request.params).storeId,
-      storeInput.parse(request.body),
+  app.post('/api/v1/admin/stores', trace('store', 'create'), async (request, reply) =>
+    sendForm(reply, 201, () =>
+      service.createStore(authenticated(request), storeFormInput.parse(request.body)),
     ),
+  );
+  app.put('/api/v1/admin/stores/:storeId', trace('store', 'update'), async (request, reply) =>
+    sendForm(reply, 200, () =>
+      service.updateStore(
+        authenticated(request),
+        scope.parse(request.params).storeId,
+        storeFormInput.parse(request.body),
+      ),
+    ),
+  );
+  app.get(
+    '/api/v1/admin/resource-stores',
+    trace('store', 'list-resource-stores'),
+    async (request) => wire({ data: await service.resourceStores(authenticated(request)) }),
+  );
+  app.post(
+    '/api/v1/admin/counters/search',
+    trace('counter', 'search-all'),
+    async (request, reply) => {
+      emptyQuery.parse(request.query);
+      return reply
+        .header('Cache-Control', 'private, no-store')
+        .send(
+          wire(
+            await service.allCounters(
+              authenticated(request),
+              administrationCollectionPageQuery.parse(request.body),
+            ),
+          ),
+        );
+    },
+  );
+  app.post(
+    '/api/v1/admin/storages/search',
+    trace('storage', 'search-all'),
+    async (request, reply) => {
+      emptyQuery.parse(request.query);
+      return reply
+        .header('Cache-Control', 'private, no-store')
+        .send(
+          wire(
+            await service.allStorages(
+              authenticated(request),
+              administrationCollectionPageQuery.parse(request.body),
+            ),
+          ),
+        );
+    },
   );
   app.patch('/api/v1/admin/stores/:storeId/status', trace('store', 'set-status'), async (request) =>
     service.setStoreStatus(
@@ -472,15 +482,13 @@ export function registerAdministration(
     '/api/v1/admin/stores/:storeId/storages',
     trace('storage', 'create'),
     async (request, reply) =>
-      reply
-        .code(201)
-        .send(
-          await service.createStorage(
-            authenticated(request),
-            scope.parse(request.params).storeId,
-            storageInput.parse(request.body),
-          ),
+      sendForm(reply, 201, () =>
+        service.createStorage(
+          authenticated(request),
+          scope.parse(request.params).storeId,
+          storageFormInput.parse(request.body),
         ),
+      ),
   );
   app.get(
     '/api/v1/admin/stores/:storeId/storages/:storageId',
@@ -493,13 +501,15 @@ export function registerAdministration(
   app.put(
     '/api/v1/admin/stores/:storeId/storages/:storageId',
     trace('storage', 'update'),
-    async (request) => {
+    async (request, reply) => {
       const params = storageScope.parse(request.params);
-      return service.updateStorage(
-        authenticated(request),
-        params.storeId,
-        params.storageId,
-        storageUpdateInput.parse(request.body),
+      return sendForm(reply, 200, () =>
+        service.updateStorage(
+          authenticated(request),
+          params.storeId,
+          params.storageId,
+          storageFormInput.parse(request.body),
+        ),
       );
     },
   );
@@ -753,7 +763,6 @@ export function registerAdministration(
         params.productId,
         body.stock,
         body.expectedStock,
-        request.id,
       );
     },
   );
@@ -770,7 +779,6 @@ export function registerAdministration(
         body.kind,
         body.checked,
         body.parentProductId,
-        request.id,
       );
     },
   );

@@ -1,4 +1,3 @@
-import { createHmac } from 'node:crypto';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import { AppError } from '../../domain/errors.js';
@@ -7,15 +6,10 @@ import { slackWebhook } from './slack-url.js';
 
 const optional = (schema: z.ZodType<string>) =>
   z.preprocess((value) => (value === '' ? undefined : value), schema.optional());
-export const slackTeamId = z.string().regex(/^T[A-Z0-9]{8,32}$/);
+/** Legacy settings `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_OAUTH_REDIRECT_URI`. */
 export function readSlackOAuthOptions(env: NodeJS.ProcessEnv = process.env) {
   return z
     .object({
-      SLACK_OAUTH_ENABLED: z.preprocess(
-        (value) =>
-          value === undefined ? false : value === 'true' ? true : value === 'false' ? false : value,
-        z.boolean(),
-      ),
       SLACK_CLIENT_ID: optional(z.string().regex(/^\d+\.\d+$/)),
       SLACK_CLIENT_SECRET: optional(
         z
@@ -25,80 +19,60 @@ export function readSlackOAuthOptions(env: NodeJS.ProcessEnv = process.env) {
           .regex(/^[A-Za-z0-9_-]+$/),
       ),
       SLACK_OAUTH_REDIRECT_URI: optional(z.url().max(2048)),
-      SLACK_OAUTH_TEAM_IDS: z
-        .string()
-        .max(2000)
-        .default('')
-        .transform((value) =>
-          value
-            .split(',')
-            .map((part) => part.trim())
-            .filter(Boolean),
-        )
-        .pipe(z.array(slackTeamId).max(20)),
     })
     .parse(env);
 }
-export interface SlackOAuthGrant {
-  webhook: string;
-  channel: string;
-  channelId: string;
-  teamId: string;
-}
+export type SlackOAuthExchange =
+  { ok: true; webhook: string; channel: string } | { ok: false; error: string };
 export interface SlackOAuthProvider {
-  readonly configurationVersion: string;
   authorize(state: string): string;
-  exchange(code: string, signal?: AbortSignal): Promise<SlackOAuthGrant>;
+  exchange(code: string, signal?: AbortSignal): Promise<SlackOAuthExchange>;
 }
 export interface SlackConnectionOptions {
   slackOAuth?: SlackOAuthProvider;
 }
-const result = z.object({
-  ok: z.literal(true),
-  scope: z.string().max(2048),
-  team: z.object({ id: slackTeamId }),
-  incoming_webhook: z.object({
-    url: slackWebhook,
-    channel: z.string().min(1).max(255),
-    channel_id: z.string().regex(/^[CG][A-Z0-9]{8,32}$/),
-  }),
+export const slackCallbackPath = '/api/v1/admin/slack/oauth/callback';
+const response = z.object({
+  ok: z.boolean().optional(),
+  error: z.string().max(256).optional(),
+  incoming_webhook: z
+    .object({ url: z.string().max(1000).optional(), channel: z.string().max(255).optional() })
+    .optional(),
 });
+/** Slack error codes are short identifiers; anything else is not echoed (`slack_helpers.py:56`). */
+const slackErrorCode = /^[a-z0-9_]{1,64}$/;
+
+/**
+ * Legacy `helpers/slack_helpers.py`: authorize with scope `incoming-webhook`, then exchange the
+ * code at `oauth.v2.access` (10 s timeout). Undefined (not configured) without a client id and
+ * secret, as `SlackConnectView` (`stores/views.py:315-323`).
+ */
 export function createSlackOAuthProvider(
-  config: Pick<Config, 'NODE_ENV' | 'DEMO_MODE' | 'WEB_ORIGIN' | 'SESSION_SECRET'>,
+  config: Pick<Config, 'NODE_ENV' | 'DEMO_MODE' | 'WEB_ORIGIN'>,
   options: ReturnType<typeof readSlackOAuthOptions>,
   fetcher: typeof fetch = fetch,
 ): SlackOAuthProvider | undefined {
-  if (!options.SLACK_OAUTH_ENABLED || config.DEMO_MODE) return undefined;
-  const {
-    SLACK_CLIENT_ID: clientId,
-    SLACK_CLIENT_SECRET: secret,
-    SLACK_OAUTH_REDIRECT_URI: redirectUri,
-  } = options;
-  const invalid = () =>
-    new AppError(
-      503,
-      'SLACK_OAUTH_CONFIGURATION_INVALID',
-      'Configure the approved Slack app, callback and workspace IDs.',
-    );
-  if (!clientId || !secret || !redirectUri || !options.SLACK_OAUTH_TEAM_IDS.length) throw invalid();
-  const uri = new URL(redirectUri),
-    web = new URL(config.WEB_ORIGIN);
+  const { SLACK_CLIENT_ID: clientId, SLACK_CLIENT_SECRET: secret } = options;
+  if (config.DEMO_MODE || !clientId || !secret) return undefined;
+  const web = new URL(config.WEB_ORIGIN),
+    redirectUri = options.SLACK_OAUTH_REDIRECT_URI || new URL(slackCallbackPath, web).href,
+    uri = new URL(redirectUri);
+  // The authorization code must only ever reach this application's own callback.
   if (
-    uri.protocol !== 'https:' ||
+    (uri.protocol !== 'https:' && config.NODE_ENV === 'production') ||
     uri.origin !== web.origin ||
     uri.username ||
     uri.password ||
     uri.search ||
     uri.hash ||
-    uri.pathname !== '/api/v1/admin/slack/oauth/callback'
+    uri.pathname !== slackCallbackPath
   )
-    throw invalid();
+    throw new AppError(
+      503,
+      'SLACK_OAUTH_CONFIGURATION_INVALID',
+      'Configure SLACK_OAUTH_REDIRECT_URI as this application’s Slack callback.',
+    );
   return {
-    configurationVersion: createHmac('sha256', config.SESSION_SECRET + ':slack-configuration')
-      .update(
-        JSON.stringify([clientId, secret, redirectUri, [...options.SLACK_OAUTH_TEAM_IDS].sort()]),
-      )
-      .digest('hex'),
     authorize(state) {
       z.string()
         .regex(/^[A-Za-z0-9_-]{43}$/)
@@ -113,13 +87,9 @@ export function createSlackOAuthProvider(
       return url.href;
     },
     async exchange(code, signal) {
+      let data: z.infer<typeof response>;
       try {
-        z.string()
-          .min(1)
-          .max(2048)
-          .regex(/^[A-Za-z0-9._-]+$/)
-          .parse(code);
-        const response = await fetcher('https://slack.com/api/oauth.v2.access', {
+        const reply = await fetcher('https://slack.com/api/oauth.v2.access', {
           method: 'POST',
           redirect: 'error',
           signal: signal
@@ -129,35 +99,21 @@ export function createSlackOAuthProvider(
             'Content-Type': 'application/x-www-form-urlencoded',
             Authorization: 'Basic ' + Buffer.from(clientId + ':' + secret).toString('base64'),
           },
-          body: new URLSearchParams({
-            code,
-            redirect_uri: redirectUri,
-            grant_type: 'authorization_code',
-          }).toString(),
+          body: new URLSearchParams({ code, redirect_uri: redirectUri }).toString(),
         });
-        if (response.status !== 200) {
-          await response.body?.cancel();
-          throw new Error('rejected');
-        }
-        const grant = result.parse(await boundedJson(response, 32768));
-        if (
-          !grant.scope.split(',').includes('incoming-webhook') ||
-          !options.SLACK_OAUTH_TEAM_IDS.includes(grant.team.id)
-        )
-          throw new Error('scope');
-        return {
-          webhook: grant.incoming_webhook.url,
-          channel: grant.incoming_webhook.channel,
-          channelId: grant.incoming_webhook.channel_id,
-          teamId: grant.team.id,
-        };
+        data = response.parse(await boundedJson(reply, 32768));
       } catch {
-        throw new AppError(
-          503,
-          'SLACK_OAUTH_EXCHANGE_FAILED',
-          'Slack authorization could not be completed. Start a new connection.',
-        );
+        return { ok: false, error: 'Could not reach Slack. Please try again.' };
       }
+      const webhook = data.incoming_webhook?.url;
+      if (!data.ok || !webhook || !slackWebhook.safeParse(webhook).success)
+        return {
+          ok: false,
+          error: `Slack connect failed: ${
+            data.error && slackErrorCode.test(data.error) ? data.error : 'no webhook returned'
+          }`,
+        };
+      return { ok: true, webhook, channel: data.incoming_webhook?.channel || '' };
     },
   };
 }

@@ -1,5 +1,5 @@
 import { Temporal } from '@js-temporal/polyfill';
-import { and, asc, eq, gt, inArray, isNull, like, ne, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, like, or, sql } from 'drizzle-orm';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import {
@@ -11,11 +11,11 @@ import {
 import { requireRole, requireStore, type Principal } from '../../domain/access.js';
 import { AppError, unavailable } from '../../domain/errors.js';
 import { retryTransaction } from '../../db/retry.js';
-import { administrationOutbox, type InventoryIntegrationEvent } from './schema.js';
 import { stockChangeComment, visibilityValue } from './policies.js';
 import type { AdminPage } from './service.js';
 import { executeStockProcedure, type StockProcedure } from './stock-procedure.js';
 import { assertCurrentInventoryAccess } from './authorization.js';
+import type { ProductSynchronizer } from './product-sync.js';
 
 export {
   enqueueInventorySynchronization,
@@ -32,30 +32,14 @@ export interface InventorySynchronizationContext {
 }
 
 export interface InventoryOptions {
-  /** Global catalog work has no invented store scope. */
-  syncCatalogProducts?: (
-    eventId: string,
-    productIds: string[],
-    context: { operatorId: string; importId: string; requestId?: string },
-  ) => Promise<void>;
   /** Requires writer-body parity and caller-owned transaction safety (no internal commit/session leakage). */
   procedureVerified?: boolean;
   /** Optional verified transaction-scoped implementation; tests inject isolated audit fixtures. */
   stockProcedure?: StockProcedure;
-  /** Implementations must deduplicate by eventId; no PII or raw payload logging. */
-  syncProducts?: (
-    eventId: string,
-    productIds: string[],
-    context: InventorySynchronizationContext,
-  ) => Promise<void>;
+  /** Legacy `Helpers.sync_pos_product`, called inline after commit; never throws. */
+  productSync?: ProductSynchronizer;
 }
 export function inventoryService(config: Config, db: Databases, options: InventoryOptions = {}) {
-  const now = () =>
-    Temporal.Now.instant()
-      .toZonedDateTimeISO('UTC')
-      .toPlainDateTime()
-      .toString({ smallestUnit: 'millisecond' })
-      .replace('T', ' ');
   function authorize(user: Principal, storeId: string) {
     requireRole(user, [1, 2, 3]);
     requireStore(user, storeId);
@@ -66,9 +50,7 @@ export function inventoryService(config: Config, db: Databases, options: Invento
         'Stock administration is restricted for this user type.',
       );
   }
-  function integrationAvailable() {
-    if (!options.syncProducts) return unavailable('Product synchronization adapter');
-  }
+  const productSync: ProductSynchronizer = options.productSync ?? (async () => false);
   return {
     async list(user: Principal, storeId: string, page: AdminPage) {
       authorize(user, storeId);
@@ -115,12 +97,10 @@ export function inventoryService(config: Config, db: Databases, options: Invento
       productId: string,
       stock: number,
       expectedStock: number,
-      requestId: string,
     ) {
       authorize(user, storeId);
-      integrationAvailable();
       if (!options.procedureVerified) return unavailable('Verified inventory stock procedure');
-      return retryTransaction(() =>
+      const result = await retryTransaction(() =>
         db.get('writer').transaction(async (transaction) => {
           await assertCurrentInventoryAccess(transaction, user.id, storeId);
           const [product] = await transaction
@@ -192,34 +172,18 @@ export function inventoryService(config: Config, db: Databases, options: Invento
                 and(eq(ProductStore.store, BigInt(storeId)), eq(ProductStore.product, product.id)),
               );
           }
-          const eventId = crypto.randomUUID();
-          const payload: InventoryIntegrationEvent = {
-            kind: 'product.stock.changed',
-            storeId,
-            productId,
-            stockBefore: current?.stock || 0,
-            stockAfter: stock,
-            actorId: user.id,
-            requestId,
-          };
-          await transaction.insert(administrationOutbox).values({
-            id: eventId,
-            kind: payload.kind,
-            payload,
-            attempts: 0,
-            createdAt: now(),
-            deliveredAt: null,
-          });
           return {
             status: 'success',
             message: current
               ? 'Product stock updated for the selected store.'
               : 'Product stock created for the selected store.',
             stock,
-            synchronization: { eventId, state: 'pending', requestId },
           };
         }),
       );
+      // Source `AssignProductStockView` syncs `[product_id]` after the save (`core/views.py:543,564`).
+      await productSync([productId], { operatorId: user.id, storeId });
+      return result;
     },
     async setVisibility(
       user: Principal,
@@ -228,11 +192,9 @@ export function inventoryService(config: Config, db: Databases, options: Invento
       kind: 'available' | 'listed',
       checked: boolean,
       parentProductId: string | null,
-      requestId: string,
     ) {
       authorize(user, storeId);
-      integrationAvailable();
-      return db.get('writer').transaction(async (transaction) => {
+      const result = await db.get('writer').transaction(async (transaction) => {
         await assertCurrentInventoryAccess(transaction, user.id, storeId);
         const [product] = await transaction
           .select({ id: Product.id, parentId: Product.parent_prod_id })
@@ -276,28 +238,14 @@ export function inventoryService(config: Config, db: Databases, options: Invento
             .where(
               and(eq(ProductStore.store, BigInt(storeId)), inArray(ProductStore.product, ids)),
             );
-        const eventId = crypto.randomUUID(),
-          payload: InventoryIntegrationEvent = {
-            kind: 'product.visibility.changed',
-            storeId,
-            productIds: ids.map(String),
-            actorId: user.id,
-            requestId,
-          };
-        await transaction.insert(administrationOutbox).values({
-          id: eventId,
-          kind: payload.kind,
-          payload,
-          attempts: 0,
-          createdAt: now(),
-          deliveredAt: null,
-        });
         return {
           status: 'success',
           message: 'Product data updated successfully !',
-          synchronization: { eventId, state: 'pending', requestId },
         };
       });
+      // Source syncs only the selected `prod_id` after the update (`core/views.py:776`).
+      await productSync([productId], { operatorId: user.id, storeId });
+      return result;
     },
     async productLogs(
       user: Principal,
@@ -339,66 +287,6 @@ export function inventoryService(config: Config, db: Databases, options: Invento
         nextCursor: rows.length > limit ? String(rows[limit - 1]!.id) : null,
         scope: 'current-business-day',
       };
-    },
-    async dispatchPending(limit = 25) {
-      if (!options.syncProducts && !options.syncCatalogProducts)
-        return unavailable('Product synchronization adapter');
-      let delivered = 0;
-      for (let index = 0; index < limit; index++) {
-        const success = await db.get('writer').transaction(async (transaction) => {
-          const [row] = await transaction
-            .select()
-            .from(administrationOutbox)
-            .where(
-              and(
-                isNull(administrationOutbox.deliveredAt),
-                sql`${administrationOutbox.attempts}<10`,
-                options.syncProducts && options.syncCatalogProducts
-                  ? undefined
-                  : options.syncCatalogProducts
-                    ? eq(administrationOutbox.kind, 'product.catalog.synchronization')
-                    : ne(administrationOutbox.kind, 'product.catalog.synchronization'),
-              ),
-            )
-            .orderBy(asc(administrationOutbox.attempts), asc(administrationOutbox.createdAt))
-            .limit(1)
-            .for('update', { skipLocked: true });
-          if (!row) return false;
-          await transaction
-            .update(administrationOutbox)
-            .set({ attempts: row.attempts + 1 })
-            .where(eq(administrationOutbox.id, row.id));
-          const ids =
-            row.payload.kind === 'product.stock.changed'
-              ? [row.payload.productId]
-              : row.payload.productIds;
-          try {
-            if (row.payload.kind === 'product.catalog.synchronization') {
-              if (!options.syncCatalogProducts) return false;
-              await options.syncCatalogProducts(row.id, ids, {
-                operatorId: row.payload.actorId,
-                importId: row.payload.importId,
-                ...(row.payload.requestId ? { requestId: row.payload.requestId } : {}),
-              });
-            } else
-              await options.syncProducts!(row.id, ids, {
-                operatorId: row.payload.actorId,
-                storeId: row.payload.storeId,
-                ...(row.payload.requestId ? { requestId: row.payload.requestId } : {}),
-              });
-          } catch {
-            return false;
-          }
-          await transaction
-            .update(administrationOutbox)
-            .set({ deliveredAt: now() })
-            .where(eq(administrationOutbox.id, row.id));
-          return true;
-        });
-        if (!success) break;
-        delivered++;
-      }
-      return delivered;
     },
   };
 }

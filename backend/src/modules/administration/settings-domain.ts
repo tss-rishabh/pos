@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { identifier } from '../../domain/validation.js';
+import type { ModuleRuntime } from '../../jobs/module-runtime.js';
+import type { JobLogger } from '../../jobs/runtime.js';
 import { deliverySlotInput } from './contracts.js';
 
 export const settingKey = z.enum([
@@ -68,14 +70,9 @@ export function deliverySlotVersion(slot: {
 export interface SettingsMutationResult {
   status: 'success';
   message: string;
-  effectsQueued: boolean;
   storeId?: string;
-  ecommerceSyncId?: string;
-  requestId?: string | null;
   operationId?: string;
   actorId?: string;
-  originalOperationId?: string;
-  cancelled?: boolean;
 }
 interface EffectContext {
   actorId: string;
@@ -106,77 +103,24 @@ export type SettingsEffect = EffectContext &
         current: number;
       }
     | { kind: 'ecommerce.availability.notice'; storeId: string; active: boolean }
-    | { kind: 'ecommerce.inventory.sync'; storeId: string }
   );
 export type SettingsEffectKind = SettingsEffect['kind'];
-const effectContext = {
-  actorId: identifier,
-  requestId: z.string().min(1).max(128).nullable(),
-  occurredAt: z.string().regex(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}$/),
-};
-export const settingsEffectSchema = z.discriminatedUnion('kind', [
-  z
-    .object({ ...effectContext, kind: z.literal('setting.cache'), key: settingKey, value: stock })
-    .strict(),
-  z
-    .object({
-      ...effectContext,
-      kind: z.literal('buffer.notice'),
-      value: z.string().regex(/^\d{1,3}:[0-5]\d$/),
-    })
-    .strict(),
-  z
-    .object({
-      ...effectContext,
-      kind: z.literal('slot.timing.notice'),
-      storeId: identifier,
-      weekday: z.string().min(1).max(255),
-      previous: z.string().max(32),
-      current: z.string().max(32),
-    })
-    .strict(),
-  z
-    .object({
-      ...effectContext,
-      kind: z.literal('slot.availability.notice'),
-      storeId: identifier,
-      weekday: z.string().min(1).max(255).nullable(),
-      active: z.boolean(),
-    })
-    .strict(),
-  z
-    .object({
-      ...effectContext,
-      kind: z.literal('ecommerce.threshold.notice'),
-      storeId: identifier,
-      previous: z.number().int(),
-      current: stock,
-    })
-    .strict(),
-  z
-    .object({
-      ...effectContext,
-      kind: z.literal('ecommerce.availability.notice'),
-      storeId: identifier,
-      active: z.boolean(),
-    })
-    .strict(),
-  z
-    .object({ ...effectContext, kind: z.literal('ecommerce.inventory.sync'), storeId: identifier })
-    .strict(),
-]);
 export type SettingsEffectPayload = SettingsEffect extends infer Effect
   ? Effect extends SettingsEffect
     ? Omit<Effect, 'actorId' | 'requestId' | 'occurredAt'>
     : never
   : never;
+/** Inline effects after commit, as legacy (`core/views.py:1817,1874,2035,2073-2077,2146,2161`). */
 export interface SettingsEffectDelivery {
   supports(kind: SettingsEffectKind): boolean;
-  deliver(id: string, effect: SettingsEffect, signal?: AbortSignal): Promise<void | 'pending'>;
+  deliver(effect: SettingsEffect, signal?: AbortSignal): Promise<void>;
   close?(): Promise<void>;
 }
 export interface SettingsOptions {
   settingsDelivery?: SettingsEffectDelivery;
-  ecommerceSyncVerified?: boolean;
+  /** Legacy `ECOM_DELIVERY_CHANGES_TIME` (default 180 s). */
   ecommerceCooldownSeconds?: number;
+  /** Job producer and Redis state (`src/jobs/module-runtime.ts`). */
+  moduleRuntime?: ModuleRuntime;
+  log?: JobLogger;
 }

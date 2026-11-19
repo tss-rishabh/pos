@@ -1,6 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { Readable } from 'node:stream';
-import { Temporal } from '@js-temporal/polyfill';
 import { readFileSync } from 'node:fs';
 import mysql from 'mysql2/promise';
 import Fastify from 'fastify';
@@ -19,17 +17,10 @@ import {
   StoreSalesPerson,
   PosTutorial,
   POSFranchise,
+  PosMachine,
+  PosPaytmMachine,
   ReportExport,
 } from '../../src/db/legacy-schema.js';
-import {
-  reportExportService,
-  reportExportBuilder,
-} from '../../src/modules/operational-reports/export-service.js';
-import {
-  reportExportOptions,
-  type ReportExportStore,
-} from '../../src/modules/operational-reports/export-storage.js';
-import { registerReportExportRoutes } from '../../src/modules/operational-reports/export-routes.js';
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
 import { administrationService } from '../../src/modules/administration/service.js';
 import { documentationService } from '../../src/modules/administration/documentation.js';
@@ -59,6 +50,8 @@ describe.skipIf(!template)('native administration collection workflows', () => {
     StoreSalesPerson,
     PosTutorial,
     POSFranchise,
+    PosMachine,
+    PosPaytmMachine,
     ReportExport,
   ].map(getTableName);
   const actor: Principal = {
@@ -448,97 +441,6 @@ describe.skipIf(!template)('native administration collection workflows', () => {
       expect(qr.headers['content-disposition']).toBe('attachment; filename="store-2-qr.png"');
       await conn.query('UPDATE pos_user SET is_active=0 WHERE id=1');
       expect((await app.inject('/api/v1/admin/stores/2/qr')).statusCode).toBe(401);
-    } finally {
-      await app.close();
-    }
-  });
-  it('runs the registered CSV queue through the real collection builder, recovers a lost upload ACK and reauthorizes downloads', async () => {
-    const objects = new Map<string, { bytes: Buffer; checksum: string }>();
-    let puts = 0,
-      builds = 0,
-      unknown = true;
-    const storage: ReportExportStore = {
-      keyFor: (id) => `uploads/reports/pos-rewrite/${id}.csv`,
-      async put(id, bytes, checksum) {
-        puts++;
-        objects.set(this.keyFor(id), { bytes, checksum });
-        if (unknown) throw new Error('Synthetic unknown ACK');
-      },
-      async head(key) {
-        const value = objects.get(key);
-        return value ? { size: value.bytes.length, checksum: value.checksum } : null;
-      },
-      async stream(key, expected) {
-        const value = objects.get(key);
-        if (!value || value.checksum !== expected?.checksum || value.bytes.length !== expected.size)
-          throw new Error('Synthetic artifact mismatch');
-        return {
-          body: Readable.from(value.bytes),
-          size: value.bytes.length,
-          contentType: 'text/csv',
-        };
-      },
-      close() {},
-    };
-    let now = Temporal.Now.instant();
-    const real = reportExportBuilder(config, db),
-      service = reportExportService(
-        config,
-        db,
-        reportExportOptions({}),
-        storage,
-        async (...args) => {
-          builds++;
-          return real(...args);
-        },
-        () => now,
-      );
-    const app = Fastify({ logger: false });
-    app.decorateRequest('principal', null);
-    app.addHook('preHandler', async (request) => {
-      request.principal = actor;
-    });
-    app.setErrorHandler((error, _request, reply) =>
-      reply
-        .code(error instanceof AppError ? error.status : 500)
-        .send({ error: 'Synthetic fixture refusal' }),
-    );
-    await registerReportExportRoutes(app, service);
-    try {
-      const body = {
-        commandId: randomUUID(),
-        input: {
-          kind: 'administration-list',
-          resource: 'stores',
-          active: 'all',
-          columns: ['name', 'id'],
-          sort: 'name',
-          direction: 'desc',
-        },
-      };
-      const create = () =>
-        app.inject({
-          method: 'POST',
-          url: '/api/v1/report-exports',
-          headers: { 'x-operator-id': actor.id },
-          payload: body,
-        });
-      const first = await create();
-      expect(first.statusCode).toBe(202);
-      const id = first.json<{ id: string }>().id;
-      expect((await create()).json<{ id: string }>().id).toBe(id);
-      expect(await service.runOne()).toMatchObject({ jobId: id, status: 'STORING' });
-      unknown = false;
-      now = now.add({ seconds: 16 });
-      expect(await service.runOne()).toMatchObject({ jobId: id, status: 'COMPLETED' });
-      expect(puts).toBe(1);
-      expect(builds).toBe(1);
-      const file = await app.inject(`/api/v1/report-exports/${id}/file`);
-      expect(file.statusCode).toBe(200);
-      expect(file.body).toBe('"Name","ID"\r\n"Zulu","1"\r\n"Alpha","3"\r\n"Alpha","2"\r\n');
-      expect(file.headers['content-disposition']).not.toContain('undefined');
-      await conn.query('UPDATE pos_user SET role=5 WHERE id=1');
-      expect((await app.inject(`/api/v1/report-exports/${id}/file`)).statusCode).toBe(403);
     } finally {
       await app.close();
     }

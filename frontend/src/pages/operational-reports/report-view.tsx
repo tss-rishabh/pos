@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Search, ArrowDownToLine } from 'lucide-react';
 import { z } from 'zod';
 import { request } from '../../api/client';
 import type { Principal } from '../../api/types';
 import { Empty, ErrorState, Loading, PageTitle } from '../../components/common';
 import { useOnline } from '../../hooks/use-pos';
-import { queueReportExport, type ReportExportFilters } from './export-commands';
+import type { ReportExportKind } from './export-commands';
+import { downloadLoadedPageCsv } from './page-csv';
+import { QueuedExport } from './queued-export';
 import './style.css';
 interface ReportColumn<T> {
   key: keyof T;
@@ -62,7 +64,6 @@ export function ReportView<T extends Record<string, unknown>>({
   dateOnly = false,
   defaultDirection = 'desc',
   columnControls = true,
-  fullExport = false,
 }: {
   user: Principal;
   storeId: string;
@@ -75,15 +76,14 @@ export function ReportView<T extends Record<string, unknown>>({
   allowedRoles?: readonly Principal['role'][];
   searchable?: boolean;
   requiresSelectedStores?: boolean;
-  exportKind?: ReportExportFilters['kind'];
+  /** Legacy server "Export" task; reports without one offer only the loaded-page CSV. */
+  exportKind?: Extract<ReportExportKind, 'returned-orders' | 'flash-sales' | 'hyperlocal-daily'>;
   sortOptions?: readonly { value: string; label: string }[];
   dateOnly?: boolean;
   defaultDirection?: 'asc' | 'desc';
   columnControls?: boolean;
-  fullExport?: boolean;
 }) {
   const online = useOnline(),
-    queryClient = useQueryClient(),
     permitted = allowedRoles.includes(user.role),
     [filters, setFilters] = useState(() =>
       initial(storeId, defaultSort, dateOnly, defaultDirection),
@@ -136,26 +136,14 @@ export function ReportView<T extends Record<string, unknown>>({
         ),
       retry: false,
     });
-  const createExport = useMutation({
-    mutationFn: (variant: 'visible' | 'full') => {
-      if (!exportKind) throw new Error('This report does not support queued exports.');
-      return queueReportExport(user.id, {
-        kind: exportKind,
-        from: submitted.from,
-        to: submitted.to,
-        storeIds: submitted.storeIds,
-        attempts: 'all',
-        search: submitted.search,
-        ...(columnControls && variant === 'visible'
-          ? {
-              sort: submitted.sort,
-              direction: submitted.direction,
-              columns: visible.map((column) => String(column.key)),
-            }
-          : {}),
-      });
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [user.id, 'report-exports'] }),
+  const pageCsv = useMutation({
+    mutationFn: async () =>
+      downloadLoadedPageCsv(
+        user.id,
+        `${resource}-page-${report.data?.page ?? page}.csv`,
+        visible.map((column) => column.label),
+        (report.data?.data || []).map((row) => visible.map((column) => row[column.key])),
+      ),
   });
   const update = <K extends keyof Filters>(key: K, value: Filters[K]) =>
     setFilters((current) => ({ ...current, [key]: value }));
@@ -164,30 +152,14 @@ export function ReportView<T extends Record<string, unknown>>({
   return (
     <>
       <PageTitle eyebrow="OPERATIONS IN FOCUS" title={title}>
-        {exportKind && fullExport && (
-          <button
-            className="button secondary"
-            disabled={!online || !report.data?.total || createExport.isPending}
-            onClick={() => createExport.mutate('full')}
-          >
-            <ArrowDownToLine size={16} />
-            Export complete CSV
-          </button>
-        )}
-        {exportKind && (
-          <button
-            className="button secondary"
-            disabled={!online || !report.data?.total || createExport.isPending || !visible.length}
-            onClick={() => createExport.mutate('visible')}
-          >
-            <ArrowDownToLine size={16} />
-            {createExport.isPending
-              ? 'Requesting…'
-              : columnControls
-                ? 'Export visible columns CSV'
-                : 'Export CSV'}
-          </button>
-        )}
+        <button
+          className="button secondary"
+          disabled={!report.data?.data.length || !visible.length || pageCsv.isPending}
+          onClick={() => pageCsv.mutate()}
+        >
+          <ArrowDownToLine size={16} />
+          CSV
+        </button>
       </PageTitle>
       <form
         className="surface resource-report-filters"
@@ -286,11 +258,21 @@ export function ReportView<T extends Record<string, unknown>>({
           View report
         </button>
       </form>
-      {exportKind && columnControls && (
-        <p className="muted">
-          CSV includes all matching records in the selected sort order and visible columns. Retrieve
-          the file from Report exports.
-        </p>
+      <p className="muted">
+        CSV downloads the visible columns of the rows loaded on this page.
+        {exportKind && ' Export prepares every matching record in Report exports.'}
+      </p>
+      {exportKind && (
+        <QueuedExport
+          user={user}
+          disabled={!online}
+          filters={() => ({
+            kind: exportKind,
+            from: submitted.from,
+            to: submitted.to,
+            storeIds: submitted.storeIds,
+          })}
+        />
       )}
       {columnControls && (
         <details className="surface report-column-controls">
@@ -321,12 +303,7 @@ export function ReportView<T extends Record<string, unknown>>({
         </details>
       )}
       {stores.isError && <ErrorState error={stores.error} />}
-      {createExport.isError && <ErrorState error={createExport.error} />}
-      {createExport.isSuccess && (
-        <p className="operational-report-success" role="status">
-          Export requested. Its file will appear in Report exports.
-        </p>
-      )}
+      {pageCsv.isError && <ErrorState error={pageCsv.error} />}
       {!online && (
         <p role="status">Showing available report data. Connect to refresh this report.</p>
       )}

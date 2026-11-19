@@ -1,219 +1,208 @@
+import { createHmac } from 'node:crypto';
 import { Temporal } from '@js-temporal/polyfill';
-import { and, desc, eq, getTableColumns, gte, inArray, or, sql } from 'drizzle-orm';
-import type { z } from 'zod';
+import { asc, desc, eq, like, or, sql } from 'drizzle-orm';
+import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import { generatedId } from '../../db/generated-id.js';
-import { PosUser, PosSpecialPermissionActivityLog } from '../../db/legacy-schema.js';
-import { retryTransaction } from '../../db/retry.js';
+import {
+  GiftCardCollection,
+  PosSpecialPermissionActivityLog,
+  PosUser,
+} from '../../db/legacy-schema.js';
 import type { Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
-import { currentRequestTrace } from '../../observability/context.js';
-import {
-  createGiftCardBatchInput,
-  printGiftCardBatchInput,
-  blockGiftCardBatchInput,
-  retryGiftCardBatchInput,
-  type GiftCardBatchStorage,
-  type GiftCardBatchDelivery,
-} from './contracts.js';
-import { readGiftCardBatchOptions, type GiftCardBatchOptions } from './options.js';
-import {
-  giftCardBatchRepository,
-  giftCardBatchVersion,
-  giftCardBatchJobVersion,
-  giftCardBatchManifest,
-  giftCardBatchJobColumns,
-  giftCardBatchInvalid,
-  type LegacyGiftCardBatch,
-  type GiftCardBatchJobMetadata,
-  type BatchTransaction,
-} from './repository.js';
-import { giftCardBatchJobs, legacyGiftCardBatches } from './schema.js';
-import { giftCardRecipient } from './generation.js';
-import {
-  newGiftCardSecrets,
-  openGiftCardSecrets,
-  sealGiftCardSecrets,
-  giftCardFormatFingerprint,
-} from './secrets.js';
-import { createGiftCardBatchStorage } from './storage.js';
-import { createGiftCardBatchDelivery } from './delivery.js';
+import type { EphemeralStore } from '../../jobs/ephemeral.js';
+import type { JobProducer } from '../../jobs/contract.js';
 import { sourceAdministrationFullName } from '../administration-history/messages.js';
+import {
+  blockGiftCardBatchInput,
+  createGiftCardBatchInput,
+  giftCardBatchListInput,
+  type GiftCardBatchResult,
+} from './contracts.js';
+import { giftCardRecipient } from './generation.js';
+import { giftCardBatchJobName } from './jobs.js';
+import type { GiftCardBatchOptions } from './options.js';
 
 export interface GiftCardBatchDependencies {
-  storage?: GiftCardBatchStorage | null;
-  delivery?: GiftCardBatchDelivery | null;
+  jobs: JobProducer;
+  ephemeral: EphemeralStore;
   clock?: () => Temporal.Instant;
 }
-const unavailable = () =>
-  new AppError(
-    503,
-    'GIFT_CARD_BATCH_GENERATION_UNAVAILABLE',
-    'Gift card generation requires configured private storage, archive keys and delivery.',
-  );
-const conflict = () =>
-  new AppError(
-    409,
-    'GIFT_CARD_BATCH_CHANGED',
-    'This batch changed. Reload before confirming again.',
-  );
+type Transaction = Parameters<Parameters<ReturnType<Databases['get']>['transaction']>[0]>[0];
+
+/** Redis idempotency receipt for batch creation (ledger: pos_rewrite_gift_card_batch_mutations). */
+export const giftCardBatchReceiptKey = (operationId: string) =>
+  `pos:idem:gift_card_batch:${operationId}`;
+const receiptTtlSeconds = 86400;
+const receipt = z.discriminatedUnion('state', [
+  z.object({ state: z.literal('pending'), actorId: z.string(), inputHash: z.string() }),
+  z.object({
+    state: z.literal('created'),
+    actorId: z.string(),
+    inputHash: z.string(),
+    batchId: z.string(),
+  }),
+  z.object({
+    state: z.literal('done'),
+    actorId: z.string(),
+    inputHash: z.string(),
+    batchId: z.string(),
+    outcome: z.enum(['queued', 'not-eligible']),
+  }),
+]);
+type Receipt = z.infer<typeof receipt>;
+
+const queuedMessage = 'Gift card generation started. The file will be emailed to you.';
+const notEligible = () =>
+  new AppError(422, 'GIFT_CARD_BATCH_NOT_ELIGIBLE', 'Not Eligible to generate the GCs.');
+const notFound = () =>
+  new AppError(404, 'GIFT_CARD_BATCH_NOT_FOUND', 'Gift card batch was not found.');
+
+/** Django paginator fallback (gift_card_datatable.py:52-60): invalid or empty pages show page 1. */
+export function giftCardBatchPageStart(start: number, length: number, total: bigint) {
+  return start < 0 || start % length !== 0 || BigInt(start) >= total ? 0 : start;
+}
+export function giftCardBatchPattern(search: string) {
+  return '%' + search.replace(/[\\%_]/g, (value) => '\\' + value) + '%';
+}
+
 export function giftCardBatchService(
   config: Config,
   db: Databases,
-  options: GiftCardBatchOptions = readGiftCardBatchOptions(),
-  dependencies: GiftCardBatchDependencies = {},
+  options: GiftCardBatchOptions,
+  dependencies: GiftCardBatchDependencies,
 ) {
-  const repository = giftCardBatchRepository(config, db, dependencies.clock),
-    storage =
-      dependencies.storage === undefined
-        ? createGiftCardBatchStorage(config, options)
-        : dependencies.storage,
-    delivery =
-      dependencies.delivery === undefined
-        ? createGiftCardBatchDelivery(config, options)
-        : dependencies.delivery;
+  const clock = dependencies.clock ?? (() => Temporal.Now.instant());
+  const wall = () =>
+    clock()
+      .toZonedDateTimeISO(config.BUSINESS_TIMEZONE)
+      .toPlainDateTime()
+      .toString({ smallestUnit: 'second' })
+      .replace('T', ' ');
   const configured = () =>
     Boolean(
-      options.GIFT_CARD_BATCHES_ENABLED &&
       options.GC_SALTKEY &&
-      options.GIFT_CARD_BATCH_ACTIVE_KEY_ID &&
-      options.GIFT_CARD_BATCH_ENCRYPTION_KEYS &&
-      Object.hasOwn(
-        options.GIFT_CARD_BATCH_ENCRYPTION_KEYS,
-        options.GIFT_CARD_BATCH_ACTIVE_KEY_ID,
-      ) &&
-      storage &&
-      delivery,
+      options.NETCORE_EMAIL_URL &&
+      options.NETCORE_API_KEY &&
+      options.AWS_STORAGE_BUCKET_NAME,
     );
-  function owner(
-    user: Principal,
-    batch: LegacyGiftCardBatch,
-    job: GiftCardBatchJobMetadata | null,
-  ) {
-    if (
-      !job ||
-      job.actorId !== user.id ||
-      batch.createdBy.toString() !== user.id ||
-      job.batchId !== batch.id.toString()
-    )
+  /**
+   * `advance_permisson("[1,2]")` on every view, `user_type_exempt("[2]")` on the page and list
+   * (core/views.py:2169-2170, gift_card_datatable.py:15-16). Writer read: authorization
+   * confirmation uses the writer (AGENTS.md).
+   */
+  async function actor(tx: Transaction, user: Principal) {
+    const [row] = await tx
+      .select({
+        id: PosUser.id,
+        isActive: PosUser.is_active,
+        role: PosUser.role,
+        userType: PosUser.user_type,
+        email: PosUser.email,
+      })
+      .from(PosUser)
+      .where(eq(PosUser.id, BigInt(user.id)))
+      .limit(1);
+    if (!row?.isActive) throw new AppError(401, 'AUTH_REQUIRED', 'Sign in to continue.');
+    if (![1, 2].includes(row.role) || row.userType === 2)
       throw new AppError(
         403,
-        'GIFT_CARD_BATCH_ARTIFACT_DENIED',
-        'Only the current batch owner can retrieve its private file.',
+        'GIFT_CARD_BATCH_ACCESS_DENIED',
+        'Gift card batches need an administrator or manager account.',
       );
-    if (
-      batch.completed !== 1 ||
-      batch.filename !== job.artifactKey ||
-      !job.artifactChecksum ||
-      !job.artifactSize ||
-      !storage
-    )
+    return row;
+  }
+  const inputHash = (value: unknown) =>
+    createHmac('sha256', config.SESSION_SECRET).update(JSON.stringify(value)).digest('hex');
+  async function readReceipt(key: string) {
+    const raw = await dependencies.ephemeral.get(key);
+    if (raw === null) return null;
+    try {
+      return receipt.parse(JSON.parse(raw) as unknown);
+    } catch {
+      throw new AppError(409, 'GIFT_CARD_BATCH_OPERATION_REUSED', 'Choose a new operation.');
+    }
+  }
+  const writeReceipt = (key: string, value: Receipt) =>
+    dependencies.ephemeral.set(key, JSON.stringify(value), { EX: receiptTtlSeconds });
+  function replay(previous: Receipt, actorId: string, hash: string): GiftCardBatchResult {
+    if (previous.actorId !== actorId || previous.inputHash !== hash)
       throw new AppError(
         409,
-        'GIFT_CARD_BATCH_ARTIFACT_NOT_READY',
-        'The private file is not ready yet.',
+        'GIFT_CARD_BATCH_OPERATION_REUSED',
+        'Choose a new gift card batch operation.',
       );
-    return job;
+    if (previous.state === 'pending')
+      throw new AppError(409, 'GIFT_CARD_BATCH_BUSY', 'This batch request is still in progress.');
+    if (previous.state === 'created')
+      throw new AppError(
+        503,
+        'GIFT_CARD_BATCH_QUEUE_FAILED',
+        `Batch ${previous.batchId} was saved but generation could not be started. Generate a new batch.`,
+      );
+    if (previous.outcome === 'not-eligible') throw notEligible();
+    return { batchId: previous.batchId, status: 'success', message: queuedMessage };
   }
-  async function publicBatch(
-    tx: BatchTransaction,
+  async function flag(
     user: Principal,
-    batch: LegacyGiftCardBatch,
-    job: GiftCardBatchJobMetadata | null,
-    knownCreator?: { first: string | null; last: string | null },
+    id: string,
+    values: { is_printed: 1 } | { is_block: 0 | 1 },
+    message: string,
   ) {
-    if (
-      ![batch.completed, batch.printed, batch.blocked].every((flag) => flag === 0 || flag === 1) ||
-      (job && job.batchId !== batch.id.toString())
-    )
-      throw giftCardBatchInvalid();
-    const creator =
-      knownCreator ||
-      (
-        await tx
-          .select({ first: PosUser.first_name, last: PosUser.last_name })
-          .from(PosUser)
-          .where(eq(PosUser.id, batch.createdBy))
-          .limit(1)
-      )[0];
-    return {
-      id: batch.id.toString(),
-      size: batch.size,
-      message: batch.message,
-      completed: batch.completed === 1,
-      blocked: batch.blocked === 1,
-      printed: batch.printed === 1,
-      createdById: batch.createdBy.toString(),
-      createdByName: creator ? sourceAdministrationFullName(creator.first, creator.last) : '',
-      createdAt: batch.createdAt,
-      version: giftCardBatchVersion(batch),
-      artifactAvailable: Boolean(
-        job &&
-        job.actorId === user.id &&
-        batch.createdBy.toString() === user.id &&
-        batch.completed === 1 &&
-        batch.filename === job.artifactKey &&
-        job.artifactChecksum &&
-        job.artifactSize &&
-        storage,
-      ),
-      job: job
-        ? {
-            phase: job.phase,
-            errorCode: job.errorCode,
-            updatedAt: job.updatedAt,
-            version: giftCardBatchJobVersion(batch, job),
-            canRetry:
-              job.actorId === user.id &&
-              !['QUEUED', 'GENERATED', 'STORED', 'SENDING'].includes(job.phase),
-          }
-        : null,
-    };
+    await db.get('writer').transaction(async (tx) => {
+      await actor(tx, user);
+      const [row] = await tx
+        .select({ id: GiftCardCollection.id })
+        .from(GiftCardCollection)
+        .where(eq(GiftCardCollection.id, BigInt(id)))
+        .limit(1);
+      if (!row) throw notFound();
+      await tx
+        .update(GiftCardCollection)
+        .set(values)
+        .where(eq(GiftCardCollection.id, BigInt(id)));
+    });
+    return { batchId: id, status: 'success' as const, message };
   }
-  const service = {
-    repository,
-    storage: storage || undefined,
-    delivery: delivery || undefined,
-    options,
+  return {
+    /** `GiftCardView` (core/views.py:2171-2180): the page shows the cleaned delivery email. */
     async capabilities(user: Principal) {
-      return db.get('writer').transaction(async (tx) => {
-        const actor = await repository.actor(tx, user.id);
-        let recipient: string | null = null;
-        try {
-          recipient = giftCardRecipient(actor.account.email);
-        } catch {
-          /* Missing delivery contact does not hide existing batch controls. */
-        }
-        return {
-          today: repository
-            .instant()
-            .toZonedDateTimeISO(config.BUSINESS_TIMEZONE)
-            .toPlainDate()
-            .toString(),
-          timeZone: config.BUSINESS_TIMEZONE,
-          generationAvailable: configured() && recipient !== null,
-          recipient,
-          historyAvailable: Boolean(
-            options.BQ_GIFT_CARD_BATCH_VIEW &&
-            options.BQ_GIFT_CARD_BATCH_MATCH_UDF &&
-            options.BQ_GIFT_CARD_BATCH_CONTRACT,
-          ),
-          maxSize: 10000,
-        };
-      });
+      const row = await db.get('writer').transaction((tx) => actor(tx, user));
+      const email = giftCardRecipient(row.email);
+      return { email: email || null, generationAvailable: configured() };
     },
-    async create(user: Principal, raw: z.infer<typeof createGiftCardBatchInput>) {
+    /**
+     * `AjaxGenerateGiftCardView.post` (core/views.py:2186-2210): insert gift_card_collection,
+     * then (after commit) enqueue `pos.gift_card_batches.generate` on queue `core`.
+     */
+    async create(user: Principal, raw: unknown): Promise<GiftCardBatchResult> {
       const input = createGiftCardBatchInput.parse(raw),
-        hash = repository.hash(input);
-      return retryTransaction(() =>
-        db.get('writer').transaction(async (tx) => {
-          await repository.lock(tx);
-          const actor = await repository.actor(tx, user.id);
-          const previous = await repository.replay(tx, user, input.operationId, 'create', hash);
-          if (previous) return previous;
-          if (!configured() || !storage) throw unavailable();
-          const recipient = giftCardRecipient(actor.account.email);
+        key = giftCardBatchReceiptKey(input.operationId),
+        hash = inputHash({ size: input.size, message: input.message });
+      const previous = await readReceipt(key);
+      if (previous) return replay(previous, user.id, hash);
+      if (!configured())
+        throw new AppError(
+          503,
+          'GIFT_CARD_BATCH_GENERATION_UNAVAILABLE',
+          'Gift card generation is not configured (GC_SALTKEY, storage bucket and Netcore email).',
+        );
+      if (
+        !(await dependencies.ephemeral.set(
+          key,
+          JSON.stringify({ state: 'pending', actorId: user.id, inputHash: hash } satisfies Receipt),
+          { NX: true, EX: receiptTtlSeconds },
+        ))
+      ) {
+        const raced = await readReceipt(key);
+        if (raced) return replay(raced, user.id, hash);
+      }
+      let created: { batchId: string; email: string };
+      try {
+        created = await db.get('writer').transaction(async (tx) => {
+          const row = await actor(tx, user);
           const [encoding] = await tx
             .select({
               valid:
@@ -222,7 +211,7 @@ export function giftCardBatchService(
                 ),
             })
             .from(PosUser)
-            .where(eq(PosUser.id, actor.account.id))
+            .where(eq(PosUser.id, row.id))
             .limit(1);
           if (!encoding?.valid)
             throw new AppError(
@@ -231,317 +220,150 @@ export function giftCardBatchService(
               'Use characters supported by the batch message field.',
             );
           const batchId = generatedId(
-            await tx.insert(legacyGiftCardBatches).values({
+            await tx.insert(GiftCardCollection).values({
               size: input.size,
               message: input.message,
-              completed: 0,
-              blocked: 0,
-              printed: 0,
+              is_completed: 0,
+              is_block: 0,
+              is_printed: 0,
+              created_by: row.id,
+              created_at: wall(),
               filename: '',
-              createdBy: actor.account.id,
-              createdAt: repository.wall(),
             }),
           ).toString();
-          if (batchId.length > 9)
-            throw new AppError(
-              503,
-              'GIFT_CARD_BATCH_FORMAT_UNSUPPORTED',
-              'This batch cannot use the verified gift card format.',
-            );
-          const now = repository.utc();
-          await tx.insert(giftCardBatchJobs).values({
-            id: input.operationId,
-            batchId,
-            actorId: user.id,
-            actorVersion: actor.version,
-            requestedSize: input.size,
-            sealedSecrets: newGiftCardSecrets(options, batchId, recipient),
-            phase: 'QUEUED',
-            artifactKey: storage.keyFor(input.operationId),
-            attempts: 0,
-            requestId: currentRequestTrace()?.requestId || null,
-            createdAt: now,
-            updatedAt: now,
-          });
-          return repository.receipt(tx, user, input.operationId, 'create', hash, {
-            id: input.operationId,
-            batchId,
-            status: 'success',
-            message: 'Gift card generation queued.',
-          });
-        }),
+          return { batchId, email: giftCardRecipient(row.email) };
+        });
+      } catch (error) {
+        await dependencies.ephemeral.del(key).catch(() => 0);
+        throw error;
+      }
+      // Legacy creates the collection first, then refuses requesters without an email.
+      if (!created.email) {
+        await writeReceipt(key, {
+          state: 'done',
+          actorId: user.id,
+          inputHash: hash,
+          batchId: created.batchId,
+          outcome: 'not-eligible',
+        });
+        throw notEligible();
+      }
+      await writeReceipt(key, {
+        state: 'created',
+        actorId: user.id,
+        inputHash: hash,
+        batchId: created.batchId,
+      });
+      await dependencies.jobs.enqueue(
+        giftCardBatchJobName,
+        { collectionId: created.batchId, size: input.size, userId: user.id },
+        { queue: 'core' },
       );
-    },
-    async details(user: Principal, id: string) {
-      return db.get('writer').transaction(async (tx) => {
-        await repository.actor(tx, user.id);
-        const batch = await repository.batch(tx, id),
-          job = await repository.job(tx, id);
-        return publicBatch(tx, user, batch, job);
+      await writeReceipt(key, {
+        state: 'done',
+        actorId: user.id,
+        inputHash: hash,
+        batchId: created.batchId,
+        outcome: 'queued',
       });
+      return { batchId: created.batchId, status: 'success', message: queuedMessage };
     },
-    async currentJobs(user: Principal) {
-      return db.get('writer').transaction(async (tx) => {
-        const actor = await repository.actor(tx, user.id),
-          cutoff = repository
-            .instant()
-            .subtract({ hours: 24 })
-            .toZonedDateTimeISO('UTC')
-            .toPlainDateTime()
-            .toString({ smallestUnit: 'millisecond' })
-            .replace('T', ' ');
-        const records = await tx
-          .select({ batch: getTableColumns(legacyGiftCardBatches), job: giftCardBatchJobColumns })
-          .from(giftCardBatchJobs)
-          .innerJoin(
-            legacyGiftCardBatches,
-            eq(legacyGiftCardBatches.id, sql`CAST(${giftCardBatchJobs.batchId} AS SIGNED)`),
-          )
-          .where(
-            and(
-              eq(giftCardBatchJobs.actorId, user.id),
-              eq(legacyGiftCardBatches.createdBy, BigInt(user.id)),
-              or(
-                inArray(giftCardBatchJobs.phase, [
-                  'QUEUED',
-                  'GENERATED',
-                  'STORED',
-                  'SENDING',
-                  'BLOCKED',
-                  'UNCERTAIN',
-                  'FAILED',
-                ]),
-                gte(giftCardBatchJobs.createdAt, cutoff),
-              ),
-            ),
-          )
-          .orderBy(desc(giftCardBatchJobs.createdAt), desc(giftCardBatchJobs.id))
-          .limit(25);
-        return {
-          data: await Promise.all(
-            records.map((row) =>
-              publicBatch(tx, user, row.batch, row.job, {
-                first: actor.account.first_name,
-                last: actor.account.last_name,
-              }),
-            ),
-          ),
-        };
-      });
+    /** `AjaxPrintGiftCardView` (core/views.py:2213-2229): sets is_printed=1. */
+    markPrinted(user: Principal, id: string) {
+      return flag(user, id, { is_printed: 1 }, 'Marked as printed');
     },
-    async recordView(user: Principal, operationId: string) {
-      return retryTransaction(() =>
-        db.get('writer').transaction(async (tx) => {
-          await repository.lock(tx);
-          await repository.actor(tx, user.id);
-          const hash = repository.hash({ kind: 'gift-card-batch-list-view' });
-          if (await repository.replay(tx, user, operationId, 'view', hash, '0')) return;
-          const wall = repository.wall();
+    /** `AjaxBlockGiftCardView` (core/views.py:2232-2252): `opr=active` → 0, otherwise 1. */
+    setBlocked(user: Principal, id: string, raw: unknown) {
+      const input = blockGiftCardBatchInput.parse(raw);
+      return flag(user, id, { is_block: input.opr === 'active' ? 0 : 1 }, `Marked as ${input.opr}`);
+    },
+    /**
+     * `AjaxGiftCardListView` (core/datatables/gift_card_datatable.py:18-90): all collections,
+     * one sort column, Django paginator fallback, creator full names, and the special-permission
+     * activity row on the first draw. Interactive read: primary reader.
+     */
+    async list(user: Principal, raw: unknown) {
+      const input = giftCardBatchListInput.parse(raw);
+      await db.get('writer').transaction(async (tx) => {
+        await actor(tx, user);
+        if (input.draw === 1) {
+          const now = wall();
           await tx.insert(PosSpecialPermissionActivityLog).values({
             pos_user_id: BigInt(user.id),
             platform: 'Gift Card',
             comment: 'Viewed the gift card batch list',
             recipient: null,
-            created_at: wall,
-            updated_at: wall,
+            created_at: now,
+            updated_at: now,
           });
-          await repository.receipt(tx, user, operationId, 'view', hash, {
-            id: operationId,
-            batchId: '0',
-            status: 'success',
-            message: 'Batch list viewed.',
-          });
-        }),
-      );
-    },
-    async markPrinted(user: Principal, id: string, raw: z.infer<typeof printGiftCardBatchInput>) {
-      const input = printGiftCardBatchInput.parse(raw),
-        hash = repository.hash({ id, input });
-      return retryTransaction(() =>
-        db.get('writer').transaction(async (tx) => {
-          await repository.lock(tx);
-          await repository.actor(tx, user.id);
-          const previous = await repository.replay(
-            tx,
-            user,
-            input.operationId,
-            'printed',
-            hash,
-            id,
-          );
-          if (previous) return previous;
-          const batch = await repository.batch(tx, id, true);
-          if (giftCardBatchVersion(batch) !== input.expectedVersion) throw conflict();
-          if (batch.completed !== 1)
-            throw new AppError(
-              409,
-              'GIFT_CARD_BATCH_INCOMPLETE',
-              'Finish generating this batch before marking it printed.',
-            );
-          await tx
-            .update(legacyGiftCardBatches)
-            .set({ printed: 1 })
-            .where(eq(legacyGiftCardBatches.id, BigInt(id)));
-          return repository.receipt(tx, user, input.operationId, 'printed', hash, {
-            id: input.operationId,
-            batchId: id,
-            status: 'success',
-            message: 'Marked as printed',
-          });
-        }),
-      );
-    },
-    async setBlocked(user: Principal, id: string, raw: z.infer<typeof blockGiftCardBatchInput>) {
-      const input = blockGiftCardBatchInput.parse(raw),
-        hash = repository.hash({ id, input });
-      return retryTransaction(() =>
-        db.get('writer').transaction(async (tx) => {
-          await repository.lock(tx);
-          await repository.actor(tx, user.id);
-          const previous = await repository.replay(
-            tx,
-            user,
-            input.operationId,
-            'blocked',
-            hash,
-            id,
-          );
-          if (previous) return previous;
-          const batch = await repository.batch(tx, id, true);
-          if (giftCardBatchVersion(batch) !== input.expectedVersion) throw conflict();
-          await tx
-            .update(legacyGiftCardBatches)
-            .set({ blocked: input.blocked ? 1 : 0 })
-            .where(eq(legacyGiftCardBatches.id, BigInt(id)));
-          return repository.receipt(tx, user, input.operationId, 'blocked', hash, {
-            id: input.operationId,
-            batchId: id,
-            status: 'success',
-            message: input.blocked ? 'Marked as block' : 'Marked as active',
-          });
-        }),
-      );
-    },
-    async retry(user: Principal, id: string, raw: z.infer<typeof retryGiftCardBatchInput>) {
-      const input = retryGiftCardBatchInput.parse(raw),
-        hash = repository.hash({ id, input });
-      return retryTransaction(() =>
-        db.get('writer').transaction(async (tx) => {
-          await repository.lock(tx);
-          const actor = await repository.actor(tx, user.id);
-          const previous = await repository.replay(tx, user, input.operationId, 'retry', hash, id);
-          if (previous) return previous;
-          if (!configured()) throw unavailable();
-          const batch = await repository.batch(tx, id, true),
-            job = await repository.secretJob(tx, id, true);
-          if (!job || job.actorId !== user.id || batch.createdBy.toString() !== user.id)
-            throw new AppError(
-              403,
-              'GIFT_CARD_BATCH_RETRY_DENIED',
-              'Only the batch owner can retry delivery.',
-            );
-          if (giftCardBatchJobVersion(batch, job) !== input.expectedVersion) throw conflict();
-          if (job.leaseExpiresAt && job.leaseExpiresAt > repository.utc())
-            throw new AppError(409, 'GIFT_CARD_BATCH_BUSY', 'This batch is being processed.');
-          if (
-            ['UNCERTAIN', 'DELIVERED'].includes(job.phase) &&
-            (batch.completed !== 1 ||
-              batch.filename !== job.artifactKey ||
-              !job.artifactChecksum ||
-              !job.artifactSize)
+        }
+      });
+      const columns = {
+        id: GiftCardCollection.id,
+        size: GiftCardCollection.size,
+        message: GiftCardCollection.message,
+        created_by: GiftCardCollection.created_by,
+        created_at: GiftCardCollection.created_at,
+      };
+      const pattern = giftCardBatchPattern(input.search);
+      const condition = input.search
+        ? or(
+            like(sql`CAST(${GiftCardCollection.id} AS CHAR)`, pattern),
+            like(sql`CAST(${GiftCardCollection.size} AS CHAR)`, pattern),
+            like(GiftCardCollection.message, pattern),
           )
-            throw new AppError(
-              409,
-              'GIFT_CARD_BATCH_ARCHIVE_INVALID',
-              'Reconcile the original archive before any delivery retry.',
-            );
-          if (!['BLOCKED', 'FAILED', 'UNCERTAIN', 'DELIVERED'].includes(job.phase))
-            throw new AppError(409, 'GIFT_CARD_BATCH_BUSY', 'This batch is already queued.');
-          if (['UNCERTAIN', 'DELIVERED'].includes(job.phase) && !input.confirmResend)
-            throw new AppError(
-              409,
-              'GIFT_CARD_BATCH_RESEND_CONFIRMATION',
-              'Confirm sending the same encrypted file again.',
-            );
-          const secrets = openGiftCardSecrets(options, id, job.sealedSecrets);
-          if (
-            !options.GC_SALTKEY ||
-            secrets.formatFingerprint !== giftCardFormatFingerprint(options.GC_SALTKEY) ||
-            batch.size !== job.requestedSize
-          )
-            throw new AppError(
-              409,
-              'GIFT_CARD_BATCH_FORMAT_CHANGED',
-              'Reconcile the original batch format before retrying.',
-            );
-          await tx
-            .update(giftCardBatchJobs)
-            .set({
-              actorVersion: actor.version,
-              sealedSecrets: sealGiftCardSecrets(options, {
-                ...secrets,
-                recipient: giftCardRecipient(actor.account.email),
-              }),
-              phase:
-                job.artifactChecksum && batch.completed === 1
-                  ? 'STORED'
-                  : job.hasArtifactBytes
-                    ? 'GENERATED'
-                    : 'QUEUED',
-              attempts: 0,
-              errorCode: null,
-              leaseToken: null,
-              leaseExpiresAt: null,
-              deliveryAttemptId: null,
-              updatedAt: repository.utc(),
-            })
-            .where(eq(giftCardBatchJobs.id, job.id));
-          return repository.receipt(tx, user, input.operationId, 'retry', hash, {
-            id: input.operationId,
-            batchId: id,
-            status: 'success',
-            message: 'The same gift card batch is queued for delivery.',
-          });
-        }),
-      );
-    },
-    async artifactAccess(user: Principal, id: string) {
-      return db.get('writer').transaction(async (tx) => {
-        await repository.actor(tx, user.id);
-        const batch = await repository.batch(tx, id),
-          job = await repository.secretJob(tx, id);
-        owner(user, batch, job);
-        const secret = openGiftCardSecrets(options, id, job!.sealedSecrets);
-        return { filename: `gift-cards-${id}.zip`, password: secret.password };
-      });
-    },
-    async archive(user: Principal, id: string, signal?: AbortSignal) {
-      const manifest = await db.get('writer').transaction(async (tx) => {
-        await repository.actor(tx, user.id);
-        const batch = await repository.batch(tx, id),
-          job = owner(user, batch, await repository.job(tx, id));
-        return giftCardBatchManifest(job);
-      });
-      if (!storage) throw unavailable();
-      const bytes = await storage.get(manifest, signal);
-      await db.get('writer').transaction(async (tx) => {
-        await repository.actor(tx, user.id);
-        const current = giftCardBatchManifest(
-          owner(user, await repository.batch(tx, id), await repository.job(tx, id)),
-        );
-        if (
-          current.key !== manifest.key ||
-          current.checksum !== manifest.checksum ||
-          current.size !== manifest.size
-        )
-          throw conflict();
-      });
-      return bytes;
-    },
-    close() {
-      storage?.close();
+        : undefined;
+      const reader = db.get('primary');
+      const [tally] = await reader
+        .select({ total: sql<string>`CAST(COUNT(*) AS CHAR)` })
+        .from(GiftCardCollection)
+        .where(condition);
+      const total = BigInt(tally?.total ?? '0'),
+        start = giftCardBatchPageStart(input.start, input.length, total);
+      const rows =
+        total === 0n
+          ? []
+          : await reader
+              .select({
+                id: sql<string>`CAST(${GiftCardCollection.id} AS CHAR)`,
+                size: GiftCardCollection.size,
+                message: GiftCardCollection.message,
+                completed: GiftCardCollection.is_completed,
+                printed: GiftCardCollection.is_printed,
+                blocked: GiftCardCollection.is_block,
+                firstName: PosUser.first_name,
+                lastName: PosUser.last_name,
+                creator: PosUser.id,
+                createdAt: GiftCardCollection.created_at,
+              })
+              .from(GiftCardCollection)
+              .leftJoin(PosUser, eq(PosUser.id, GiftCardCollection.created_by))
+              .where(condition)
+              .orderBy(
+                input.direction === 'asc' ? asc(columns[input.sort]) : desc(columns[input.sort]),
+                ...(input.sort === 'id' ? [] : [asc(GiftCardCollection.id)]),
+              )
+              .limit(input.length)
+              .offset(start);
+      return {
+        draw: input.draw,
+        recordsTotal: total.toString(),
+        recordsFiltered: total.toString(),
+        start,
+        length: input.length,
+        data: rows.map((row) => ({
+          id: row.id,
+          size: row.size,
+          message: row.message,
+          completed: row.completed !== 0,
+          printed: row.printed !== 0,
+          blocked: row.blocked !== 0,
+          createdBy:
+            row.creator === null ? '' : sourceAdministrationFullName(row.firstName, row.lastName),
+          createdAt: row.createdAt,
+        })),
+      };
     },
   };
-  return service;
 }
 export type GiftCardBatchService = ReturnType<typeof giftCardBatchService>;

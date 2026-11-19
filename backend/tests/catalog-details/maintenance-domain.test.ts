@@ -6,10 +6,7 @@ import {
   temporarySourceBarcode,
 } from '../../src/modules/catalog-details/maintenance-domain.js';
 import { catalogMaintenanceOptions } from '../../src/modules/catalog-details/maintenance-options.js';
-import {
-  createCatalogMaintenanceTransports,
-  MaintenanceDeliveryError,
-} from '../../src/modules/catalog-details/maintenance-transports.js';
+import { createCatalogMaintenanceTransports } from '../../src/modules/catalog-details/maintenance-transports.js';
 import { goldenStdout } from '../golden/load.js';
 describe('catalog maintenance source profiles and bounded transports', () => {
   it('preserves source manual/CSV payload differences, deduplication and simple-SKU filtering', () => {
@@ -67,7 +64,7 @@ describe('catalog maintenance source profiles and bounded transports', () => {
     expect(temporarySourceBarcode('123')).toBe('1230123');
     expect(() => temporarySourceBarcode('9223372036854775807')).toThrow('exceeds');
   });
-  it('uses approved endpoints, captured trace/idempotency headers and uncertain outcomes without leaking failures', async () => {
+  it('posts the legacy inventory payload with the API key to an approved endpoint and returns the status', async () => {
     const config = readConfig({
         NODE_ENV: 'test',
         DEMO_MODE: 'true',
@@ -78,30 +75,20 @@ describe('catalog maintenance source profiles and bounded transports', () => {
         INVENTORY_SYNC_API_KEY: 'fixture-key',
       }),
       fetcher = vi.fn<typeof fetch>(async () => new Response('', { status: 202 })),
-      transport = createCatalogMaintenanceTransports(config, options, {}, fetcher).inventory!;
-    const payload = { kind: 'inventory-pull' as const, mode: 'csv' as const, productIds: ['1'] },
-      context = { deliveryId: crypto.randomUUID(), requestId: 'fixture-request', userId: '1' };
-    await transport.send(payload, context);
-    const call = fetcher.mock.calls[0]!;
-    expect(call[1]).toMatchObject({
+      send = createCatalogMaintenanceTransports(config, options, {}, fetcher).inventory!;
+    expect(await send(['1'], 'csv')).toBe(202);
+    expect(fetcher.mock.calls[0]![1]).toMatchObject({
+      method: 'POST',
       redirect: 'error',
       body: '{"productIds":[1]}',
-      headers: {
-        'x-api-key': 'fixture-key',
-        'Idempotency-Key': context.deliveryId,
-        'X-Request-Id': 'fixture-request',
-      },
+      headers: { 'Content-Type': 'application/json', 'x-api-key': 'fixture-key' },
     });
+    await send(['1', '2'], 'manual');
+    expect(fetcher.mock.calls[1]![1]?.body).toBe('{"productIds":[1,2],"priority":1}');
     fetcher.mockImplementationOnce(async () => {
-      throw new Error('fixture@example.test secret body');
+      throw new Error('network');
     });
-    await expect(transport.send(payload, context)).rejects.toMatchObject({
-      outcome: 'uncertain',
-      code: 'INVENTORY_PULL_OUTCOME_UNKNOWN',
-    });
-    expect(new MaintenanceDeliveryError('uncertain', 'fixture@example.test').code).toBe(
-      'CATALOG_DELIVERY_OUTCOME_UNKNOWN',
-    );
+    await expect(send(['1'], 'csv')).rejects.toThrow();
     expect(() =>
       createCatalogMaintenanceTransports(
         config,

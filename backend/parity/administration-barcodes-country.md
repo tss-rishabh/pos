@@ -8,26 +8,26 @@ Source “Add Missing Barcode” is a global administrative create operation, di
 
 The source check order and messages are retained:
 
-| Predicate, in order | Result |
-| --- | --- |
-| Product does not exist | `fail`: `Invalid Product` |
-| Any barcode row already belongs to the product, including GTIN0 | `fail`: `Product already belongs to another Barcode` |
-| GTIN already belongs to another product, first matching PK | `fail`: `Barcode already belongs to another product, Product ID : {id}` |
-| Otherwise | `success`: `Barcode {gtin} has been added for product Id {productId}` |
+| Predicate, in order                                             | Result                                                                  |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Product does not exist                                          | `fail`: `Invalid Product`                                               |
+| Any barcode row already belongs to the product, including GTIN0 | `fail`: `Product already belongs to another Barcode`                    |
+| GTIN already belongs to another product, first matching PK      | `fail`: `Barcode already belongs to another product, Product ID : {id}` |
+| Otherwise                                                       | `success`: `Barcode {gtin} has been added for product Id {productId}`   |
 
 Product type, availability, deletion, stock and store association do not restrict this source operation. The rewrite does not add those restrictions or invent downstream synchronization. An orphan existing GTIN reference remains a conflict; the rewrite refuses to steal it instead of following the source’s missing-relation exception.
 
-The successful source audit has `platform='barcode'`, the same success message, the initiating PosUser ID and recipient`''` (`email=False`). New code commits barcode, mandatory activity and immutable operation receipt in **one writer transaction**. Source helpers swallowed audit failures after the barcode had already committed; the rewrite rolls the entire transaction back. No real mail or synchronization is added.
+The successful source audit has `platform='barcode'`, the same success message, the initiating PosUser ID and recipient`''` (`email=False`). The barcode and activity row are written in one writer transaction; the activity insert runs in a savepoint and its failure is swallowed (receipt `auditId: null`), as the source helper (`helpers/helpers.py:740-756`).
 
-The source SpecialPermission page is internal type1/roles1–3; its bare barcode AJAX method omitted the page’s user-type guard. Both write and recovery now check current active writer identity, role1–3 and type1 while holding its shared operator lock. Source cached/browser claims cannot expand authority. No cashier check-in or fabricated store scope is required for a global SKU operation.
+Authorization follows `advance_permisson("[1,2,3]")` (`core/views.py:1244`): roles 1-3 of any user type, rechecked on the writer for write and recovery. Legacy messages are returned unchanged inside the receipt (`status: fail|success`).
 
-POST takes `{operationId:UUID,productId:string,barcode:string}`. Canonical actor/input-bound receipts retain success **and source failure** outcomes. Repeating the original UUID does not insert another barcode or activity; a different input/actor cannot reuse it. `GET .../:operationId` recovers only the current authorized owner’s original result and performs no mutation. A lost reply is resolved by GET; a proved404 permits only an explicit retry of the same UUID/input. Receipt data describes the committed action, not a new assertion that an independent external writer has never changed the product afterward.
+POST takes `{operationId:UUID,productId:string,barcode:string}`. Receipts (success and source failures) are kept in Redis `pos:idem:barcode:{operationId}` -> `{actorId, inputHash, receipt}` (EX 86400). Repeating the UUID returns the receipt without another insert; another actor or input gets 409 `BARCODE_OPERATION_REUSED`. `GET .../:operationId` reads the receipt (404 after expiry).
 
 ## Coordination and actual release boundary
 
 Verified `mysql-extra-schema.json` and `mysql-inventory-workbooks-schema.json` show `products_gs1` has a signed BIGINT auto-ID and **nonunique** `product_id`/`gtin` indexes. Existing duplicate rows and source temporary-suffix behavior prevent a blind unique-index migration.
 
-Assignment and actual catalog troubleshooting share `lockBarcodeMutation()` on existing rewrite `pos_rewrite_catalog_locks`, key`barcode-mutations`, **before** any Product/GS1 locks. The only other current Node ProductBarcode writer is `catalog-details/maintenance-repair.ts`; its calling writer now takes this same lock. Order is current operator→catalog operator command lock where applicable→shared barcode lock→receipt→Product→GS1. DB-only deadlocks can use the existing bounded retry helper. Native tests race distinct-product/same-GTIN, same-product/different-GTIN and the actual suffix-repair service against a new temporary-GTIN claim. They prove serialization among these participating rewrite writers, not a global unique constraint.
+Assignments serialize on the Redis lease `pos:lock:catalog:barcode-mutations` (`withBarcodeMutationLock`, SET NX PX 30 s, token release), taken before the writer transaction; busy longer than 10 s gives 409 `BARCODE_ASSIGNMENT_BUSY`. `products_gs1` has no unique keys, so this lease is the only duplicate guard (legacy had none). Gap: catalog-details maintenance still takes the old `pos_rewrite_catalog_locks` row via the deprecated `lockBarcodeMutation`, so the two writers no longer exclude each other until it moves to the Redis lease.
 
 **Production qualification:** all remaining legacy/API/ecommerce/import GS1 writers must be cut over, stopped, or adopt this same writer coordination protocol, with duplicate-data reconciliation where required. This slice has not established that external cutover and does not claim global uniqueness while independent nonparticipating writers remain active. No live DDL, source-table unique constraint, source mutation or provider call was performed.
 
@@ -43,10 +43,10 @@ The source Select2 country controls in both store-create and store-edit template
 
 ## Integration
 
-- `registerBarcodeAssignments(app,config,db)` from `src/modules/administration/barcodes/index.ts` registers `POST /api/v1/admin/barcode-assignments` and `GET /api/v1/admin/barcode-assignments/:operationId`.
+- `registerBarcodeAssignments(app,config,db,ephemeral)` from `src/modules/administration/barcodes/index.ts` registers `POST /api/v1/admin/barcode-assignments` and `GET /api/v1/admin/barcode-assignments/:operationId`.
 - `registerSecondaryCountrySearch(app,db)` from `src/modules/administration/country-search.ts` registers `POST /api/v1/countries/secondary/search`, body`{search?:string}`. No legacy GET/query-string alias.
 - All routes declare administration module/resource/action tracing, private/no-store caching, strict runtime input and captured actor enforcement through the parent API client. Receipts include parent request correlation. Module code logs no body, query, user contact, token, SQL row or raw error.
-- Apply rewrite-only `src/modules/administration/barcodes/migration.sql`: the same existing catalog-lock table definition (IF NOT EXISTS) plus `pos_rewrite_barcode_assignments`. No worker, provider, environment setting or legacy ALTER.
+- No table: `barcodes/migration.sql` is kept only while `src/db/migrations.ts` lists it; `pos_rewrite_barcode_assignments` is unused.
 - Frontend default/named `BarcodeAssignmentsPage({user})` from `src/pages/administration/barcodes/index.tsx`; internal roles1–3. Default/named `SecondaryCountrySearchPage({user})` from `src/pages/administration/secondary-countries.tsx`; all authenticated source-allowed roles/types. Root owns app/navigation wiring.
 - Barcode pending metadata uses per-owner/per-UUID local keys, survives reload/restart, does not overwrite another tab’s operation, and is removed only after an exact matching receipt. Storage failure prevents dispatch. It contains product/GTIN/action IDs only and is separate from offline cash, payments and financial outboxes. Offline users may retain the form and pending action; globally coordinated assignment/recovery requires connectivity. No barcode mutation is silently queued or resent.
 - A successful receipt cancels/marks only the original owner’s product-query cache stale, without a background financial call. Optional cache work cannot change the committed receipt or repeat its mutation.

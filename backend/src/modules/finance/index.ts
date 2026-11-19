@@ -13,7 +13,9 @@ import { cashLedgerService } from './ledger.js';
 import { financeFeedOptions, financeFeedService, type FinanceFeedOptions } from './feed.js';
 import { secretMatches } from '../fulfillment/options.js';
 import { financeAlertOptions, financePendingAlerts } from './alerts.js';
-import { closeHistoryService, dayCloseCsv } from './history.js';
+import { closeHistoryService } from './history.js';
+import type { EphemeralStore } from '../../jobs/ephemeral.js';
+import { reportApiKeyGuard } from '../operational-reports/scheduled-routes.js';
 import {
   paymentCorrectionFinanceOptions,
   type PaymentCorrectionFinanceOptions,
@@ -34,6 +36,8 @@ const trace = (resource: string, action: string) => ({
   trace: { module: 'finance', resource, action },
 });
 interface RegistrationOptions {
+  /** Redis: day-close and pending-alert command receipts (no rewrite tables). */
+  ephemeral: EphemeralStore;
   demoStores?: (user: Principal) => Promise<{ id: string; name: string }[]>;
   paymentCorrections?: PaymentCorrectionFinanceOptions;
   service?: FinanceService;
@@ -46,10 +50,12 @@ export async function registerFinance(
   app: FastifyInstance,
   config: Config,
   db: Databases,
-  options: RegistrationOptions = {},
+  options: RegistrationOptions,
 ) {
   const corrections = options.paymentCorrections ?? paymentCorrectionFinanceOptions();
-  const service = options.service || financeService(config, db, undefined, undefined, corrections);
+  const service =
+    options.service ||
+    financeService(config, db, undefined, undefined, corrections, options.ephemeral);
   const history = closeHistoryService(config, db);
   const historyInput = (query: unknown) => {
     const today = Temporal.Now.instant().toZonedDateTimeISO(config.BUSINESS_TIMEZONE).toPlainDate();
@@ -75,41 +81,34 @@ export async function registerFinance(
     { config: trace('day-close-history', 'list') },
     async (request) => history.read(authenticated(request), historyInput(request.query)),
   );
-  app.get(
-    '/api/v1/reports/day-close-history/export',
-    { config: trace('day-close-history-export', 'read') },
-    async (request, reply) => {
-      const input = historyInput(request.query),
-        result = await history.read(authenticated(request), input, true);
-      return reply
-        .header('Content-Type', 'text/csv; charset=utf-8')
-        .header(
-          'Content-Disposition',
-          `attachment; filename="day-close-history-${input.from}-${input.to}.csv"`,
-        )
-        .send(dayCloseCsv(result.data));
-    },
-  );
   const feedOptions = options.feedOptions || financeFeedOptions(),
     feed = options.feed || financeFeedService(config, db, feedOptions);
   const alertOptions = options.alertOptions || financeAlertOptions(),
-    alerts = options.alerts || financePendingAlerts(config, db);
+    alerts = options.alerts || financePendingAlerts(config, db, options.ephemeral, alertOptions);
   app.post(
     '/api/v1/webhooks/day-close-alerts',
     {
       config: { ...trace('pending-close-alert', 'create'), authentication: 'service' },
-      preValidation: async (request) => {
-        if (!secretMatches(alertOptions.REPORTS_API_KEY, request.headers['x-api-key']))
-          throw new AppError(401, 'SERVICE_AUTHENTICATION_REQUIRED', 'Invalid or missing API key');
-      },
+      preValidation: reportApiKeyGuard(alertOptions.REPORTS_API_KEY),
     },
-    async (request, reply) => {
+    async (request) => {
       const body = z
         .object({ commandId: z.uuid(), date: date.optional() })
         .strict()
         .parse(request.body);
-      const result = await alerts.queue(body.commandId, body.date, request.id);
-      return reply.code(result.delivery === 'pending' ? 202 : 200).send(result);
+      const result = await alerts.send(body.commandId, body.date);
+      request.log.info(
+        {
+          module: 'finance',
+          resource: 'pending-close-alert',
+          eventId: 'finance.pending-close-alert.sent',
+          requestId: request.id,
+          userId: 'service-reports',
+          pending: result.pending,
+        },
+        'Pending day-close alerts posted',
+      );
+      return result;
     },
   );
   app.get(

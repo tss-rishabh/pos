@@ -42,6 +42,10 @@ const shared = new Map<string, RedisPort>();
 export function bindCheckInRedis(port: RedisPort | undefined) {
   bound = port;
 }
+/** The port bound by `buildApp` (or a test), if any. */
+export function boundCheckInRedis(): RedisPort | undefined {
+  return bound;
+}
 function checkInRedis(config: Partial<Pick<Config, 'REDIS_URL' | 'NODE_ENV'>>): RedisPort | null {
   if (bound) return bound;
   if (!config.REDIS_URL) return null;

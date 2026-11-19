@@ -68,11 +68,9 @@ export function CatalogPage({ user, storeId }: { user: Principal; storeId: strin
   return (
     <>
       <PageTitle eyebrow="PRODUCTS AND INVENTORY" title="Product catalog">
-        {user.role === 1 && user.userType === 1 && (
-          <Link className="button secondary" to="/catalog/inventory-pulls">
-            Inventory pull
-          </Link>
-        )}
+        <Link className="button secondary" to="/catalog/inventory-pulls">
+          Inventory Sync
+        </Link>
         {user.userType === 1 && (
           <Link className="button secondary" to="/catalog/inventory">
             Inventory matrix

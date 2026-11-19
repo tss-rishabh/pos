@@ -3,10 +3,16 @@ import { z } from 'zod';
 import type { Config } from '../../../config.js';
 import type { Databases } from '../../../db/pools.js';
 import { authenticated } from '../../../auth/routes.js';
+import type { EphemeralStore } from '../../../jobs/ephemeral.js';
 import { barcodeAssignmentService } from './service.js';
 export { barcodeAssignmentService } from './service.js';
-export function registerBarcodeAssignments(app: FastifyInstance, config: Config, db: Databases) {
-  const service = barcodeAssignmentService(config, db),
+export function registerBarcodeAssignments(
+  app: FastifyInstance,
+  config: Config,
+  db: Databases,
+  ephemeral: EphemeralStore,
+) {
+  const service = barcodeAssignmentService(config, db, ephemeral),
     trace = (action: string) => ({
       config: {
         trace: { module: 'administration', resource: 'barcode-assignment', action },

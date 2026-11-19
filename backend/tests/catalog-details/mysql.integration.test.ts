@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import mysql from 'mysql2/promise';
 import { Temporal } from '@js-temporal/polyfill';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -21,12 +20,8 @@ import {
   inventoryMatrixService,
   inventoryMatrixInput,
 } from '../../src/modules/catalog-details/matrix.js';
+import { clearCheckIn, seedCheckIn } from '../helpers/check-ins.js';
 import { goldenStdout } from '../golden/load.js';
-import { bindCheckInRedis } from '../../src/modules/administration/checkins.js';
-import { memoryRedisPort } from '../../src/redis/memory.js';
-
-const checkInRedis = memoryRedisPort();
-bindCheckInRedis(checkInRedis);
 
 const integration = process.env.MYSQL_INTEGRATION_URL;
 const oracleResponse = z.object({
@@ -79,8 +74,31 @@ describe.skipIf(!integration)(
         const alternate = await read('0009007199254740994');
         expect(alternate).toMatchObject({
           matchedBarcode: '9007199254740994',
-          product: { id: '11', barcode: '9007199254740993', stock: 3 },
+          product: {
+            id: '11',
+            barcode: '9007199254740993',
+            stock: 3,
+            holdedStock: 0,
+            storageStock: 'Not available in any storage',
+          },
         });
+        // store_products_datatable.py:276-312: first hold row and one line per storage row.
+        await native().query(
+          'INSERT INTO hold_stock_store(id,product_id,store_id,stock) VALUES(5,20,1,4),(6,20,1,9)',
+        );
+        await native().query(
+          'INSERT INTO stock_storages(id,storage_id,store_id,product_id,stock) VALUES(8,7,1,20,1)',
+        );
+        try {
+          const page = await catalog.products(principal, '1', 'Café', '0', 30, true);
+          expect(page.data.find((row) => row.id === '20')).toMatchObject({
+            holdedStock: 4,
+            storageStock: 'Actual bin : 2\nLegacy storage ID : 1\n',
+          });
+        } finally {
+          await native().query('DELETE FROM hold_stock_store');
+          await native().query('DELETE FROM stock_storages WHERE id=8');
+        }
         await expect(read('900719925474099')).rejects.toMatchObject({ code: 'BARCODE_NOT_FOUND' });
         await expect(read('9007199254740995')).rejects.toMatchObject({ code: 'BARCODE_NOT_FOUND' });
         await expect(read('9007199254740993', '3')).rejects.toMatchObject({
@@ -139,16 +157,11 @@ describe.skipIf(!integration)(
         'stock_storage_logs',
         'stock_storages',
         'store_storages',
+        'hold_stock_store',
         'users',
         'pos_user',
         'user_stores',
       ]);
-      const migration = readFileSync('src/modules/administration/migration.sql', 'utf8');
-      const checkin = /CREATE TABLE IF NOT EXISTS pos_rewrite_operator_checkins[\s\S]*?;/i.exec(
-        migration,
-      )?.[0];
-      if (!checkin) throw new Error('Canonical check-in migration unavailable.');
-      await connection.query(checkin);
       for (const [id, name, type, active] of [
         [1, 'Alpha', 'STORE', 1],
         [2, 'Beta', 'STORE', 1],
@@ -180,9 +193,8 @@ describe.skipIf(!integration)(
         user_type: 2,
       });
       await fixture.insert('user_stores', { django_user_id: 2, store_id: 1 });
-      // Check-ins are the legacy Redis keys (`check_in_{uid}` = [store_id, name]).
-      await checkInRedis.set('check_in_1', '[2, ""]', { EX: 3600 });
-      await checkInRedis.set('check_in_2', '[1, ""]', { EX: 3600 });
+      await seedCheckIn('1', '2');
+      await seedCheckIn('2', '1');
       for (const [id, type] of [
         [1, 'Simple'],
         [3, 'Configurable'],
@@ -633,7 +645,7 @@ describe.skipIf(!integration)(
       const scoped = await catalog.detail(franchise, '10');
       expect(scoped.stores.map((row) => row.id)).toEqual(['1']);
       expect(scoped.stock.every((row) => row.storeId === '1')).toBe(true);
-      await checkInRedis.del(['check_in_2']);
+      await clearCheckIn('2');
       const empty = await catalog.detail(franchise, '10');
       expect(empty.checkInRequired).toBe(true);
       expect(empty.stock).toEqual([]);
@@ -641,7 +653,7 @@ describe.skipIf(!integration)(
         catalog.search({ ...franchise, role: 1 }, productSearchInput.parse({ storeIds: ['2'] })),
       ).rejects.toMatchObject({ status: 403 });
     });
-    it('builds the distinct offline seven-column profile and blocks ambiguous prices and unsafe IDs', async () => {
+    it('builds the distinct offline seven-column profile, resolves repeated prices as legacy and keeps exact IDs', async () => {
       const snapshot = await catalogSnapshotService(db()).read(principal, '1');
       expect(snapshot.data).toEqual([
         ['11', 'Blue S', '9007199254740994', '10.00', '9.00', 8.25, 3],
@@ -685,9 +697,12 @@ describe.skipIf(!integration)(
           productSearchInput.parse({ storeIds: ['1'], search: 'Café' }),
         ),
       ).rejects.toMatchObject({ code: 'CATALOG_PRICE_RECONCILIATION_REQUIRED' });
-      await expect(catalogSnapshotService(db()).read(principal, '1')).rejects.toMatchObject({
-        code: 'CATALOG_PRICE_RECONCILIATION_REQUIRED',
-      });
+      // Legacy AjaxCatalogueView keeps the last pricelist-2 row (core/views.py:1704-1709).
+      expect(
+        (await catalogSnapshotService(db()).read(principal, '1')).data.find(
+          (row) => row[0] === '20',
+        )?.[5],
+      ).toBe(1);
     });
     it('preserves the full all-SKU stock matrix, source ERP inheritance and literal ORM search semantics', async () => {
       const [products] = await native().query<mysql.RowDataPacket[]>(

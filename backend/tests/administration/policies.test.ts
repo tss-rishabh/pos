@@ -10,11 +10,7 @@ import {
   visibilityValue,
 } from '../../src/modules/administration/policies.js';
 import { checkInExpiry } from '../../src/modules/administration/checkins.js';
-import {
-  operatorCreateInput,
-  stockInput,
-  storeInput,
-} from '../../src/modules/administration/contracts.js';
+import { operatorCreateInput, stockInput } from '../../src/modules/administration/contracts.js';
 import {
   djangoPasswordHash,
   operatorMirrorValues,
@@ -148,7 +144,6 @@ describe('administration security boundaries', () => {
         confirmPassword: 'different password',
       }).success,
     ).toBe(false);
-    expect(storeInput.safeParse({}).success).toBe(false);
   });
   it('stores Django-compatible hashes and leaves the commerce mirror password empty', async () => {
     const value = 'fixture passphrase 42',

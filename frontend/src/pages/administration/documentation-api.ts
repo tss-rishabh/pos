@@ -26,7 +26,7 @@ export const guideSchema = z.object({
   keywords: z.string(),
   sortOrder: z.number(),
   active: z.number(),
-  version: z.number().int().nonnegative(),
+  version: z.string(),
   assets: z.array(guideAttachmentSchema),
   mediaState: z.enum(['available', 'not-configured', 'invalid-metadata']),
   updatedAt: z.string(),

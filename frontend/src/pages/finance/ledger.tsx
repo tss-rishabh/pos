@@ -72,8 +72,6 @@ export function CashLedgerPage({ user, storeId }: { user: Principal; storeId: st
         from: report.data.range.from,
         to: report.data.range.to,
         storeIds: submitted.stores,
-        attempts: 'all',
-        search: '',
         label: exportName,
         note: exportNote,
       });
@@ -247,7 +245,7 @@ export function CashLedgerPage({ user, storeId }: { user: Principal; storeId: st
           {createExport.isError && <ErrorState error={createExport.error} />}{' '}
           {createExport.isSuccess && (
             <p role="status">
-              Export requested. <a href="/reports/exports">View report exports</a>.
+              {createExport.data.message} <a href="/reports/exports">Open report exports</a>
             </p>
           )}
         </details>

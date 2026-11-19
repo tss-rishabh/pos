@@ -14,6 +14,7 @@ import {
 import { catalogDetailsService } from '../../src/modules/catalog-details/service.js';
 import { catalogSnapshotService } from '../../src/modules/catalog-details/snapshot.js';
 import { registerCatalogDetails } from '../../src/modules/catalog-details/index.js';
+import { memoryEphemeralStore } from '../../src/jobs/ephemeral.js';
 const config = readConfig({
   NODE_ENV: 'test',
   DEMO_MODE: 'true',
@@ -39,32 +40,15 @@ const input = () =>
     start: 999,
     length: 25,
   });
-const commandId = '07b1f72e-6f5d-4b99-b93c-cf519992020b';
 const maintenanceRoutes = [
   { method: 'GET' as const, url: '/api/v1/catalog/maintenance/capabilities' },
   { method: 'GET' as const, url: '/api/v1/catalog/inventory-pulls/sample' },
   {
     method: 'POST' as const,
     url: '/api/v1/catalog/inventory-pulls',
-    payload: { commandId, input: { mode: 'manual', skus: '20' } },
+    payload: { input: { mode: 'manual', skus: '20' } },
   },
-  {
-    method: 'POST' as const,
-    url: '/api/v1/catalog/products/20/troubleshooting/preview',
-    payload: {},
-  },
-  {
-    method: 'POST' as const,
-    url: '/api/v1/catalog/products/20/troubleshooting',
-    payload: { commandId, expectedPlanHash: 'a'.repeat(64) },
-  },
-  { method: 'GET' as const, url: '/api/v1/catalog/maintenance-commands' },
-  { method: 'GET' as const, url: `/api/v1/catalog/maintenance-commands/${commandId}` },
-  {
-    method: 'POST' as const,
-    url: `/api/v1/catalog/maintenance-commands/${commandId}/deliveries/${commandId}/reconciliation`,
-    payload: { reconciliationId: commandId, outcome: 'delivered' },
-  },
+  { method: 'POST' as const, url: '/api/v1/catalog/products/20/troubleshooting', payload: {} },
 ];
 describe('catalog read boundaries and private input validation', () => {
   it('uses one historical source with bound search and explicit source collation/sort contracts', async () => {
@@ -220,7 +204,7 @@ describe('catalog read boundaries and private input validation', () => {
         return reply.code(error.status).send({ error: { code: error.code } });
       return reply.code(400).send({ error: { code: 'INVALID_INPUT' } });
     });
-    await registerCatalogDetails(app, config, db);
+    await registerCatalogDetails(app, config, db, { ephemeral: memoryEphemeralStore() });
     for (const route of [
       { method: 'GET' as const, url: '/api/v1/catalog/stores' },
       { method: 'POST' as const, url: '/api/v1/catalog/inventory/search', payload: {} },
@@ -237,26 +221,27 @@ describe('catalog read boundaries and private input validation', () => {
       const response = await app.inject({ ...route, headers: { 'x-fixture-anonymous': 'true' } });
       expect(response.statusCode).toBe(401);
     }
-    expect(traces).toHaveLength(14);
-    for (const route of maintenanceRoutes) {
-      const response = await app.inject(route);
-      expect(response.statusCode).toBe(403);
-    }
+    expect(traces).toHaveLength(10);
+    // Legacy InventorySyncView/AjaxTroubleshootProductView require only a signed-in operator.
+    const capabilities = await app.inject(maintenanceRoutes[0]!);
+    expect(capabilities.json()).toEqual({
+      inventoryPullEnabled: false,
+      troubleshootingEnabled: false,
+    });
     const sample = await app.inject({
       method: 'GET',
       url: '/api/v1/catalog/inventory-pulls/sample',
-      headers: { 'x-fixture-internal': 'true' },
     });
     expect(sample.statusCode).toBe(200);
     expect(sample.body).toBe('sku\n');
     expect(sample.headers['cache-control']).toBe('no-store');
-    const invalidPreview = await app.inject({
+    const invalidTroubleshoot = await app.inject({
       method: 'POST',
-      url: '/api/v1/catalog/products/20/troubleshooting/preview',
+      url: '/api/v1/catalog/products/20/troubleshooting',
       payload: 'false',
-      headers: { 'x-fixture-internal': 'true', 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json' },
     });
-    expect(invalidPreview.statusCode).toBe(400);
+    expect(invalidTroubleshoot.statusCode).toBe(400);
     const catalog = await app.inject({
       method: 'POST',
       url: '/api/v1/catalog/products/search',

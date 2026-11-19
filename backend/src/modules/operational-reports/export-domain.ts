@@ -1,11 +1,9 @@
 import { Temporal } from '@js-temporal/polyfill';
 import { z } from 'zod';
 import { identifier } from '../../domain/validation.js';
-import { AppError } from '../../domain/errors.js';
 import type { CashLedgerRow } from '../finance/ledger.js';
+import type { JobName, JobQueue } from '../../jobs/contract.js';
 import { businessTimestamp } from './report-inputs.js';
-import { reportColumnSelection } from './export-presentation.js';
-import { administrationCollectionExportInputSchema } from '../administration/collection-export-contracts.js';
 
 const date = z
   .string()
@@ -17,155 +15,51 @@ const date = z
       return false;
     }
   }, 'Use a valid calendar date.');
+/** Legacy `report_name` / `report_message` POST fields, stored on the report_exports row. */
 const labels = {
   label: z
     .string()
     .trim()
-    .min(1)
     .max(255)
     .refine((value) => !/[\p{C}]/u.test(value), 'Use a report name without control characters.')
     .optional(),
   note: z.string().trim().max(255).optional(),
 };
-const common = {
-  from: date,
-  to: date,
-  storeIds: z.array(identifier).max(500).default([]),
-  ...labels,
-};
+const storeIds = z.array(identifier).max(500).default([]);
+const timestampRange = { from: businessTimestamp, to: businessTimestamp, storeIds, ...labels };
+const dateRange = { from: date, to: date, storeIds, ...labels };
+/**
+ * The six legacy export actions (phase-c-legacy-jobs.md §2.6, E1-E6). Each input carries only the
+ * filters the legacy view passed to its Celery task.
+ */
 export const exportInputSchema = z
   .discriminatedUnion('kind', [
-    administrationCollectionExportInputSchema,
-    z
-      .object({
-        kind: z.literal('current-inventory-workbook'),
-        ...labels,
-        storeIds: z
-          .array(identifier)
-          .min(1)
-          .max(500)
-          .refine(
-            (ids) => new Set(ids).size === ids.length,
-            'Select each store once. [duplicate store]',
-          ),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z.literal('day-close-history'),
-        ...common,
-        attempts: z.enum(['all', 'latest']).default('all'),
-        search: z.string().trim().max(100).default(''),
-      })
-      .strict(),
-    z.object({ kind: z.literal('cash-balance'), ...common }).strict(),
-    z
-      .object({
-        kind: z.literal('flash-sales'),
-        ...common,
-        sort: z.literal('store_date').optional(),
-        direction: z.enum(['asc', 'desc']).optional(),
-        columns: reportColumnSelection('flash-sales'),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z.literal('salesperson-performance'),
-        ...labels,
-        from: businessTimestamp,
-        to: businessTimestamp,
-        storeIds: common.storeIds,
-        sort: z
-          .enum(['store_name', 'employee_id', 'salesperson_name', 'total_sales', 'rating'])
-          .optional(),
-        direction: z.enum(['asc', 'desc']).optional(),
-        columns: reportColumnSelection('salesperson-performance'),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z.literal('cashier-performance'),
-        ...labels,
-        from: businessTimestamp,
-        to: businessTimestamp,
-        storeIds: common.storeIds,
-        sort: z
-          .enum(['cashier_name', 'cashier_id', 'product_sold', 'time_taken', 'rating'])
-          .optional(),
-        direction: z.enum(['asc', 'desc']).optional(),
-        columns: reportColumnSelection('cashier-performance'),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z.literal('hyperlocal-acceptance'),
-        ...labels,
-        from: businessTimestamp,
-        to: businessTimestamp,
-        storeIds: common.storeIds,
-        sort: z.enum(['created_at', 'order_id', 'store_name', 'staff_id', 'time_taken']).optional(),
-        direction: z.enum(['asc', 'desc']).optional(),
-        columns: reportColumnSelection('hyperlocal-acceptance'),
-      })
-      .strict(),
-    z
-      .object({
-        kind: z.literal('returned-orders'),
-        ...labels,
-        from: businessTimestamp,
-        to: businessTimestamp,
-        storeIds: common.storeIds,
-        search: z.string().trim().max(100).default(''),
-        sort: z
-          .enum([
-            'store_name',
-            'order_id',
-            'prod_id',
-            'qty',
-            'pay_amount_refunded',
-            'reason',
-            'sub_reason',
-            'comment',
-            'created_at',
-            'order_date',
-            'return_id',
-          ])
-          .optional(),
-        direction: z.enum(['asc', 'desc']).optional(),
-        columns: reportColumnSelection('returned-orders'),
-      })
-      .strict(),
+    z.object({ kind: z.literal('returned-orders'), ...timestampRange }).strict(),
     z
       .object({
         kind: z.literal('order-transactions'),
-        ...labels,
-        from: businessTimestamp,
-        to: businessTimestamp,
-        storeIds: common.storeIds,
+        ...timestampRange,
         source: z.enum(['store', 'online']).default('store'),
         dateType: z.enum(['order_date', 'return_date']).default('order_date'),
-        sort: z.literal('transaction_date').optional(),
-        direction: z.literal('desc').optional(),
-        columns: reportColumnSelection('order-transactions'),
       })
       .strict(),
+    z.object({ kind: z.literal('cash-balance'), ...dateRange }).strict(),
+    z.object({ kind: z.literal('flash-sales'), ...dateRange }).strict(),
     z
       .object({
-        kind: z.literal('hyperlocal-daily'),
-        ...labels,
-        from: businessTimestamp,
-        to: businessTimestamp,
-        storeIds: common.storeIds,
+        kind: z.literal('day-close-history'),
+        ...dateRange,
+        attempts: z.enum(['all', 'latest']).default('all'),
       })
       .strict(),
+    z.object({ kind: z.literal('hyperlocal-daily'), ...timestampRange }).strict(),
   ])
   .superRefine((input, ctx) => {
-    if (input.kind === 'current-inventory-workbook' || input.kind === 'administration-list') return;
     if (timestampExportKind(input.kind)) {
       try {
-        const start = Temporal.PlainDateTime.from(input.from),
-          end = Temporal.PlainDateTime.from(input.to),
-          span = end.since(start, { largestUnit: 'days' }).total('seconds');
+        const span = Temporal.PlainDateTime.from(input.to)
+          .since(Temporal.PlainDateTime.from(input.from), { largestUnit: 'days' })
+          .total('seconds');
         if (span < 0 || span > 63 * 86400 - 1)
           ctx.addIssue({
             code: 'custom',
@@ -194,30 +88,15 @@ export const exportInputSchema = z
       });
   });
 export type ReportExportInput = z.infer<typeof exportInputSchema>;
+export type ReportExportKind = ReportExportInput['kind'];
 export function timestampExportKind(kind: string) {
-  return [
-    'returned-orders',
-    'order-transactions',
-    'hyperlocal-daily',
-    'salesperson-performance',
-    'cashier-performance',
-    'hyperlocal-acceptance',
-  ].includes(kind);
+  return ['returned-orders', 'order-transactions', 'hyperlocal-daily'].includes(kind);
 }
-export function requiresSelectedExportStores(kind: ReportExportInput['kind']) {
-  return (
-    kind === 'returned-orders' ||
-    kind === 'order-transactions' ||
-    kind === 'flash-sales' ||
-    kind === 'current-inventory-workbook'
-  );
+export function requiresSelectedExportStores(kind: ReportExportKind) {
+  return kind === 'returned-orders' || kind === 'order-transactions' || kind === 'flash-sales';
 }
-export const exportStatus = z.enum(['QUEUED', 'BUILDING', 'STORING', 'COMPLETED', 'FAILED']);
-export type ExportStatus = z.infer<typeof exportStatus>;
 export function normalizedExportInput(value: unknown): ReportExportInput {
   const input = exportInputSchema.parse(value);
-  if (input.kind === 'current-inventory-workbook' || input.kind === 'administration-list')
-    return input;
   return {
     ...input,
     ...(timestampExportKind(input.kind)
@@ -231,11 +110,109 @@ export function normalizedExportInput(value: unknown): ReportExportInput {
     ),
   };
 }
+/**
+ * Per-export legacy facts: task name and queue, `report_exports.report_type`, upload folder
+ * (`uploads/reports/{folder}/orders_{uuid}.csv`), default report name, completed-status casing
+ * and whether the task has a failure branch that writes `FAILED`.
+ */
+export interface LegacyExportSpec {
+  job: JobName;
+  queue: JobQueue;
+  reportType: string;
+  folder: string;
+  defaultName: string;
+  completedStatus: 'COMPLETED' | 'Completed';
+  failureBranch: boolean;
+  /** Legacy HTTP response message (`handle_export`). */
+  message: string;
+}
+const queuedMessage =
+  'Records are being exported to CSV. The file will be available in the Export tab shortly. Click here to open the Export tab.';
+export const legacyExports: Record<ReportExportKind, LegacyExportSpec> = {
+  // report/datatables/return_orders_datatable.py:36,79-86,131-156
+  'returned-orders': {
+    job: 'report.datatables.return_orders_datatable.do_return_export',
+    queue: 'export_queue',
+    reportType: 'RETURN',
+    folder: 'returns',
+    defaultName: '',
+    completedStatus: 'COMPLETED',
+    failureBranch: false,
+    message: queuedMessage,
+  },
+  // report/datatables/return_orders_datatable.py:298,345-352,485-508
+  'order-transactions': {
+    job: 'report.datatables.return_orders_datatable.do_order_export',
+    queue: 'export_queue',
+    reportType: 'ORDER',
+    folder: 'orders',
+    defaultName: '',
+    completedStatus: 'COMPLETED',
+    failureBranch: false,
+    message: queuedMessage,
+  },
+  // report/datatables/cash_balance_datatable.py:68-135
+  'cash-balance': {
+    job: 'report.datatables.cash_balance_datatable.do_cash_balance_export',
+    queue: 'export_queue',
+    reportType: 'CASH_BALANCE',
+    folder: 'cash_balance',
+    defaultName: 'Cash balance',
+    completedStatus: 'Completed',
+    failureBranch: true,
+    message:
+      'Cash balance is being exported to CSV. The file will be available in the Export tab shortly. Click here to open the Export tab.',
+  },
+  // report/datatables/sales_data.py:37,82-89 (report_type RETURN is the legacy label), :120-143
+  'flash-sales': {
+    job: 'report.datatables.sales_data.do_sales_export',
+    queue: 'sales_queue',
+    reportType: 'RETURN',
+    folder: 'sales',
+    defaultName: '',
+    completedStatus: 'COMPLETED',
+    failureBranch: false,
+    message: queuedMessage,
+  },
+  // report/datatables/day_close_datatable.py:111-125,215-315
+  'day-close-history': {
+    job: 'report.datatables.day_close_datatable.do_day_close_export',
+    queue: 'export_queue',
+    reportType: 'DAY_CLOSE',
+    folder: 'day_close',
+    defaultName: 'Close history',
+    completedStatus: 'Completed',
+    failureBranch: true,
+    message:
+      'Close history is being exported to CSV. The file will be available in the Export tab shortly. Click here to open the Export tab.',
+  },
+  // report/datatables/hyperlocal_daily_datatable.py:30-37,60-67,137-173
+  'hyperlocal-daily': {
+    job: 'report.datatables.hyperlocal_daily_datatable.do_hyperlocal_daily_export',
+    queue: 'export_queue',
+    reportType: 'HYPERLOCAL_DAILY',
+    folder: 'hyperlocal',
+    defaultName: '',
+    completedStatus: 'COMPLETED',
+    failureBranch: true,
+    message:
+      'Hyperlocal daily report is being prepared. The file will be available in the Export Logs tab shortly.',
+  },
+};
+/** `report_exports.time_period` exactly as each legacy task formats it. */
+export function legacyTimePeriod(input: ReportExportInput): string {
+  const stamp = (value: string) =>
+    Temporal.PlainDateTime.from(value).toString({ smallestUnit: 'second' }).replace('T', ' ');
+  if (timestampExportKind(input.kind)) return `${stamp(input.from)} - ${stamp(input.to)}`;
+  // sales_data.py:76-88 parses `%m/%d/%Y` dates and prints them with a midnight time.
+  if (input.kind === 'flash-sales') return `${input.from} 00:00:00 - ${input.to} 00:00:00`;
+  return `${input.from} - ${input.to}`;
+}
+export const exportStatus = z.enum(['QUEUED', 'COMPLETED', 'FAILED']);
+export type ExportStatus = z.infer<typeof exportStatus>;
 export function exportMessage(status: ExportStatus): string {
   return {
     QUEUED: 'Waiting to prepare the report.',
-    BUILDING: 'Preparing the report.',
-    STORING: 'Verifying the report file.',
     COMPLETED: 'Report file is ready.',
     FAILED: 'The export could not be completed. Request a new export.',
   }[status];
@@ -262,7 +239,7 @@ const ledgerColumns = [
 ] as const;
 export function cashBalanceCsv(rows: CashLedgerRow[]): string {
   return (
-    '\uFEFF' +
+    '﻿' +
     [
       ledgerColumns.map(([, label]) => label),
       ...rows.map((row) => ledgerColumns.map(([field]) => row[field])),
@@ -270,13 +247,4 @@ export function cashBalanceCsv(rows: CashLedgerRow[]): string {
       .map((row) => row.map(reportCsvCell).join(','))
       .join('\r\n')
   );
-}
-export function validateExportArtifact(bytes: Buffer, rowCount: number, maxBytes: number): void {
-  if (
-    !Number.isSafeInteger(rowCount) ||
-    rowCount < 0 ||
-    rowCount > 70000 ||
-    bytes.length > maxBytes
-  )
-    throw new AppError(422, 'EXPORT_TOO_LARGE', 'Select a smaller store/date range for export.');
 }

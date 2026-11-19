@@ -39,7 +39,7 @@ export const assignmentReceipt = z
     (value) =>
       (value.status === 'success') === (value.code === 'ASSIGNED') &&
       (value.status === 'success') === (value.barcodeRowId !== null) &&
-      (value.status === 'success') === (value.auditId !== null),
+      (value.status === 'success' || value.auditId === null),
   );
 export type AssignmentReceipt = z.infer<typeof assignmentReceipt>;
 export function matchesAssignment(

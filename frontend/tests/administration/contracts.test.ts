@@ -6,7 +6,7 @@ import {
   terminalSchema,
 } from '../../src/pages/administration/api';
 import { terminalDetailSchema } from '../../src/pages/administration/terminals';
-import { downloadImportCsv, importJobSchema } from '../../src/pages/administration/import-api';
+import { uploadDetailSchema } from '../../src/pages/administration/import-api';
 import {
   bufferDuration,
   ecommerceSettingSchema,
@@ -25,6 +25,8 @@ describe('administration wire and attachment boundaries', () => {
   afterEach(() => vi.unstubAllGlobals());
   it('accepts only opaque application fragments and rejects source-style contact JWT query payloads', () => {
     expect(applicationFragment('#' + 'A'.repeat(43))).toBe('A'.repeat(43));
+    expect(applicationFragment('#12.' + 'C'.repeat(43), 'customer')).toBe('12.' + 'C'.repeat(43));
+    expect(applicationFragment('#' + 'C'.repeat(43), 'customer')).toBeNull();
     for (const value of [
       'fixture@example.test',
       '#header.payload.signature',
@@ -42,9 +44,6 @@ describe('administration wire and attachment boundaries', () => {
       if (url.endsWith('/staff-download-activations'))
         return Response.json({
           activationToken: 'B'.repeat(43),
-          filename: 'mpos.apk',
-          checksum: 'a'.repeat(64),
-          bytes: 4,
           serverNow: 1,
           expiresAt: 60001,
         });
@@ -78,18 +77,14 @@ describe('administration wire and attachment boundaries', () => {
       expect(call.url).not.toMatch(/[?#]|AAAA|BBBB/);
     }
   });
-  it('rejects a package with wrong media type or byte count before creating a download', async () => {
+  it('rejects a package whose byte count differs from its declared length', async () => {
     for (const headers of [
-      { 'Content-Type': 'text/html', 'Content-Length': '4' },
       { 'Content-Type': 'application/vnd.android.package-archive', 'Content-Length': '5' },
     ]) {
       vi.stubGlobal('fetch', async (url: string) =>
         url.endsWith('/staff-download-activations')
           ? Response.json({
               activationToken: 'B'.repeat(43),
-              filename: 'mpos.apk',
-              checksum: 'a'.repeat(64),
-              bytes: 4,
               serverNow: 1,
               expiresAt: 60001,
             })
@@ -136,28 +131,29 @@ describe('administration wire and attachment boundaries', () => {
         .success,
     ).toBe(false);
   });
-  it('keeps inventory import identities exact, excludes private metadata and rejects external CSV downloads', async () => {
-    const job = importJobSchema.parse({
-      id: '6f1d1352-b22a-4b74-af09-a936b52cef73',
-      actorId: '9007199254740993',
-      name: 'Fixture.csv',
-      state: 'COMPLETED',
-      totalRows: 1,
-      processedRows: 1,
-      successfulRows: 1,
-      failedRows: 0,
-      errorCode: null,
-      createdAt: '2026-11-16 00:00:00.000',
-      updatedAt: '2026-11-16 00:00:01.000',
-      checksum: 'private-canary',
-      requestId: 'private-request',
+  it('keeps CSV upload identities exact and the source failed_data shape', () => {
+    const upload = uploadDetailSchema.parse({
+      id: '9007199254740993',
+      uploadType: 'PRODUCT_STOCK_CSV',
+      uploadedBy: '9007199254740995',
+      message: 'Product Stock Data Updated Successfully.',
+      isImported: true,
+      createdAt: '2026-11-16 00:00:00',
+      updatedAt: '2026-11-16 00:00:01',
+      filename: 'uploads/csv/private.csv',
+      failedData: [
+        {
+          data: { SkuId: 'x', StoreId: null },
+          message: 'Error while traversing csv data.',
+          other_error: "invalid literal for int() with base 10: 'x'",
+        },
+      ],
     });
-    expect(job.actorId).toBe('9007199254740993');
-    expect(job).not.toHaveProperty('checksum');
-    expect(job).not.toHaveProperty('requestId');
-    await expect(
-      downloadImportCsv('https://example.invalid/export.csv', 'Fixture.csv', '1'),
-    ).rejects.toThrow('Choose an import download.');
+    expect(upload.id).toBe('9007199254740993');
+    expect(upload).not.toHaveProperty('filename');
+    expect(
+      uploadDetailSchema.safeParse({ ...upload, uploadType: 'OFFLINE_ORDER_PUNCH_IN_CSV' }).success,
+    ).toBe(false);
   });
   it('preserves duration hours beyond one day and validates ecommerce state before caching', () => {
     expect(bufferDuration('260100')).toBe('72:15');

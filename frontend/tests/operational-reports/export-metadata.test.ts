@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { exportRowSchema } from '../../src/pages/operational-reports/export-commands';
 import {
   exportMetadataColumns,
   exportMetadataCsv,
@@ -7,40 +8,44 @@ import {
 } from '../../src/pages/operational-reports/export-metadata';
 const row: ExportMetadata = {
   id: '42',
-  origin: 'legacy',
-  kind: 'sales',
+  kind: 'DAY_CLOSE',
   reportName: 'Fixture export',
-  from: null,
-  to: null,
+  note: 'Fixture message',
+  period: '2026-11-01 - 2026-11-02',
   status: 'COMPLETED',
+  exportStatus: 'Completed',
   message: 'Report file is ready.',
   requestedBy: '10',
+  requestedByName: 'fixture.operator',
   requestedAt: null,
   completedAt: null,
   format: 'CSV',
-  byteCount: 0,
+  sizeKb: 0,
   rowCount: 0,
   canDownload: false,
 };
-describe('loaded-page export metadata controls', () => {
-  it('preserves provided source periods including null/empty and actual zero size/row values', () => {
-    expect(exportMetadataValue({ ...row, period: null }, 'period')).toBeNull();
-    expect(exportMetadataValue({ ...row, period: '' }, 'period')).toBe('');
-    expect(exportMetadataValue({ ...row, period: '11/01/2026 - 11/02/2026' }, 'period')).toBe(
-      '11/01/2026 - 11/02/2026',
-    );
-    expect(exportMetadataValue(row, 'rowCount')).toBe(0);
-    expect(exportMetadataValue(row, 'byteCount')).toBe('0.0 KB');
-    expect(
-      exportMetadataValue({ ...row, origin: 'current', kind: 'administration-list' }, 'period'),
-    ).toBe('Current collection');
+describe('loaded-page export log metadata', () => {
+  it('validates the legacy list row shape and rejects the removed fields', () => {
+    expect(exportRowSchema.parse(row)).toEqual(row);
+    expect(exportRowSchema.safeParse({ ...row, id: 'not-numeric' }).success).toBe(false);
+    expect(exportRowSchema.safeParse({ ...row, status: 'BUILDING' }).success).toBe(false);
   });
-  it('exports only visible loaded-page data in source order and never includes File actions/hidden fields', () => {
+  it('shows legacy size, raw status, period and message values', () => {
+    expect(exportMetadataValue(row, 'sizeKb')).toBe('-');
+    expect(exportMetadataValue({ ...row, sizeKb: 12 }, 'sizeKb')).toBe('12 KB');
+    expect(exportMetadataValue(row, 'status')).toBe('Completed');
+    expect(exportMetadataValue({ ...row, exportStatus: null }, 'status')).toBe('COMPLETED');
+    expect(exportMetadataValue({ ...row, period: null }, 'period')).toBeNull();
+    expect(exportMetadataValue(row, 'note')).toBe('Fixture message');
+    expect(exportMetadataValue(row, 'requestedBy')).toBe('fixture.operator');
+    expect(exportMetadataValue(row, 'rowCount')).toBe(0);
+  });
+  it('exports only visible loaded-page data in source order and never includes File actions', () => {
     const csv = exportMetadataCsv(
-      [{ ...row, period: '', reportName: '\u200b=SUM(1,2)', requestedByName: 'not selected' }],
+      [{ ...row, period: '', reportName: '​=SUM(1,2)', note: 'not selected' }],
       ['period', 'reportName'],
     );
-    expect(csv).toBe('\uFEFF"Report","Period"\r\n"\'\u200b=SUM(1,2)",""');
+    expect(csv).toBe('﻿"Report name","Time period"\r\n"\'​=SUM(1,2)",""');
     expect(csv).not.toContain('File');
     expect(csv).not.toContain('not selected');
   });

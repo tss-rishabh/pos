@@ -2,14 +2,9 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authenticated } from '../../auth/routes.js';
 import { identifier } from '../../domain/validation.js';
-import {
-  storeImageAttachInput,
-  storeImageUploadInput,
-  type storeImageService,
-} from './store-images.js';
+import { storeImageReservationInput, type storeImageService } from './store-images.js';
 
-const scope = z.object({ storeId: identifier }).strict(),
-  uploadScope = scope.extend({ uploadId: z.uuid() });
+const scope = z.object({ storeId: identifier }).strict();
 export function registerStoreImages(
   app: FastifyInstance,
   media: ReturnType<typeof storeImageService>,
@@ -25,36 +20,13 @@ export function registerStoreImages(
       .header('Cache-Control', 'no-store')
       .send(await media.get(authenticated(request), scope.parse(request.params).storeId)),
   );
-  app.post(
-    '/api/v1/admin/stores/:storeId/image-uploads',
-    trace('reserve'),
-    async (request, reply) =>
-      reply
-        .header('Cache-Control', 'no-store')
-        .send(
-          await media.reserve(
-            authenticated(request),
-            scope.parse(request.params).storeId,
-            storeImageUploadInput.parse(request.body),
-          ),
-        ),
-  );
-  app.post(
-    '/api/v1/admin/stores/:storeId/image-uploads/:uploadId/attachment',
-    trace('attach'),
-    async (request, reply) => {
-      const { storeId, uploadId } = uploadScope.parse(request.params),
-        user = authenticated(request);
-      await media.attach(
-        user,
-        storeId,
-        uploadId,
-        storeImageAttachInput.parse(request.body).revision,
-      );
-      return reply
-        .header('Cache-Control', 'no-store')
-        .send({ status: 'success', image: await media.get(user, storeId) });
-    },
+  app.post('/api/v1/admin/store-image-uploads', trace('reserve'), async (request, reply) =>
+    reply
+      .code(201)
+      .header('Cache-Control', 'no-store')
+      .send(
+        await media.reserve(authenticated(request), storeImageReservationInput.parse(request.body)),
+      ),
   );
   app.get('/api/v1/admin/stores/:storeId/image/content', trace('read'), async (request, reply) => {
     const controller = new AbortController();

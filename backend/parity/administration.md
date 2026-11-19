@@ -73,3 +73,15 @@ Physical-card gift batch generation/print/block has separate source/native/brows
 Slack OAuth and postal lookup are implemented components with source/native/browser evidence and deployment hooks in `administration-slack-locations.md`. The root ordered runner adds the eighth owned `slack-migration.sql`; root security cleanup expires/prunes its short-lived proofs. Full configured provider acceptance remains open. Root now offers an explicitly configured stock-projection candidate behind its separate contract gate; follow `administration-stock-dependency.md` rather than treating missing deployed procedure metadata as proof that the candidate is source-SP parity.
 
 Legacy installer/customer application handoffs have a separate four-table migration, default-disabled artifact/provider factories and bounded security cleanup in `administration-application-links.md`. Source-specific timing/cache/body/audit semantics are tested alongside intentional privacy/replay corrections. Their external artifact/provider/printed-link acceptance remains open. Writer scope and check-in recipient reads now enforce current franchise category plus assignment even for role1, while internal role1 retains its permitted global scope.
+
+## Check-in (W8a, C13/C14)
+`checkins.ts` uses the legacy Redis keys: `check_in_{uid}` → Python-`json.dumps` text
+`[store_id, "store name"]`, EX = `time_until_end_of_day() - 1` in `BUSINESS_TIMEZONE`;
+`check_in_list_{store}` → LIST of user ids (LREM from every `check_in_list_*`, LPUSH, EXPIRE).
+Check-out writes `[0, ""]` and pushes to `check_in_list_0`, as legacy check-in to store 0. The
+optional counter is rewrite-only: `pos:checkin_counter:{uid}` (same TTL). Check-in accepts closed
+STORE/CORE_WAREHOUSE stores (`helpers.py:778-791`); operational checks (`assertCheckIn`,
+`checkedInStore`) still require an active store, as `get_checkin_store`. Messages: 403 "You are not
+assigned to this store"; success "Check-in changed". Store-scope hardening (franchise users only on
+assigned franchise stores) is kept. `pos_rewrite_operator_checkins` is no longer used. A check-in
+set inside a caller's transaction (login) is written to Redis immediately, not on commit, as legacy.

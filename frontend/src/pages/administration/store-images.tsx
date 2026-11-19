@@ -1,92 +1,84 @@
-import { useEffect, useRef } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
-import { X } from 'lucide-react';
 import { request } from '../../api/client';
-import type { Principal } from '../../api/types';
-import { ErrorState, Loading } from '../../components/common';
-import { PrivateImages } from '../../components/private-images';
-import { useOnline } from '../../hooks/use-pos';
+import { fileChecksum, privateUploadSchema, uploadPrivateFile } from '../../lib/private-upload';
 
 const imageSchema = z.object({
   revision: z.string().regex(/^[a-f0-9]{64}$/),
   available: z.boolean(),
   hasImage: z.boolean(),
 });
-const attachmentSchema = z.object({ status: z.literal('success'), image: imageSchema });
-export function StoreImageDialog({
-  user,
+const reservationSchema = privateUploadSchema.extend({
+  id: z.uuid(),
+  expiresAt: z.number().positive(),
+});
+const imageTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+
+/**
+ * Upload the image chosen in the store form to private storage; the returned id is posted as
+ * `store_image` with the form (legacy multipart `store_image`, `_form.html:376-389`).
+ */
+export async function uploadStoreImage(
+  file: File,
+  operatorId: string,
+  storeId: string | undefined,
+  signal: AbortSignal,
+): Promise<string> {
+  if (!imageTypes.has(file.type) || file.size < 1 || file.size > 10 * 1024 * 1024)
+    throw new Error(
+      'Upload a valid image. The file you uploaded was either not an image or a corrupted image.',
+    );
+  const checksum = await fileChecksum(file, signal);
+  const reservation = await request(
+    '/api/v1/admin/store-image-uploads',
+    {
+      method: 'POST',
+      operatorId,
+      cache: 'no-store',
+      signal,
+      body: JSON.stringify({
+        ...(storeId ? { storeId } : {}),
+        upload: {
+          id: crypto.randomUUID(),
+          kind: 'image',
+          name: file.name,
+          contentType: file.type,
+          size: file.size,
+          checksum,
+        },
+      }),
+    },
+    reservationSchema,
+  );
+  await uploadPrivateFile(file, reservation, signal, 120000);
+  return reservation.id;
+}
+
+/** Current store image shown at the top of the legacy edit page (`edit.html:18-22`). */
+export function StoreImagePreview({
+  operatorId,
   storeId,
-  storeName,
-  onClose,
 }: {
-  user: Principal;
+  operatorId: string;
   storeId: string;
-  storeName: string;
-  onClose: () => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null),
-    client = useQueryClient();
-  const online = useOnline();
   const path = `/api/v1/admin/stores/${encodeURIComponent(storeId)}`;
+  const [broken, setBroken] = useState(false);
   const view = useQuery({
-    queryKey: [user.id, 'administration', 'store-image', storeId],
+    queryKey: [operatorId, 'administration', 'store-image', storeId],
     queryFn: ({ signal }) =>
-      request(`${path}/image`, { operatorId: user.id, cache: 'no-store', signal }, imageSchema),
+      request(`${path}/image`, { operatorId, cache: 'no-store', signal }, imageSchema),
     retry: false,
   });
-  useEffect(() => {
-    const element = dialog.current;
-    element?.showModal();
-    return () => element?.close();
-  }, []);
+  if (!view.data?.available || !view.data.hasImage || broken) return null;
   return (
-    <dialog
-      ref={dialog}
-      className="administration-dialog"
-      aria-labelledby="store-image-title"
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
-      }}
-    >
-      <div className="administration-dialog-heading">
-        <h2 id="store-image-title">Image for {storeName}</h2>
-        <button className="icon-button" aria-label="Close store image" onClick={onClose}>
-          <X size={19} />
-        </button>
-      </div>
-      {view.isPending ? (
-        <Loading />
-      ) : view.isError ? (
-        <ErrorState error={view.error} retry={() => void view.refetch()} />
-      ) : (
-        <PrivateImages
-          title="Store image"
-          operatorId={user.id}
-          revision={view.data.revision}
-          available={view.data.available}
-          online={online}
-          reservePath={`${path}/image-uploads`}
-          attachmentPath={(id) => `${path}/image-uploads/${id}/attachment`}
-          attachmentSchema={attachmentSchema}
-          onAttached={async () => {
-            await view.refetch({ throwOnError: true });
-            await client.invalidateQueries({
-              queryKey: [user.id, 'administration', '/api/v1/admin/stores'],
-            });
-          }}
-          slots={[
-            {
-              kind: 'image',
-              label: 'Store image',
-              exists: view.data.hasImage,
-              variant: 'cover',
-              url: `${path}/image/content?v=${view.data.revision}`,
-            },
-          ]}
-        />
-      )}
-    </dialog>
+    <img
+      className="administration-store-image"
+      alt="Store image"
+      src={`${path}/image/content?v=${view.data.revision}`}
+      referrerPolicy="no-referrer"
+      onError={() => setBroken(true)}
+    />
   );
 }

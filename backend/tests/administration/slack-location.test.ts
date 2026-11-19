@@ -16,11 +16,9 @@ const config = {
 };
 const options = (extra: Record<string, string> = {}) =>
   readSlackOAuthOptions({
-    SLACK_OAUTH_ENABLED: 'true',
     SLACK_CLIENT_ID: '1234.5678',
     SLACK_CLIENT_SECRET: 'synthetic_private_secret_1234',
     SLACK_OAUTH_REDIRECT_URI: 'https://pos.example.test/api/v1/admin/slack/oauth/callback',
-    SLACK_OAUTH_TEAM_IDS: 'T0123456789',
     ...extra,
   });
 const grant = {
@@ -35,21 +33,24 @@ const grant = {
   access_token: 'private-token-canary',
 };
 describe('Slack OAuth and source location boundaries', () => {
-  it('defaults disabled and rejects unconfigured origins or unapproved workspace scope', () => {
+  it('is unconfigured without the legacy client id/secret and keeps codes on this callback', () => {
     expect(createSlackOAuthProvider(config, readSlackOAuthOptions({}))).toBeUndefined();
     expect(createSlackOAuthProvider({ ...config, DEMO_MODE: true }, options())).toBeUndefined();
+    const fallback = createSlackOAuthProvider(
+      config,
+      options({ SLACK_OAUTH_REDIRECT_URI: '' }),
+    )!.authorize('s'.repeat(43));
+    expect(new URL(fallback).searchParams.get('redirect_uri')).toBe(
+      'https://pos.example.test/api/v1/admin/slack/oauth/callback',
+    );
     for (const uri of [
-      'http://pos.example.test/api/v1/admin/slack/oauth/callback',
       'https://evil.example.test/api/v1/admin/slack/oauth/callback',
       'https://pos.example.test/api/v1/admin/slack/oauth/callback?secret=query',
       'https://pos.example.test/other',
     ])
       expect(() =>
         createSlackOAuthProvider(config, options({ SLACK_OAUTH_REDIRECT_URI: uri })),
-      ).toThrow('approved Slack app');
-    expect(() => createSlackOAuthProvider(config, options({ SLACK_OAUTH_TEAM_IDS: '' }))).toThrow(
-      'approved Slack app',
-    );
+      ).toThrow('Slack callback');
   });
   it('preserves source authorize scope/client/callback while using opaque state without actor/contact claims', () => {
     const state = 's'.repeat(43),
@@ -86,17 +87,16 @@ describe('Slack OAuth and source location boundaries', () => {
     );
     expect(reference.state).toEqual({ user_id: 123, nonce: 'fixture-nonce' });
   });
-  it('exchanges by bounded confidential POST, validates granted workspace and returns only the webhook contract', async () => {
+  it('exchanges by bounded confidential POST and returns the webhook and channel', async () => {
     const calls: { url: string; init: RequestInit | undefined }[] = [],
       provider = createSlackOAuthProvider(config, options(), async (url, init) => {
         calls.push({ url: String(url), init });
         return Response.json(grant);
       })!;
     expect(await provider.exchange('synthetic.code')).toEqual({
+      ok: true,
       webhook: grant.incoming_webhook.url,
       channel: '#fixture-sales',
-      channelId: 'C0123456789',
-      teamId: 'T0123456789',
     });
     expect(calls[0]?.url).toBe('https://slack.com/api/oauth.v2.access');
     expect(calls[0]?.init?.redirect).toBe('error');
@@ -104,33 +104,37 @@ describe('Slack OAuth and source location boundaries', () => {
     expect(body.get('code')).toBe('synthetic.code');
     expect(body.get('redirect_uri')).toBe(options().SLACK_OAUTH_REDIRECT_URI);
     expect(body.has('client_secret')).toBe(false);
-    expect(body.has('code_verifier')).toBe(false);
     expect(new Headers(calls[0]?.init?.headers).get('Authorization')).toBe(
       'Basic ' + Buffer.from('1234.5678:synthetic_private_secret_1234').toString('base64'),
     );
     expect(calls[0]?.init?.signal).toBeInstanceOf(AbortSignal);
   });
-  it('never leaks provider error payloads, oversized responses, foreign webhooks or unexpected workspaces', async () => {
-    const cases = [
-      Response.json({ ok: false, error: 'private@example.test' }),
-      Response.json({ ...grant, team: { id: 'T9999999999' } }),
-      Response.json({
-        ...grant,
-        incoming_webhook: { ...grant.incoming_webhook, url: 'https://127.0.0.1/private' },
-      }),
-      Response.json({ ...grant, scope: 'chat:write' }),
-      new Response('x'.repeat(32769)),
-      new Response('private-token-canary', {
-        status: 302,
-        headers: { Location: 'https://evil.example.test' },
-      }),
+  it('returns the legacy failure texts without echoing unsafe provider payloads', async () => {
+    const cases: [Response, string][] = [
+      [Response.json({ ok: false, error: 'invalid_code' }), 'Slack connect failed: invalid_code'],
+      [
+        Response.json({ ok: false, error: 'private@example.test' }),
+        'Slack connect failed: no webhook returned',
+      ],
+      [
+        Response.json({
+          ...grant,
+          incoming_webhook: { ...grant.incoming_webhook, url: 'https://127.0.0.1/private' },
+        }),
+        'Slack connect failed: no webhook returned',
+      ],
+      [new Response('x'.repeat(32769)), 'Could not reach Slack. Please try again.'],
+      [
+        new Response('private-token-canary', {
+          status: 302,
+          headers: { Location: 'https://evil.example.test' },
+        }),
+        'Could not reach Slack. Please try again.',
+      ],
     ];
-    for (const response of cases) {
+    for (const [response, error] of cases) {
       const provider = createSlackOAuthProvider(config, options(), async () => response)!;
-      await expect(provider.exchange('synthetic-code')).rejects.toMatchObject({
-        code: 'SLACK_OAUTH_EXCHANGE_FAILED',
-        message: 'Slack authorization could not be completed. Start a new connection.',
-      });
+      expect(await provider.exchange('synthetic-code')).toEqual({ ok: false, error });
     }
   });
   it('matches the exact source Python city title behavior across Latin1, Unicode exceptions and cased boundaries', () => {

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { request } from '../../../api/client';
 
 const token = z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+  customerToken = z.string().regex(/^[1-9]\d{0,9}\.[A-Za-z0-9_-]{43}$/),
   image = z
     .string()
     .max(200000)
@@ -12,7 +13,9 @@ const token = z.string().regex(/^[A-Za-z0-9_-]{43}$/),
       url.origin === window.location.origin &&
       ['/application-links/staff', '/application-links/customer'].includes(url.pathname) &&
       !url.search &&
-      token.safeParse(url.hash.slice(1)).success
+      (url.pathname === '/application-links/staff' ? token : customerToken).safeParse(
+        url.hash.slice(1),
+      ).success
     );
   });
 export const applicationCapabilitiesSchema = z.object({
@@ -27,8 +30,6 @@ export const staffQrSchema = z.object({
   qrDataUrl: image,
   serverNow: z.number().int().nonnegative(),
   expiresAt: z.number().int().nonnegative(),
-  filename: z.literal('mpos.apk'),
-  bytes: z.number().int().min(4).max(536870912),
 });
 export const customerQrSchema = z.object({
   storeId: z.string(),
@@ -42,9 +43,6 @@ const activationSchema = z.object({
   activationToken: token,
   serverNow: z.number().int(),
   expiresAt: z.number().int(),
-  filename: z.literal('mpos.apk'),
-  bytes: z.number().int().min(4).max(536870912),
-  checksum: z.string().regex(/^[a-f0-9]{64}$/),
 });
 export const destinationSchema = z.object({
   destination: z
@@ -79,9 +77,9 @@ export function issueCustomerQr(operatorId: string, signal: AbortSignal) {
   );
 }
 
-export function applicationFragment(hash: string) {
+export function applicationFragment(hash: string, kind: 'staff' | 'customer' = 'staff') {
   const value = hash.startsWith('#') ? hash.slice(1) : hash;
-  return token.safeParse(value).success ? value : null;
+  return (kind === 'staff' ? token : customerToken).safeParse(value).success ? value : null;
 }
 function safeError(code: string | undefined) {
   return new Error(
@@ -151,12 +149,9 @@ export function applicationDownloadSession(qrToken: string) {
       { activationToken: activation.activationToken, operationId: downloadOperationId },
       signal,
     );
-    if (
-      !response.body ||
-      response.headers.get('Content-Type')?.split(';')[0] !==
-        'application/vnd.android.package-archive' ||
-      response.headers.get('Content-Length') !== String(activation.bytes)
-    ) {
+    const declared = response.headers.get('Content-Length'),
+      limit = declared && /^\d+$/.test(declared) ? Number(declared) : 536870912;
+    if (!response.body || limit > 536870912) {
       await response.body?.cancel().catch(() => undefined);
       throw safeError(undefined);
     }
@@ -169,10 +164,10 @@ export function applicationDownloadSession(qrToken: string) {
         signal.throwIfAborted();
         if (part.done) break;
         bytes += part.value.byteLength;
-        if (bytes > activation.bytes) throw safeError(undefined);
+        if (bytes > limit) throw safeError(undefined);
         parts.push(Uint8Array.from(part.value));
       }
-      if (bytes !== activation.bytes) throw safeError(undefined);
+      if (declared && bytes !== limit) throw safeError(undefined);
       return new Blob(parts, { type: 'application/vnd.android.package-archive' });
     } catch {
       await reader.cancel().catch(() => undefined);
@@ -184,7 +179,7 @@ export function applicationDownloadSession(qrToken: string) {
   };
 }
 export function customerApplicationSession(qrToken: string) {
-  const input = { token: token.parse(qrToken), operationId: crypto.randomUUID() };
+  const input = { token: customerToken.parse(qrToken), operationId: crypto.randomUUID() };
   return async (signal: AbortSignal) => {
     const response = await publicResponse('customer-scans', input, signal),
       parsed = destinationSchema.parse((await response.json()) as unknown);

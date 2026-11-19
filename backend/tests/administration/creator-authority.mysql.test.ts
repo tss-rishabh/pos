@@ -7,7 +7,10 @@ import type { Principal } from '../../src/domain/access.js';
 import { AppError } from '../../src/domain/errors.js';
 import { operatorCreator } from '../../src/modules/administration/operator-create.js';
 import { administrationService } from '../../src/modules/administration/service.js';
-import { operatorCreateInput, storeInput } from '../../src/modules/administration/contracts.js';
+import { operatorCreateInput } from '../../src/modules/administration/contracts.js';
+import { administrationEphemeralStore } from '../../src/modules/administration/ephemeral-runtime.js';
+import { administrationLockKey } from '../../src/modules/administration/locks.js';
+import { storeFormInput } from '../../src/modules/administration/store-form.js';
 import { barcodeFixture } from '../../tools/administration/barcodes/fixture.js';
 
 const database = process.env.ADMINISTRATION_CREATOR_MYSQL_URL;
@@ -33,17 +36,17 @@ const operatorInput = () =>
     confirmPassword: 'Riv3r!Cobalt-Forest#89',
   });
 const store = () =>
-  storeInput.parse({
-    name: 'Synthetic new store',
-    shortName: 'Synthetic',
-    locationCode: 'NEW',
+  storeFormInput.parse({
+    store_name: 'Synthetic new store',
+    short_name: 'Synthetic',
+    location_code: 'NEW',
     type: 'STORE',
     category: 'IN_HOUSE',
     latitude: '19.0760',
     longitude: '72.8777',
     address: 'Synthetic address',
-    cityId: 0,
-    countryId: 0,
+    city_id: '1111',
+    country_id: '0',
     phone: '9876543298',
   });
 const countedTables = [
@@ -133,41 +136,31 @@ describe.skipIf(!database)('writer-current creator authority on owned native MyS
     expectedCode: string,
   ) {
     const before = await counts();
-    await barrier.beginTransaction();
-    await barrier.execute(
-      'SELECT resource FROM pos_rewrite_administration_registries WHERE resource=? FOR UPDATE',
-      [resource],
-    );
-    // The real creator must complete its real password hash (operators), start
-    // its real transaction and block on our exact owned registry row.
+    // Hold the Redis administration lease (`pos:lock:admin:{resource}`) the creator waits on.
+    const leases = administrationEphemeralStore(native.config),
+      key = administrationLockKey(resource);
+    expect(await leases.set(key, 'test-holder', { NX: true, PX: 10000 })).toBe(true);
+    // The real creator must complete its real password hash (operators) and wait on the lease.
+    let settled = false;
     const pending = create().then(
       (value) => ({ value, error: null }),
       (error: unknown) => ({ value: null, error }),
     );
+    void pending.finally(() => {
+      settled = true;
+    });
     try {
-      const deadline = Date.now() + 5000;
-      let observed = false;
-      while (Date.now() < deadline) {
-        const [rows] = await native.admin.execute<RowDataPacket[]>(
-          'SELECT COUNT(*) AS n FROM performance_schema.data_lock_waits w JOIN performance_schema.data_locks l ON l.ENGINE_LOCK_ID=w.REQUESTING_ENGINE_LOCK_ID AND l.ENGINE=w.ENGINE WHERE l.OBJECT_SCHEMA=? AND l.OBJECT_NAME=?',
-          [new URL(native.url).pathname.slice(1), 'pos_rewrite_administration_registries'],
-        );
-        if (Number(rows[0]?.n) === 1) {
-          observed = true;
-          break;
-        }
-        await pause(10);
-      }
-      expect(observed, 'Actual creator registry lock wait must be observed').toBe(true);
+      await pause(300);
+      expect(settled, 'Actual creator lease wait must be observed').toBe(false);
       // All mutation statements are fixed test code, never request-derived SQL.
       await barrier.query(revoke);
-      await barrier.commit();
+      await leases.delIfEquals(key, 'test-holder');
       const result = await pending;
       expect(result.error).toBeInstanceOf(AppError);
       expect(result.error).toMatchObject({ code: expectedCode });
       await assertUnchanged(before);
     } finally {
-      await barrier.rollback();
+      await leases.delIfEquals(key, 'test-holder');
       await pending;
     }
   }

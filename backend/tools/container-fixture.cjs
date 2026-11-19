@@ -26,14 +26,12 @@ async function verify() {
   for (const path of [
     './dist/modules/customer-contacts/worker-main.js',
     './dist/modules/customer-otp/worker-main.js',
-    './dist/modules/gift-card-batches/worker-main.js',
   ]) {
     const result = await promisify(execFile)(process.execPath, [path], {
       env: {
         ...process.env,
         CUSTOMER_CONTACTS_WORKER_ENABLED: 'false',
         CUSTOMER_OTP_WORKER_ENABLED: 'false',
-        GIFT_CARD_BATCH_WORKER_ENABLED: 'false',
       },
       timeout: 5000,
       maxBuffer: 64000,

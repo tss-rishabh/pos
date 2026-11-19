@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createProductSyncAdapter,
   productSynchronizationBody,
+  productSynchronizer,
 } from '../../src/modules/administration/product-sync.js';
 import { readAdministrationWorkerOptions } from '../../src/modules/administration/worker-options.js';
 import { goldenStdout } from '../golden/load.js';
@@ -15,7 +16,7 @@ const config = {
 const context = { operatorId: '4', storeId: '1', requestId: 'fixture-request-id' };
 describe('inventory synchronization HTTP boundary', () => {
   it('is disabled until endpoint and replay safety are explicitly configured', () => {
-    expect(readAdministrationWorkerOptions({}).ADMINISTRATION_WORKER_ENABLED).toBe(false);
+    expect(readAdministrationWorkerOptions({}).PRODUCT_SYNC_REPLAY_SAFE).toBe(false);
     expect(createProductSyncAdapter(config, readAdministrationWorkerOptions({}))).toBeUndefined();
     expect(
       createProductSyncAdapter(
@@ -26,6 +27,43 @@ describe('inventory synchronization HTTP boundary', () => {
         }),
       ),
     ).toBeUndefined();
+  });
+  it('lets inline callers skip the replay gate and logs, never throws, a refused sync', async () => {
+    const options = readAdministrationWorkerOptions({
+        PRODUCT_SYNC_BASE_URL: 'https://sync.example.test/',
+        PRODUCT_SYNC_URI: 'sync/products',
+      }),
+      bodies: string[] = [];
+    let status = 200;
+    const adapter = createProductSyncAdapter(
+      config,
+      options,
+      async (_url, init) => {
+        bodies.push(String(init?.body));
+        return new Response(null, { status });
+      },
+      { requireReplaySafe: false },
+    );
+    expect(adapter).toBeDefined();
+    const logs: unknown[] = [];
+    const sync = productSynchronizer(adapter, (_level, event) => logs.push(event));
+    expect(await sync(['11', '-3', '11'], { operatorId: '4', storeId: '1' })).toBe(true);
+    expect(bodies).toEqual(['{"product_id_list":[11,-3,11]}']);
+    status = 500;
+    expect(await sync(['11'], { operatorId: '4' })).toBe(false);
+    expect(logs).toEqual([
+      expect.objectContaining({
+        eventId: 'administration.product-sync.failed',
+        errorCode: 'PRODUCT_SYNC_REJECTED',
+        userId: '4',
+      }),
+    ]);
+    expect(
+      await productSynchronizer(undefined, (_level, event) => logs.push(event))(['1'], {
+        operatorId: '4',
+      }),
+    ).toBe(false);
+    expect(logs).toHaveLength(2);
   });
   it('matches source sync_pos_product URL and integer JSON contract without bigint precision loss', async () => {
     const cases = [true, false].flatMap((migration) =>

@@ -1,11 +1,9 @@
 import { z } from 'zod';
 import { identifier, cursor } from '../../domain/validation.js';
-import { slackWebhook } from './slack-url.js';
 
 const trimmed = (length: number) => z.string().trim().min(1).max(length);
 const optionalText = (length: number) => z.string().trim().max(length).default('');
 const phone = z.string().regex(/^[1-9]\d{9}$/);
-const positiveIdNumber = z.number().int().min(0).max(2_147_483_647);
 export const defaultStoreImage = 'uploads/stores/stores_image/default_store_image.jpeg';
 export const pageQuery = z
   .object({
@@ -16,95 +14,19 @@ export const pageQuery = z
   })
   .strict();
 export const statusInput = z.object({ active: z.boolean() }).strict();
-export const storeInput = z
+/** `StoreStorageCreateForm` POST names (`stores/forms.py:113-127`). */
+export const storageFormInput = z
   .object({
-    name: trimmed(100),
-    locationCode: trimmed(255),
-    type: z.enum(['STORE', 'WAREHOUSE', 'CORE_WAREHOUSE', 'BUBBLE_STORE']),
-    category: z.enum(['IN_HOUSE', 'FRANCHISE']),
-    latitude: z
-      .string()
-      .regex(/^-?\d{1,2}(?:\.\d{1,16})?$/)
-      .refine((v) => Math.abs(Number(v)) <= 90),
-    longitude: z
-      .string()
-      .regex(/^-?\d{1,3}(?:\.\d{1,16})?$/)
-      .refine((v) => Math.abs(Number(v)) <= 180),
-    address: trimmed(500),
-    alternateAddress: optionalText(500),
-    cityId: positiveIdNumber,
-    countryId: positiveIdNumber,
-    phone: phone.refine(
-      (value) => BigInt(value) >= 1_111_111_111n,
-      'Enter a valid store phone number.',
-    ),
-    email: z.union([z.email().max(55), z.literal('')]).default(''),
-    pincode: optionalText(10),
-    dailyThreshold: z.number().int().min(0).max(1000000).default(0),
-    hourlyThreshold: z.number().int().min(0).max(1000000).default(0),
-    gstin: z
-      .union([z.string().regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/), z.literal('')])
-      .default(''),
-    shortName: trimmed(100),
-    slackUrl: z.union([slackWebhook, z.literal('')]).optional(),
-    removeSlack: z.boolean().default(false),
-    city: optionalText(255),
-    state: optionalText(255),
-    stateId: positiveIdNumber.default(0),
-    imagePath: optionalText(254).default(defaultStoreImage),
-    franchiseId: identifier.optional(),
-    franchise: z
-      .object({ name: trimmed(255), description: optionalText(255), cin: optionalText(100) })
-      .strict()
-      .optional(),
-  })
-  .strict()
-  .superRefine((value, context) => {
-    if (value.removeSlack && value.slackUrl)
-      context.addIssue({
-        code: 'custom',
-        message: 'Choose a replacement webhook or remove the connection.',
-        path: ['slackUrl'],
-      });
-    if (value.category === 'FRANCHISE' && !value.franchise && !value.franchiseId)
-      context.addIssue({
-        code: 'custom',
-        message: 'Franchise details are required.',
-        path: ['franchise'],
-      });
-    if (value.franchise && value.franchiseId)
-      context.addIssue({
-        code: 'custom',
-        message: 'Choose existing franchise association or franchise details.',
-        path: ['franchiseId'],
-      });
-    if (value.category !== 'FRANCHISE' && (value.franchise || value.franchiseId))
-      context.addIssue({
-        code: 'custom',
-        message: 'Franchise details apply only to franchise stores.',
-        path: ['category'],
-      });
-  });
-export type StoreInput = z.infer<typeof storeInput>;
-export const storageInput = z
-  .object({ name: trimmed(80), description: trimmed(255), type: z.literal('STORAGE') })
-  .strict();
-export const storageUpdateInput = storageInput.extend({
-  name: trimmed(100),
-  destinationStoreId: identifier.optional(),
-});
-export const locationCodeInput = z
-  .object({
-    code: z
-      .string()
-      .trim()
-      .toUpperCase()
-      .regex(/^[A-Z0-9]{1,4}$/),
+    storage_name: z.string().max(10_000).optional(),
+    storage_type: z.string().max(100).optional(),
+    storage_desc: z.string().max(10_000).optional(),
   })
   .strict();
-export const counterInput = z
-  .object({ description: z.string().trim().max(255).default('') })
-  .strict();
+export type StorageFormInput = z.infer<typeof storageFormInput>;
+/** `AddLocationCodeView` posts `location_code`; the service returns the legacy messages. */
+export const locationCodeInput = z.object({ code: z.string().max(1000).default('') }).strict();
+/** `CreateCounterView` posts `counter_desc` (`stores/views.py:487`). */
+export const counterInput = z.object({ description: z.string().max(255).default('') }).strict();
 const deliveryTime = z
   .string()
   .regex(/^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/)

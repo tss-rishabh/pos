@@ -1,39 +1,57 @@
-# Legacy application QR and download components
+# Legacy application QR and download components (W8d, schema freeze)
 
-The desktop/web rewrite preserves existing staff-installer and customer-app handoff surfaces; it builds no mobile application. Source baseline `78d5b63d6a149a6bf2c748fa1d191799c59ecb8a` covers `core/views.py:2795 MposDownloadQr`, `:2846 AjaxGenMposDownloadQR`, `:2900 MposDownloadThankYou`, `:2949 MposDownloadLink`, `:3161 MposUserDownloadApp`, `:3182 UserToApp`, plus `core/templates/mpos_download/*` and `core/templates/user_to_app/index.html`. These components add seven traced APIs. Full source-route certifications remain zero.
+Source `78d5b63`: `core/views.py:2795 MposDownloadQr`, `:2846 AjaxGenMposDownloadQR`, `:2900 MposDownloadThankYou`,
+`:2949 MposDownloadLink`, `:3161 MposUserDownloadApp`, `:3182 UserToApp`; templates `core/templates/mpos_download/*`
+and `core/templates/user_to_app/index.html`. Routes, options and Redis keys: `administration-application-links-contract.json`.
 
-The complete exports, routes, validated environment settings and release boundaries are recorded in `administration-application-links-contract.json`. Root registers `registerApplicationLinks(app,config,db,options?,dependencies?)`, exposes authenticated `ApplicationLinksPage({user,storeId?})` at `/application-links`, and renders `ApplicationLinkLandingPage({kind})` at the two public landing paths before login. Administration links to this all-role page. The registrar owns package shutdown; root security cleanup calls `pruneApplicationLinks`. Apply only the four rewrite tables in `src/modules/application-links/migration.sql` through the ordered writer runner. The module never creates or alters source `pos_to_app_logs`.
+All state is Redis with TTLs, as legacy; the four `pos_rewrite_*` tables are no longer used. The only durable write is
+`pos_to_app_logs(store_id, scanned_at)` per customer scan, as legacy.
 
-## Staff installer
+## Staff installer (C24–C27)
 
-Current active internal operators may issue only their own QR. The source expiry remains aligned to its configured TOTP period, with the same60-second default and countdown/automatic renewal. The replacement carries a purpose-bound256-bit opaque fragment instead of source email/OTP JWT query parameters. Public pages immediately remove that fragment from history; proof is sent only in strict same-origin POST bodies with cookies omitted. A separate opaque activation proof expires after source `MPOS_DOWNLOAD_LINK_EXP`. Writer row locks choose one activation operation and one download operation; identical-operation retries recover lost responses, while another consumer is rejected. Grants bind the operator's current monotonic authentication epoch and exact canonical artifact metadata. Revocation, disable/restore, configuration changes and expiry cannot revive a grant.
+| Legacy | Rewrite |
+| --- | --- |
+| TOTP secret `mpos_download_qr_{uid}` (EX `POS_AUTH_USER_SECRET_EXP`), 6-digit OTP per `MPOS_DOWNLOAD_QR_EXP_SEC` period, QR `/mpos-download-thank-you/?token=<JWT{email, otp}>` | Grant per operator and period in `pos:staff_download:*` (ids and expiry only); QR `/application-links/staff#<HMAC token>`. Same QR returned within a period; countdown and automatic renewal as the legacy page. |
+| `AjaxGenMposDownloadQR` accepts any posted `user_id` | QR only for the signed-in operator (security). |
+| Franchise excluded (`user_type_exempt("[2]")`) | Same; activation and download re-check that the operator is active and not franchise. |
+| Thank-you page: OTP check, sets `mpos_is_download_activate_{email prefix}` EX `MPOS_DOWNLOAD_LINK_EXP`, rotates the secret | Activation once per QR (`SET NX`), activation EX `MPOS_DOWNLOAD_LINK_EXP`, operator grant rotated. Retrying the same activation operation returns the same activation. |
+| Download link consumes the activation key and proxies `APP_APK_URL` (`requests.get`, content-type passthrough) | One download operation per activation (`SET NX`), then `APP_APK_URL` streamed with its content type as `attachment; filename="mpos.apk"`. Retrying the same download operation is allowed. |
 
-`createApplicationPackage` reads only an explicitly approved private absolute file, with no symlink leaf, exact SHA256 and size. It stages and verifies one bounded private immutable snapshot, including the ZIP/APK header, then streams the approved bytes after download authorization. It never modifies/removes the approved source file. An already-aborted request cannot create a stream; rejected download claims do not open one. Application shutdown cancels preparation and removes only its own temporary snapshot. The content response is a no-store, nosniff `application/vnd.android.package-archive` attachment named `mpos.apk`. The browser checks MIME/length and bounds the received byte stream. A publisher signature/real package acceptance is still required: a ZIP header establishes container format, not package authenticity. No remote `APP_APK_URL` fetch occurred; operators must supply the approved release artifact through deployment.
+Removed rewrite-only pieces: the revoke route (`DELETE …/staff-qr/:grantId`), the staged local APK with hash/size
+pinning (`POS_STAFF_APK_*`), authentication-epoch binding. The legacy staff paths are not served: a staff QR lives for
+one period (60 s) and nothing printed depends on it.
 
-These are deliberate security/reliability changes. The source refresh accepts an arbitrary posted user ID, decodes JWTs with signature verification disabled, places contact/OTP material in query strings, indexes activation by only an email prefix, consumes it before an unbounded remote GET and buffers the entire response. The replacement does not preserve those unsafe mechanisms. Staff QR generation, expiry, direct download, one-consumer activation, renewal and explicit revocation remain available through typed APIs and reusable UI.
+## Customer application QR (C33, C34)
 
-## Customer application QR
+| Legacy | Rewrite |
+| --- | --- |
+| `MposUserDownloadApp`: QR `/user_to_app?store_id=<check-in store>` | QR `/application-links/customer#<storeId>.<HMAC(SESSION_SECRET, store)>` for the operator's check-in store (deterministic per store, no table). |
+| `UserToApp`: raw-SQL INSERT `pos_to_app_logs`, then `dynamic_short_link_s_id_{store}` or POST `{MAIN_SITE_API_V2}firebase-dynamic-link {link}` → `object.shortLink` or `POS_APP_REDIRECT`, cached EX 3600, 302 | Same order and key. Token scans (`POST …/customer-scans`) keep a replay receipt `pos:idem:app_scan:{operationId}` EX 3600 so a retried request does not log twice. A provider call per store is serialised by `pos:app_link_lease:{store}`. |
+| `GET /user_to_app?store_id=` | **Served** for already printed QR codes (302). |
 
-Issuing uses the actual current server check-in, active store and fresh writer authority. The shared writer helper now allows assignment bypass only for internal role1; a franchise operator always needs a current assignment to a `FRANCHISE` store. Check-in display and notification-recipient queries apply the same current scope, so removed assignments/category changes cannot leave an authorized recipient behind. One stable printable QR per store supports PNG download. A public scan rechecks that the store is active before and after provider I/O. It has no cookie/session authority and creates no sign-in.
+Security decisions: the INSERT binds the store id (legacy formats it into SQL); unknown or inactive stores get 410 and
+are not logged (legacy logs any value); a provider short link outside `POS_CUSTOMER_APP_ORIGINS` is replaced by
+`POS_APP_REDIRECT`; a cached value written by legacy that is outside the allowlist is served as the fallback.
+Deployment: the reverse proxy on the legacy POS host must route `/user_to_app` to the backend.
 
-The provider preserves source JSON `{link:"https://www.thesouledstore.com?store_id=<id>"}` with configurable approved website origin, optional `object.shortLink`, fallback and one-hour caching. Requests have no redirects/cookies, a ten-second timeout and32KiB JSON bound. Exact HTTPS destination origins and safe source query keys prevent arbitrary redirect credentials or contact-bearing parameters. SQL cache leases coordinate concurrent callers, and a persisted provider operation UUID is reused in `Idempotency-Key` after failures. Verify that contract before enabling provider mode. An explicitly approved fallback mode is also available; both remain disabled by default.
+## Messages (S4)
 
-The source endpoint is named `firebase-dynamic-link`, but Google documents the [Dynamic Links shutdown on2025-08-25](https://firebase.google.com/support/dynamic-links-faq). This does not establish what the company's current endpoint implements. Its actual replacement, existing-app deep links, store attribution, fallback and replay behavior must be verified; no guessed provider is enabled.
+| Case | Legacy | Rewrite |
+| --- | --- | --- |
+| Missing `user_id` on QR refresh | 200 `{status:400,"User ID not in payload"}` | not applicable (session user) |
+| Expired/used QR or activation | thank-you page "Oops! Looks ike your download link is expired" / redirect to thank-you | 410 `APPLICATION_LINK_EXPIRED` "This application link expired or was already used. Request a new QR code." |
+| Franchise or inactive operator | redirect "Permisssion denied" | 403 `APPLICATION_LINK_DENIED` |
+| Not configured (`APP_APK_URL`, `MAIN_SITE_API_V2`) | request error | 503 `APPLICATION_LINK_UNAVAILABLE` |
+| Provider failure | 500 | 503 `CUSTOMER_APPLICATION_UNAVAILABLE` |
+| No check-in | page shows "Nothing" with no QR | 409 `CHECK_IN_REQUIRED` |
 
-A successful redemption atomically inserts one source `pos_to_app_logs` record and one receipt for its operation. Metadata confirms signed INT `id/store_id`, DATETIME scan time, three source timestamp defaults and only the PK index. Store IDs outside the actual INT range fail explicitly. Scan wall strings use `BUSINESS_TIMEZONE` with no UTC shift; source defaults provide created/updated timestamps. A missing/failed audit rolls back and never returns a successful redirect. Duplicate operation retries return the same approved destination without another audit or provider call. This intentionally replaces source GET mutations and failed-provider scan counts with explicit, recoverable POST behavior.
+## Checks
 
-The public page retains click-to-open. Root Electron handles only separately approved `POS_APP_LINK_ORIGINS` in the OS browser; its SSO/OAuth navigation policy stays separate. The page remains usable if external navigation is intercepted. Previously printed unsigned `/user_to_app?store_id=...` links require an explicit migration/retirement plan; the module does not silently enable an unsafe legacy-token alias.
+`tests/administration/application-links.test.ts` (QR expiry oracle, token separation, options, provider body/fallback,
+`APP_APK_URL` streaming) and `application-links.mysql.integration.test.ts` (isolated MySQL + in-memory Redis store:
+same-period QR, Redis value shape/TTL, single activation, rotation, single download, expiry, deterministic customer
+token, receipt replay, legacy cache key/TTL, `/user_to_app` 302 and store validation, same-origin public proof). Run
+with `APPLICATION_LINK_MYSQL_TEST_URL=mysql://root@127.0.0.1:<port>/pos_rewrite_application_links_test`.
 
-## Executed evidence and remaining gates
-
-Seven unit/provider/file checks and fourteen isolated MySQL workflows cover72 source QR-expiry vectors, four extracted source customer/cache branches, approved-file snapshots and cleanup, symlink/size/hash/type rejection, strict provider bounds, one-consumer concurrency, identical byte retries, epoch restoration, current check-in/franchise scope, cache expiry/lease/idempotency, after-I/O archival, atomic source audit rollback, signed-INT bounds, public origin/body-only proof and bounded cleanup. Source helpers are hash-verified AST extractions with fake network/database boundaries; the native suite uses a unique local schema and refuses remote URLs. No live source mutation, provider call, APK download/publication or OS-browser launch occurred.
-
-Six new frontend checks include three actual Chromium workflows under React StrictMode: authenticated QR/PNG/APK/revocation, anonymous dropped-download recovery and customer approved-link continuation. They assert omitted public cookies, unchanged proof operation IDs, same-path fresh-fragment proof replacement, fragment removal and no token/contact values in request URLs, local storage or console output. Owner/store changes remount private proof state; a new public fragment remounts the public flow while preserving React Router history bookkeeping. Fixtures use synthetic bytes and intercepted destinations; no real app package was installed or external site opened.
-
-Native command:
-
-```sh
-APPLICATION_LINK_MYSQL_TEST_URL=mysql://root@127.0.0.1/pos_rewrite_application_links_test npm exec -- vitest run tests/administration/application-links.mysql.integration.test.ts
-```
-
-Production acceptance still requires the approved actual APK/signature, deployed artifact mount/hash/size, verified current provider or approved fallback, upstream idempotency, exact origins, real browser/Electron/customer-device handoffs, source timezone/operational writer and legacy printed-link rollout. The checks establish the stated components and intentional corrections, not complete legacy HTTP/side-effect parity or production performance.
+Open: the current `firebase-dynamic-link` endpoint behaviour (Firebase Dynamic Links shut down on 2025-08-25) and real
+device/browser handoffs are not verified here.

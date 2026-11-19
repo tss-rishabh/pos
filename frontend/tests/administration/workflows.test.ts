@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Guide } from '../../src/pages/administration/documentation-api';
 import type { DeliverySlot, GeneralSetting } from '../../src/pages/administration/settings-api';
-import type { ImportJob } from '../../src/pages/administration/import-api';
+import type { UploadDetail, UploadSummary } from '../../src/pages/administration/import-api';
 
 describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
   'administration browser workflows with isolated API fixtures',
@@ -85,7 +85,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         keywords: 'fixture',
         sortOrder: 0,
         active: 1,
-        version: 1,
+        version: '2026-11-16 00:00:00',
         assets: [],
         mediaState: 'available',
         updatedAt: '2026-11-16T00:00:00Z',
@@ -165,22 +165,19 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         mfaConfigured: false,
         mfaVersion: 'f'.repeat(64),
         mfaEnrollmentId: '',
-        imports: [] as ImportJob[],
-        historicalImport: {
-          id: 'a1cf5e92-703f-4abf-a82d-95c585772d87',
-          actorId: '1',
-          name: 'Historical fixture.csv',
-          state: 'COMPLETED',
-          totalRows: 1,
-          processedRows: 1,
-          successfulRows: 0,
-          failedRows: 1,
-          errorCode: null,
-          createdAt: '2000-01-01 00:00:00.000',
-          updatedAt: '2000-01-01 00:00:01.000',
-        } as ImportJob,
-        historyParams: [] as { from: string | null; to: string | null }[],
-        previewImportId: '',
+        imports: [
+          {
+            id: '41',
+            uploadType: 'PRODUCT_STOCK_CSV',
+            uploadedBy: '1',
+            uploaderName: 'Fixture administrator',
+            message: 'Product Stock Data Updated Successfully.',
+            isImported: true,
+            createdAt: '2000-01-01 00:00:00',
+            updatedAt: '2000-01-01 00:00:01',
+          },
+        ] as UploadSummary[],
+        importUploads: [] as { type: string; name: string; csv: string }[],
         guides: [initialGuide],
         guideUploads: [] as { id: string; name: string; checksum: string; contentType: string }[],
         s3Posts: 0,
@@ -276,7 +273,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
           url = new URL(request.url()),
           privateSearch =
             request.method() === 'POST' &&
-            /^\/api\/v1\/(?:admin\/(?:(?:operators|salespeople|stores)|stores\/\d+\/(?:counters|storages)|access\/(?:groups|permissions))|documentation)\/search$/.test(
+            /^\/api\/v1\/(?:admin\/(?:(?:operators|salespeople|stores|counters|storages)|stores\/\d+\/(?:counters|storages)|access\/(?:groups|permissions))|documentation)\/search$/.test(
               url.pathname,
             ),
           path = privateSearch ? url.pathname.replace(/\/search$/, '') : url.pathname,
@@ -377,17 +374,14 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
               qrDataUrl: 'data:image/png;base64,' + imageBytes.toString('base64'),
               serverNow: Date.now(),
               expiresAt: Date.now() + 60000,
-              filename: 'mpos.apk',
-              bytes: 4,
             });
           if (path.endsWith('/customer-qr'))
             return json({
               storeId: '1',
               storeName: 'Fixture checked-in store',
-              url: origin + '/application-links/customer#' + 'C'.repeat(43),
+              url: origin + '/application-links/customer#1.' + 'C'.repeat(43),
               qrDataUrl: 'data:image/png;base64,' + imageBytes.toString('base64'),
             });
-          if (method === 'DELETE') return json({ status: 'revoked' });
           if (path.endsWith('/staff-download-activations')) {
             const input = z
               .object({ token: z.string(), operationId: z.uuid() })
@@ -400,9 +394,6 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
               activationToken: 'B'.repeat(43),
               serverNow: Date.now(),
               expiresAt: Date.now() + 60000,
-              filename: 'mpos.apk',
-              bytes: 4,
-              checksum: 'a'.repeat(64),
             });
           }
           if (path.endsWith('/staff-download-content')) {
@@ -919,49 +910,25 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
                 input.mode === 'replace' ? 'Authenticator replaced.' : 'Authenticator disabled.',
             });
           }
-          if (path === '/api/v1/admin/inventory-imports/preview' && method === 'POST') {
-            const input = z.object({ id: z.uuid(), name: z.string(), csv: z.string() }).parse(body);
-            state.previewImportId = input.id;
-            return json({
-              totalRows: 1,
-              validRows: 1,
-              invalidRows: 0,
-              remainingRows: 0,
-              requiresStockProcedure: false,
-              canSubmit: true,
-              rows: [
-                {
-                  rowNumber: 2,
-                  cells: ['1000', '1', '', '', '0', '1'],
-                  command: {
-                    productId: '1000',
-                    storeId: '1',
-                    movement: 'none',
-                    quantity: 0,
-                    available: false,
-                    archived: true,
-                  },
-                  errorCode: null,
-                  message: null,
-                  saleableStock: 5,
-                  heldStock: 0,
-                },
-              ],
-            });
-          }
           if (path === '/api/v1/admin/inventory-imports' && method === 'POST') {
-            const input = z.object({ id: z.uuid(), name: z.string(), csv: z.string() }).parse(body);
-            const job: ImportJob = {
-              ...state.historicalImport,
-              id: input.id,
-              name: input.name,
-              createdAt: '2026-11-16 00:00:00.000',
-              updatedAt: '2026-11-16 00:00:01.000',
-              successfulRows: 1,
-              failedRows: 0,
-            };
-            state.imports.unshift(job);
-            return json(job, 201);
+            const input = z
+              .object({ type: z.literal('PRODUCT_STOCK_CSV'), name: z.string(), csv: z.string() })
+              .strict()
+              .parse(body);
+            state.importUploads.push(input);
+            state.imports.unshift({
+              ...state.imports[0]!,
+              id: String(42 + state.importUploads.length),
+              message: null,
+              isImported: false,
+            });
+            return json(
+              {
+                id: state.imports[0]!.id,
+                message: 'Csv Uploaded successfully. Data may take some time to reflect.',
+              },
+              201,
+            );
           }
           if (path === '/api/v1/admin/documentation/uploads' && method === 'POST') {
             const upload = z
@@ -1263,54 +1230,30 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
             stockEnabled: false,
             historyEnabled: true,
           });
-        if (path === '/api/v1/admin/inventory-imports/history') {
-          state.historyParams.push({
-            from: url.searchParams.get('from'),
-            to: url.searchParams.get('to'),
-          });
-          return json({ reader: 'bigquery', data: [state.historicalImport], nextCursor: null });
-        }
         if (path === '/api/v1/admin/inventory-imports')
-          return json({ data: state.imports, nextCursor: null });
-        if (/^\/api\/v1\/admin\/inventory-imports\/[0-9a-f-]{36}\/failures\.csv$/.test(path))
-          return route.fulfill({
-            status: 200,
-            contentType: 'text/csv; charset=utf-8',
-            body: 'SkuId,StoreId,IsHold,Hold/UnholdQty,IsAvailable,IsDelete,Message\r\n1000,1,,,,,Fixture failure\r\n',
-          });
-        if (/^\/api\/v1\/admin\/inventory-imports\/[0-9a-f-]{36}\/rows$/.test(path)) {
-          const id = path.split('/').at(-2)!;
+          return json({ data: state.imports, nextBefore: null });
+        if (/^\/api\/v1\/admin\/inventory-imports\/\d+$/.test(path)) {
+          const upload = state.imports.find((row) => row.id === path.split('/').at(-1))!;
           return json({
-            data: [
-              {
-                importId: id,
-                rowNumber: 2,
-                cells: ['1000', '1', '', '', '0', '1'],
-                command: {
-                  productId: '1000',
-                  storeId: '1',
-                  movement: 'none',
-                  quantity: 0,
-                  available: false,
-                  archived: true,
-                },
-                state: id === state.historicalImport.id ? 'FAILED' : 'SUCCEEDED',
-                errorCode: id === state.historicalImport.id ? 'INVENTORY_CSV_ROW_INVALID' : null,
-                message:
-                  id === state.historicalImport.id
-                    ? 'Error while traversing csv data.'
-                    : 'Product stock row processed.',
-              },
-            ],
-            nextCursor: null,
-          });
+            ...upload,
+            failedData: upload.isImported
+              ? [
+                  {
+                    data: {
+                      SkuId: 'x',
+                      StoreId: '1',
+                      IsHold: '',
+                      'Hold/UnholdQty': '',
+                      IsAvailable: '',
+                      IsDelete: '',
+                    },
+                    message: 'Error while traversing csv data.',
+                    other_error: "invalid literal for int() with base 10: 'x'",
+                  },
+                ]
+              : null,
+          } satisfies UploadDetail);
         }
-        if (/^\/api\/v1\/admin\/inventory-imports\/[0-9a-f-]{36}$/.test(path))
-          return json(
-            [...state.imports, state.historicalImport].find(
-              (job) => job.id === path.split('/').at(-1),
-            ),
-          );
         if (path === '/api/v1/admin/documentation/media-capabilities')
           return json({
             enabled: true,
@@ -1368,7 +1311,9 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
             per_hour_threshold: 0,
             gstin: '',
             short_name: 'Fixture',
-            slackConfigured: state.storeSlackConfigured,
+            slack_group_url: state.storeSlackConfigured
+              ? 'https://hooks.slack.com/services/T1/B1/fixture'
+              : '',
             city_name: 'Fixture city',
             state_name: 'Fixture state',
             state_id: 0,
@@ -1459,7 +1404,10 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
             ],
             nextCursor: null,
           });
-        if (path === '/api/v1/admin/stores/1/counters')
+        if (path === '/api/v1/admin/resource-stores')
+          return json({ data: [{ id: '1', name: 'Fixture Store One' }] });
+        if (path === '/api/v1/admin/storages') return json({ data: [], nextCursor: null });
+        if (path === '/api/v1/admin/stores/1/counters' || path === '/api/v1/admin/counters')
           return json({
             data: [
               {
@@ -1469,6 +1417,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
                 counter_type: 'IN_STORE',
                 counter_desc: 'Fixture counter',
                 is_active: true,
+                storeName: 'Fixture Store One',
               },
             ],
             nextCursor: null,
@@ -1515,7 +1464,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
       });
       await page.goto(
         applicationScreen
-          ? `${origin}/application-links/${applicationScreen}#${(applicationScreen === 'staff' ? 'A' : 'C').repeat(43)}`
+          ? `${origin}/application-links/${applicationScreen}#${applicationScreen === 'staff' ? 'A'.repeat(43) : '1.' + 'C'.repeat(43)}`
           : `${origin}/__administration-test__?screen=${screen}`,
       );
       return state;
@@ -1595,7 +1544,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         page = await context.newPage();
       const state = await fixture(page);
       try {
-        await page.getByRole('button', { name: 'Details and QR', exact: true }).click();
+        await page.getByRole('button', { name: 'View', exact: true }).click();
         const dialog = page.getByRole('dialog', { name: 'Store details', exact: true });
         await browserExpect(
           dialog.getByText('https://thesouledstore.com/?store_id=1', { exact: true }),
@@ -1707,7 +1656,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         await page.close();
       }
     }, 20000);
-    it('previews and queues a visibility CSV, then opens dated completed history and downloads failed records', async () => {
+    it('uploads an inventory CSV as the source view and shows failed records from history', async () => {
       const page = await browser.newPage();
       try {
         const state = await fixture(page);
@@ -1719,36 +1668,24 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
             'SkuId,StoreId,IsHold,Hold/UnholdQty,IsAvailable,IsDelete\r\n1000,1,,,0,1\r\n',
           ),
         });
+        await page.getByRole('button', { name: 'Upload CSV', exact: true }).click();
         await browserExpect(
-          page.getByRole('button', { name: 'Queue import', exact: true }),
-        ).toBeEnabled();
-        await page.getByRole('button', { name: 'Queue import', exact: true }).click();
-        await browserExpect(
-          page.getByRole('heading', { name: 'Visibility.csv', exact: true }),
+          page.getByText('Csv Uploaded successfully. Data may take some time to reflect.', {
+            exact: true,
+          }),
         ).toBeVisible();
-        expect(
-          state.mutations.find((mutation) => mutation.path === '/api/v1/admin/inventory-imports')
-            ?.body,
-        ).toMatchObject({ id: state.previewImportId, name: 'Visibility.csv' });
-        await page.getByLabel('Import history scope', { exact: true }).selectOption('historical');
-        await page.getByLabel('Import history from', { exact: true }).fill('2000-01-01');
-        await page.getByLabel('Import history to', { exact: true }).fill('2000-01-02');
-        const row = page.getByRole('row').filter({ hasText: 'Historical fixture.csv' });
+        expect(state.importUploads).toEqual([
+          {
+            type: 'PRODUCT_STOCK_CSV',
+            name: 'Visibility.csv',
+            csv: 'SkuId,StoreId,IsHold,Hold/UnholdQty,IsAvailable,IsDelete\r\n1000,1,,,0,1\r\n',
+          },
+        ]);
+        const row = page.getByRole('row').filter({ hasText: 'Product Stock Data Updated' });
         await row.getByRole('button', { name: 'View records', exact: true }).click();
-        await browserExpect(
-          page.getByRole('heading', { name: 'Historical fixture.csv', exact: true }),
-        ).toBeVisible();
         await browserExpect(
           page.getByText('Error while traversing csv data.', { exact: true }),
         ).toBeVisible();
-        expect(state.historyParams).toContainEqual({ from: '2000-01-01', to: '2000-01-02' });
-        const pending = page.waitForEvent('download');
-        await page.getByRole('button', { name: 'Download failed records', exact: true }).click();
-        const download = await pending;
-        expect(download.suggestedFilename()).toBe(
-          `InventoryImport-${state.historicalImport.id}-failed.csv`,
-        );
-        await download.delete();
         expect(page.url()).toContain('/__administration-test__');
       } finally {
         await page.close();
@@ -1967,66 +1904,6 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         await page.close();
       }
     }, 20000);
-    it('uses the same verified upload and retry lifecycle for a private store image', async () => {
-      const page = await browser.newPage();
-      try {
-        const state = await fixture(page);
-        await page.getByRole('button', { name: 'Image', exact: true }).click();
-        const dialog = page.getByRole('dialog');
-        state.dropImageAttachmentResponse = true;
-        await dialog
-          .getByLabel('Change store image', { exact: true })
-          .setInputFiles({ name: 'Store fixture.png', mimeType: 'image/png', buffer: imageBytes });
-        await browserExpect(
-          dialog.getByRole('button', { name: 'Retry image attachment', exact: true }),
-        ).toBeEnabled();
-        await dialog.getByRole('button', { name: 'Retry image attachment', exact: true }).click();
-        await browserExpect(
-          dialog.getByRole('img', { name: 'Store image', exact: true }),
-        ).toBeVisible();
-        expect(state.s3Posts).toBe(1);
-        expect(state.imageUploads).toHaveLength(1);
-        expect(state.imageUploads[0]?.scope).toBe('store');
-        expect(state.imageAttachmentAttempts).toEqual([
-          state.imageUploads[0]!.id,
-          state.imageUploads[0]!.id,
-        ]);
-        await dialog.getByRole('button', { name: 'Close store image', exact: true }).click();
-        await browserExpect(dialog).toHaveCount(0);
-        expect(page.url()).toContain('/__administration-test__');
-      } finally {
-        await page.close();
-      }
-    }, 20000);
-    it('associates an existing franchise without submitting hidden detail fields', async () => {
-      const page = await browser.newPage();
-      try {
-        const state = await fixture(page);
-        await page.getByRole('button', { name: 'Create store', exact: true }).click();
-        const dialog = page.getByRole('dialog');
-        await dialog.getByLabel('Store name', { exact: true }).fill('New fixture store');
-        await dialog.getByLabel('Short name', { exact: true }).fill('Fixture');
-        await dialog.getByLabel('Location code', { exact: true }).selectOption('TWO');
-        await dialog.getByLabel('Ownership', { exact: true }).selectOption('FRANCHISE');
-        await dialog.getByLabel('Franchise association', { exact: true }).selectOption('existing');
-        await dialog.getByLabel('Existing franchise', { exact: true }).selectOption('20');
-        await browserExpect(dialog.getByLabel('Franchise name', { exact: true })).toHaveCount(0);
-        await dialog.getByLabel('Store phone', { exact: true }).fill('9876543298');
-        await dialog.getByLabel('Address', { exact: true }).fill('Fixture address');
-        await dialog.getByLabel('Country', { exact: true }).selectOption('99');
-        await dialog.getByRole('button', { name: 'Save changes', exact: true }).click();
-        await browserExpect(dialog).toHaveCount(0);
-        const mutation = state.mutations.find((entry) => entry.path === '/api/v1/admin/stores');
-        expect(mutation?.body).toMatchObject({
-          category: 'FRANCHISE',
-          franchiseId: '20',
-          cityId: 1111,
-        });
-        expect(mutation?.body).not.toHaveProperty('franchise');
-      } finally {
-        await page.close();
-      }
-    }, 20000);
     it('verifies a local authenticator QR and keeps replacement secrets out of cached browser state', async () => {
       const page = await browser.newPage();
       const externalQrRequests: string[] = [];
@@ -2200,197 +2077,6 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         await page.close();
       }
     }, 20000);
-    it('keeps store webhook replacement blank and requires explicit connection removal', async () => {
-      const page = await browser.newPage();
-      try {
-        const state = await fixture(page);
-        await page
-          .getByRole('row')
-          .filter({ hasText: 'Fixture Store One' })
-          .getByRole('button', { name: 'Edit', exact: true })
-          .click();
-        let dialog = page.getByRole('dialog');
-        const replacement = dialog.getByLabel('New Slack webhook (leave empty to keep)', {
-          exact: true,
-        });
-        await browserExpect(replacement).toHaveValue('');
-        await browserExpect(replacement).toHaveAttribute('type', 'password');
-        await browserExpect(dialog).toContainText('A Slack connection is configured.');
-        await dialog.getByRole('button', { name: 'Save changes', exact: true }).click();
-        await browserExpect(dialog).toHaveCount(0);
-        expect(state.storeSlackConfigured).toBe(true);
-        expect(state.mutations.at(-1)?.body).toMatchObject({ slackUrl: '', removeSlack: false });
-        await page
-          .getByRole('row')
-          .filter({ hasText: 'Fixture Store One' })
-          .getByRole('button', { name: 'Edit', exact: true })
-          .click();
-        dialog = page.getByRole('dialog');
-        await dialog.getByLabel('Slack connection', { exact: true }).selectOption('true');
-        await dialog.getByRole('button', { name: 'Save changes', exact: true }).click();
-        await browserExpect(dialog).toHaveCount(0);
-        expect(state.storeSlackConfigured).toBe(false);
-        expect(state.mutations.at(-1)?.body).toMatchObject({ slackUrl: '', removeSlack: true });
-      } finally {
-        await page.close();
-      }
-    }, 20000);
-    it('preserves the source new-store city default and unsaved fields across postal lookup', async () => {
-      const page = await browser.newPage(),
-        urls: string[] = [];
-      page.on('request', (request) => urls.push(request.url()));
-      try {
-        const state = await fixture(page);
-        await page.getByRole('button', { name: 'Create store', exact: true }).click();
-        const dialog = page.getByRole('dialog');
-        await dialog.getByLabel('Address', { exact: true }).fill('Preserved fixture address');
-        await browserExpect(dialog.getByLabel('City reference', { exact: true })).toHaveCount(0);
-        await dialog.getByLabel('Store name', { exact: true }).fill('Postal fixture store');
-        await dialog.getByLabel('Short name', { exact: true }).fill('Postal');
-        await dialog.getByLabel('Location code', { exact: true }).selectOption('TWO');
-        await dialog.getByLabel('Store phone', { exact: true }).fill('9876543298');
-        await dialog.getByLabel('PIN code', { exact: true }).fill('999999');
-        await dialog.getByRole('button', { name: 'Look up PIN code', exact: true }).click();
-        await browserExpect(dialog.getByRole('alert')).toContainText('No location was found');
-        await dialog.getByLabel('PIN code', { exact: true }).fill('400001');
-        await dialog.getByRole('button', { name: 'Look up PIN code', exact: true }).click();
-        await browserExpect(dialog.getByLabel('City', { exact: true })).toHaveValue('Mumbai');
-        await browserExpect(dialog.getByLabel('Country', { exact: true })).toHaveValue('99');
-        await browserExpect(dialog.getByLabel('State reference', { exact: true })).toHaveValue(
-          '42',
-        );
-        await browserExpect(dialog.getByLabel('Latitude', { exact: true })).toHaveValue(
-          '19.0000000000000001',
-        );
-        await browserExpect(dialog.getByLabel('City reference', { exact: true })).toHaveCount(0);
-        await browserExpect(dialog.getByLabel('Address', { exact: true })).toHaveValue(
-          'Preserved fixture address',
-        );
-        await browserExpect(dialog.getByLabel('Store name', { exact: true })).toHaveValue(
-          'Postal fixture store',
-        );
-        await dialog.getByRole('button', { name: 'Save changes', exact: true }).click();
-        await browserExpect(dialog).toHaveCount(0);
-        const created = state.mutations.find(
-          (entry) => entry.path === '/api/v1/admin/stores' && entry.method === 'POST',
-        );
-        expect(created?.body).toEqual({
-          locationCode: 'TWO',
-          type: 'STORE',
-          category: 'IN_HOUSE',
-          phone: '9876543298',
-          email: '',
-          alternateAddress: '',
-          state: 'Fixture state',
-          longitude: '72.0000000000000001',
-          gstin: '',
-          dailyThreshold: 0,
-          hourlyThreshold: 0,
-          slackUrl: '',
-          removeSlack: false,
-          cityId: 1111,
-          name: 'Postal fixture store',
-          shortName: 'Postal',
-          address: 'Preserved fixture address',
-          pincode: '400001',
-          city: 'Mumbai',
-          countryId: 99,
-          stateId: 42,
-          latitude: '19.0000000000000001',
-        });
-        expect(state.postalLookups).toEqual(['999999', '400001']);
-        expect(urls.join('\n')).not.toMatch(/400001|999999|Preserved fixture/);
-        expect(state.console.join('\n')).not.toMatch(/400001|999999|Preserved fixture/);
-      } finally {
-        await page.close();
-      }
-    }, 20000);
-    for (const cityId of [0, 7]) {
-      it(`preserves stored city reference ${cityId} while editing without exposing it`, async () => {
-        const page = await browser.newPage();
-        try {
-          const state = await fixture(page);
-          state.storeCityId = cityId;
-          await page
-            .getByRole('row')
-            .filter({ hasText: 'Fixture Store One' })
-            .getByRole('button', { name: 'Edit', exact: true })
-            .click();
-          const dialog = page.getByRole('dialog');
-          await browserExpect(dialog.getByLabel('City reference', { exact: true })).toHaveCount(0);
-          await dialog.getByLabel('Address', { exact: true }).fill('Preserved edited address');
-          await dialog.getByLabel('Short name', { exact: true }).fill('Edited name');
-          await dialog.getByLabel('PIN code', { exact: true }).fill('400001');
-          await dialog.getByRole('button', { name: 'Look up PIN code', exact: true }).click();
-          await browserExpect(dialog.getByLabel('City', { exact: true })).toHaveValue('Mumbai');
-          await browserExpect(dialog.getByLabel('Short name', { exact: true })).toHaveValue(
-            'Edited name',
-          );
-          await dialog.getByRole('button', { name: 'Save changes', exact: true }).click();
-          await browserExpect(dialog).toHaveCount(0);
-          const updated = state.mutations.find(
-            (entry) => entry.path === '/api/v1/admin/stores/1' && entry.method === 'PUT',
-          );
-          expect(updated?.body).toMatchObject({
-            cityId,
-            address: 'Preserved edited address',
-            shortName: 'Edited name',
-            city: 'Mumbai',
-            countryId: 99,
-            stateId: 42,
-          });
-          expect(
-            state.mutations.some(
-              (entry) => entry.method === 'POST' && entry.path === '/api/v1/admin/stores',
-            ),
-          ).toBe(false);
-        } finally {
-          await page.close();
-        }
-      }, 20000);
-    }
-    it('connects Slack in the same window and returns only a safe receipt/channel without exposing the webhook', async () => {
-      const page = await browser.newPage(),
-        popups: Page[] = [];
-      page.on('popup', (popup) => popups.push(popup));
-      try {
-        const state = await fixture(page);
-        await page.route('https://slack.com/oauth/v2/authorize?**', async (route) => {
-          const url = new URL(route.request().url());
-          expect(url.searchParams.get('scope')).toBe('incoming-webhook');
-          expect(url.searchParams.has('client_secret')).toBe(false);
-          return route.fulfill({
-            status: 200,
-            contentType: 'text/html',
-            body: `<h1>Synthetic Slack authorization</h1><a href="${origin}/api/v1/admin/slack/oauth/callback?state=${url.searchParams.get('state')}&code=synthetic-code">Authorize fixture channel</a>`,
-          });
-        });
-        await page
-          .getByRole('row')
-          .filter({ hasText: 'Fixture Store One' })
-          .getByRole('button', { name: 'Slack', exact: true })
-          .click();
-        await page.getByRole('button', { name: 'Continue to Slack', exact: true }).click();
-        await browserExpect(
-          page.getByRole('heading', { name: 'Synthetic Slack authorization' }),
-        ).toBeVisible();
-        await page.getByRole('link', { name: 'Authorize fixture channel' }).click();
-        await browserExpect(page.getByRole('dialog')).toContainText(
-          'Slack channel #fixture-sales connected to store 1.',
-        );
-        expect(popups).toEqual([]);
-        expect(state.slackState).toBe('COMPLETED');
-        expect(new URL(page.url()).search).toBe('');
-        expect(await page.locator('body').innerText()).not.toMatch(
-          /hooks\.slack\.com|privateFixtureWebhook|client_secret/,
-        );
-        expect(state.console.join('\n')).not.toMatch(
-          /hooks\.slack\.com|privateFixtureWebhook|client_secret/,
-        );
-      } finally {
-        await page.close();
-      }
-    }, 20000);
     it('filters permission activity in request bodies, pages exact IDs and exports the visible loaded page safely', async () => {
       const page = await browser.newPage(),
         urls: string[] = [];
@@ -2519,8 +2205,6 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         const apk = await apkReady;
         expect(apk.suggestedFilename()).toBe('mpos.apk');
         expect(readFileSync((await apk.path())!)).toEqual(Buffer.from([80, 75, 3, 4]));
-        await page.getByRole('button', { name: 'Revoke staff QR', exact: true }).click();
-        await browserExpect(page.getByAltText('Staff installer QR code')).toHaveCount(0);
         expect(
           state.applicationRequests
             .filter((call) => call.path.startsWith('/api/v1/auth/'))

@@ -1,61 +1,68 @@
-# Gift-card batch generation, print and block evidence
+# Gift-card batch generation, print and block (W8d, schema freeze)
 
-Source: `backend-pos-web@78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`, `core/urls.py:103–107`, `core/views.py:2170–2260`, `core/datatables/gift_card_datatable.py`, `core/tasks.py:209`, and `helpers/helpers.py:1265–1357,1431,1673`. This is the separate physical-card batch family, not the checkout gift-voucher funding or stored-value ledger. Generation encodes cards and writes a CSV; it does **not** create `gift_vouchers`, issue balances, or collect money.
+Source: `backend-pos-web@78d5b63`, `core/urls.py:103-107`, `core/views.py:2169-2252`,
+`core/datatables/gift_card_datatable.py`, `core/tasks.py:208-223`, `helpers/helpers.py:1265-1371,1418-1475`,
+template `core/templates/gift_card/index.html`. This is the physical-card batch family. Generation writes a CSV of
+codes and PINs and does **not** create `gift_vouchers`, balances or money movements.
 
-`registerGiftCardBatches(app,config,db,readGiftCardBatchOptions(),dependencies?)` is exported by `src/modules/gift-card-batches/index.ts`. The React export is `GiftCardBatchesPage({user})` in `frontend/src/pages/administration/gift-card-batches/index.tsx`, mounted by the root at `/administration/gift-card-batches`. The owned Administration page links there for internal roles1/2.
+## Behaviour (legacy, with one approved divergence)
 
-## Implemented contracts
-
-| Source feature | Rewrite API below `/api/v1/gift-card-batches` | Evidence boundary |
+| Legacy | Rewrite | Notes |
 | --- | --- | --- |
-| GiftCardView | `GET /capabilities` + React page | Valid cleaned owner delivery email; configured availability; safe private-storage defaults |
-| AjaxGiftCardListView | `POST /search` | Bound body-only filters, sorting, first-page fallback, filtered counts, exact creator formatting and BIGINTs, current-page CSV/columns/reload/page sizes |
-| AjaxGenerateGiftCardView + source task | `POST /` | Writer-current authorization, one atomic batch/job/receipt, durable leased generation, private archive and acknowledged/uncertain email states |
-| Generation recovery | `GET /current-jobs`, `GET /:batchId`, `POST /:batchId/retries` | Owner recovery feed and frozen-file retry; added resilience rather than a claimed legacy endpoint |
-| AjaxPrintGiftCardView | `PUT /:batchId/print-status` | Actual collection row lock, optimistic revision, operation receipt; sets `is_printed=1` after completion |
-| AjaxBlockGiftCardView | `PUT /:batchId/block-status` | Same collection lock/revision/receipt; changes only `is_block=0/1` |
-| File access | `POST /:batchId/artifact-access`, `GET /:batchId/archive` | Current internal owner only, private/no-store password and authenticated bounded download; no public legacy filename alias |
+| `GiftCardView` page | `GET /api/v1/gift-card-batches/capabilities` + `GiftCardBatchesPage` | Page shows the cleaned delivery email and the legacy password instructions verbatim. |
+| `AjaxGiftCardListView` (POST datatable) | `POST /api/v1/gift-card-batches/search` | All collections, one sort column (`id`, `size`, `message`, `created_by`, `created_at`), Django paginator fallback to page 1, creator `get_full_name()`, `'%Y-%m-%d %H:%M:%S'`. `draw == 1` writes `pos_special_permission_activity_log` (`Gift Card` / `Viewed the gift card batch list`). Primary reader (interactive read). |
+| `AjaxGenerateGiftCardView` | `POST /api/v1/gift-card-batches` | Inserts `gift_card_collection(size, message, created_by, is_completed=0, is_block=0, is_printed=0, filename='')`, then, after commit, enqueues `pos.gift_card_batches.generate` on queue `core` with `{collectionId, size, userId}`. |
+| `generate_and_upload_gift_card` (called inline) | job handler `src/modules/gift-card-batches/jobs.ts` | **Approved divergence** (user, 19 Nov): runs on the Redis job queue. Body as legacy: `Helpers.generate_gift_card` → CSV → `pyminizip` zip (ZipCrypto, level 5, entry `GFTCRDS-<ts><6 digits>.csv`) with the legacy derived password → `storage.upload('uploads/csv/giftcards/GFTCRDS-….zip')` → Netcore mail `GC Card Data` with `GC_CARD_DATA.zip` → `filename`, `is_completed=1`, `message += '| File has been sent on {email}'` (truncated to 255 explicitly, as non-strict MySQL stores it). |
+| `AjaxPrintGiftCardView` | `PUT /api/v1/gift-card-batches/:id/print-status` | Sets `is_printed=1` (no completion check, as legacy; the UI only offers it on completed rows). |
+| `AjaxBlockGiftCardView` | `PUT /api/v1/gift-card-batches/:id/block-status` `{opr:'block'|'active'}` | `active` → `is_block=0`, otherwise 1; message `Marked as {opr}`. |
 
-Each resource has explicit static module/resource/action trace metadata. HTTP logs remain parent-owned; worker logs contain only resource/event IDs, event-instance UUID, actor/request/job/batch IDs and static error codes. No message, contact, card code, serial, PIN, password, attachment, storage key, provider payload, API key or raw exception is logged. Searches and private proofs never enter URL query strings. Requests and asynchronous downloads capture the initiating operator ID and abort when its committed client identity changes.
+Failure semantics follow legacy: generation or zip failure leaves `is_completed=0`; a storage upload or email failure
+is logged and swallowed, and the collection is still completed. A job that finds the collection already completed does
+nothing (guards an operator re-queue). The phone and email are read from `pos_user` by the job (args carry ids only),
+so a contact edited between request and job uses the new value.
 
-The verified physical `gift_card_collection` projection uses exact BIGINT identifiers, signed TINYINT flags, nullable Latin1 message/filename and naive DATETIME wall strings. `evidence/mysql-gift-card-batches-schema.json` is the separate read-only metadata snapshot. No legacy DDL is included. New batch IDs above9 decimal digits fail before commit: the source redemption parser stores the collection digit count in one character. Existing longer legacy IDs remain readable and flag-editable without conversion to JavaScript Number. New sizes are integers1–10,000, matching the source template's JavaScript/visible limit rather than its contradictory HTML `max=500`. Message validation rejects unsupported Latin1 characters instead of relying on lossy conversion or post-side-effect SQL failure.
+Archive password: `last 6 characters of pos_user.phone + collection id`, or `'123456' + collection id` when the phone
+is empty (`helpers/helpers.py:1345-1350`). This is weak and predictable; it is used because the user mandated legacy
+behaviour (AGENTS.md, 19 Nov). The rewrite's random password, sealed secrets, retrievable password, owner download,
+frozen archive and delivery-state machine are removed.
 
-Source random-number ranges, zero-replacement padding, serial concatenation, uppercase Hashids code, deterministic legacy PIN, exact four CSV columns and CRLF bytes are preserved. The generator uses cryptographic randomness and one Hashids instance per batch. The source PIN is a compatibility algorithm, not a cryptographic security claim. The source `GC_SALTKEY` must match the configured issuer/redeemer; a stored fingerprint blocks retries under a changed format.
+Kept differences: the list search box matches `id`, `size` and `message` literally (legacy raises `FieldError` on every
+non-empty search because it references `product__…`); the size must be an integer 1–10 000 (legacy accepts any
+truthy integer, including negatives, from a direct POST); messages with characters outside MySQL latin1 are rejected
+instead of stored as `?`.
 
-## Durable private delivery
+## Messages (S4)
 
-The worker freezes the encrypted archive bytes in the writer before any S3 PUT, then conditionally writes its opaque UUID key with SHA256, content type, size, SSE and expected-owner checks. An unknown PUT is reconciled by exact HEAD metadata; a retry never regenerates a previously published card file. This uses S3's [conditional PUT](https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html) and [checksum/encryption HEAD metadata](https://docs.aws.amazon.com/AmazonS3/latest/API/API_HeadObject.html). All four bucket Block Public Access flags are checked before every storage operation. Downloads verify size/checksum and consume or destroy the SDK body. The shared S3 client uses the configured role/default credential chain and bounded requests; no live S3 call occurs in tests.
+| Case | Legacy (HTTP 200 JSON) | Rewrite |
+| --- | --- | --- |
+| Generated | `success` / "Gift Cards Generated, Please check your mail box." | 200 "Gift card generation started. The file will be emailed to you." (generation is queued) |
+| Missing size/message | `failed` / "Please provide the data" | 400 validation error |
+| No email on the requester | `failed` / "Not Eligible to generate the GCs." (row already created) | 422 `GIFT_CARD_BATCH_NOT_ELIGIBLE` "Not Eligible to generate the GCs." (row already created, as legacy) |
+| Unknown collection (print/block) | `failed` / "Please provide valid data" | 404 `GIFT_CARD_BATCH_NOT_FOUND` |
+| Printed / blocked / activated | `success` / "Marked as printed", "Marked as block", "Marked as active" | same, 200 |
+| Role not 1/2, or franchise | redirect + "Permisssion denied" | 403 `GIFT_CARD_BATCH_ACCESS_DENIED` |
+| Not configured (`GC_SALTKEY`, bucket, Netcore) | task fails or swallows | 503 `GIFT_CARD_BATCH_GENERATION_UNAVAILABLE` before any write |
+| Operation id reused with other input | — | 409 `GIFT_CARD_BATCH_OPERATION_REUSED` |
 
-ZIP uses AES AE-2 with strength3 (256bit), a random32-byte password, and one `gift-cards.csv` entry. The password/contact/format metadata is encrypted with a batch- and key-ID-bound AES-GCM keyring. The owner retrieves the password after authentication; the email contains only the encrypted attachment and a prompt to retrieve the password in the application. This intentionally replaces the source predictable phone-suffix password. [zip.js options](https://gildas-lormeau.github.io/zip.js/api/interfaces/ZipWriterConstructorOptions.html) document AES strength and encryption behavior. Actual Windows/macOS recipient archive clients remain an acceptance check; native operating-system archive tools have not been certified.
+## State
 
-Before a send, the worker commits `SENDING` and a delivery-attempt UUID. Only an explicit Netcore `status:"success"` response records provider acceptance. Timeout, malformed success,5xx, or a worker crash while sending yields `UNCERTAIN`; no automatic resend occurs. Explicit owner confirmation sends the **same** encrypted file/password. A definitive rejection is recoverable separately. Provider acceptance is not a claim of inbox delivery. Before generation/storage/send, the worker rechecks current active internal role1/2, owner, authentication epoch/contact, batch size and format. Changed authority pauses the job. SQL locks cover actor→actual collection→job, and every transition is lease-fenced; network/ZIP work is outside the transaction. Automatic pre-send retries stop after5 attempts with bounded backoff.
+- Durable: `gift_card_collection` only (`filename`, `is_completed`, `message`, `is_printed`, `is_block`).
+- Redis: `pos:idem:gift_card_batch:{operationId}` → JSON `{state: pending|created|done, actorId, inputHash, batchId?, outcome?}`, `EX 86400`.
+- Queue: `pos.gift_card_batches.generate`, queue `core`, args `{collectionId, size, userId}`.
+- No lock: legacy has none and every write is a single-row insert or flag update.
 
-The original message remains unchanged. Delivery state is explicit rather than appending an owner email and a potentially false sent assertion to a255-character globally listed message. Source missing-email ghost batches, negative-size acceptance, unsafely printable incomplete batches, swallowed storage/mail failures, unbound mutation retries and inconsistent franchise guards are deliberately corrected. Those changes and the stronger ZIP/password behavior are **not** byte-identical source responses.
+## Configuration
 
-The source list's nonempty search always raises `FieldError` because it references nonexistent `product__...` relations. The rewrite's explicitly corrected search matches literal substrings of actual batch number, card count and message. Search `%`, `_` and backslash remain literal. The source's no-search sort/paging/name/flag results are compared directly against pinned Django on isolated MySQL. Ties gain an explicit ID order. Metadata CSV export follows visible current-page columns and quotes/formula-guards text; plaintext card CSV remains confined to the encrypted owner archive.
+`GC_SALTKEY`, `AWS_STORAGE_BUCKET_NAME` (+ optional `AWS_S3_*`), `NETCORE_EMAIL_URL`, `NETCORE_API_KEY`,
+`GIFT_CARD_BATCH_DELIVERY_TIMEOUT_MS` (default 30 000). The handler runs in `worker:jobs`.
 
-## Readers and warehouse publication
+## Checks
 
-Only a request whose inclusive dates both equal the current business day uses the data reader, in a repeatable-read read-only count/join/page snapshot. All-history, older, mixed and future ranges use bound BigQuery only. There is no historical MySQL fallback. Writer reads are limited to live authorization, mutable collection flags, owner secrets/download authorization and unresolved operational jobs. The recovery feed returns at most25 metadata rows: unresolved jobs at any age, plus the owner's completed jobs from the last24 elapsed hours; older completed report history is excluded.
+`tests/administration/gift-card-batches.test.ts` (pinned Python CSV/Hashids/PIN oracle, email cleanup, password and
+file names, ZipCrypto archive), `gift-card-batch-adapters.test.ts` (S3 key/private bucket, Netcore payload and
+swallowed failures), `gift-card-batches.mysql.test.ts` (isolated MySQL: insert + enqueue + receipt replay, job
+success, swallowed storage/email failures, failed generation, no-email ghost row, franchise denial, print/block,
+list paging/sort/activity log; run with `GIFT_CARD_BATCH_MYSQL_TEST_URL=mysql://root@127.0.0.1:<port>/x`). No real
+storage, email or job queue is contacted.
 
-Historical configuration requires all three:
-
-- `BQ_GIFT_CARD_BATCH_VIEW`: fully qualified view identifier.
-- `BQ_GIFT_CARD_BATCH_MATCH_UDF`: fully qualified matching UDF.
-- `BQ_GIFT_CARD_BATCH_CONTRACT=pos-gift-card-batch-history-v1`.
-
-The publisher must provide one row per physical collection, `id` and `created_by` as exact integer strings, `size` as INT64, `message` nullable,0/1 `is_completed/is_printed/is_block`, source DATETIME `created_at`, exact second-precision `created_at_mysql`, and current source operator `actor_first_name/actor_last_name` (both null only for a missing operator). `id_mysql`/`size_mysql` hold source CAST-to-CHAR strings. `message_sort_key` is nullable BYTES produced from the source MySQL Latin1-Swedish collation weight; it must reproduce null ordering and comparisons. The matching UDF takes `(value STRING, escaped_like_pattern STRING, contract_field STRING)` and implements MySQL literal escaped LIKE under each source expression's verified collation for `id_mysql.icontains`, `size_mysql.icontains`, and `message.icontains`. BigQuery `LOWER` is not a substitute for Swedish/accent/trailing-space behavior. Publish source DATETIME walls without timezone conversion; `BUSINESS_TIMEZONE` must match the actual source production setting.
-
-View and UDF publication, freshness/completeness, physical flag validity, collation parity and representative source/rewrite result comparison require real deployment acceptance. Historical joins must not multiply rows; responses reject inconsistent totals, duplicate IDs, invalid data, bad ordering or out-of-range dates. No card serial/code/PIN, archive/password, sealed secrets, actor credential version or email destination belongs in this reporting view.
-
-## Deployment and checks
-
-Apply only `src/modules/gift-card-batches/migration.sql` through the root writer migration runner after the administration base migration. It creates the rewrite job/mutation journal and its registry row. The supervised entrypoint is `dist/modules/gift-card-batches/worker-main.js` (`worker:gift-card-batches`). API and worker remain disabled until explicitly configured. Worker lease must exceed its operation timeout by more than5 seconds.
-
-Configure `GIFT_CARD_BATCHES_ENABLED`, `GIFT_CARD_BATCH_WORKER_ENABLED`, `GC_SALTKEY`, `GIFT_CARD_BATCH_ACTIVE_KEY_ID`, `GIFT_CARD_BATCH_ENCRYPTION_KEYS` (JSON map,1–8 strong32-byte hex keys), private S3/bucket/owner/SSE options, `S3_GIFT_CARD_BATCH_FOLDER_PATH`, and Netcore HTTPS URL/API key. Production requires `AWS_S3_EXPECTED_BUCKET_OWNER`. If selecting KMS, supply its exact key ARN in `AWS_S3_KMS_KEY_ID` rather than an alias; HEAD must return that same key, and the role/key policy must allow checksum-enabled reads. Keep old archive keys during rotation and back up the keyring separately. Enforce private bucket policy/account permissions and retention for these immutable financial credentials. Never publish a gift-card prefix or use the source public-file URL. Every retry reconciles the frozen artifact; missing/corrupt artifacts require operator intervention rather than new cards.
-
-Focused checks live in `tests/administration/gift-card-batches.test.ts`, `gift-card-view.test.ts`, `gift-card-batch-adapters.test.ts`, and `gift-card-batches.mysql.test.ts`. Native tests require `GIFT_CARD_BATCH_MYSQL_TEST_URL=mysql://root@127.0.0.1/pos_rewrite_gift_card_batches_test`, create a unique schema, use verified metadata, and drop only that schema. The source tools execute pinned helper/list/view bodies; SQL oracle sessions are read-only and mutation oracles use memory-only recorders. Browser checks are `frontend/tests/administration/gift-card-batches.browser.test.ts` under `ADMINISTRATION_BROWSER_TESTS=true`, on an ephemeral server with fake APIs/downloads. No real email, upload, voucher funding, publication or source sibling mutation occurs.
-
-The focused checkpoint passes31 gift backend checks, including19 real isolated-MySQL workflows, plus the existing exact source-name formatter regression. Frontend passes2 pure checks and7 actual headless Chromium workflows. Owned source/tests compile under the strict backend/frontend configurations; whole-source compilation is checked by the root barrier while other agents work. ESLint and Python Ruff checks pass. The default-disabled supervised entrypoint also exits successfully with only sanitized lifecycle metadata. These counts describe component evidence, not live-provider or full-route certification.
-
-Real private S3/Netcore delivery, Windows/macOS ZIP client support, same-salt production issuer compatibility, warehouse publication and complete source/rewrite user-visible acceptance are open gates. Block/print writers lock the actual collection row. Checkout owns the cross-service issuance/paid-activation fencing and financial validation; this batch module alone does not prove that an external issuer rechecks a concurrent block. No entire legacy route is certified by these component tests.
+Open: Windows/macOS unzip of the ZipCrypto archive and live Netcore/S3 acceptance are not certified here.

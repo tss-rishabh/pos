@@ -10,7 +10,6 @@ import { StoreSettingsAdministration } from './support';
 import { InventoryImportAdministration } from './imports';
 import { ModelAccessAdministration } from './access';
 import { AdministrationAuthenticationContext } from './access-authentication';
-import { SlackConnectionReturn } from './slack';
 import './styles.css';
 
 export { OperatorCheckIn } from './check-in';
@@ -60,7 +59,6 @@ export function AdministrationPage({
           </Link>
         </div>
       )}
-      <SlackConnectionReturn user={user} />
       {user.userType === 1 && [1, 2].includes(user.role) && (
         <div className="administration-actions">
           <Link className="button secondary" to="/administration/gift-card-batches">

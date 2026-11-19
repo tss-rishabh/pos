@@ -34,24 +34,6 @@ export function readDocumentationMediaOptions(env: NodeJS.ProcessEnv = process.e
             .regex(/^[A-Za-z0-9][A-Za-z0-9/_.-]{0,299}$/)
             .refine((value) => !value.split('/').some((part) => part === '.' || part === '..')),
         ),
-        DOCUMENTATION_MEDIA_WORKER_ENABLED: z.preprocess(
-          (value) =>
-            value === undefined
-              ? false
-              : value === 'true'
-                ? true
-                : value === 'false'
-                  ? false
-                  : value,
-          z.boolean(),
-        ),
-        DOCUMENTATION_MEDIA_WORKER_INTERVAL_MS: z.coerce
-          .number()
-          .int()
-          .min(1000)
-          .max(60000)
-          .default(30000),
-        DOCUMENTATION_MEDIA_WORKER_BATCH_SIZE: z.coerce.number().int().min(1).max(25).default(5),
       })
       .parse(env),
   };

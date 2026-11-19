@@ -1,46 +1,34 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { z } from 'zod';
 import type { Principal } from '../../../api/types';
-import { ApiError, captureOperatorScope, request } from '../../../api/client';
-import { Empty, ErrorState, Loading, PageTitle } from '../../../components/common';
+import { captureOperatorScope, request } from '../../../api/client';
+import { Empty, ErrorState, PageTitle } from '../../../components/common';
 import { useOnline } from '../../../hooks/use-pos';
-import {
-  batchBase,
-  batchCapabilities,
-  batchDetails,
-  batchPhaseLabels,
-  batchReceipt,
-  batchSecret,
-  downloadBatchArchive,
-  saveBatchArchive,
-  type BatchDetails,
-} from './api';
+import { batchBase, batchCapabilities, batchResult, validateBatchRequest } from './api';
 import { GiftCardBatchHistory } from './history';
 import { BatchConfirmationDialog, type BatchConfirmation } from './confirmation';
 import '../styles.css';
 import './styles.css';
 
-type PendingCreation = { operationId: string; size: number; message: string };
-const pendingPhases = new Set(['QUEUED', 'GENERATED', 'STORED', 'SENDING']);
+/**
+ * "Gift Card Management" (core/templates/gift_card/index.html). Access as legacy
+ * `advance_permisson("[1,2]")` + `user_type_exempt("[2]")` (core/views.py:2169-2170).
+ */
 export function GiftCardBatchesPage({ user }: { user: Principal }) {
   return <GiftCardBatchWorkspace key={user.id} user={user} />;
 }
 function GiftCardBatchWorkspace({ user }: { user: Principal }) {
-  const allowed = user.userType === 1 && [1, 2].includes(user.role),
+  const allowed = user.userType !== 2 && [1, 2].includes(user.role),
     online = useOnline(),
     client = useQueryClient(),
-    lifetime = useRef(new AbortController());
-  const [size, setSize] = useState(''),
+    lifetime = useRef(new AbortController()),
+    pending = useRef<{ operationId: string; size: number; message: string } | null>(null);
+  const [size, setSize] = useState('10'),
     [message, setMessage] = useState(''),
-    [creation, setCreation] = useState<PendingCreation | null>(null),
-    [selected, setSelected] = useState<string | null>(null),
     [confirmation, setConfirmation] = useState<BatchConfirmation | null>(null),
-    [resend, setResend] = useState(false),
-    [password, setPassword] = useState<string | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<unknown>(),
-    [notice, setNotice] = useState('');
+    [notice, setNotice] = useState<{ text: string; tone: 'success' | 'warning' } | null>(null);
   const meta = useQuery({
     queryKey: [user.id, 'gift-card-batches', 'capabilities'],
     enabled: allowed && online,
@@ -53,73 +41,27 @@ function GiftCardBatchWorkspace({ user }: { user: Principal }) {
         batchCapabilities,
       ),
   });
-  const jobs = useQuery({
-    queryKey: [user.id, 'gift-card-batches', 'current-jobs'],
-    enabled: allowed && online,
-    gcTime: 0,
-    retry: false,
-    refetchInterval: 10000,
-    queryFn: ({ signal }) =>
-      request(
-        batchBase + '/current-jobs',
-        { operatorId: user.id, signal, cache: 'no-store' },
-        z.object({ data: z.array(batchDetails).max(25) }),
-      ),
-  });
-  const detail = useQuery<BatchDetails>({
-    queryKey: [user.id, 'gift-card-batches', 'detail', selected],
-    enabled: allowed && online && selected !== null,
-    gcTime: 0,
-    retry: false,
-    refetchInterval: (query) =>
-      query.state.data?.job && pendingPhases.has(query.state.data.job.phase) ? 5000 : false,
-    queryFn: ({ signal }) =>
-      request(
-        batchBase + '/' + selected,
-        { operatorId: user.id, signal, cache: 'no-store' },
-        batchDetails,
-      ),
-  });
-  const batch = detail.data;
   useEffect(() => {
     if (lifetime.current.signal.aborted) lifetime.current = new AbortController();
     const scope = lifetime.current;
     return () => scope.abort();
   }, []);
-  useEffect(() => {
-    setPassword(null);
-    setConfirmation(null);
-  }, [selected]);
-  function selectBatch(id: string | null) {
-    setPassword(null);
-    setConfirmation(null);
-    setSelected(id);
-  }
-  function signal() {
-    return AbortSignal.any([lifetime.current.signal, captureOperatorScope(user.id)]);
-  }
-  async function refresh() {
-    await client.invalidateQueries({ queryKey: [user.id, 'gift-card-batches'] });
-  }
+  const signal = () => AbortSignal.any([lifetime.current.signal, captureOperatorScope(user.id)]);
+  const refresh = () => client.invalidateQueries({ queryKey: [user.id, 'gift-card-batches'] });
   async function generate() {
-    if (busy || !online || !meta.data?.generationAvailable) return;
-    const parsed = Number(size);
-    if (
-      !creation &&
-      (!Number.isInteger(parsed) || parsed < 1 || parsed > 10000 || !message.trim())
-    ) {
-      setError(new Error('Enter 1 to 10,000 cards and a batch message.'));
+    if (busy || !online) return;
+    const warning = validateBatchRequest(size, message);
+    if (warning) {
+      setNotice({ text: warning, tone: 'warning' });
       return;
     }
-    const command = creation || {
-      operationId: crypto.randomUUID(),
-      size: parsed,
-      message: message.trim(),
-    };
-    setCreation(command);
+    const parsed = Number.parseFloat(size);
+    // Reuse the operation id while the same request is retried after a lost response.
+    if (!pending.current || pending.current.size !== parsed || pending.current.message !== message)
+      pending.current = { operationId: crypto.randomUUID(), size: parsed, message };
     setBusy(true);
     setError(undefined);
-    setNotice('');
+    setNotice(null);
     try {
       const scope = signal(),
         result = await request(
@@ -129,73 +71,43 @@ function GiftCardBatchWorkspace({ user }: { user: Principal }) {
             operatorId: user.id,
             signal: scope,
             cache: 'no-store',
-            body: JSON.stringify(command),
+            body: JSON.stringify(pending.current),
           },
-          batchReceipt,
+          batchResult,
         );
       scope.throwIfAborted();
-      selectBatch(result.batchId);
-      setCreation(null);
-      setSize('');
-      setMessage('');
-      setNotice(result.message);
+      pending.current = null;
+      setNotice({ text: result.message, tone: 'success' });
       await refresh();
     } catch (failure) {
       if (!lifetime.current.signal.aborted) {
-        if (failure instanceof ApiError && [400, 401, 403, 422, 503].includes(failure.status))
-          setCreation(null);
         setError(failure);
+        await refresh();
       }
     } finally {
       if (!lifetime.current.signal.aborted) setBusy(false);
     }
   }
-  function confirm(action: BatchConfirmation['action'], batch: BatchDetails) {
-    setPassword(null);
-    setError(undefined);
-    setResend(false);
-    setConfirmation({
-      operationId: crypto.randomUUID(),
-      batchId: batch.id,
-      expectedVersion: action === 'retry' ? batch.job!.version : batch.version,
-      action,
-      requiresResend: action === 'retry' && ['UNCERTAIN', 'DELIVERED'].includes(batch.job!.phase),
-    });
-  }
   async function commit() {
-    if (!confirmation || busy || !online || (confirmation.requiresResend && !resend)) return;
+    if (!confirmation || busy || !online) return;
     setBusy(true);
     setError(undefined);
-    const command = confirmation;
     try {
       const scope = signal(),
-        base = batchBase + '/' + command.batchId,
-        payload = { operationId: command.operationId, expectedVersion: command.expectedVersion };
+        base = batchBase + '/' + confirmation.batchId;
       const result = await request(
-        base +
-          (command.action === 'print'
-            ? '/print-status'
-            : command.action === 'retry'
-              ? '/retries'
-              : '/block-status'),
+        base + (confirmation.action === 'print' ? '/print-status' : '/block-status'),
         {
-          method: command.action === 'retry' ? 'POST' : 'PUT',
+          method: 'PUT',
           operatorId: user.id,
           signal: scope,
           cache: 'no-store',
-          body: JSON.stringify({
-            ...payload,
-            ...(command.action === 'print'
-              ? { printed: true }
-              : command.action === 'retry'
-                ? { confirmResend: resend }
-                : { blocked: command.action === 'block' }),
-          }),
+          body: JSON.stringify(confirmation.action === 'print' ? {} : { opr: confirmation.action }),
         },
-        batchReceipt,
+        batchResult,
       );
       scope.throwIfAborted();
-      setNotice(result.message);
+      setNotice({ text: result.message, tone: 'success' });
       setConfirmation(null);
       await refresh();
     } catch (failure) {
@@ -204,259 +116,92 @@ function GiftCardBatchWorkspace({ user }: { user: Principal }) {
       if (!lifetime.current.signal.aborted) setBusy(false);
     }
   }
-  async function reveal() {
-    if (!selected || busy || !online) return;
-    setBusy(true);
-    setError(undefined);
-    try {
-      const scope = signal(),
-        value = await request(
-          batchBase + '/' + selected + '/artifact-access',
-          { method: 'POST', operatorId: user.id, signal: scope, cache: 'no-store', body: '{}' },
-          batchSecret,
-        );
-      scope.throwIfAborted();
-      setPassword(value.password);
-    } catch (failure) {
-      if (!lifetime.current.signal.aborted) setError(failure);
-    } finally {
-      if (!lifetime.current.signal.aborted) setBusy(false);
-    }
-  }
-  async function download() {
-    if (!selected || busy || !online) return;
-    setBusy(true);
-    setError(undefined);
-    try {
-      const scope = signal(),
-        blob = await downloadBatchArchive(user.id, selected, scope);
-      scope.throwIfAborted();
-      saveBatchArchive(blob, selected);
-    } catch (failure) {
-      if (!lifetime.current.signal.aborted) setError(failure);
-    } finally {
-      if (!lifetime.current.signal.aborted) setBusy(false);
-    }
-  }
-  if (!allowed) return <Empty title="Internal gift card administration access is required" />;
+  if (!allowed) return <Empty title="Permission denied" />;
   return (
     <>
-      <PageTitle eyebrow="ADMINISTRATION" title="Gift card batches" />
-      {!online && (
-        <p role="status">Reconnect to generate cards, view private files, or change a batch.</p>
+      <PageTitle eyebrow="ADMINISTRATION" title="Gift Card Management" />
+      {!online && <p role="status">Reconnect to generate or change gift card collections.</p>}
+      {error !== undefined && !confirmation && <ErrorState error={error} />}
+      {notice && (
+        <p role="status" className={notice.tone === 'warning' ? 'warning' : undefined}>
+          {notice.text}
+        </p>
       )}
-      {error !== undefined && <ErrorState error={error} />}
-      {notice && <p role="status">{notice}</p>}
       {meta.isError && <ErrorState error={meta.error} retry={() => void meta.refetch()} />}
-      <div className="gift-card-batch-grid">
-        <section className="surface gift-card-batch-panel">
-          <h2>Generate cards</h2>
-          <p>
-            Create an encrypted CSV archive. Generating a batch does not load money onto the cards.
-          </p>
-          {!meta.data?.generationAvailable && (
-            <p>
-              Batch generation is unavailable until private storage, delivery, and your email are
-              configured.
-            </p>
-          )}
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              void generate();
-            }}
-          >
-            <label>
-              Number of cards
-              <input
-                aria-label="Number of gift cards"
-                type="number"
-                min="1"
-                max="10000"
-                step="1"
-                required
-                value={size}
-                disabled={busy || creation !== null}
-                onChange={(event) => setSize(event.target.value)}
-              />
-            </label>
-            <label>
-              Batch message
-              <input
-                aria-label="Gift card batch message"
-                maxLength={255}
-                required
-                value={message}
-                disabled={busy || creation !== null}
-                onChange={(event) => setMessage(event.target.value)}
-              />
-            </label>
-            {meta.data?.recipient && <p>Email: {meta.data.recipient}</p>}
-            {creation && (
-              <p role="status">
-                Keep this page open. Retry the same request if its result was lost; cards will not
-                be generated twice.
-              </p>
-            )}
-            <button
-              className="button primary"
-              disabled={!online || busy || !meta.data?.generationAvailable}
-            >
-              {busy ? 'Working…' : creation ? 'Retry generation request' : 'Generate gift cards'}
-            </button>
-          </form>
-        </section>
-        <section className="surface gift-card-batch-panel">
-          <h2>Your current batches</h2>
-          <p>Recover a queued request or review a recent archive here.</p>
-          {jobs.isError && <ErrorState error={jobs.error} retry={() => void jobs.refetch()} />}
-          {jobs.isPending && online && <Loading />}
-          {jobs.data?.data.length === 0 && <p>No current batches.</p>}
-          <ul className="gift-card-batch-jobs">
-            {jobs.data?.data.map((batch) => (
-              <li key={batch.id}>
-                <button
-                  className="button secondary"
-                  disabled={!online || busy}
-                  onClick={() => selectBatch(batch.id)}
-                >
-                  Batch {batch.id}
-                </button>
-                <span>
-                  {batch.size.toLocaleString()} cards ·{' '}
-                  {batch.job ? batchPhaseLabels[batch.job.phase] : 'Legacy batch'}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
-      {selected && (
-        <section className="surface gift-card-batch-panel" aria-label="Selected gift card batch">
-          <div className="gift-card-batch-heading">
-            <h2>Batch {selected}</h2>
-            <button
-              className="button secondary"
-              disabled={!online || busy}
-              onClick={() => {
-                setPassword(null);
-                setConfirmation(null);
-                void detail.refetch();
-              }}
-            >
-              Reload batch
-            </button>
-            <button
-              className="button secondary"
+      <section className="surface gift-card-batch-panel">
+        <form
+          className="gift-card-batch-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void generate();
+          }}
+        >
+          <label>
+            Collection Size: <small>(Maximum 10,000)</small>
+            <input
+              aria-label="Collection size"
+              type="number"
+              min="0"
+              max="10000"
+              placeholder="Collection size"
+              value={size}
               disabled={busy}
-              onClick={() => {
-                setSelected(null);
-                setPassword(null);
-              }}
-            >
-              Close batch
-            </button>
-          </div>
-          {detail.isPending && <Loading />}
-          {detail.isError && (
-            <ErrorState error={detail.error} retry={() => void detail.refetch()} />
-          )}
-          {batch && (
-            <>
-              <p>
-                {batch.message || 'No batch message'} · {batch.size.toLocaleString()} cards
-              </p>
-              <p role="status">
-                {batch.job
-                  ? batchPhaseLabels[batch.job.phase]
-                  : batch.completed
-                    ? 'Archive generated'
-                    : 'Generation incomplete'}{' '}
-                · {batch.blocked ? 'Blocked' : 'Active'} ·{' '}
-                {batch.printed ? 'Printed' : 'Not marked printed'}
-              </p>
-              {batch.job?.phase === 'UNCERTAIN' && (
-                <p>
-                  We could not confirm whether the email was accepted. Check the inbox before
-                  choosing to send the same file again.
-                </p>
-              )}
-              {batch.job?.phase === 'DELIVERED' && (
-                <p>The email provider accepted this file. Inbox delivery has not been verified.</p>
-              )}
-              <div className="administration-actions">
-                {batch.completed && !batch.printed && (
-                  <button
-                    className="button secondary"
-                    disabled={!online || busy}
-                    onClick={() => confirm('print', batch)}
-                  >
-                    Mark as printed
-                  </button>
-                )}
-                <button
-                  className="button secondary"
-                  disabled={!online || busy}
-                  onClick={() => confirm(batch.blocked ? 'unblock' : 'block', batch)}
-                >
-                  {batch.blocked ? 'Unblock batch' : 'Block batch'}
-                </button>
-                {batch.job?.canRetry && (
-                  <button
-                    className="button secondary"
-                    disabled={!online || busy}
-                    onClick={() => confirm('retry', batch)}
-                  >
-                    Retry batch delivery
-                  </button>
-                )}
-                {batch.artifactAvailable && (
-                  <>
-                    <button
-                      className="button secondary"
-                      disabled={!online || busy}
-                      onClick={() => void download()}
-                    >
-                      Download encrypted CSV
-                    </button>
-                    <button
-                      className="button secondary"
-                      disabled={!online || busy}
-                      onClick={() => (password ? setPassword(null) : void reveal())}
-                    >
-                      {password ? 'Hide archive password' : 'Show archive password'}
-                    </button>
-                  </>
-                )}
-              </div>
-              {password && (
-                <div className="gift-card-batch-secret">
-                  <p>
-                    Open the ZIP with an AES256 compatible archive application. Keep this password
-                    private.
-                  </p>
-                  <output aria-label="Gift card archive password">{password}</output>
-                </div>
-              )}
-            </>
-          )}
-        </section>
-      )}
+              onChange={(event) => setSize(event.target.value)}
+            />
+          </label>
+          <label>
+            Message:
+            <input
+              aria-label="Message"
+              placeholder="Enter message..."
+              maxLength={255}
+              value={message}
+              disabled={busy}
+              onChange={(event) => setMessage(event.target.value)}
+            />
+          </label>
+          <button
+            className="button primary"
+            disabled={!online || busy || meta.data?.generationAvailable === false}
+          >
+            {busy ? 'Working…' : 'Generate Gift Cards'}
+          </button>
+        </form>
+        {meta.data?.generationAvailable === false && (
+          <p>Gift card generation is not configured on this server.</p>
+        )}
+        <h3>File Access Instructions:</h3>
+        <ul>
+          <li>
+            You will receive the file via email at your ID:{' '}
+            <strong>({meta.data?.email ?? ''})</strong>.
+          </li>
+          <li>
+            The password required to access the file will be a combination of the last 6 digits of
+            the phone number of the user who generated the file, along with the collection number.
+          </li>
+          <li>
+            For example, if the user&apos;s phone number is <strong>0123456789</strong> and the
+            collection number is <strong>10</strong>, the password to access the file would be{' '}
+            <strong>45678910</strong>.
+          </li>
+        </ul>
+      </section>
       <GiftCardBatchHistory
         user={user}
         online={online}
-        today={meta.data?.today}
         busy={busy}
-        onSelect={selectBatch}
+        onAction={(batch, action) => {
+          setError(undefined);
+          setConfirmation({ batchId: batch.id, action });
+        }}
       />
       {confirmation && (
         <BatchConfirmationDialog
           command={confirmation}
           busy={busy}
           online={online}
-          resend={resend}
           error={error}
-          onResend={setResend}
           onClose={() => {
             setConfirmation(null);
             setError(undefined);
