@@ -5,6 +5,11 @@ import { AppError } from '../../../domain/errors.js';
 import { boundedJson } from '../../../domain/http-json.js';
 import { currentRequestTrace, tracedFetch } from '../../../observability/context.js';
 import { stringifyNumericJson } from '../../upstream.js';
+import {
+  outboundAllowlistEnabled,
+  outboundPermitted,
+  type OutboundTarget,
+} from '../../../outbound/allowlist.js';
 import { wireId } from '../payloads.js';
 import { CheckoutGatewayError } from '../gateway.js';
 import type { InboundReturn, LineEligibility, ReturnGateway } from './contracts.js';
@@ -229,8 +234,26 @@ export function returnGateway(
     return result.value;
   }
   /** Fire-and-log notification (legacy logs a non-200 and continues). */
-  async function notify(resource: string, url: URL, payload: unknown, timeoutMs: number) {
+  async function notify(
+    resource: string,
+    url: URL,
+    payload: unknown,
+    timeoutMs: number,
+    target: OutboundTarget,
+  ) {
     const trace = currentRequestTrace();
+    // Allowlist guard (w25): mailr mails the order's customer; Slack posts to the webhook.
+    // Suppressed is silent, like an accepted notification.
+    if (
+      outboundAllowlistEnabled() &&
+      !(await outboundPermitted({
+        channel: target.kind === 'slack-webhook' ? 'slack' : 'api-v2',
+        module: 'checkout',
+        flow: resource,
+        targets: [target],
+      }))
+    )
+      return;
     try {
       const response = await fetcher(url, {
         method: 'POST',
@@ -428,6 +451,7 @@ export function returnGateway(
             has_product_ids: [wireId(value.lineId)],
           },
           10000,
+          { kind: 'order', id: value.orderId },
         );
     },
     async exchangeMail(value) {
@@ -442,6 +466,7 @@ export function returnGateway(
             has_product_id: value.lineId === null ? null : wireId(value.lineId),
           },
           10000,
+          { kind: 'order', id: value.orderId },
         );
     },
     async slack(value) {
@@ -462,7 +487,10 @@ export function returnGateway(
         } catch {
           continue;
         }
-        await notify('exchange-alert', url, { text: message }, 5000);
+        await notify('exchange-alert', url, { text: message }, 5000, {
+          kind: 'slack-webhook',
+          value: raw,
+        });
       }
     },
   };

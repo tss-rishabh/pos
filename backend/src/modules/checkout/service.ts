@@ -27,6 +27,7 @@ import {
 } from './contracts.js';
 import { CheckoutGatewayError, type CheckoutEnvironment, type CheckoutGateway } from './gateway.js';
 import { issueCustomerToken, newTabId, operationHash } from './crypto.js';
+import { outboundAllowlistEnabled, outboundPermitted } from '../../outbound/allowlist.js';
 import { sameCustomerContact, type CustomerContactBinding } from './customer-contact-authority.js';
 import {
   checkoutCustomerOtpScope,
@@ -1652,10 +1653,26 @@ export function checkoutService(
             result: { queued: true, deliveryStatus: value.status, expiresAt: value.expiresAt },
           };
         }
+        // Allowlist guard (w25): API-v2 sends to the customer's phone and email; a suppressed
+        // send answers like an accepted one.
+        let suppressed = false;
+        if (outboundAllowlistEnabled()) {
+          gateway.assertApiReady?.();
+          suppressed = !(await outboundPermitted({
+            channel: 'api-v2',
+            module: 'checkout',
+            flow: 'customer-otp',
+            targets: [{ kind: 'customer', id: state.customerId }],
+          }));
+        }
         const result = z
           .object({ mobile: z.boolean().optional(), email: z.boolean().optional() })
           .passthrough()
-          .parse(await gateway.api('omnichannel-sendotp', { user_id: wireId(state.customerId) }));
+          .parse(
+            suppressed
+              ? { mobile: true, email: true }
+              : await gateway.api('omnichannel-sendotp', { user_id: wireId(state.customerId) }),
+          );
         if (!result.mobile && !result.email)
           throw new AppError(
             422,

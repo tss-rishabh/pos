@@ -1,3 +1,5 @@
+import { outboundAllowlistEnabled, outboundPermitted } from '../../outbound/allowlist.js';
+
 /**
  * Synchronous Slack incoming-webhook post, as legacy `Helpers.slack_text_notification`
  * (helpers/helpers.py:1093-1131): one POST with a 5 s timeout; a failure is reported to the
@@ -25,6 +27,17 @@ export function slackWebhookAllowed(value: string | undefined): value is string 
 }
 export const postSlackText: SlackPoster = async (url, text) => {
   if (!slackWebhookAllowed(url)) return false;
+  // Allowlist guard (w25): a suppressed post reports success, as an accepted one does.
+  if (
+    outboundAllowlistEnabled() &&
+    !(await outboundPermitted({
+      channel: 'slack',
+      module: 'operational-reports',
+      flow: 'report-slack-post',
+      targets: [{ kind: 'slack-webhook', value: url }],
+    }))
+  )
+    return true;
   try {
     const response = await fetch(url, {
       method: 'POST',

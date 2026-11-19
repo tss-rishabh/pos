@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { AppError } from '../../../domain/errors.js';
 import { boundedJson } from '../../../domain/http-json.js';
+import { outboundAllowlistEnabled, outboundPermitted } from '../../../outbound/allowlist.js';
 
 /**
  * PG-discount emails, sent synchronously as legacy does:
@@ -83,6 +84,17 @@ export function netcoreDiscountMailer(
     async send(mail) {
       try {
         assertDiscountDeliveryReady(environment, false);
+        // Allowlist guard (w25): a suppressed mail reports acceptance, as a delivered one does.
+        if (
+          outboundAllowlistEnabled() &&
+          !(await outboundPermitted({
+            channel: 'email',
+            module: 'checkout',
+            flow: 'pg-discount-mail',
+            targets: [{ kind: 'email', value: mail.to }],
+          }))
+        )
+          return true;
         const response = await fetcher(environment.url!, {
           method: 'POST',
           headers: { api_key: environment.apiKey!, 'Content-Type': 'application/json' },

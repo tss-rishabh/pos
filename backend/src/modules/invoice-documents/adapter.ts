@@ -3,6 +3,7 @@ import { AppError } from '../../domain/errors.js';
 import { boundedText } from '../../domain/http-json.js';
 import { rendererUrl, type InvoiceDocumentOptions } from './options.js';
 import { tracedFetch } from '../../observability/context.js';
+import { outboundAllowlistEnabled, outboundPermitted } from '../../outbound/allowlist.js';
 
 export type WhatsappInvoiceOutcome = 'sent' | 'skipped-unconfigured' | 'failed';
 /** Sandboxable outbound calls of the legacy invoice views. Tests replace `fetcher`. */
@@ -79,6 +80,17 @@ export function invoiceAdapter(
     async sendWhatsappInvoice(orderId) {
       const url = rendererUrl(config, options.whatsappInvoiceUrl);
       if (!url) return 'skipped-unconfigured';
+      // Allowlist guard (w25): mailr WhatsApps the invoice to the order's customer.
+      if (
+        outboundAllowlistEnabled() &&
+        !(await outboundPermitted({
+          channel: 'api-v2',
+          module: 'invoice-documents',
+          flow: 'whatsapp-invoice',
+          targets: [{ kind: 'order', id: orderId }],
+        }))
+      )
+        return 'sent';
       try {
         const response = await fetcher(url, {
           method: 'POST',

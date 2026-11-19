@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { JobHandler, JobHandlerRegistry, JobName, JobProducer } from '../../jobs/contract.js';
 import { tracedFetch } from '../../observability/context.js';
+import { outboundAllowlistEnabled, outboundPermitted } from '../../outbound/allowlist.js';
 
 /**
  * Order SMS, legacy Celery task `core.tasks.send_sms` (`core/tasks.py:70-81`), queued with `.delay`
@@ -47,6 +48,17 @@ export function orderSmsHandler(
     // Legacy: `url = (MAIN_API_V2_URL or API_V2_URL) + "omnichannel-sms"`, header Content-Type only,
     // body {"order_id": order_id}, no timeout. A non-200 is only logged; there is no retry.
     const url = new URL('omnichannel-sms', base.endsWith('/') ? base : base + '/');
+    // Allowlist guard (w25): API-v2 texts the order's contacts; suppressed = completed job.
+    if (
+      outboundAllowlistEnabled() &&
+      !(await outboundPermitted({
+        channel: 'api-v2',
+        module: 'checkout',
+        flow: 'order-sms',
+        targets: [{ kind: 'order', id: orderId }],
+      }))
+    )
+      return;
     let response: Response;
     try {
       response = await fetcher(url, {

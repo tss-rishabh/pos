@@ -4,6 +4,11 @@ import { issueCustomerToken } from '../checkout/crypto.js';
 import type { LegacyFulfillmentEnvironment } from './options.js';
 import { pythonJsonDumps } from './python-text.js';
 import { tracedFetch } from '../../observability/context.js';
+import {
+  outboundAllowlistEnabled,
+  outboundPermitted,
+  type OutboundAttempt,
+} from '../../outbound/allowlist.js';
 
 /** Outcome of one legacy `requests.post`. `status` 0 = no response (network error/timeout). */
 export interface GatewayResponse {
@@ -141,6 +146,18 @@ export function hyperlocalGateway(
     }
   }
   const api = (path: string) => endpoint(options.MAIN_API_V2_URL, path, config);
+  /**
+   * Allowlist guard (w25). A suppressed message is not posted and answers HTTP 200, as an
+   * accepted one does, so the hyperlocal flow carries on.
+   */
+  async function suppressed(url: URL | null, attempt: Omit<OutboundAttempt, 'module'>) {
+    return (
+      url !== null &&
+      outboundAllowlistEnabled() &&
+      !(await outboundPermitted({ ...attempt, module: 'legacy-fulfillment' }))
+    );
+  }
+  const accepted: GatewayResponse = { status: 200, body: null, text: '' };
   return {
     commonSlackUrl: options.SLACK_URL,
     commonAlertOn: options.COMMON_GROUP_ALERT_ON,
@@ -186,9 +203,19 @@ export function hyperlocalGateway(
     refundHlChargesSplit(orderId) {
       return post(api('refund-hl-charges'), pythonJsonDumps({ order_id: orderId }));
     },
-    createOdTicket({ orderId, name, subject, description }) {
+    async createOdTicket({ orderId, name, subject, description }) {
+      const url = api('create-od-ticket');
+      // API-v2 opens a OneDirect ticket that writes to the customer.
+      if (
+        await suppressed(url, {
+          channel: 'onedirect',
+          flow: 'onedirect-ticket',
+          targets: [{ kind: 'order', id: orderId }],
+        })
+      )
+        return { ...accepted };
       return post(
-        api('create-od-ticket'),
+        url,
         pythonJsonDumps({
           order_id: orderId,
           platform: 'CONVERTED_ONLINE',
@@ -210,18 +237,31 @@ export function hyperlocalGateway(
         },
       );
     },
-    slack(destination, message) {
+    async slack(destination, message) {
+      const url = slackEndpoint(destination.url, config);
+      if (
+        await suppressed(url, {
+          channel: 'slack',
+          flow: 'hyperlocal-slack-alert',
+          targets: [{ kind: 'slack-webhook', value: destination.url }],
+        })
+      )
+        return { ...accepted };
       // Legacy posts Slack with timeout=5 (helpers.py:1117).
-      return post(
-        slackEndpoint(destination.url, config),
-        pythonJsonDumps({ text: message }),
-        {},
-        5000,
-      );
+      return post(url, pythonJsonDumps({ text: message }), {}, 5000);
     },
-    newOrderCommunication(orderId) {
+    async newOrderCommunication(orderId) {
+      const url = endpoint(options.MJML_HOST, 'api/v2/mailr/hyper_local/order_new/', config);
+      if (
+        await suppressed(url, {
+          channel: 'api-v2',
+          flow: 'hyperlocal-new-order-mail',
+          targets: [{ kind: 'order', id: orderId }],
+        })
+      )
+        return { ...accepted };
       return post(
-        endpoint(options.MJML_HOST, 'api/v2/mailr/hyper_local/order_new/', config),
+        url,
         // Celery carries the API-v2 integer order id, so the body holds a JSON number.
         /^\d{1,19}$/.test(orderId)
           ? `{"order_id": ${orderId}}`

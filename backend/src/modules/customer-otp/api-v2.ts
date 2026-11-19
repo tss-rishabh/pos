@@ -3,6 +3,7 @@ import { AppError } from '../../domain/errors.js';
 import { boundedJson } from '../../domain/http-json.js';
 import { currentRequestTrace, tracedFetch } from '../../observability/context.js';
 import { stringifyNumericJson } from '../upstream.js';
+import { outboundAllowlistEnabled, outboundPermitted } from '../../outbound/allowlist.js';
 import type { CustomerOtpApi, CustomerOtpApiReply } from './contracts.js';
 
 const unavailable = () =>
@@ -60,7 +61,24 @@ export function customerOtpApiV2(
   }
   return {
     assertReady: () => void base(),
-    sendOtp: (userId) => post('omnichannel-sendotp', { user_id: userId }),
+    async sendOtp(userId) {
+      // Allowlist guard (w25): API-v2 sends the code to the customer's phone and email. A
+      // suppressed send answers like an accepted one; the code never arrives, so verification
+      // succeeds only for allowlisted customers.
+      if (outboundAllowlistEnabled()) {
+        base();
+        if (
+          !(await outboundPermitted({
+            channel: 'api-v2',
+            module: 'customer-otp',
+            flow: 'customer-otp',
+            targets: [{ kind: 'customer', id: userId }],
+          }))
+        )
+          return { status: 200, body: { mobile: true, email: true } };
+      }
+      return post('omnichannel-sendotp', { user_id: userId });
+    },
     verifyOtp: (userId, otp) => post('omnichannel-verifyotp', { user_id: userId, otp }),
   };
 }

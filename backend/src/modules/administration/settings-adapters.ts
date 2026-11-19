@@ -3,6 +3,7 @@ import { createClient } from 'redis';
 import { eq } from 'drizzle-orm';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
+import { outboundAllowlistEnabled, outboundPermitted } from '../../outbound/allowlist.js';
 import { PosUser, Store } from '../../db/legacy-schema.js';
 import { AppError } from '../../domain/errors.js';
 import type { SettingsEffect, SettingsEffectDelivery } from './settings-domain.js';
@@ -186,6 +187,17 @@ export function createSettingsDelivery(
       );
       if (!text)
         throw new AppError(503, 'SETTINGS_EFFECT_INVALID', 'Settings effects require review.');
+      // Allowlist guard (w25): a suppressed notice completes like a posted one.
+      if (
+        outboundAllowlistEnabled() &&
+        !(await outboundPermitted({
+          channel: 'slack',
+          module: 'administration',
+          flow: 'settings-slack-notice',
+          targets: [{ kind: 'slack-webhook', value: webhook }],
+        }))
+      )
+        return;
       try {
         const response = await fetcher(webhook, {
           method: 'POST',
