@@ -77,7 +77,7 @@ The earlier matrix (W18, `a2382b4e`) is in `w18-verification.md`.
 | Electron offline billing, 12 scenarios, **2 runs** | **12/12 both times**, with no lost window and no SIGTERM fallback |
 | Builds | Backend `tsc` build, frontend web and Electron bundles, unsigned macOS arm64 package: all pass |
 | Container images and smoke | Both images build; smoke **10/10** (`backend/evidence/container-smoke-b481fa91-w22.json`) |
-| `tools/verify-project.ts --mysql --browser --release` | Exit 1. 85 of 86 checks ran and **84 passed**, including the three W19 real-stack harnesses. **Failed:** `order-payments-browser-fixture-typecheck`, a test-tooling typing regression from `6e2dcdfe` (see Known gaps). `browser-tests` is therefore not run, and the release gate fails. Evidence: `backend/evidence/verification-b481fa91-w22.json` |
+| `tools/verify-project.ts --mysql --browser --release` | W23 re-run on `88833fad`: exit 1 only because of the release gate. **87 of 87 checks ran and all passed**, including `order-payments-browser-fixture-typecheck`, the new `e2e-tooling-typecheck`, the three W19 real-stack harnesses and `browser-tests` (41/41). The release gate fails, as required. Evidence: `backend/evidence/verification-88833fad-w23.json` (W22's run on `b481fa91`: `verification-b481fa91-w22.json`) |
 | Integrity greps | No `.py/.go/.php`; no DDL outside the allowed places; `pos_rewrite_` in `backend/src` only in comments; no `DEMO_MODE` in code; no `any`; no credentials (the PEM marker appears only in the public RDS CA bundle and in report prose) |
 | Release gate (`tools/parity-gate.ts`) | **Fails, as required**: 396 surfaces and 12 requirements pending |
 
@@ -128,11 +128,6 @@ The approved business divergences are recorded in `AGENTS.md`:
   stock procedures `pos_stock_syncer*` and `worker:jobs` have never run against real services.
 - **Legacy evidence.** The administration forms workflow (24 cases) and the browser halves of the native workflows
   have no legacy golden (`w15-report.md`).
-- **Verifier fixture typecheck.** `order-payments-browser-fixture-typecheck` fails with six TS2769 errors.
-  - **Cause.** Since `6e2dcdfe`, `e2e/checkout/order-payments.spec.ts` imports `backend/tools/e2e/fixture-orders.ts`
-    and `seed.ts`. Their inserts omit NOT NULL columns, which MySQL defaults under `sql_mode=''`.
-  - **Effect.** `verify-project` stops before its Playwright stage. The suite itself passes 41/41 twice on one stack.
-  - **Fix.** It needs type-complete e2e inserts, not an exclusion (`w22-verification.md` §2).
 - **Desktop disconnect cause.** One W18 desktop run lost its DevTools connection, and the cause is unconfirmed. W21
   bounded the teardown, and it has not recurred in 12 later complete runs.
 - **Stale families.** Several remaining-code families in `tools/parity/source-surface-families.json` describe work

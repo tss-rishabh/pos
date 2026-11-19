@@ -44,6 +44,16 @@
 
 ## 2. Failure: `order-payments-browser-fixture-typecheck` (not fixed; regression from `6e2dcdfe`)
 
+> **Resolved by W23 (`88833fad`, option 1).** The e2e/harness inserts into `orders`, `has_products`, `products` and
+> `users` now spread `backend/tools/e2e/legacy-row-defaults.ts`, which writes each omitted NOT NULL column's stored
+> value (DDL `DEFAULT`, else the non-strict implicit default) from `production-schema.json`. No casts and no
+> exclusions. A loopback dump (empty `sql_mode`, fixed clock) of the seed, both harness sets and two fixture orders
+> is identical before and after, apart from the operator's per-run PBKDF2 salt. `tools/e2e/tsconfig.json` and the new
+> verifier check `e2e-tooling-typecheck` type-check all of `backend/tools/e2e`. Web Playwright passed 41/41 twice on
+> one stack with 0 undeclared failures; desktop offline billing passed 12/12. `verify-project --mysql --browser
+> --release` ran 87/87 checks, all passing including `browser-tests` (41/41); only `release-gate` fails, by design.
+> Evidence: `backend/evidence/verification-88833fad-w23.json`.
+
 **Symptom.** `tsc --noEmit -p frontend/tests/order-payments/tsconfig.json` exits 2 with six `TS2769 No overload
 matches this call` errors, all of them in backend e2e tooling:
 - `backend/tools/e2e/fixture-orders.ts:47` (`insert(Order)`): 26 NOT NULL columns are missing, such as `cod_charges`,
