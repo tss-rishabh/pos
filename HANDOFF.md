@@ -1,6 +1,7 @@
 # POS rewrite handoff — 19 November 2026 (W22, final combined verification)
 
-The single-stack, schema-frozen rewrite is integrated and has passed local verification on loopback.
+The single-stack, schema-frozen rewrite is integrated, and every product-code check passes on loopback. One test-tooling
+typecheck in `verify-project` fails (open item 2).
 **It is not production-ready:** the release gate fails by design until every surface and requirement has
 evidence. This document replaces the 18 November handoff, which described the pre-freeze tree; that version
 is in git history at `e392040f`.
