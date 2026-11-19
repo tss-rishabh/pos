@@ -171,3 +171,14 @@ Every fix and every feature must land on, and be verified on, all three clients:
 - **Exceptions need an explicit user decision.** The only one so far is desktop offline billing (approved 19 November
   2026); web clients need internet to bill. Any new exception must be asked for and recorded here.
 - This rule applies to every agent and every continuation.
+- **UI cleanup, 20 November 2026 (user):** these stay removed on all three clients:
+  - keyboard shortcuts: the F key, the shortcut help and the Shortcut reference page
+  - the Sound toggle (the legacy arrival chime stays)
+  - motivational quotes, eyebrows and taglines
+  - the online "Connected — bill from the counter" card
+  - the quote-breakdown placeholder
+  - the separate check-in page
+
+  Check-in now happens in a modal right after sign-in when needed, and check-in/check-out sit in the header store
+  selector. The notification bell appears only when there is data. Every view uses the shared `Modal`, `Loader`,
+  `Skeleton` and `MultiSelect`.
