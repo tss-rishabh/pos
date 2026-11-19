@@ -29,6 +29,8 @@ export function CustomerRegistration({
     [customerType, setCustomerType] = useState<'' | 'B2B' | 'B2C'>(''),
     [gstin, setGstin] = useState(''),
     [code, setCode] = useState(''),
+    // The mobile the OTP went to: legacy posts the dialog's mobile again with `self_verify=1`.
+    [sentTelephone, setSentTelephone] = useState(''),
     [clock, setClock] = useState(Date.now());
   useEffect(() => {
     setRegistration(checkout.registration ?? null);
@@ -53,13 +55,26 @@ export function CustomerRegistration({
     if (value.status === 'registered' && value.customerId)
       await mutate('customer', 'PUT', { customerId: value.customerId });
   };
-  const verifyAndRegister = async () => {
-    const verified = await apply('customer-registration-challenges/verifications', { code });
+  const registerVerified = async (verified: Registration) => {
     if (verified.status !== 'verified' && verified.status !== 'registered') return;
     const registered =
       verified.status === 'registered' ? verified : await apply('customer-registrations');
     await connect(registered);
   };
+  const verifyAndRegister = async () =>
+    registerVerified(await apply('customer-registration-challenges/verifications', { code }));
+  /**
+   * Legacy "Self Verify (Without OTP)" (`create_order.html:4856,4996`; `order/views.py:2448`):
+   * registers and connects without the code. The server accepts it only for the mobile this
+   * sale's OTP was sent to, within the OTP window, and never treats it as a verified customer.
+   */
+  const selfVerifyAndRegister = async () =>
+    registerVerified(
+      await apply('customer-registration-challenges/self-verifications', {
+        telephone: sentTelephone,
+      }),
+    );
+  const otpSent = registration?.deliveries.some((delivery) => delivery.status === 'sent') ?? false;
   if (checkout.customerId) return null;
   return (
     <details open={registration !== null}>
@@ -79,6 +94,7 @@ export function CustomerRegistration({
                   gstin: customerType === 'B2B' ? gstin : '',
                 },
               });
+              setSentTelephone(telephone);
               setName('');
               setTelephone('');
               setEmail('');
@@ -234,6 +250,37 @@ export function CustomerRegistration({
               >
                 Verify with OTP
               </button>
+              {registration.status === 'pending' && otpSent && (
+                <>
+                  {!sentTelephone && (
+                    <label>
+                      Customer mobile
+                      <input
+                        value={sentTelephone}
+                        onChange={(event) =>
+                          setSentTelephone(event.target.value.replace(/\D/g, '').slice(0, 10))
+                        }
+                        inputMode="tel"
+                        pattern="[6-9][0-9]{9}"
+                        maxLength={10}
+                        autoComplete="tel-national"
+                      />
+                    </label>
+                  )}
+                  <button
+                    type="button"
+                    className="button secondary"
+                    disabled={
+                      disabled ||
+                      clock >= registration.expiresAt ||
+                      !/^[6-9]\d{9}$/.test(sentTelephone)
+                    }
+                    onClick={() => void act(selfVerifyAndRegister)}
+                  >
+                    Self Verify (Without OTP)
+                  </button>
+                </>
+              )}
             </form>
           ) : null}
           {registration.status === 'verified' && (
@@ -308,6 +355,7 @@ export function CustomerRegistration({
                   await mutate('customer-registration-cancellations', 'POST');
                   setRegistration(null);
                   setCode('');
+                  setSentTelephone('');
                 })
               }
             >

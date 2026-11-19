@@ -11,7 +11,11 @@ import { configuredStockProjection } from './db/stock-projection/options.js';
 import { identityService } from './auth/identity.js';
 import { registerAuth, authenticated } from './auth/routes.js';
 import { AppError } from './domain/errors.js';
-import { catalogBarcode, readCatalogBarcode } from './modules/catalog-barcode.js';
+import {
+  catalogBarcode,
+  readCatalogBarcode,
+  registerCatalogStockLocations,
+} from './modules/catalog-barcode.js';
 import { activeAccountReader, redisSessions } from './auth/sessions.js';
 import { loginChallengeService } from './auth/mfa.js';
 import {
@@ -246,6 +250,7 @@ export async function buildApp(
         '/api/v1/stores/:storeId/counters',
         '/api/v1/stores/:storeId/catalog/products',
         '/api/v1/stores/:storeId/catalog/products/by-barcode/:barcode',
+        '/api/v1/stores/:storeId/catalog/stock-locations',
         '/api/v1/stores/:storeId/orders',
         '/api/v1/stores/:storeId/orders/:orderId',
         '/api/v1/stores/:storeId/orders/searches',
@@ -452,6 +457,7 @@ export async function buildApp(
   });
   await registerOperationalReports(app, config, db, { jobs: moduleRuntime.jobs });
   await registerCatalogDetails(app, config, db, { ephemeral: moduleRuntime.ephemeral });
+  registerCatalogStockLocations(app, config.DEMO_MODE ? null : db);
   registerSpecialPermissionHistory(app, config, db, readSpecialPermissionHistoryOptions());
   registerApplicationLinks(app, config, db, moduleRuntime);
   registerMotivationalQuotes(app);

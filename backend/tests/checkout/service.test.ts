@@ -19,6 +19,7 @@ beforeEach(() => {
   clock = Date.now();
   service = checkoutService(repository, gateway, signingEnvironment, {
     migrationV2: true,
+    startPayment: async (_user, _store, orderId) => ({ orderId, status: 'paid' }),
     now: () => clock,
     assertCheckIn: async (user, store, counter) => {
       if (user !== '44' || store !== '1' || (counter && counter !== '3'))
@@ -26,6 +27,16 @@ beforeEach(() => {
     },
     finalizeOrder: async () => ({ transactionId: 'TXN-5001', invoice: 'S012627INV00001' }),
   });
+});
+/** Legacy normal path: the payment form is confirmed before the order is created. */
+const cashOperation = crypto.randomUUID();
+const cash = () => ({
+  operationId: cashOperation,
+  channel: 'cash' as const,
+  cashAmount: '99.00',
+  onlineAmount: '0.00',
+  cashReceived: '99.00',
+  message: 'Cash',
 });
 const mutation = (version: number) => ({
   operationId: crypto.randomUUID(),
@@ -107,6 +118,28 @@ describe('checkout workflow authorization and external-effect safety', () => {
       service.salesperson(operator, '1', created.id, mutation(4), '5', '999'),
     ).rejects.toMatchObject({ code: 'SALESPERSON_PRODUCT_UNAVAILABLE' });
   });
+  it('requires verification for an employee coupon only for a company email, as legacy AjaxCouponView', async () => {
+    const walkIn = await service.create(operator, '1', '3');
+    expect((await service.coupon(operator, '1', walkIn.id, mutation(0), 'EMPLOYEE')).status).toBe(
+      'succeeded',
+    );
+    repository.customers.set('2002', {
+      ...repository.customers.get('1001')!,
+      id: '2002',
+      email: 'staff@thesouledstore.com',
+    });
+    const staff = await service.create(operator, '1', '3');
+    await service.attachCustomer(operator, '1', staff.id, mutation(0), '2002');
+    await expect(
+      service.coupon(operator, '1', staff.id, mutation(1), 'EMPLOYEE'),
+    ).rejects.toMatchObject({
+      code: 'CUSTOMER_VERIFICATION_REQUIRED',
+      message: 'Please verify the user to use Employee Coupon.',
+    });
+    expect((await service.coupon(operator, '1', staff.id, mutation(1), 'REGULAR')).status).toBe(
+      'succeeded',
+    );
+  });
   it('does not re-verify an applied employee coupon at order time, as legacy AjaxOrderView', async () => {
     const created = await service.create(operator, '1', '3');
     await service.attachCustomer(operator, '1', created.id, mutation(0), '1001');
@@ -125,7 +158,9 @@ describe('checkout workflow authorization and external-effect safety', () => {
         : undefined;
     repository.states.get(created.id)!.salespersonId = '5';
     await service.quote(operator, '1', created.id, mutation(1));
-    expect((await service.submit(operator, '1', created.id, mutation(2))).status).toBe('succeeded');
+    expect((await service.submit(operator, '1', created.id, mutation(2), cash())).status).toBe(
+      'succeeded',
+    );
     expect(gateway.calls.filter((call) => call.path === 'pos/order')).toHaveLength(1);
   });
   it('keeps a complementary-product salesperson override distinct from the sale default', async () => {
@@ -143,7 +178,9 @@ describe('checkout workflow authorization and external-effect safety', () => {
   it('blocks the order with the legacy salesperson and empty-cart messages before pos/order', async () => {
     const created = await service.create(operator, '1', '3');
     await service.quote(operator, '1', created.id, mutation(0));
-    await expect(service.submit(operator, '1', created.id, mutation(1))).rejects.toMatchObject({
+    await expect(
+      service.submit(operator, '1', created.id, mutation(1), cash()),
+    ).rejects.toMatchObject({
       code: 'CART_EMPTY',
       message: 'Please add some product into the cart.',
     });
@@ -151,7 +188,9 @@ describe('checkout workflow authorization and external-effect safety', () => {
     readyToOrder(other.id);
     repository.states.get(other.id)!.salespersonId = null;
     await service.quote(operator, '1', other.id, mutation(0));
-    await expect(service.submit(operator, '1', other.id, mutation(1))).rejects.toMatchObject({
+    await expect(
+      service.submit(operator, '1', other.id, mutation(1), cash()),
+    ).rejects.toMatchObject({
       code: 'SALESPERSON_REQUIRED',
       message: 'Please Select The Salesperson.',
     });
@@ -170,12 +209,16 @@ describe('checkout workflow authorization and external-effect safety', () => {
         );
       return undefined;
     };
-    await expect(service.submit(operator, '1', state.id, mutation(1))).rejects.toMatchObject({
+    await expect(
+      service.submit(operator, '1', state.id, mutation(1), cash()),
+    ).rejects.toMatchObject({
       code: 'ORDER_CREATE_FAILED',
     });
     expect(repository.states.get(state.id)).toMatchObject({ phase: 'quoted', orderId: null });
     gateway.intercept = undefined;
-    expect((await service.submit(operator, '1', state.id, mutation(1))).status).toBe('succeeded');
+    expect((await service.submit(operator, '1', state.id, mutation(1), cash())).status).toBe(
+      'succeeded',
+    );
     expect(gateway.calls.filter((call) => call.path === 'pos/order')).toHaveLength(2);
   });
   it.each(['clear', 'detachCustomer'] as const)(
@@ -260,7 +303,7 @@ describe('checkout workflow authorization and external-effect safety', () => {
     });
     expect(changed.state.orderNotifications?.npsFeedback).toBe(true);
     await service.quote(operator, '1', created.id, mutation(1));
-    await service.submit(operator, '1', created.id, mutation(2));
+    await service.submit(operator, '1', created.id, mutation(2), cash());
     await expect(
       service.orderNotifications(operator, '1', created.id, mutation(3), {
         sendSms: false,
@@ -294,7 +337,9 @@ describe('checkout workflow authorization and external-effect safety', () => {
     await expect(
       service.setLine(operator, '1', created.id, mutation(0), '10', 9),
     ).rejects.toMatchObject({ code: 'CHECKOUT_DRAFT_NOT_INITIALIZED' });
-    await expect(service.submit(operator, '1', created.id, mutation(0))).rejects.toMatchObject({
+    await expect(
+      service.submit(operator, '1', created.id, mutation(0), cash()),
+    ).rejects.toMatchObject({
       code: 'CHECKOUT_DRAFT_NOT_INITIALIZED',
     });
     gateway.intercept = undefined;
@@ -483,16 +528,18 @@ describe('checkout workflow authorization and external-effect safety', () => {
       return undefined;
     };
     const input = mutation(1);
-    await expect(service.submit(operator, '1', state.id, input)).rejects.toMatchObject({
+    await expect(service.submit(operator, '1', state.id, input, cash())).rejects.toMatchObject({
       code: 'CHECKOUT_OUTCOME_UNCERTAIN',
     });
     const saved = await service.read(operator, '1', state.id);
     expect(saved.phase).toBe('uncertain');
     expect(saved.orderId).toBe('5001');
-    const retry = await service.submit(operator, '1', state.id, input);
+    const retry = await service.submit(operator, '1', state.id, input, cash());
     expect(retry.status).toBe('uncertain');
     expect(gateway.calls.filter((c) => c.path === 'pos/order')).toHaveLength(1);
-    await expect(service.submit(operator, '1', state.id, mutation(1))).rejects.toMatchObject({
+    await expect(
+      service.submit(operator, '1', state.id, mutation(1), cash()),
+    ).rejects.toMatchObject({
       code: 'CHECKOUT_REVIEW_REQUIRED',
     });
   });
@@ -500,7 +547,7 @@ describe('checkout workflow authorization and external-effect safety', () => {
     const state = await service.create(operator, '1', '3');
     readyToOrder(state.id);
     await service.quote(operator, '1', state.id, mutation(0));
-    const done = await service.submit(operator, '1', state.id, mutation(1));
+    const done = await service.submit(operator, '1', state.id, mutation(1), cash());
     expect(done.status).toBe('succeeded');
     if (done.status !== 'succeeded') throw new Error('Expected submission');
     expect(done.result.paymentStatus).toBe('pending');
@@ -548,6 +595,7 @@ describe('checkout workflow authorization and external-effect safety', () => {
     let finalizations = 0;
     const repaired = checkoutService(repository, gateway, signingEnvironment, {
       migrationV2: true,
+      startPayment: async (_user, _store, orderId) => ({ orderId, status: 'paid' }),
       assertCheckIn: async () => {},
       finalizeOrder: async () => {
         if (finalizations++ === 0)
@@ -559,7 +607,7 @@ describe('checkout workflow authorization and external-effect safety', () => {
     readyToOrder(created.id);
     await repaired.quote(operator, '1', created.id, mutation(0));
     const submit = mutation(1);
-    await expect(repaired.submit(operator, '1', created.id, submit)).rejects.toMatchObject({
+    await expect(repaired.submit(operator, '1', created.id, submit, cash())).rejects.toMatchObject({
       code: 'INVOICE_FIXTURE_UNAVAILABLE',
     });
     expect(await repaired.read(operator, '1', created.id)).toMatchObject({
@@ -585,6 +633,7 @@ describe('checkout workflow authorization and external-effect safety', () => {
       finalizations = 0;
     const recovery = checkoutService(repository, gateway, signingEnvironment, {
       migrationV2: true,
+      startPayment: async (_user, _store, orderId) => ({ orderId, status: 'paid' }),
       now: () => clock,
       assertCheckIn: async () => {},
       verifyCreatedOrder: async () => {
@@ -605,7 +654,7 @@ describe('checkout workflow authorization and external-effect safety', () => {
       return undefined;
     };
     const submit = mutation(1);
-    await expect(recovery.submit(operator, '1', created.id, submit)).rejects.toMatchObject({
+    await expect(recovery.submit(operator, '1', created.id, submit, cash())).rejects.toMatchObject({
       code: 'CHECKOUT_OUTCOME_UNCERTAIN',
     });
     await expect(
@@ -627,7 +676,9 @@ describe('checkout workflow authorization and external-effect safety', () => {
     expect((await recovery.operation(operator, '1', created.id, submit.operationId)).status).toBe(
       'succeeded',
     );
-    expect((await recovery.submit(operator, '1', created.id, submit)).status).toBe('succeeded');
+    expect((await recovery.submit(operator, '1', created.id, submit, cash())).status).toBe(
+      'succeeded',
+    );
     expect((await recovery.reconcileConfirmation(operator, '1', created.id, input)).status).toBe(
       'succeeded',
     );
@@ -644,6 +695,7 @@ describe('checkout workflow authorization and external-effect safety', () => {
     let finalizations = 0;
     const recovery = checkoutService(repository, gateway, signingEnvironment, {
       migrationV2: true,
+      startPayment: async (_user, _store, orderId) => ({ orderId, status: 'paid' }),
       now: () => clock,
       assertCheckIn: async () => {},
       verifyCreatedOrder: async () => new Promise<void>((resolve) => releases.push(resolve)),
@@ -660,7 +712,9 @@ describe('checkout workflow authorization and external-effect safety', () => {
         throw new CheckoutGatewayError('CHECKOUT_OUTCOME_UNCERTAIN', 'Fixture lost response', true);
       return undefined;
     };
-    await expect(recovery.submit(operator, '1', created.id, mutation(1))).rejects.toMatchObject({
+    await expect(
+      recovery.submit(operator, '1', created.id, mutation(1), cash()),
+    ).rejects.toMatchObject({
       code: 'CHECKOUT_OUTCOME_UNCERTAIN',
     });
     const input = mutation(1),

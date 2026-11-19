@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { z } from 'zod';
 import type { Checkout, CheckoutReply } from './client';
 import { quoteAmount } from './quote-summary';
@@ -60,7 +61,8 @@ export function CheckoutCartLines({
     <section aria-label="Current checkout items">
       <h3>Current checkout items</h3>
       <p className="caption">
-        These are the pricing service's current items. Changes require a fresh final quote.
+        These are the pricing service's current items. Quantity changes and removals (legacy
+        ajax-cart set/delete) require a fresh final quote.
       </p>
       {[
         ...lines.products.map((item) => ({ item, complementary: false })),
@@ -89,6 +91,16 @@ export function CheckoutCartLines({
                 : `₹${quoteAmount(item.spl_price)}`}
             </span>
           )}
+          {!complementary && (
+            <LineQuantity
+              productId={item.prod_id}
+              name={item.product}
+              quantity={item.quantity}
+              disabled={disabled}
+              act={act}
+              mutate={mutate}
+            />
+          )}
           {complementary && (
             <button
               type="button"
@@ -107,5 +119,66 @@ export function CheckoutCartLines({
         </div>
       ))}
     </section>
+  );
+}
+
+/** Legacy cart row quantity and remove (`create_order.html:1385`, `:1956`, `:2383`, `:2583`). */
+function LineQuantity({
+  productId,
+  name,
+  quantity,
+  disabled,
+  act,
+  mutate,
+}: {
+  productId: string;
+  name: string;
+  quantity: number;
+  disabled: boolean;
+  act: (task: () => Promise<void>) => Promise<void>;
+  mutate: (
+    path: string,
+    method: 'PUT' | 'POST',
+    body?: Record<string, unknown>,
+  ) => Promise<CheckoutReply>;
+}) {
+  const [value, setValue] = useState(String(quantity));
+  const set = (next: number) =>
+    void act(async () => {
+      await mutate(`line-items/${productId}`, 'PUT', { quantity: next });
+    });
+  return (
+    <>
+      <label>
+        Qty
+        <input
+          type="number"
+          min={0}
+          max={999}
+          step={1}
+          value={value}
+          disabled={disabled}
+          aria-label={`Quantity of ${name}`}
+          onChange={(event) => setValue(event.target.value)}
+          onBlur={() => {
+            const next = Number(value);
+            if (!Number.isInteger(next) || next < 0 || next > 999) {
+              setValue(String(quantity));
+              return;
+            }
+            if (next !== quantity) set(next);
+          }}
+        />
+      </label>
+      <button
+        type="button"
+        className="button secondary"
+        disabled={disabled}
+        aria-label={`Remove ${name}`}
+        onClick={() => set(0)}
+      >
+        Remove
+      </button>
+    </>
   );
 }

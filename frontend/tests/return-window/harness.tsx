@@ -9,12 +9,10 @@ import '../../src/styles.css';
 const queries = new QueryClient({
   defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
 });
-const proofId = '11111111-1111-4111-8111-111111111111';
 for (const id of ['1', '2'])
   if (!localStorage.getItem(`souled-return:${id}:1:2`))
     saveRecovery(id, '1', '2', {
       orderId: '100',
-      verificationId: proofId,
       returnId: null,
       kind: 'return',
     });

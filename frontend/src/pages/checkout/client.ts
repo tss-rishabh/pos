@@ -5,6 +5,7 @@ import {
   recordPerformancePhase,
 } from '../../offline/performance/storage';
 import { confirmedPaymentSchema } from './receipts';
+import { paymentOptionsSchema } from './payments/client';
 import { checkoutClearanceSchema } from '../../api/checkout-clearance';
 import { copyBindingSchema } from '../order-copy/client';
 
@@ -35,13 +36,15 @@ export const registrationSchema = z.object({
   customerId: z.string().nullable(),
   verifiedAt: z.number().nullable(),
   deliveries: z.array(z.object({ channel: z.enum(['sms', 'whatsapp']), status: z.string() })),
+  /** S36: registered through legacy "Self Verify (Without OTP)"; benefits stay locked. */
+  selfVerified: z.boolean().optional(),
 });
 export type Registration = z.infer<typeof registrationSchema>;
-export /**
+/**
  * Legacy settings flags resolved by the server per request (checkout store category and
  * operator user_type), as `CreateOrderView` passes them to `create_order.html`.
  */
-const checkoutFlagsSchema = z
+export const checkoutFlagsSchema = z
   .object({
     showCouponModule: z.boolean(),
     showPgDiscountModule: z.boolean(),
@@ -52,7 +55,7 @@ const checkoutFlagsSchema = z
   })
   .strict();
 export type CheckoutFlags = z.infer<typeof checkoutFlagsSchema>;
-const checkoutSchema = z
+export const checkoutSchema = z
   .object({
     id: z.uuid(),
     operatorId: z
@@ -234,6 +237,13 @@ export const reconcileCustomerVerification = (checkout: Checkout, operationId: s
     { operationId, expectedVersion: checkout.version },
     replySchema,
     checkoutOperator(checkout),
+  );
+/** Payment form options for the sale's counter before the order exists (legacy normal path). */
+export const readCheckoutPaymentOptions = async (checkout: Checkout) =>
+  request(
+    `${checkoutPath(checkout)}/payment-options`,
+    { operatorId: checkoutOperator(checkout) },
+    paymentOptionsSchema.omit({ payable: true }),
   );
 export const readDiscountApproval = (checkout: Checkout) =>
   request(

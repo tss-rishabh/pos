@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
-import { Check, RefreshCw, Undo2, ArrowLeftRight } from 'lucide-react';
+import { RefreshCw, Undo2, ArrowLeftRight } from 'lucide-react';
 import type { Principal } from '../../api/types';
 import { ApiError, post, request } from '../../api/client';
 import { Empty, ErrorState, Loading, PageTitle } from '../../components/common';
@@ -19,10 +19,8 @@ import {
   readExchangeClaimStatus,
   readReturnEligibility,
   continueReverse,
-  lineSchema,
   loadRecovery,
-  proofSchema,
-  readProof,
+  readReturnLines,
   readReverse,
   retryExchange,
   exchangeReasonsSchema,
@@ -70,7 +68,6 @@ export function ReturnsPage({
   );
   const [orderId, setOrder] = useState(recovery?.orderId || entry?.orderId || ''),
     [mode, setMode] = useState<ReverseKind>(recovery?.kind || entry?.kind || 'return'),
-    [otp, setOtp] = useState(''),
     [line, setLine] = useState<ReturnLine | null>(null),
     [reasonId, setReason] = useState(''),
     [subReasonId, setSubReason] = useState(''),
@@ -113,30 +110,22 @@ export function ReturnsPage({
       /* The protected manual invoice remains available. */
     }
   }
-  const proofKey = [user.id, 'return-proof', storeId, recovery?.verificationId] as const;
-  const proof = useQuery({
-    queryKey: proofKey,
-    enabled: !!recovery?.verificationId,
-    queryFn: () => readProof(storeId, recovery!.verificationId!, user.id),
-    retry: false,
-  });
-  const verified = Boolean(proof.data?.verifiedUntil && proof.data.verifiedUntil > Date.now());
+  // Legacy has no customer OTP on returns, exchanges or date extension (order/views.py:885-914):
+  // choosing the order is enough; the server checks check-in and eligibility on every action.
+  const orderReady = !!recovery?.orderId;
+  const linesKey = [user.id, 'return-lines', storeId, counterId, recovery?.orderId] as const;
   const lines = useInfiniteQuery({
-    queryKey: [user.id, 'return-lines', storeId, recovery?.verificationId],
-    enabled: verified,
+    queryKey: linesKey,
+    enabled: orderReady,
     initialPageParam: '0',
     queryFn: ({ pageParam }) =>
-      request(
-        `${returnBase(storeId)}/return-verifications/${recovery!.verificationId}/line-items?after=${pageParam}`,
-        { operatorId: user.id },
-        z.object({ data: z.array(lineSchema), nextCursor: z.string().nullable() }),
-      ),
+      readReturnLines(storeId, recovery!.orderId, counterId, pageParam, user.id),
     getNextPageParam: (page) => page.nextCursor || undefined,
   });
   const linkedLine = useRef(recovery ? undefined : entry);
   const linkedLineApplied = useRef(false);
   useEffect(() => {
-    if (!verified || busy || recovery?.returnId || linkedLineApplied.current) return;
+    if (!orderReady || busy || recovery?.returnId || linkedLineApplied.current) return;
     const selected = matchingReturnEntryLine(
       recovery?.pendingRecoveryClaim
         ? {
@@ -148,7 +137,7 @@ export function ReturnsPage({
             kind: 'exchange',
           }
         : linkedLine.current,
-      proof.data?.orderId,
+      recovery?.orderId,
       mode,
       lines.data?.pages.flatMap((page) => page.data) || [],
     );
@@ -157,12 +146,11 @@ export function ReturnsPage({
       setLine(selected);
     }
   }, [
-    verified,
+    orderReady,
     busy,
     recovery?.returnId,
     recovery?.pendingRecoveryClaim,
     recovery?.orderId,
-    proof.data?.orderId,
     mode,
     lines.data,
     user.id,
@@ -181,7 +169,7 @@ export function ReturnsPage({
   });
   const reasons = useQuery({
     queryKey: [user.id, 'return-reasons', storeId],
-    enabled: verified && mode === 'return',
+    enabled: orderReady && mode === 'return',
     queryFn: () =>
       request(`${returnBase(storeId)}/return-reasons`, { operatorId: user.id }, reasonList),
   });
@@ -197,7 +185,7 @@ export function ReturnsPage({
   });
   const preview = useQuery({
     queryKey: [user.id, 'refund-preview', storeId, recovery?.orderId, line?.id],
-    enabled: !!line && verified && mode === 'return',
+    enabled: !!line && orderReady && mode === 'return',
     queryFn: () =>
       request(
         `${returnBase(storeId)}/orders/${recovery!.orderId}/line-items/${line!.id}/refund-preview`,
@@ -207,7 +195,7 @@ export function ReturnsPage({
   });
   const exchangeReasons = useQuery({
     queryKey: [user.id, 'exchange-reasons', storeId, line?.productId],
-    enabled: verified && mode === 'exchange' && !!line,
+    enabled: orderReady && mode === 'exchange' && !!line,
     queryFn: () =>
       request(
         `${returnBase(storeId)}/products/${line!.productId}/exchange-reasons`,
@@ -217,7 +205,7 @@ export function ReturnsPage({
   });
   const exchangeSizes = useQuery({
     queryKey: [user.id, 'exchange-sizes', storeId, line?.parentId],
-    enabled: verified && mode === 'exchange' && !!line && line.parentId !== '0',
+    enabled: orderReady && mode === 'exchange' && !!line && line.parentId !== '0',
     queryFn: () =>
       request(
         `${returnBase(storeId)}/products/${line!.parentId}/exchange-sizes`,
@@ -228,7 +216,7 @@ export function ReturnsPage({
   const salespeople = useInfiniteQuery({
     queryKey: [user.id, 'reverse-salespeople', storeId],
     enabled:
-      (mode === 'exchange' && verified) || (operationKind === 'exchange' && !!recovery?.returnId),
+      (mode === 'exchange' && orderReady) || (operationKind === 'exchange' && !!recovery?.returnId),
     initialPageParam: '0',
     queryFn: ({ pageParam }) =>
       request(
@@ -252,27 +240,11 @@ export function ReturnsPage({
     ),
   );
   const exchangeRecovery = useQuery({
-    queryKey: [
-      user.id,
-      'exchange-recovery',
-      storeId,
-      counterId,
-      recovery?.verificationId,
-      recovery?.orderId,
-      line?.id,
-    ],
-    enabled: online && verified && mode === 'exchange' && !!line && !recovery?.returnId,
+    queryKey: [user.id, 'exchange-recovery', storeId, counterId, recovery?.orderId, line?.id],
+    enabled: online && orderReady && mode === 'exchange' && !!line && !recovery?.returnId,
     retry: false,
     queryFn: ({ signal }) =>
-      readExchangeRecovery(
-        storeId,
-        recovery!.orderId,
-        line!.id,
-        counterId,
-        recovery!.verificationId!,
-        user.id,
-        signal,
-      ),
+      readExchangeRecovery(storeId, recovery!.orderId, line!.id, counterId, user.id, signal),
   });
   const newExchangeBlocked =
     mode === 'exchange' &&
@@ -287,29 +259,19 @@ export function ReturnsPage({
       'return-eligibility',
       storeId,
       counterId,
-      recovery?.verificationId,
       recovery?.orderId,
       line?.id,
       mode,
     ],
     enabled:
       online &&
-      verified &&
+      orderReady &&
       !!line &&
       !recovery?.returnId &&
       (mode === 'return' || exchangeRecovery.data?.state === 'none'),
     retry: false,
     queryFn: ({ signal }) =>
-      readReturnEligibility(
-        storeId,
-        recovery!.orderId,
-        line!.id,
-        counterId,
-        recovery!.verificationId!,
-        mode,
-        user.id,
-        signal,
-      ),
+      readReturnEligibility(storeId, recovery!.orderId, line!.id, counterId, mode, user.id, signal),
   });
   const currentEligibility = eligibility.isError ? undefined : eligibility.data;
   // The legacy template branch (order/online/_return_exchange_cells.html, show.html), chosen by
@@ -344,64 +306,17 @@ export function ReturnsPage({
       setBusy(false);
     }
   }
-  async function verifyCustomer() {
-    if (!recovery?.verificationId) return;
-    const code = otp;
-    setOtp('');
-    try {
-      const value = await post(
-        `${returnBase(storeId)}/return-verifications/${recovery.verificationId}/confirmations`,
-        { operationId: crypto.randomUUID(), otp: code },
-        proofSchema,
-        user.id,
-      );
-      client.setQueryData(proofKey, value);
-    } finally {
-      setOtp('');
-      await client.invalidateQueries({ queryKey: proofKey });
-    }
-  }
-  async function startProof() {
-    setOtp('');
-    const retainedPending = recovery?.pendingRecoveryClaim;
-    const value = {
-      orderId,
-      verificationId: crypto.randomUUID(),
-      returnId: null,
-      kind: mode,
-      ...(retainedPending
-        ? {
-            pendingRecoveryClaim: {
-              ...retainedPending,
-              counterId: retainedPending.counterId || counterId,
-              verificationId:
-                retainedPending.verificationId || recovery.verificationId || undefined,
-            },
-          }
-        : {}),
-    };
-    remember(value);
-    try {
-      const response = await post(
-        `${returnBase(storeId)}/orders/${orderId}/return-verifications`,
-        { operationId: value.verificationId, counterId },
-        proofSchema,
-        user.id,
-      );
-      client.setQueryData([user.id, 'return-proof', storeId, value.verificationId], response);
-    } catch (error) {
-      await client.invalidateQueries({
-        queryKey: [user.id, 'return-proof', storeId, value.verificationId],
-      });
-      throw error;
-    }
+  /** Legacy opens the order directly; no customer verification code is sent. */
+  function selectOrder() {
+    remember({ orderId, returnId: null, kind: mode });
+    return Promise.resolve();
   }
   async function processReturn() {
     if (
       !eligible ||
       (mode === 'exchange' && newExchangeBlocked) ||
       !line ||
-      !recovery?.verificationId ||
+      !recovery?.orderId ||
       (!quality && !tag)
     )
       return;
@@ -413,7 +328,6 @@ export function ReturnsPage({
         {
           operationId,
           counterId,
-          verificationId: recovery.verificationId,
           reasonId,
           ...(subReasonId ? { subReasonId } : {}),
           comment,
@@ -434,7 +348,7 @@ export function ReturnsPage({
       client.setQueryData(operationKey(operationId, mode), response);
       if (mode === 'exchange') newExchangeInvoice(response, operationId);
       await client.invalidateQueries({
-        queryKey: [user.id, 'return-lines', storeId, recovery.verificationId],
+        queryKey: linesKey,
       });
     } catch (error) {
       try {
@@ -457,34 +371,32 @@ export function ReturnsPage({
   }
   async function checkOriginalClaim() {
     const pending = recovery?.pendingRecoveryClaim;
-    if (!pending || !recovery?.verificationId || !verified) return;
+    if (!pending || !recovery?.orderId) return;
     const outcome = await readExchangeClaimStatus(
       storeId,
       recovery.orderId,
       pending.lineId,
       pending.operationId,
       counterId,
-      recovery.verificationId,
       user.id,
     );
     const { pendingRecoveryClaim: _pending, ...retained } = recovery;
     remember(retained);
     setClaimStatusMessage(
       outcome.status === 'recorded'
-        ? 'The original recovery claim was recorded. Refresh the earlier exchange and explicitly claim it with current verification before continuing.'
+        ? 'The original recovery claim was recorded. Refresh the earlier exchange and explicitly claim it before continuing.'
         : 'The original recovery claim is not recorded. Review the current earlier-exchange status before confirming another claim.',
     );
     await exchangeRecovery.refetch();
   }
   async function claimRecovery() {
     if (recovery?.pendingRecoveryClaim) return checkOriginalClaim();
-    if (!recovery?.verificationId || !line || !exchangeRecovery.data) return;
+    if (!recovery?.orderId || !line || !exchangeRecovery.data) return;
     const pending = {
       operationId: crypto.randomUUID(),
       revision: exchangeRecovery.data.revision,
       lineId: line.id,
       counterId,
-      verificationId: recovery.verificationId,
       ...(salespersonId ? { salespersonId } : {}),
     };
     remember({ ...recovery, pendingRecoveryClaim: pending });
@@ -495,7 +407,6 @@ export function ReturnsPage({
         operationId: pending.operationId,
         expectedRevision: pending.revision,
         counterId: pending.counterId,
-        verificationId: pending.verificationId,
         ...(pending.salespersonId ? { salespersonId: pending.salespersonId } : {}),
       },
       returnSchema,
@@ -530,12 +441,11 @@ export function ReturnsPage({
           </p>
         )}
       <p className="caption">
-        Check into the selected store and counter before processing a return or exchange. Online and
-        other-store purchases use the original customer’s verification code.
+        Check into the selected store and counter before processing a return or exchange.
       </p>
       {!online && (
         <p role="status" className="inline-error">
-          Reconnect to verify the customer and confirm refunds.
+          Reconnect to process returns and confirm refunds.
         </p>
       )}
       <div className="reverse-mode" role="group" aria-label="Return or exchange">
@@ -567,7 +477,7 @@ export function ReturnsPage({
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            void act(startProof);
+            void act(selectOrder);
           }}
           className="return-order"
         >
@@ -583,133 +493,23 @@ export function ReturnsPage({
             />
           </label>
           <button className="button primary" disabled={!online || busy || !!recovery}>
-            Send customer verification code
+            Find order
           </button>
         </form>
         {recovery && !recovery.returnId && (
-          <>
-            <button
-              className="text-button"
-              disabled={busy || !online}
-              onClick={() => void proof.refetch()}
-            >
-              Refresh verification status
-            </button>
-            {proof.isPending ? (
-              <Loading />
-            ) : proof.isError ? (
-              <ErrorState error={proof.error} />
-            ) : verified ? (
-              <p className="return-verified">
-                <Check size={17} /> Customer verified until{' '}
-                {new Date(proof.data!.verifiedUntil!).toLocaleTimeString()}
-              </p>
-            ) : proof.data?.pending ? (
-              <div role="status">
-                <p>
-                  Customer verification is still being confirmed. Refresh its status before
-                  continuing.
-                </p>
-                {proof.data.pendingOperationId && (
-                  <button
-                    className="button secondary"
-                    disabled={busy || !online}
-                    onClick={() =>
-                      void act(async () => {
-                        const value = await post(
-                          `${returnBase(storeId)}/return-verifications/${recovery.verificationId}/reconciliations`,
-                          { operationId: proof.data!.pendingOperationId },
-                          proofSchema,
-                          user.id,
-                        );
-                        client.setQueryData(proofKey, value);
-                        if (value.errorCode)
-                          throw new Error(
-                            `Verification was rejected (${value.errorCode}). No additional attempt was made.`,
-                          );
-                      })
-                    }
-                  >
-                    Check original verification action
-                  </button>
-                )}
-              </div>
-            ) : (
-              <>
-                {proof.data?.deliveryStatus === 'pending' && (
-                  <p role="status">
-                    The code is queued for delivery. Refresh verification status before continuing.
-                  </p>
-                )}
-                {proof.data?.deliveryStatus === 'uncertain' && (
-                  <p role="status">
-                    Delivery is unconfirmed. An arrived code can be verified; no code is resent
-                    automatically.
-                  </p>
-                )}
-                {proof.data?.errorCode && (
-                  <p role="status">Verification status: {proof.data.errorCode}.</p>
-                )}
-                <form
-                  className="return-order"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void act(verifyCustomer);
-                  }}
-                >
-                  <label>
-                    Customer verification code
-                    <input
-                      aria-label="Return customer OTP"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      value={otp}
-                      onChange={(event) =>
-                        setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))
-                      }
-                      pattern="[0-9]{6}"
-                      maxLength={6}
-                      required
-                    />
-                  </label>
-                  <button
-                    className="button primary"
-                    disabled={
-                      !online ||
-                      busy ||
-                      otp.length !== 6 ||
-                      !(proof.data?.sent || proof.data?.deliveryStatus === 'uncertain')
-                    }
-                  >
-                    Verify customer
-                  </button>
-                </form>
-              </>
-            )}
-            {recovery.pendingRecoveryClaim && !verified && (
-              <button
-                className="button secondary"
-                disabled={!online || busy || proof.data?.pending}
-                onClick={() => void act(startProof)}
-              >
-                Renew customer verification for this recovery
-              </button>
-            )}
-            <button
-              className="text-button"
-              disabled={busy || proof.data?.pending || !!recovery?.pendingRecoveryClaim}
-              onClick={() => {
-                remember(null);
-                setOtp('');
-                setLine(null);
-              }}
-            >
-              Use another order or request a new code
-            </button>
-          </>
+          <button
+            className="text-button"
+            disabled={busy || !!recovery?.pendingRecoveryClaim}
+            onClick={() => {
+              remember(null);
+              setLine(null);
+            }}
+          >
+            Use another order
+          </button>
         )}
       </section>
-      {verified && !recovery?.returnId && (
+      {orderReady && !recovery?.returnId && (
         <section className="surface return-flow">
           <h2>Select an item</h2>
           {lines.isPending ? (
@@ -825,7 +625,7 @@ export function ReturnsPage({
                   <button
                     type="button"
                     className="button secondary"
-                    disabled={!online || busy || !verified}
+                    disabled={!online || busy || !orderReady}
                     onClick={() => void act(checkOriginalClaim)}
                   >
                     Check original recovery claim
@@ -850,11 +650,11 @@ export function ReturnsPage({
                 {mode === 'exchange' ? 'Exchange' : 'Return'} {line.name || `line ${line.id}`}
               </h3>
               {[1, 2, 3].includes(user.role) &&
-                recovery?.verificationId &&
+                recovery?.orderId &&
                 cell &&
                 cellOffers(cell, 'extend-return') && (
                   <ReturnWindowExtension
-                    key={`${user.id}:${user.role}:${user.userType}:${storeId}:${counterId}:${recovery.verificationId}:${line.id}`}
+                    key={`${user.id}:${user.role}:${user.userType}:${storeId}:${counterId}:${recovery.orderId}:${line.id}`}
                     scope={{
                       operatorId: user.id,
                       storeId,
@@ -862,7 +662,6 @@ export function ReturnsPage({
                       orderId: recovery.orderId,
                       lineId: line.id,
                       productId: line.productId,
-                      verificationId: recovery.verificationId,
                     }}
                     online={online}
                     busy={busy}
@@ -1181,7 +980,7 @@ export function ReturnsPage({
                       setLine(null);
                       setComment('');
                       void client.invalidateQueries({
-                        queryKey: [user.id, 'return-lines', storeId, recovery.verificationId],
+                        queryKey: linesKey,
                       });
                     }}
                   >

@@ -12,7 +12,8 @@ import {
   type ExchangeInput,
   type ReturnOperation,
 } from './contracts.js';
-import { acceptInbound, type ReturnServiceContext } from './service.js';
+import { acceptInbound, customerToken, type ReturnServiceContext } from './service.js';
+import { exchangeRefusal, returnExchangeMerged } from './exchange-cell.js';
 
 /**
  * `AjaxProductExchangeView` (order/views.py:978-1313): return leg, stock, API-v2 `pos/exchange`,
@@ -164,6 +165,33 @@ export function exchangeService(context: ReturnServiceContext, orders: CheckoutG
       gateway.configured();
       const { replacementProductId, salespersonId, ...base } = input;
       return state.withLine(orderId, lineId, async () => {
+        // S35 before any write: a replayed operation skips straight to its stored outcome; a new
+        // one is refused here, including the online type-8 case that needs the eligibility answer
+        // (online cells: type 8 is offered only in the merged return/exchange cell).
+        if (!(await state.readOperation(base.operationId))) {
+          const facts = await repository.exchangePreflight(
+            user,
+            storeId,
+            orderId,
+            lineId,
+            base.counterId,
+          );
+          if (facts.variant === 'online' && facts.productType === 8) {
+            const line = (
+              await gateway.orderEligibility(
+                orderId,
+                storeId,
+                await customerToken(context, facts.customerId),
+              )
+            ).get(lineId);
+            const refusal = exchangeRefusal({
+              ...facts,
+              retry: false,
+              merged: line ? returnExchangeMerged(line.return, line.exchange) : false,
+            });
+            if (refusal) throw new AppError(refusal.status, refusal.code, refusal.message);
+          }
+        }
         const { operation, replay } = await repository.begin(
           user,
           storeId,

@@ -7,7 +7,6 @@ import type { CheckoutRepository } from '../contracts.js';
 import { issueCustomerToken } from '../crypto.js';
 import { CheckoutGatewayError } from '../gateway.js';
 import type { CheckoutEnvironment } from '../gateway.js';
-import { exchangeFeatureEnabled } from '../legacy-flags.js';
 import { pythonFloat, pythonRepr } from '../payments/legacy.js';
 import { currentRequestTrace } from '../../../observability/context.js';
 import {
@@ -19,7 +18,12 @@ import {
   type ReturnInput,
   type ReturnOperation,
 } from './contracts.js';
-import { exchangeCell, returnExchangeMerged, type ExchangeCellFacts } from './exchange-cell.js';
+import {
+  exchangeCell,
+  exchangeRefusal,
+  returnExchangeMerged,
+  type ExchangeCellFacts,
+} from './exchange-cell.js';
 import type { ReturnRepository } from './repository.js';
 import type { ReturnGatewayLog } from './gateway.js';
 
@@ -66,7 +70,7 @@ export function superAdminReturnOverride(
   );
 }
 
-async function customerToken(context: ReturnServiceContext, customerId: string) {
+export async function customerToken(context: ReturnServiceContext, customerId: string) {
   const customer = await context.customers.customer(customerId);
   if (!customer)
     throw new AppError(
@@ -152,6 +156,17 @@ export async function acceptInbound(
   const line = eligibility.get(operation.lineId) ?? null,
     entry = operation.kind === 'exchange' ? line?.exchange : line?.return;
   let permitted = Boolean(entry?.status);
+  // S35: an online product-type-8 line offers an exchange only in the merged cell.
+  const typeEight =
+    operation.kind === 'exchange' && operation.guard && line
+      ? exchangeRefusal({
+          ...operation.guard,
+          exchangeFeatureEnabled: true,
+          retry: false,
+          merged: returnExchangeMerged(line.return, line.exchange),
+        })
+      : null;
+  if (typeEight) permitted = false;
   if (!permitted && operation.kind === 'return' && line) {
     // Super-admin override button (show.html:236-238 / online cells :48-50).
     if (operation.input.overrideEligibility)
@@ -170,16 +185,18 @@ export async function acceptInbound(
       operation.id,
       'inbound',
       false,
-      'RETURN_NOT_ELIGIBLE',
+      typeEight?.code ?? 'RETURN_NOT_ELIGIBLE',
       null,
     );
-    throw new AppError(
-      409,
-      'RETURN_NOT_ELIGIBLE',
-      operation.kind === 'exchange'
-        ? 'Not applicable for exchange'
-        : 'This order is not applicable for return',
-    );
+    throw typeEight
+      ? new AppError(typeEight.status, typeEight.code, typeEight.message)
+      : new AppError(
+          409,
+          'RETURN_NOT_ELIGIBLE',
+          operation.kind === 'exchange'
+            ? 'Not applicable for exchange'
+            : 'This order is not applicable for return',
+        );
   }
   try {
     await gateway.inbound(await repository.inboundData(user, operation.storeId, operation.id));
@@ -293,7 +310,7 @@ export function returnService(context: ReturnServiceContext) {
           'The line changed while checking eligibility.',
         );
       const line = lines.get(lineId) ?? null,
-        enabled = exchangeFeatureEnabled(context.config, storeId),
+        enabled = current.exchangeFeatureEnabled,
         override = superAdminReturnOverride(
           user.role,
           line?.return ?? null,
@@ -311,7 +328,7 @@ export function returnService(context: ReturnServiceContext) {
         exchange: line?.exchange ?? null,
         superAdminReturnOverride: override,
         failedExchange: current.failedExchange,
-        checkinStoreId: storeId,
+        checkinStoreId: current.checkinStoreId,
         exchangeFeatureEnabled: enabled,
         operatorRole: user.role,
       };

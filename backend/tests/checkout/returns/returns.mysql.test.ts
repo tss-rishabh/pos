@@ -1,16 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import mysql, { type Connection, type RowDataPacket } from 'mysql2/promise';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { readConfig, type Config } from '../../../src/config.js';
 import { createDatabases, type Databases } from '../../../src/db/pools.js';
-import { splitMigration } from '../../../src/db/migrations.js';
 import type { Principal } from '../../../src/domain/access.js';
 import type { JobArgs, JobName, JobProducer } from '../../../src/jobs/contract.js';
 import type { CheckoutGateway } from '../../../src/modules/checkout/gateway.js';
 import type { CustomerIdentity } from '../../../src/modules/checkout/contracts.js';
 import { memoryStateStore } from '../../../src/modules/checkout/state-store.js';
-import { readCustomerContactBinding } from '../../../src/modules/checkout/customer-contact-authority.js';
 import {
   exchangeInputSchema,
   returnInputSchema,
@@ -89,10 +86,6 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
   });
   const gateway: ReturnGateway = {
     configured() {},
-    async sendOtp() {},
-    async verifyOtp() {
-      return false;
-    },
     async orderEligibility() {
       return eligibility;
     },
@@ -184,10 +177,6 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
     await connection.changeUser({ database: schema });
     fixture = verifiedMysqlFixture(connection);
     await fixture.create(tables);
-    for (const statement of splitMigration(
-      readFileSync('src/modules/customer-contacts/contact-revisions-migration.sql', 'utf8'),
-    ))
-      await connection.query(statement);
     url.pathname = '/' + schema;
     config = readConfig({
       NODE_ENV: 'test',
@@ -208,11 +197,14 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
   });
 
   let store = memoryStateStore();
+  // The operator's legacy check-in store (`check_in_{uid}`) the S35 exchange flag is read from.
+  let checkinStoreId: string | null = '1';
   function services() {
     const state = returnState(store);
     const repository = returnRepository(db, config, {
         returnPeriodDays: 30,
         assertCheckIn: async () => {},
+        checkedInStore: async () => checkinStoreId,
         state,
       }),
       context = {
@@ -236,32 +228,6 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
       returns: returnService(context),
       exchanges: exchangeService(context, orders),
     };
-  }
-  async function verified(orderId: string, customerId = '1001') {
-    const id = randomUUID();
-    const contact = await db
-      .get('writer')
-      .transaction((tx) => readCustomerContactBinding(tx, customerId));
-    await returnState(store).saveVerification({
-      id,
-      operatorId: operator.id,
-      storeId: '1',
-      counterId: '3',
-      orderId,
-      customerId,
-      requestHash: 'a'.repeat(64),
-      sent: false,
-      expiresAt: Date.now() + 300000,
-      verifiedUntil: Date.now() + 900000,
-      busyOperationId: null,
-      contact,
-      otpChallengeId: null,
-      deliveryStatus: 'sent',
-      requestOperationId: null,
-      verifyOperationId: null,
-      verificationError: null,
-    });
-    return id;
   }
   async function seedOrder(
     orderId: number,
@@ -317,9 +283,9 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
     return { orderId: String(orderId), lineId: String(orderId + 100) };
   }
   beforeEach(async () => {
-    for (const table of [...tables, 'pos_rewrite_customer_contact_revisions'])
-      await connection.query('DELETE FROM ' + mysql.escapeId(table));
+    for (const table of tables) await connection.query('DELETE FROM ' + mysql.escapeId(table));
     store = memoryStateStore();
+    checkinStoreId = '1';
     Object.assign(calls, {
       inbound: 0,
       refund: 0,
@@ -371,11 +337,10 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
     await fixture.insert('salespersons', { id: '7', is_active: 1 });
     await fixture.insert('store_salesperson', { store_id: '1', salesperson_id: '7', is_active: 1 });
   });
-  const returnInput = (verificationId: string, extra: Record<string, unknown> = {}) =>
+  const returnInput = (extra: Record<string, unknown> = {}) =>
     returnInputSchema.parse({
       operationId: randomUUID(),
       counterId: '3',
-      verificationId,
       reasonId: '1',
       qualityConfirmed: true,
       tagConfirmed: false,
@@ -390,7 +355,7 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
   it('executes one cross-store wallet return with a credit note, hold stock, audit and mail', async () => {
     const { returns, state } = services(),
       line = await seedOrder(9001),
-      input = returnInput(await verified(line.orderId));
+      input = returnInput();
     const result = await returns.start(operator, '1', line.orderId, line.lineId, input);
     expect(result).toMatchObject({ phase: 'completed', returnAmount: '50.25' });
     expect(result.creditNote).toMatch(/^FST1\d{4}CN00001$/);
@@ -440,11 +405,10 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
 
   it('re-pushes the order to Vinculum after a warehouse rejection and writes nothing native', async () => {
     const { returns } = services(),
-      line = await seedOrder(9002),
-      verification = await verified(line.orderId);
+      line = await seedOrder(9002);
     inboundResult = 'reject';
     await expect(
-      returns.start(operator, '1', line.orderId, line.lineId, returnInput(verification)),
+      returns.start(operator, '1', line.orderId, line.lineId, returnInput()),
     ).rejects.toMatchObject({
       status: 502,
       message: 'Order is under process, Please try again in 5 minutes.',
@@ -455,8 +419,7 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
     expect(await rows('SELECT id FROM return_orders')).toEqual([]);
     inboundResult = 'ok';
     expect(
-      (await returns.start(operator, '1', line.orderId, line.lineId, returnInput(verification)))
-        .phase,
+      (await returns.start(operator, '1', line.orderId, line.lineId, returnInput())).phase,
     ).toBe('completed');
   });
 
@@ -465,13 +428,7 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
       line = await seedOrder(9003);
     refundResult = 'already';
     await expect(
-      returns.start(
-        operator,
-        '1',
-        line.orderId,
-        line.lineId,
-        returnInput(await verified(line.orderId)),
-      ),
+      returns.start(operator, '1', line.orderId, line.lineId, returnInput()),
     ).rejects.toMatchObject({ status: 409, message: 'Already refunded' });
     expect(await rows('SELECT credit_note_no FROM return_orders')).toHaveLength(1);
     expect(await rows('SELECT id FROM pos_hold_stock_logs')).toEqual([]);
@@ -481,10 +438,9 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
 
   it('applies the return window, and accepts force return only where show.html offers it', async () => {
     const { returns } = services(),
-      line = await seedOrder(9004, { oldDelivery: true }),
-      verification = await verified(line.orderId);
+      line = await seedOrder(9004, { oldDelivery: true });
     await expect(
-      returns.start(operator, '1', line.orderId, line.lineId, returnInput(verification)),
+      returns.start(operator, '1', line.orderId, line.lineId, returnInput()),
     ).rejects.toMatchObject({ status: 409, message: 'This order is not applicable for return' });
     // The eligibility service gave neither status nor reason: the force-return button.
     eligibility = new Map([
@@ -497,7 +453,7 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
           '1',
           line.orderId,
           line.lineId,
-          returnInput(verification, { clickType: 'extreme' }),
+          returnInput({ clickType: 'extreme' }),
         )
       ).phase,
     ).toBe('completed');
@@ -515,22 +471,143 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
         '1',
         line.orderId,
         line.lineId,
-        returnInput(await verified(line.orderId), { clickType: 'extreme' }),
+        returnInput({ clickType: 'extreme' }),
       ),
     ).rejects.toMatchObject({ code: 'RETURN_NOT_ELIGIBLE' });
     expect(calls.inbound).toBe(0);
   });
 
-  it('reports the cell facts: current product type, check-in exchange flag and failed retry', async () => {
-    const { returns } = services(),
-      line = await seedOrder(9006, { productType: 8, storeOrder: false }),
-      verification = await verified(line.orderId);
+  it('S35: refuses force return for a current type-8 product, an undelivered line or an online order', async () => {
+    const { returns, state } = services();
+    const none = (lineId: string) =>
+      new Map([[lineId, { return: entry(false, '', null), exchange: entry(false, '', null) }]]);
+    const refused = {
+      status: 409,
+      code: 'RETURN_NOT_APPLICABLE',
+      message: 'Not applicable for return',
+    };
+    const typeEight = await seedOrder(9020, { oldDelivery: true, productType: 8 });
+    eligibility = none(typeEight.lineId);
+    const input = returnInput({ clickType: 'extreme' });
+    await expect(
+      returns.start(operator, '1', typeEight.orderId, typeEight.lineId, input),
+    ).rejects.toMatchObject(refused);
+    expect(await state.readOperation(input.operationId)).toBeNull();
+    const placed = await seedOrder(9021, { oldDelivery: true });
+    await connection.query("UPDATE has_products SET status='PLACED' WHERE id=?", [placed.lineId]);
+    eligibility = none(placed.lineId);
+    await expect(
+      returns.start(
+        operator,
+        '1',
+        placed.orderId,
+        placed.lineId,
+        returnInput({ clickType: 'extreme' }),
+      ),
+    ).rejects.toMatchObject(refused);
+    const online = await seedOrder(9022, { oldDelivery: true, storeOrder: false });
+    eligibility = none(online.lineId);
+    await expect(
+      returns.start(
+        operator,
+        '1',
+        online.orderId,
+        online.lineId,
+        returnInput({ clickType: 'extreme' }),
+      ),
+    ).rejects.toMatchObject(refused);
+    expect([calls.inbound, calls.refund]).toEqual([0, 0]);
+    expect(await rows('SELECT id FROM return_orders')).toEqual([]);
+  });
+
+  it('S35: refuses a new exchange and a retry when the check-in store has exchanges disabled', async () => {
+    const { returns, exchanges } = services(),
+      line = await seedOrder(9023);
+    checkinStoreId = '2';
     const view = await returns.eligibility(
       operator,
       '1',
       line.orderId,
       line.lineId,
-      { counterId: '3', verificationId: verification },
+      { counterId: '3' },
+      'exchange',
+    );
+    expect(view).toMatchObject({ exchangeFeatureEnabled: false, cell: { branch: 'merged' } });
+    expect(view.facts.checkinStoreId).toBe('2');
+    const disabled = {
+      status: 403,
+      code: 'EXCHANGE_NOT_ENABLED',
+      message: 'Not applicable for exchange',
+    };
+    await expect(
+      exchanges.start(operator, '1', line.orderId, line.lineId, exchangeInput()),
+    ).rejects.toMatchObject(disabled);
+    expect(await rows('SELECT id FROM pos_exchange_log')).toEqual([]);
+    expect(calls.inbound).toBe(0);
+    // A failed replacement offers its retry button only while exchanges are enabled.
+    checkinStoreId = '1';
+    exchangeResult = 'fail';
+    const input = exchangeInput();
+    await expect(
+      exchanges.start(operator, '1', line.orderId, line.lineId, input),
+    ).rejects.toMatchObject({ code: 'EXCHANGE_REPLACEMENT_FAILED' });
+    exchangeResult = 'ok';
+    checkinStoreId = null;
+    await expect(exchanges.retry(operator, '1', input.operationId, '7')).rejects.toMatchObject(
+      disabled,
+    );
+    expect(await rows('SELECT status,retry_count FROM pos_exchange_log')).toEqual([
+      { status: 'FAILED_NEEDS_MANUAL_FIX', retry_count: 0 },
+    ]);
+    expect(calls.exchange).toHaveLength(1);
+  });
+
+  it('S35: refuses a type-8 exchange where the templates show Not Applicable For Exchange', async () => {
+    const { exchanges } = services();
+    const notApplicable = {
+      status: 409,
+      code: 'EXCHANGE_NOT_APPLICABLE',
+      message: 'Not Applicable For Exchange',
+    };
+    // show.html: a type-8 line renders no return or exchange button at all.
+    const store = await seedOrder(9024, { productType: 8 });
+    await expect(
+      exchanges.start(operator, '1', store.orderId, store.lineId, exchangeInput()),
+    ).rejects.toMatchObject(notApplicable);
+    expect(await rows('SELECT id FROM pos_exchange_log')).toEqual([]);
+    // Online cells: type 8 wins over an eligible exchange outside the merged cell.
+    const online = await seedOrder(9025, { productType: 8, storeOrder: false });
+    eligibility = new Map([
+      [
+        online.lineId,
+        { return: entry(true, '', '2099-01-01'), exchange: entry(true, '', '2099-02-01') },
+      ],
+    ]);
+    await expect(
+      exchanges.start(operator, '1', online.orderId, online.lineId, exchangeInput()),
+    ).rejects.toMatchObject(notApplicable);
+    expect(calls.inbound).toBe(0);
+    // S35 refusals happen before any write: no PENDING (or failed) exchange-log row, no line change.
+    expect(await rows('SELECT id FROM pos_exchange_log')).toEqual([]);
+    expect(
+      await rows('SELECT status FROM has_products WHERE id = ?', [Number(online.lineId)]),
+    ).toEqual([{ status: 'DELIVERED' }]);
+    // ...but the merged cell still offers the exchange (legacy online template).
+    const merged = await seedOrder(9026, { productType: 8, storeOrder: false });
+    expect(
+      (await exchanges.start(operator, '1', merged.orderId, merged.lineId, exchangeInput())).phase,
+    ).toBe('completed');
+  });
+
+  it('reports the cell facts: current product type, check-in exchange flag and failed retry', async () => {
+    const { returns } = services(),
+      line = await seedOrder(9006, { productType: 8, storeOrder: false });
+    const view = await returns.eligibility(
+      operator,
+      '1',
+      line.orderId,
+      line.lineId,
+      { counterId: '3' },
       'exchange',
     );
     expect(view.exchangeFeatureEnabled).toBe(true);
@@ -548,7 +625,7 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
       '1',
       line.orderId,
       line.lineId,
-      { counterId: '3', verificationId: verification },
+      { counterId: '3' },
       'exchange',
     );
     expect(split.cell.parts[1]?.texts).toEqual([
@@ -556,11 +633,10 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
     ]);
   });
 
-  async function exchangeInput(verificationId: string) {
+  function exchangeInput() {
     return exchangeInputSchema.parse({
       operationId: randomUUID(),
       counterId: '3',
-      verificationId,
       reasonId: '4',
       qualityConfirmed: true,
       tagConfirmed: true,
@@ -573,7 +649,7 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
   it('completes one exchange with the delivered child order, invoice, logs and mail', async () => {
     const { exchanges } = services(),
       line = await seedOrder(9010),
-      input = await exchangeInput(await verified(line.orderId));
+      input = exchangeInput();
     const result = await exchanges.start(operator, '1', line.orderId, line.lineId, input);
     expect(result).toMatchObject({ phase: 'completed', newOrderId: String(childOrderId) });
     expect(calls.exchange[0]).toMatchObject({
@@ -633,7 +709,7 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
   it('marks a failed replacement for manual fix, alerts Slack and retries with stored picks', async () => {
     const { exchanges } = services(),
       line = await seedOrder(9011),
-      input = await exchangeInput(await verified(line.orderId));
+      input = exchangeInput();
     exchangeResult = 'fail';
     await expect(
       exchanges.start(operator, '1', line.orderId, line.lineId, input),
@@ -656,8 +732,7 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
 
   it('claims a legacy failed exchange once and answers its lost-claim outcome per actor', async () => {
     const { repository, exchanges } = services(),
-      line = await seedOrder(9012),
-      verification = await verified(line.orderId);
+      line = await seedOrder(9012);
     await connection.query("UPDATE has_products SET status='EXCHANGE_INITIATED',return_status=1");
     await fixture.insert('pos_exchange_log', {
       order_id: 9012,
@@ -689,7 +764,7 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
       credit_note_no: 'FST12526CN00009',
       created_at: '2026-01-01 10:00:01',
     });
-    const scope = { counterId: '3', verificationId: verification };
+    const scope = { counterId: '3' };
     const read = await repository.exchangeRecovery(operator, '1', line.orderId, line.lineId, scope);
     expect(read).toMatchObject({ state: 'legacy', newSize: 'L' });
     const claim = {

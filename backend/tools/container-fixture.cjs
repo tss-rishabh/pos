@@ -24,8 +24,7 @@ async function verify() {
   const { execFile } = require('node:child_process');
   const { promisify } = require('node:util');
   for (const path of [
-    './dist/modules/customer-contacts/worker-main.js',
-    './dist/modules/customer-otp/worker-main.js',
+    // Legacy-style worker processes were replaced by dist/jobs/worker-main.js (needs Redis).
   ]) {
     const result = await promisify(execFile)(process.execPath, [path], {
       env: {

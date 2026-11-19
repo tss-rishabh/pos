@@ -142,7 +142,6 @@ export function returnWindowExtensions(
       const input = returnWindowInputSchema.parse(supplied),
         scope = returnWindowScopeSchema.parse({
           counterId: input.counterId,
-          verificationId: input.verificationId,
           productId: input.productId,
         });
       return db.get('writer').transaction(

@@ -12,7 +12,6 @@ import {
 import { checkoutSessionStore } from '../../src/modules/checkout/session-store.js';
 import { memoryStateStore, type PosStateStore } from '../../src/modules/checkout/state-store.js';
 import { bumpCurrentContactRevision } from '../../src/modules/customer-contacts/revisions.js';
-import { returnVerificationKey } from '../../src/modules/customer-otp/authority.js';
 import type {
   CustomerOtpApi,
   CustomerOtpApiReply,
@@ -304,36 +303,6 @@ describe.skipIf(!template)(
       await expect(request()).rejects.toMatchObject({
         code: 'CUSTOMER_OTP_SEND_LIMIT',
         status: 429,
-      });
-    });
-    it('binds an order-return challenge to the Redis return verification', async () => {
-      const subjectId = randomUUID(),
-        returnScope: CustomerOtpScope = {
-          ...scope,
-          purpose: 'order-return',
-          subjectId,
-          orderId: '77',
-        };
-      await store.set(
-        returnVerificationKey(subjectId),
-        JSON.stringify({
-          id: subjectId,
-          operatorId: '1',
-          storeId: '1',
-          counterId: '1',
-          customerId: '7',
-          orderId: '77',
-          otpChallengeId: challengeId,
-          contact,
-          busyOperationId: null,
-        }),
-        600,
-      );
-      await service.request(actor, returnScope, challengeId, randomUUID(), contact);
-      const proof = await service.verify(actor, returnScope, challengeId, randomUUID(), '1234');
-      expect(proof.verifiedUntil).not.toBeNull();
-      await expect(service.read(actor, scope, challengeId)).rejects.toMatchObject({
-        code: 'CUSTOMER_OTP_NOT_FOUND',
       });
     });
   },

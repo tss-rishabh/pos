@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { catalogBarcode, uniqueBarcodeProduct } from '../src/modules/catalog-barcode.js';
 import { demoServices, demoUser } from '../src/modules/demo.js';
-import { readCatalogBarcode } from '../src/modules/catalog-barcode.js';
+import {
+  noStorageStock,
+  readCatalogBarcode,
+  stockLocations,
+} from '../src/modules/catalog-barcode.js';
 import { buildApp } from '../src/app.js';
 import { readConfig } from '../src/config.js';
 
@@ -79,5 +83,28 @@ describe('exact barcode selection', () => {
     expect(
       uniqueBarcodeProduct([result.product, result.product], result.matchedBarcode).product.id,
     ).toBe(result.product.id);
+  });
+});
+
+describe('picker held and storage stock', () => {
+  it('keeps the first hold row per SKU and concatenates storage rows in legacy text form', () => {
+    expect(
+      stockLocations(
+        ['7', '8', '9'],
+        [
+          { product: 7n, stock: 2 },
+          { product: 7n, stock: 5 },
+          { product: 9n, stock: -1 },
+        ],
+        [
+          { product: 7n, name: 'Rack A', stock: 3 },
+          { product: 7n, name: 'Back room', stock: 0 },
+        ],
+      ),
+    ).toEqual([
+      { productId: '7', heldStock: 2, storageStock: 'Rack A : 3\nBack room : 0\n' },
+      { productId: '8', heldStock: 0, storageStock: noStorageStock },
+      { productId: '9', heldStock: -1, storageStock: noStorageStock },
+    ]);
   });
 });

@@ -20,7 +20,8 @@ export function DiscountApproval({
   act: (task: () => Promise<void>) => Promise<void>;
   onReady: (version: number, ready: boolean) => void;
 }) {
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState(''),
+    [sent, setSent] = useState('');
   const approval = useQuery({
     queryKey: ['checkout-discount-approval', checkout.storeId, checkout.id, checkout.version],
     queryFn: () => readDiscountApproval(checkout),
@@ -49,11 +50,13 @@ export function DiscountApproval({
   const request = () =>
     act(async () => {
       await mutate('discount-approval/challenges', 'POST');
+      setSent('OTP Sent To Managers');
       await approval.refetch();
     });
   return (
     <section className="discount-approval" aria-label="Manager discount approval">
       <h3>Manager discount approval</h3>
+      {sent && <p role="status">{sent}</p>}
       <p>
         {currency(value.amount)} discount ·{' '}
         {value.status === 'approved'

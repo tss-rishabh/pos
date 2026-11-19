@@ -11,7 +11,6 @@ export const returnInputSchema = z
   .object({
     operationId: z.uuid(),
     counterId: identifier,
-    verificationId: z.uuid(),
     reasonId: identifier,
     subReasonId: identifier.optional(),
     comment: z.string().max(255).default(''),
@@ -32,7 +31,6 @@ export const exchangeInputSchema = z
   .object({
     operationId: z.uuid(),
     counterId: identifier,
-    verificationId: z.uuid(),
     reasonId: identifier,
     subReasonId: identifier.optional(),
     comment: z.string().max(255).default(''),
@@ -85,6 +83,11 @@ export const returnOperationSchema = z.object({
     })
     .nullable()
     .default(null),
+  /** S35 facts read when the operation began: store or online order, CURRENT product type. */
+  guard: z
+    .object({ variant: z.enum(['store', 'online']), productType: z.number().int().nullable() })
+    .strict()
+    .optional(),
   /** The counter of the operator who claimed a recovery (current check-in). */
   authorityCounterId: identifier.optional(),
   recoveryClaim: z
@@ -93,7 +96,6 @@ export const returnOperationSchema = z.object({
       revision: z.string().regex(/^[a-f0-9]{64}$/),
       operatorId: identifier,
       counterId: identifier,
-      verificationId: z.uuid(),
       claimedAt: z.string(),
       requestHash: z.string().regex(/^[a-f0-9]{64}$/),
     })
@@ -109,7 +111,6 @@ export const returnOperationSchema = z.object({
   input: z.object({
     operationId: z.uuid(),
     counterId: identifier,
-    verificationId: z.uuid(),
     reasonId: identifier,
     subReasonId: identifier.optional(),
     comment: z.string().max(255),
@@ -169,8 +170,6 @@ export type RefundOutcome =
   | { kind: 'already-refunded' };
 export interface ReturnGateway {
   configured(): void;
-  sendOtp(customerId: string): Promise<void>;
-  verifyOtp(customerId: string, otp: string): Promise<boolean>;
   /** All lines of the order; empty map when legacy would render "Check-in first". */
   orderEligibility(
     orderId: string,
@@ -260,7 +259,6 @@ const returnWindowIdentifier = identifier.refine(
 export const returnWindowScopeSchema = z
   .object({
     counterId: returnWindowIdentifier,
-    verificationId: z.uuid(),
     productId: returnWindowIdentifier,
   })
   .strict();
@@ -290,9 +288,7 @@ const recoveryIdentifier = identifier.refine(
 export const exchangeRecoveryPath = z
   .object({ storeId: recoveryIdentifier, orderId: recoveryIdentifier, lineId: recoveryIdentifier })
   .strict();
-export const exchangeRecoveryScope = z
-  .object({ counterId: recoveryIdentifier, verificationId: z.uuid() })
-  .strict();
+export const exchangeRecoveryScope = z.object({ counterId: recoveryIdentifier }).strict();
 export const exchangeRecoveryClaim = exchangeRecoveryScope
   .extend({
     operationId: z.uuid(),

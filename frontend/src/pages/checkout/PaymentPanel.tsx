@@ -42,6 +42,15 @@ interface PaymentPanelProps {
   online: boolean;
   onConfirmed?: (receipt: ConfirmedPayment, origin: 'read' | 'action') => void;
   allowNewPayments?: boolean;
+  /**
+   * Legacy normal path (`create_order.html:6177-7239`): the form is shown and confirmed before
+   * the order exists; `submit` creates the order and starts this payment. `orderId` is ''.
+   */
+  preOrder?: {
+    payable: string;
+    loadOptions: () => Promise<PaymentOptions>;
+    submit: (body: RecordedPaymentInput) => Promise<void>;
+  };
 }
 type Phase = 'form' | 'confirm';
 /**
@@ -56,6 +65,7 @@ export function PaymentPanel({
   online,
   onConfirmed,
   allowNewPayments = true,
+  preOrder,
 }: PaymentPanelProps) {
   const [context, setContext] = useState<PaymentContext | null>(null),
     [options, setOptions] = useState<PaymentOptions | null>(null),
@@ -109,8 +119,44 @@ export function PaymentPanel({
     return value;
   }, [storeId, orderId, ownerId, confirm]);
 
+  const preOrderRef = useRef(preOrder);
+  preOrderRef.current = preOrder;
+  const preOrderPayable = preOrder?.payable ?? null;
   useEffect(() => {
-    if (!online) return;
+    if (!online || preOrderPayable === null) return;
+    let active = true;
+    void (async () => {
+      try {
+        const modes = await preOrderRef.current!.loadOptions();
+        if (!active) return;
+        setContext({
+          orderId,
+          storeId,
+          counterId: modes.counterId,
+          payable: preOrderPayable,
+          paid: false,
+          settlement: null,
+          // Assigned when the order is created (Helpers.get_transaction_id).
+          transactionId: 'Assigned with the order',
+          activeTransaction: null,
+          canRecordPayment: true,
+          blocker: null,
+        });
+        setOptions({ ...modes, payable: preOrderPayable });
+        const initial = initialPaymentForm(preOrderPayable);
+        setForm(initial);
+        setMessage(paymentMessage(initial));
+      } catch (error) {
+        if (active)
+          setProblem(error instanceof Error ? error.message : 'Payment options are unavailable.');
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [online, preOrderPayable, orderId, storeId]);
+  useEffect(() => {
+    if (!online || preOrderPayable !== null) return;
     let active = true;
     let saved: PaymentRecovery | null = null;
     try {
@@ -156,7 +202,7 @@ export function PaymentPanel({
     return () => {
       active = false;
     };
-  }, [storeId, orderId, ownerId, storageKey, online, confirm]);
+  }, [storeId, orderId, ownerId, storageKey, online, confirm, preOrderPayable]);
 
   const act = async (task: () => Promise<void>) => {
     if (lock.current) return;
@@ -201,6 +247,10 @@ export function PaymentPanel({
     };
   }
   async function submit(body: RecordedPaymentInput) {
+    if (preOrderRef.current) {
+      await preOrderRef.current.submit(body);
+      return;
+    }
     setRecovery(savePaymentRecovery(storageKey, { version: 2, kind: 'payment', input: body }));
     let result: PaymentResult;
     try {

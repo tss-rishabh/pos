@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { useCallback, useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { X, Check, RefreshCw } from 'lucide-react';
 import type { LocalDraft } from '../../offline/database';
@@ -8,9 +9,9 @@ import {
   authoritativeTotal,
   assertCheckoutDraft,
   createCheckout,
-  lookupCustomers,
   mutateCheckout,
   readCheckout,
+  readCheckoutPaymentOptions,
   readOperation,
   reconcileCustomerVerification,
   recoveryFor,
@@ -18,10 +19,13 @@ import {
   registrationSchema,
   type Checkout,
   type CheckoutFlags,
-  type Customer,
 } from './client';
 import { PaymentPanel, type ConfirmedPayment } from './PaymentPanel';
 import { FastCashCheckout } from './FastCashCheckout';
+import { WalletControls } from './WalletControls';
+import { CustomerLookup } from './CustomerLookup';
+import { BirthdayPrompt } from './BirthdayPrompt';
+import { MembershipEmailPrompt } from './MembershipEmailPrompt';
 import { SalespersonAssignments } from './SalespersonAssignments';
 import { confirmedPaymentSchema } from './receipts';
 import { InvoiceActions } from './InvoiceActions';
@@ -105,25 +109,47 @@ export function CheckoutReview({
     [problem, setProblem] = useState(''),
     [notice, setNotice] = useState(''),
     [pendingId, setPendingId] = useState<string | null>(null),
-    [query, setQuery] = useState(''),
-    [customers, setCustomers] = useState<Customer[]>([]),
     [otp, setOtp] = useState(''),
     [coupon, setCoupon] = useState(''),
     [giftCode, setGiftCode] = useState(''),
     [giftPin, setGiftPin] = useState(''),
     [giftPinRequested, setGiftPinRequested] = useState(false),
+    [paymentFormOpen, setPaymentFormOpen] = useState(false),
     [flags, setFlags] = useState<CheckoutFlags | null>(null),
     [discount, setDiscount] = useState(''),
     [discountKind, setDiscountKind] = useState<'pg' | 'store'>('store'),
     [discountRemark, setDiscountRemark] = useState(''),
     [discountReason, setDiscountReason] = useState(''),
-    [wallet, setWallet] = useState(''),
-    [walletMoney, setWalletMoney] = useState(true),
-    [walletPoints, setWalletPoints] = useState(false);
+    [appliedPrefill, setAppliedPrefill] = useState<string | null>(null);
   useEffect(() => {
     if (flags?.enableNewPgDiscount === false && flags.enableOldPgDiscount) setDiscountKind('pg');
     if (flags?.enableOldPgDiscount === false && flags.enableNewPgDiscount) setDiscountKind('store');
   }, [flags]);
+  // Applied coupon, voucher and PG amounts prefill their inputs from the cart, as legacy renders
+  // them from `cart.meta.items` (create_order.html:265, :279, :309, :335).
+  useEffect(() => {
+    if (!checkout?.cart) return;
+    const key = `${checkout.id}:${checkout.version}`;
+    if (appliedPrefill === key) return;
+    setAppliedPrefill(key);
+    const meta: unknown = checkout.cart.meta;
+    const items =
+      typeof meta === 'object' && meta !== null && 'items' in meta && Array.isArray(meta.items)
+        ? (meta.items as unknown[])
+        : [];
+    const find = (name: string) =>
+      items.find(
+        (item): item is Record<string, unknown> =>
+          typeof item === 'object' && item !== null && 'name' in item && item.name === name,
+      );
+    const text = (value: unknown) =>
+      typeof value === 'string' || typeof value === 'number' ? String(value) : '';
+    setCoupon(text(find('coupon')?.coupon));
+    setGiftCode(text(find('gift_voucher')?.voucher_code));
+    const pg = text(find('pg_discount')?.used_pg_discount),
+      storePg = text(find('store_discount_pg')?.used_store_discount_pg);
+    setDiscount(discountKind === 'pg' ? pg : storePg);
+  }, [checkout, appliedPrefill, discountKind]);
   const [profilePending, setProfilePending] = useState(false);
   const [contactPending, setContactPending] = useState(false);
   const [conversionPending, setConversionPending] = useState(false);
@@ -961,8 +987,34 @@ export function CheckoutReview({
                 }}
               />
             )}
+            <MembershipEmailPrompt
+              checkout={checkout}
+              operatorId={draft.ownerId}
+              disabled={disabled}
+              onNotice={setNotice}
+              onSaved={async () => {
+                await adopt(await readCheckout(draft.storeId, checkout.id, draft.ownerId));
+              }}
+            />
+            {checkout.customerId && (
+              <BirthdayPrompt
+                key={`birthday:${checkout.id}:${checkout.customerId}`}
+                scope={{
+                  operatorId: draft.ownerId,
+                  storeId: draft.storeId,
+                  checkoutId: checkout.id,
+                  customerId: checkout.customerId,
+                }}
+                checkoutVersion={checkout.version}
+                disabled={disabled}
+                onSaved={async () => {
+                  await adopt(await readCheckout(draft.storeId, checkout.id, draft.ownerId));
+                }}
+              />
+            )}
             {checkout.customerId && (
               <CustomerInsights
+                initiallyOpen
                 key={`insights:${draft.ownerId}:${checkout.id}:${checkout.customerId}:${checkout.version}`}
                 scope={{
                   operatorId: draft.ownerId,
@@ -1057,49 +1109,15 @@ export function CheckoutReview({
                 </details>
                 <details>
                   <summary>Customer and verification</summary>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void act(async () => {
-                        const result = await lookupCustomers(
-                          draft.storeId,
-                          draft.counterId,
-                          query.trim(),
-                          draft.ownerId,
-                        );
-                        setCustomers(result.data);
-                      });
-                    }}
-                  >
-                    <label>
-                      Email or phone
-                      <input
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        required
-                        maxLength={254}
-                      />
-                    </label>
-                    <button className="button secondary" disabled={disabled}>
-                      Find customer
-                    </button>
-                  </form>
-                  {customers.map((customer) => (
-                    <button
-                      key={customer.id}
-                      className="button secondary"
-                      disabled={disabled}
-                      onClick={() =>
-                        void act(async () => {
-                          await mutate('customer', 'PUT', { customerId: customer.id });
-                          setCustomers([]);
-                          setQuery('');
-                        })
-                      }
-                    >
-                      {customer.firstName} {customer.lastName} · {customer.telephone}
-                    </button>
-                  ))}
+                  <CustomerLookup
+                    storeId={draft.storeId}
+                    counterId={draft.counterId}
+                    operatorId={draft.ownerId}
+                    connectedCustomerId={checkout.customerId}
+                    disabled={disabled}
+                    act={act}
+                    mutate={mutate}
+                  />
                   {checkout.customerId && (
                     <>
                       <p className="caption">
@@ -1113,8 +1131,6 @@ export function CheckoutReview({
                           void act(async () => {
                             await mutate('customer-detachments', 'POST');
                             setOtp('');
-                            setCustomers([]);
-                            setQuery('');
                             setNotice('The customer is detached and the checkout is empty.');
                           })
                         }
@@ -1136,6 +1152,13 @@ export function CheckoutReview({
                       >
                         Send verification code
                       </button>
+                      {/* create_order.html:258 */}
+                      <p role="status">
+                        {checkout.verifiedCustomerUntil &&
+                        checkout.verifiedCustomerUntil > Date.now()
+                          ? 'User is verified !'
+                          : 'Verify the user to use Tss Money/Points/Voucher !'}
+                      </p>
                       {checkout.verificationChallenge && !checkout.verifiedCustomerUntil && (
                         <div role="status">
                           <p>
@@ -1224,6 +1247,7 @@ export function CheckoutReview({
                         e.preventDefault();
                         void act(async () => {
                           await mutate('coupon', 'PUT', { code: coupon });
+                          setNotice('Applied Succesfully');
                           setCoupon('');
                         });
                       }}
@@ -1246,6 +1270,7 @@ export function CheckoutReview({
                         onClick={() =>
                           void act(async () => {
                             await mutate('coupon/removals', 'POST');
+                            setNotice('Removed Succesfully');
                           })
                         }
                       >
@@ -1280,73 +1305,13 @@ export function CheckoutReview({
                 </details>
                 <details>
                   <summary>Wallet and gift voucher</summary>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void act(async () => {
-                        await mutate('wallet', 'PUT', {
-                          money: walletMoney,
-                          points: walletPoints,
-                          appliedMoney: walletMoney && wallet ? wallet : '0.00',
-                          custom: walletMoney && Boolean(wallet),
-                        });
-                      });
-                    }}
-                  >
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={walletMoney}
-                        onChange={(event) => setWalletMoney(event.target.checked)}
-                      />
-                      Use TSS Money
-                    </label>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={walletPoints}
-                        onChange={(event) => setWalletPoints(event.target.checked)}
-                      />
-                      Use TSS Points
-                    </label>
-                    <label>
-                      Wallet amount
-                      <input
-                        value={wallet}
-                        onChange={(e) => setWallet(e.target.value)}
-                        inputMode="decimal"
-                        pattern="[0-9]+(\.[0-9]{1,2})?"
-                        disabled={!walletMoney}
-                      />
-                    </label>
-                    <button
-                      className="button secondary"
-                      disabled={
-                        disabled ||
-                        !checkout.verifiedCustomerUntil ||
-                        checkout.verifiedCustomerUntil < Date.now()
-                      }
-                    >
-                      Use wallet
-                    </button>
-                    <button
-                      type="button"
-                      className="button secondary"
-                      disabled={disabled}
-                      onClick={() =>
-                        void act(async () => {
-                          await mutate('wallet', 'PUT', {
-                            money: false,
-                            points: false,
-                            appliedMoney: '0.00',
-                            custom: false,
-                          });
-                        })
-                      }
-                    >
-                      Remove wallet benefits
-                    </button>
-                  </form>
+                  <WalletControls
+                    checkout={checkout}
+                    operatorId={draft.ownerId}
+                    disabled={disabled}
+                    act={act}
+                    mutate={mutate}
+                  />
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
@@ -1369,6 +1334,7 @@ export function CheckoutReview({
                         }
                         setGiftPinRequested(false);
                         setGiftCode('');
+                        setNotice('Applied/Remove');
                       });
                     }}
                   >
@@ -1415,6 +1381,7 @@ export function CheckoutReview({
                       onClick={() =>
                         void act(async () => {
                           await mutate('gift-vouchers/removals', 'POST');
+                          setNotice('Applied/Remove');
                         })
                       }
                     >
@@ -1438,6 +1405,7 @@ export function CheckoutReview({
                               remark: discountRemark,
                               ...(discountKind === 'store' ? { reason: discountReason } : {}),
                             });
+                            setNotice('Applied Succesfully');
                           });
                         }}
                       >
@@ -1516,6 +1484,7 @@ export function CheckoutReview({
                                 amount: '0.00',
                                 apply: false,
                               });
+                              setNotice('Removed Succesfully');
                             })
                           }
                         >
@@ -1588,31 +1557,69 @@ export function CheckoutReview({
                   act={act}
                   onReady={approvalReady}
                 />
-                <button
-                  className="button primary full"
-                  data-cashier-action="proceed"
-                  aria-keyshortcuts="P"
-                  disabled={
-                    disabled ||
-                    !editable ||
-                    approvalState?.version !== checkout.version ||
-                    !approvalState.ready
-                  }
-                  onClick={() =>
-                    void act(async () => {
-                      const result = await mutate('order-submissions', 'POST');
-                      const orderId = result.state?.orderId;
-                      if (orderId) {
-                        setNotice(
-                          `Order ${orderId} created. ${result.result?.paymentStatus === 'paid' ? 'Payment is confirmed.' : 'Payment is pending.'}`,
-                        );
+                {paymentFormOpen && total !== null && !/^0+(?:\.0+)?$/.test(total) ? (
+                  <PaymentPanel
+                    ownerId={draft.ownerId}
+                    draftId={draft.id}
+                    storeId={draft.storeId}
+                    orderId=""
+                    online={online}
+                    preOrder={{
+                      payable: total,
+                      loadOptions: async () => ({
+                        ...(await readCheckoutPaymentOptions(checkout)),
+                        payable: total,
+                      }),
+                      submit: async (payment) => {
+                        // Legacy: confirm the payment form, then ajax-order, then the upload.
+                        const result = await mutate('order-submissions', 'POST', { payment });
+                        setPaymentFormOpen(false);
+                        const orderId = result.state?.orderId;
+                        if (!orderId) return;
                         onOrderCreated?.(orderId);
+                        const failure = z
+                          .object({ message: z.string() })
+                          .safeParse(result.result?.paymentError);
+                        if (failure.success)
+                          setProblem(
+                            `Order ${orderId} created. ${failure.data.message} Continue with the payment below.`,
+                          );
+                        else setNotice('Order Created!');
+                      },
+                    }}
+                  />
+                ) : (
+                  <button
+                    className="button primary full"
+                    data-cashier-action="proceed"
+                    aria-keyshortcuts="P"
+                    disabled={
+                      disabled ||
+                      !editable ||
+                      approvalState?.version !== checkout.version ||
+                      !approvalState.ready
+                    }
+                    onClick={() => {
+                      // A positive payable opens the payment form first; the order is created only
+                      // when the operator confirms it (create_order.html:6177-7239). Zero payable is
+                      // the legacy Order Confirmation path.
+                      if (total !== null && !/^0+(?:\.0+)?$/.test(total)) {
+                        setPaymentFormOpen(true);
+                        return;
                       }
-                    })
-                  }
-                >
-                  Create order
-                </button>
+                      void act(async () => {
+                        const result = await mutate('order-submissions', 'POST');
+                        const orderId = result.state?.orderId;
+                        if (orderId) {
+                          setNotice('Order Created!');
+                          onOrderCreated?.(orderId);
+                        }
+                      });
+                    }}
+                  >
+                    Proceed For Payment
+                  </button>
+                )}
               </>
             )}
             {checkout.phase === 'submitted' && (

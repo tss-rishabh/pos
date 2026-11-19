@@ -24,7 +24,7 @@ export type ParsedReturnEntry =
   | { status: 'mismatch' }
   | { status: 'ready'; entry: ReturnOrderEntry };
 
-/** Navigation selects an order; the server still verifies every action and customer proof. */
+/** Navigation selects an order; the server still checks check-in and eligibility on every action. */
 export function returnOrderLink(entry: ReturnOrderEntry): string {
   return `/returns?${new URLSearchParams(Object.entries(entrySchema.parse(entry)).filter((pair): pair is [string, string] => typeof pair[1] === 'string')).toString()}`;
 }
@@ -53,14 +53,14 @@ export function readReturnOrderEntry(
   return { status: 'ready', entry };
 }
 
-/** URL identifiers are only a selection hint; customer-proof rows remain authoritative. */
+/** URL identifiers are only a selection hint; the server's order lines remain authoritative. */
 export function matchingReturnEntryLine(
   entry: ReturnOrderEntry | undefined,
-  verifiedOrderId: string | undefined,
+  selectedOrderId: string | undefined,
   mode: ReverseKind,
   lines: readonly ReturnLine[],
 ): ReturnLine | null {
-  if (!entry?.lineId || entry.orderId !== verifiedOrderId || entry.kind !== mode) return null;
+  if (!entry?.lineId || entry.orderId !== selectedOrderId || entry.kind !== mode) return null;
   const matches = lines.filter((line) => line.id === entry.lineId);
   const line = matches.length === 1 ? matches[0] : undefined;
   return line &&

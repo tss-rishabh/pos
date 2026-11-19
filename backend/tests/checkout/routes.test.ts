@@ -42,6 +42,21 @@ beforeEach(async () => {
     assertCheckIn: async () => {},
     finalizeOrder: async () => ({ transactionId: 'FIXTURE', invoice: 'FIXTURE' }),
     checkoutFlags: async (user) => checkoutFlags(config, 'IN_HOUSE', user.userType),
+    customerLookup: {
+      lookup: async () => ({
+        customer: {
+          id: '1001',
+          name: 'Fixture Customer',
+          telephone: '9000000000',
+          email: 'customer-1001@example.test',
+          customerType: 'B2C',
+          gstin: '',
+        },
+        message: 'User Found.',
+        exclusive: { member: false, expiry: null, message: '' },
+        discountEligible: false,
+      }),
+    },
   });
   app.addHook('onClose', async () => db.close());
   await app.ready();
@@ -68,11 +83,11 @@ describe('validated checkout HTTP boundaries', () => {
   });
   it('records explicit resource trace metadata for every checkout and payment route', () => {
     const routes = resourceRoutes(app);
-    expect(routes).toHaveLength(80);
+    expect(routes).toHaveLength(78);
     expect(
       routes.every((route) => route.module === 'checkout' && route.authentication === 'session'),
     ).toBe(true);
-    expect(new Set(routes.map((route) => `${route.method} ${route.path}`)).size).toBe(80);
+    expect(new Set(routes.map((route) => `${route.method} ${route.path}`)).size).toBe(78);
     const returnWindow = '/api/v1/stores/:storeId/orders/:orderId/line-items/:lineId/return-window';
     expect(routes.filter((route) => route.resource === 'return-window-extension')).toEqual([
       {
@@ -136,8 +151,7 @@ describe('validated checkout HTTP boundaries', () => {
       ).toBe(401);
   });
   it('accepts only four digits (legacy customer OTP) and original opaque action IDs at verification HTTP boundaries', async () => {
-    const checkoutId = crypto.randomUUID(),
-      verificationId = crypto.randomUUID();
+    const checkoutId = crypto.randomUUID();
     for (const otp of ['123', '12_34', '12345', 'abcd']) {
       const response = await app.inject({
         method: 'POST',
@@ -146,10 +160,7 @@ describe('validated checkout HTTP boundaries', () => {
       });
       expect(response.statusCode).toBe(400);
     }
-    for (const url of [
-      `${base}/${checkoutId}/customer-verification/reconciliations`,
-      `/api/v1/stores/1/return-verifications/${verificationId}/reconciliations`,
-    ]) {
+    for (const url of [`${base}/${checkoutId}/customer-verification/reconciliations`]) {
       expect(
         (
           await app.inject({
@@ -241,7 +252,7 @@ describe('validated checkout HTTP boundaries', () => {
         await app.inject({
           method: 'POST',
           url: path,
-          payload: { query: 'customer-1001@example.test', counterId: '3' },
+          payload: { email: 'customer-1001@example.test', counterId: '3' },
         })
       ).statusCode,
     ).toBe(200);
@@ -250,7 +261,7 @@ describe('validated checkout HTTP boundaries', () => {
         await app.inject({
           method: 'POST',
           url: path,
-          payload: { query: 'customer-1001@example.test' },
+          payload: { email: 'customer-1001@example.test' },
         })
       ).statusCode,
     ).toBe(400);
@@ -259,7 +270,7 @@ describe('validated checkout HTTP boundaries', () => {
         await app.inject({
           method: 'POST',
           url: path,
-          payload: { query: 'customer-1001@example.test', counterId: '3', self_verify: true },
+          payload: { email: 'customer-1001@example.test', counterId: '3', self_verify: true },
         })
       ).statusCode,
     ).toBe(400);
@@ -272,7 +283,7 @@ describe('validated checkout HTTP boundaries', () => {
         await app.inject({
           method: 'POST',
           url: '/api/v1/stores/2/customer-lookups',
-          payload: { query: '9000000000', counterId: '3' },
+          payload: { telephone: '9000000000', counterId: '3' },
         })
       ).statusCode,
     ).toBe(403);

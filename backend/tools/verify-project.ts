@@ -406,16 +406,6 @@ const checks: Check[] = [
     ],
   },
   {
-    id: 'customer-consent-proof-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/checkout/customer-consent-proof.tsconfig.json',
-    ],
-  },
-  {
     id: 'customer-verification-fixture-typecheck',
     directory: 'backend',
     args: [
@@ -789,16 +779,6 @@ const checks: Check[] = [
     ],
   },
   {
-    id: 'payment-reversals-browser-fixture-typecheck',
-    directory: 'frontend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tests/payment-reversals/tsconfig.json',
-    ],
-  },
-  {
     id: 'payment-correction-finance-fixture-typecheck',
     directory: 'backend',
     args: [
@@ -937,12 +917,6 @@ if (flags.has('--browser')) {
     id: 'order-search-browser-tests',
     directory: 'frontend',
     args: ['tests/order-search/browser-check.mjs'],
-  });
-  checks.push({
-    id: 'payment-reversals-browser-tests',
-    directory: 'frontend',
-    args: ['node_modules/vitest/vitest.mjs', 'run', 'tests/payment-reversals/browser.test.ts'],
-    environment: { PAYMENT_REVERSAL_BROWSER_TESTS: 'true' },
   });
   checks.push(
     {

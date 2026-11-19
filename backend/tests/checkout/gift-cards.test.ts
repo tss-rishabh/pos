@@ -13,6 +13,16 @@ import {
 } from './fixtures.js';
 
 const now = Date.parse('2026-11-16T20:00:00Z');
+/** Legacy normal path: the payment form is confirmed before the order is created. */
+const cashOperation = crypto.randomUUID();
+const cash = () => ({
+  operationId: cashOperation,
+  channel: 'cash' as const,
+  cashAmount: '99.00',
+  onlineAmount: '0.00',
+  cashReceived: '99.00',
+  message: 'Cash',
+});
 const mutation = (expectedVersion: number) => ({
   operationId: crypto.randomUUID(),
   expectedVersion,
@@ -25,7 +35,7 @@ beforeEach(() => {
   gateway = new FixtureGateway();
   service = checkoutService(repository, gateway, signingEnvironment, {
     migrationV2: true,
-    verifyRefundAllocations: async () => {},
+    startPayment: async (_user, _store, orderId) => ({ orderId, status: 'paid' }),
     now: () => now,
     businessTimezone: 'Asia/Kolkata',
     assertCheckIn: async () => {},
@@ -44,7 +54,7 @@ describe('physical gift-card cart correctness', () => {
     });
     repository.states.get(created.id)!.salespersonId = '5';
     await service.quote(operator, '1', created.id, mutation(2));
-    expect((await service.submit(operator, '1', created.id, mutation(3))).status).toBe(
+    expect((await service.submit(operator, '1', created.id, mutation(3), cash())).status).toBe(
       'succeeded',
     );
     const order = gateway.calls.find((call) => call.path === 'pos/order')!.payload;

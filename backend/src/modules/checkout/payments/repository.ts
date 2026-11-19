@@ -167,6 +167,78 @@ export function paymentRepository(
   }
   type Mapping = Awaited<ReturnType<typeof mapping>>;
   /** Store scope, current access and counter check-in precede the order lock. */
+  async function counterOptions(
+    tx: PaymentTransaction,
+    storeId: string,
+    counter: number,
+  ): Promise<PaymentOption[]> {
+    const modes = await tx
+      .select({
+        name: PosTerminalPaymentModes.name,
+        mode: PosTerminalPaymentModes.mode_id,
+        platform: PosTerminalPaymentModes.platform,
+      })
+      .from(PosTerminalPaymentModes)
+      .where(eq(PosTerminalPaymentModes.is_active, 1))
+      .orderBy(asc(PosTerminalPaymentModes.id));
+    // Legacy dict semantics: a later row with the same name replaces the value in place.
+    const byPlatform = new Map<string, Map<string, number>>();
+    for (const mode of modes) {
+      const group = byPlatform.get(mode.platform) ?? new Map<string, number>();
+      group.set(mode.name, mode.mode);
+      byPlatform.set(mode.platform, group);
+    }
+    const machineScope = <T extends typeof PosMachine | typeof PosPaytmMachine>(table: T) =>
+      and(
+        eq(table.store_id, Number(storeId)),
+        ...(counter ? [eq(table.counter_id, counter)] : []),
+        eq(table.is_active, 1),
+      );
+    const result = new Map<string, { value: string; mode: number; machineId: string | null }>();
+    for (const [name, mode] of byPlatform.get('OTHERS') ?? [])
+      result.set(name, { value: String(mode), mode, machineId: String(mode) });
+    if (byPlatform.get('PINELAB')?.size) {
+      const machines = await tx
+        .select({ id: PosMachine.id, name: PosMachine.machine_name })
+        .from(PosMachine)
+        .where(machineScope(PosMachine))
+        .orderBy(asc(PosMachine.id));
+      for (const machine of machines)
+        for (const [name, mode] of byPlatform.get('PINELAB')!)
+          result.set(`${name} (${machine.name})`, {
+            value: `${mode}-${machine.id}`,
+            mode,
+            machineId: String(machine.id),
+          });
+    }
+    if (byPlatform.get('PAYTM')?.size) {
+      const machines = await tx
+        .select({ id: PosPaytmMachine.id, name: PosPaytmMachine.machine_name })
+        .from(PosPaytmMachine)
+        .where(machineScope(PosPaytmMachine))
+        .orderBy(asc(PosPaytmMachine.id));
+      for (const machine of machines)
+        for (const [name, mode] of byPlatform.get('PAYTM')!)
+          result.set(`${name} (${machine.name})`, {
+            value: `${mode}-${machine.id}`,
+            mode,
+            machineId: String(machine.id),
+          });
+    }
+    // `N. name` numbering, as get_pinelab_and_paytm_payment_mode does for a store.
+    return [...result.entries()].map(([name, item], index) => {
+      const channel = channelForMode(item.mode);
+      return {
+        value: item.value,
+        label: `${index + 1}. ${name}`,
+        channel,
+        paymentMode: item.mode,
+        // Fixed OTHERS modes carry no machine; any other mode is uploaded to the Pine
+        // machine named by the value suffix, exactly as legacy `payment_mode_raw[-1]`.
+        machineId: ['other', 'district', 'pincode'].includes(channel) ? null : item.machineId,
+      };
+    });
+  }
   async function order(tx: PaymentTransaction, user: Principal, storeId: string, orderId: string) {
     requireStore(user, storeId);
     await assertCheckIn(user.id, storeId, undefined, tx);
@@ -586,79 +658,24 @@ export function paymentRepository(
     /** `TerminalHelper.get_payment_mode` (terminal_helpers.py:273-317). */
     async options(user: Principal, storeId: string, orderId: string) {
       return transact(async (tx) => {
-        const record = await order(tx, user, storeId, orderId),
-          counter = Number(record.counter);
-        const modes = await tx
-          .select({
-            name: PosTerminalPaymentModes.name,
-            mode: PosTerminalPaymentModes.mode_id,
-            platform: PosTerminalPaymentModes.platform,
-          })
-          .from(PosTerminalPaymentModes)
-          .where(eq(PosTerminalPaymentModes.is_active, 1))
-          .orderBy(asc(PosTerminalPaymentModes.id));
-        // Legacy dict semantics: a later row with the same name replaces the value in place.
-        const byPlatform = new Map<string, Map<string, number>>();
-        for (const mode of modes) {
-          const group = byPlatform.get(mode.platform) ?? new Map<string, number>();
-          group.set(mode.name, mode.mode);
-          byPlatform.set(mode.platform, group);
-        }
-        const machineScope = <T extends typeof PosMachine | typeof PosPaytmMachine>(table: T) =>
-          and(
-            eq(table.store_id, Number(storeId)),
-            ...(counter ? [eq(table.counter_id, counter)] : []),
-            eq(table.is_active, 1),
-          );
-        const result = new Map<string, { value: string; mode: number; machineId: string | null }>();
-        for (const [name, mode] of byPlatform.get('OTHERS') ?? [])
-          result.set(name, { value: String(mode), mode, machineId: String(mode) });
-        if (byPlatform.get('PINELAB')?.size) {
-          const machines = await tx
-            .select({ id: PosMachine.id, name: PosMachine.machine_name })
-            .from(PosMachine)
-            .where(machineScope(PosMachine))
-            .orderBy(asc(PosMachine.id));
-          for (const machine of machines)
-            for (const [name, mode] of byPlatform.get('PINELAB')!)
-              result.set(`${name} (${machine.name})`, {
-                value: `${mode}-${machine.id}`,
-                mode,
-                machineId: String(machine.id),
-              });
-        }
-        if (byPlatform.get('PAYTM')?.size) {
-          const machines = await tx
-            .select({ id: PosPaytmMachine.id, name: PosPaytmMachine.machine_name })
-            .from(PosPaytmMachine)
-            .where(machineScope(PosPaytmMachine))
-            .orderBy(asc(PosPaytmMachine.id));
-          for (const machine of machines)
-            for (const [name, mode] of byPlatform.get('PAYTM')!)
-              result.set(`${name} (${machine.name})`, {
-                value: `${mode}-${machine.id}`,
-                mode,
-                machineId: String(machine.id),
-              });
-        }
-        // `N. name` numbering, as get_pinelab_and_paytm_payment_mode does for a store.
-        const options: PaymentOption[] = [...result.entries()].map(([name, item], index) => {
-          const channel = channelForMode(item.mode);
-          return {
-            value: item.value,
-            label: `${index + 1}. ${name}`,
-            channel,
-            paymentMode: item.mode,
-            // Fixed OTHERS modes carry no machine; any other mode is uploaded to the Pine
-            // machine named by the value suffix, exactly as legacy `payment_mode_raw[-1]`.
-            machineId: ['other', 'district', 'pincode'].includes(channel) ? null : item.machineId,
-          };
-        });
+        const record = await order(tx, user, storeId, orderId);
         return {
           payable: money(record.payable),
           counterId: String(record.counter),
-          options,
+          options: await counterOptions(tx, storeId, Number(record.counter)),
         };
+      });
+    },
+    /**
+     * The same options before the order exists: legacy shows the payment form, built from the
+     * store/counter machines (`terminal_helpers.py:273-317`), before `ajax-order` runs.
+     */
+    async counterOptions(user: Principal, storeId: string, counterId: string) {
+      return transact(async (tx) => {
+        requireStore(user, storeId);
+        await assertCheckIn(user.id, storeId, counterId, tx);
+        await assertCurrentStoreAccess(tx, user.id, storeId);
+        return counterOptions(tx, storeId, Number(counterId));
       });
     },
     /** Validation and dispatch preparation of `AjaxTransactionUploadView` (order/views.py:3020-3069). */

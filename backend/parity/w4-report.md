@@ -293,3 +293,100 @@ All JSON unless noted; every key has a TTL (production is `noeviction`).
   `09aaede` but not re-run on MySQL), returns 9/9 and return-window native 14/14.
 - frontend `npx tsc --noEmit -p .`: 0 errors; `npx eslint .`: clean; W4 page tests 15 files /
   120 tests pass, 7 browser files skipped. Playwright/e2e not run.
+
+## Follow-up (20 November 2026, on integration head `4730258`)
+
+Decisions applied (user and primary agent; `AGENTS.md` "Checkout", S33–S36):
+
+1. **No customer OTP on returns, exchanges or return-date extension** (`order/views.py:885-914`,
+   `:978-1313`). Deleted: `pos:return_verification:*` (+ lock), the five `/return-verifications/**`
+   routes, `verificationId` inputs, `return-workflow/{verification,verification-state,local-verification,schema}.ts`,
+   the customer-otp return purpose and the UI step. Lines come from
+   `GET /api/v1/stores/:storeId/orders/:orderId/return-lines` (check-in required). Recovery claims
+   keep `IDEMPOTENCY_CONFLICT` and actor/check-in validation; proof renewal is gone with the proof.
+   Commits `9682767`, `9b9c661f`, `3f8bfe7b`, `33db0eca`, `85ed2c6f`.
+2. **Order after payment confirmation (C-21, `create_order.html:6177-7239`).** "Proceed For Payment"
+   opens the payment form first (options from `GET …/checkout-sessions/:id/payment-options`, the
+   counter's machines as `terminal_helpers.py:273-317`); confirming it posts
+   `order-submissions` with `payment`, which validates the split against the quote *before*
+   `pos/order`, then creates the order and starts that payment. A payment rejection after the order
+   exists is returned as `paymentError` and the order's payment panel continues. Zero payable is the
+   direct prepaid path. Without `payment` (offline sync) the server still creates the order and the
+   payment follows separately. Commits `a6f2b3c`, `5b6d1e7`.
+3. **S36 Self Verify (Without OTP)** (`create_order.html:4856,4996`, `views.py:2429-2448`):
+   `POST …/customer-registration-challenges/self-verifications {telephone}` is accepted only for the
+   phone this sale's registration OTP was delivered to, within the OTP window; registration is
+   audit-logged with IDs only; the checkout is not marked verified (S33). Refusals: 409
+   `CUSTOMER_SELF_VERIFY_OTP_NOT_SENT` / `_PHONE_MISMATCH` / `_EXPIRED`. Commits `a361f98`, `4455742`, `b9b19b2`.
+4. **S35 on the server**: exchange refused when `EXCHANGE_ENABLED_STORE_IDS` excludes the check-in
+   store (`check_in_{uid}`) → 403 `EXCHANGE_NOT_ENABLED` "Not applicable for exchange"; type-8
+   exchange where templates hide it → 409 `EXCHANGE_NOT_APPLICABLE` "Not Applicable For Exchange";
+   force return only for a store order, `DELIVERED`, current `prod_type != 8` → 409
+   `RETURN_NOT_APPLICABLE` "Not applicable for return". Shared guard functions in `exchange-cell.ts`.
+5. **Check-in tests**: W4 return/return-window MySQL suites use the legacy `check_in_*` Redis keys;
+   no W4 test seeds `pos_rewrite_operator_checkins`. (`tests/checkout/mysql.integration.test.ts` was
+   deleted earlier.)
+6. **Open controls rows closed**
+   - #12 cart lines: quantity edit and Remove inside an open checkout (`ajax-cart` set/delete).
+   - #13 TSS Money/Points switches initialised from the cart, apply on toggle, verified + balance > 0
+     gate, `used/total`, "Desired Tss Money" partial with "(Partial Money Applied)" (`WalletControls.tsx`).
+   - #17 = item 2.
+   - #20 employee coupon needs verification only for an `@thesouledstore.` email (customer's, or
+     the operator's for walk-in) → 403 "Please verify the user to use Employee Coupon." (`views.py:2365-2391`).
+   - #22 lookup via API-v2 `check-user-exclusive` (mobile + email, legacy masks, blocked/unknown →
+     404 upstream text, exclusive and cashback pre-display) and "Connect the User" switches the
+     customer within a sale (`is_cart_sync = 0`, no sync/clear). Needs `API_V2_APP_ID`/`API_V2_APP_KEY`.
+   - #23 picker: barcode, Spl./Ex. price, held and storage stock (`GET …/catalog/stock-locations`),
+     barcode-missing marker, only stock > 0 with barcode billable, Inventory reload.
+   - #24 "User is verified !" / "Verify the user to use Tss Money/Points/Voucher !"; coupon, voucher
+     and PG amounts prefilled from the cart.
+   - #26 Birthday Missing prompt (per customer/tab dismissal) and insights opened on connect.
+   - #27 cart read: upstream `title` or "We have a little problem, please try again later !" (502 `CART_UNAVAILABLE`).
+   - #28 legacy summary labels ("Cart Total", "Discount"/"Membership Savings" incl. prod_type 5
+     relabel, "Round Off Value -", "Total Payable (₹)", points without ₹).
+   - #29 toasts "Applied Succesfully", "Removed Succesfully", "Applied/Remove", "OTP Sent To
+     Managers", "Order Created!".
+   - Also: a cleared sale releases every lease it holds (per-sale lease index
+     `pos:checkout_leases:{checkoutId}`, 30 d) and carried gift-card serials stay held; the
+     customer registration MySQL suite now passes 11/11.
+7. **Stale references**: removed deleted files from `tools/checkout/*.tsconfig.json`,
+   `verify-project.ts`, `container-fixture.cjs`; deleted `tools/checkout/{membership-native-bridge,dispatch-payment-outbox}.ts`
+   (they only drove deleted modules); stale test options fixed. Listed, not mechanical:
+   `backend/package.json:15,19` worker scripts (W8); `.github/workflows/desktop-platforms.yml:115-119`
+   (deleted payment-reversals browser test); `tools/parity/source-surface-families.json:2303`
+   (order-messages → `order-sms.ts`); golden fixtures / `INVENTORY.md` rows and hash receipts in
+   `tools/{customer-profile,fulfillment,global-reminders}` for deleted tests;
+   `container-fixture.cjs:27` customer-contacts worker (not W4).
+
+Still open / needs decision:
+- **#25 website handoff**: owned by `customer-website-handoff` (not W4).
+- Picker troubleshoot (`catalog-details`, not W4): legacy is one click for any signed-in user;
+  the rewrite is role 1 / user_type 1 with preview/apply and a background job.
+- Order SMS still waits for W8's `JobProducer`.
+
+Second follow-up (coordinator, 20 November 2026):
+- **#26 temp.id email popup** (`create_order.html:7926-7990`, trigger `:1710`, `:2275`;
+  `extra.exclusive_product` = added `prod_type == 5`, `order/views.py:1732`): `MembershipEmailPrompt.tsx`
+  opens after a product add that brings a new membership line while the connected customer's email
+  contains `temp.id` (read from W5's contact workspace). Submit checks the legacy email pattern
+  ("Please provide a valid email"), posts W5's `…/customer-contacts/email` (legacy `ajax-m-user-email`,
+  S19); success shows the server message and reloads the sale (legacy "Window reloading..."),
+  failure shows the server message and keeps the popup open (legacy re-opens it). W5's contract
+  covers what legacy needs; no backend change.
+- **S35 ordering**: `exchanges.start` runs a read-only preflight (`repository.exchangePreflight`)
+  before `begin`: exchange-enabled (check-in store) and store type-8 refusals, and for an online
+  type-8 line the API-v2 eligibility answer decides the merged cell, so every refusal happens before
+  the PENDING `pos_exchange_log` insert. The returns MySQL suite asserts no `pos_exchange_log` row and
+  an unchanged `has_products.status` after a refused online type-8 exchange (49/49 on isolated MySQL).
+- `API_V2_APP_ID` / `API_V2_APP_KEY` documented in `.env.example` (lookup answers 503 when unset).
+- Commits `692e25bb`, `d034c9b3`.
+
+Lead-side edits outside W4 ownership in this follow-up: `customer-insights/insights.tsx`
+(`initiallyOpen` prop), `src/app.ts` (stock-locations route), `tests/customer-otp/*`,
+`frontend/e2e/{returns.spec.ts,checkout/exchange.spec.ts}` (returns sub-agent).
+
+Checks: backend tsc 0 errors, eslint clean, full vitest 680 passed / 2 failed (the two expected
+`migrations.test.ts` cases: deleted SQL still listed in `migrationPaths`), MySQL suites env-gated
+except where noted; customer registration MySQL 11/11 and returns/return-window MySQL (74) were run on
+isolated loopback MySQL 8.4. Frontend tsc 0, eslint clean, vitest 297 passed (browser files skipped).
+Playwright/e2e not run.

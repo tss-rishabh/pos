@@ -89,6 +89,11 @@ export interface PublicRegistration {
   attemptsRemaining: number;
   customerId: string | null;
   verifiedAt: number | null;
+  /**
+   * Legacy "Self Verify (Without OTP)" (S36): registered without the code. It connects the
+   * customer but is never a verified-customer proof for benefits (S33).
+   */
+  selfVerified: boolean;
   deliveries: { channel: 'sms' | 'whatsapp'; status: string }[];
 }
 export interface CustomerRegistrations {
@@ -99,6 +104,8 @@ export interface CustomerRegistrations {
   ): Promise<PublicRegistration>;
   read(state: CheckoutState): Promise<PublicRegistration | null>;
   verify(state: CheckoutState, code: string): Promise<PublicRegistration>;
+  /** S36: accepted only for the phone a registration OTP was sent to in this sale, in its window. */
+  selfVerify(state: CheckoutState, telephone: string): Promise<PublicRegistration>;
   resend(state: CheckoutState, operationId: string): Promise<PublicRegistration>;
   cancel(state: CheckoutState): Promise<boolean>;
   verifiedCustomerUntil(state: CheckoutState, customer: CustomerIdentity): Promise<number | null>;

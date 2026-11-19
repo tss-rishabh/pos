@@ -26,7 +26,6 @@ import {
 import { returnEnvironment, returnGateway, type ReturnEnvironment } from './gateway.js';
 import { returnRepository } from './repository.js';
 import { returnService } from './service.js';
-import { returnVerificationService } from './verification.js';
 import { exchangeService } from './exchanges.js';
 import { returnWindowExtensions } from './extensions.js';
 import { returnState } from './state.js';
@@ -37,6 +36,7 @@ export interface ReturnRegistrationOptions {
   gateway?: ReturnGateway;
   environment?: ReturnEnvironment;
   orderGateway?: CheckoutGateway;
+  /** @deprecated Ignored: returns, exchanges and date extension have no customer OTP (legacy). */
   customerOtp?: CustomerVerificationClient;
   inventoryProcedureVerified?: boolean;
   stockProcedure?: StockProcedure;
@@ -46,6 +46,8 @@ export interface ReturnRegistrationOptions {
     counterId: string,
     transaction: AdministrationTransaction,
   ) => Promise<void>;
+  /** The operator's legacy check-in store (`check_in_{uid}`); defaults to administration/checkins. */
+  checkedInStore?: (userId: string) => Promise<string | null>;
   /** Shared W4 infrastructure (Redis state, checkout sessions, legacy job queue). */
   stateStore?: PosStateStore;
   sessions?: CheckoutSessionStore;
@@ -69,8 +71,8 @@ export function registerReturns(
       returnPeriodDays: environment.returnPeriodDays,
       inventoryProcedureVerified: options.inventoryProcedureVerified,
       stockProcedure: options.stockProcedure,
-      customerOtp: options.customerOtp,
       assertCheckIn: options.assertCheckIn,
+      checkedInStore: options.checkedInStore,
       state,
     }),
     context = {
@@ -87,11 +89,6 @@ export function registerReturns(
       context,
       options.orderGateway || checkoutGateway(config, options.signing),
     ),
-    verification = returnVerificationService(db, config, {
-      assertCheckIn: options.assertCheckIn,
-      customerOtp: options.customerOtp,
-      state,
-    }),
     scope = z.object({ storeId: identifier, orderId: identifier, lineId: identifier }),
     returnScope = z.object({ storeId: identifier, returnId: z.uuid() }),
     exchangeScope = z.object({ storeId: identifier, exchangeId: z.uuid() }),
@@ -116,7 +113,7 @@ export function registerReturns(
         p.storeId,
         p.orderId,
         p.lineId,
-        { counterId: q.counterId, verificationId: q.verificationId },
+        { counterId: q.counterId },
         q.kind,
       );
     },
@@ -213,41 +210,15 @@ export function registerReturns(
       );
     },
   );
-  app.post(
-    '/api/v1/stores/:storeId/orders/:orderId/return-verifications',
-    {
-      config: { trace: { module: 'checkout', resource: 'return-verification', action: 'create' } },
-    },
-    async (request) => {
-      const p = scope.omit({ lineId: true }).parse(request.params),
-        body = z
-          .object({ operationId: z.uuid(), counterId: identifier })
-          .strict()
-          .parse(request.body);
-      return verification.create(
-        authenticated(request),
-        p.storeId,
-        p.orderId,
-        body.operationId,
-        body.counterId,
-      );
-    },
-  );
   app.get(
-    '/api/v1/stores/:storeId/return-verifications/:verificationId',
-    { config: { trace: { module: 'checkout', resource: 'return-verification', action: 'read' } } },
-    async (request) => {
-      const p = z.object({ storeId: identifier, verificationId: z.uuid() }).parse(request.params);
-      return verification.read(authenticated(request), p.storeId, p.verificationId);
-    },
-  );
-  app.get(
-    '/api/v1/stores/:storeId/return-verifications/:verificationId/line-items',
+    '/api/v1/stores/:storeId/orders/:orderId/return-lines',
     { config: { trace: { module: 'checkout', resource: 'return-line', action: 'list' } } },
-    async (request) => {
-      const p = z.object({ storeId: identifier, verificationId: z.uuid() }).parse(request.params),
+    async (request, reply) => {
+      reply.header('Cache-Control', 'no-store');
+      const p = scope.omit({ lineId: true }).parse(request.params),
         query = z
           .object({
+            counterId: identifier,
             after: z
               .string()
               .regex(/^\d{1,20}$/)
@@ -255,41 +226,13 @@ export function registerReturns(
           })
           .strict()
           .parse(request.query);
-      return verification.lines(authenticated(request), p.storeId, p.verificationId, query.after);
-    },
-  );
-  app.post(
-    '/api/v1/stores/:storeId/return-verifications/:verificationId/confirmations',
-    {
-      config: { trace: { module: 'checkout', resource: 'return-verification', action: 'confirm' } },
-    },
-    async (request) => {
-      const p = z.object({ storeId: identifier, verificationId: z.uuid() }).parse(request.params),
-        body = z
-          .object({ operationId: z.uuid(), otp: z.string().regex(/^\d{6}$/) })
-          .strict()
-          .parse(request.body);
-      return verification.verify(
+      return repository.lines(
         authenticated(request),
         p.storeId,
-        p.verificationId,
-        body.operationId,
-        body.otp,
+        p.orderId,
+        query.counterId,
+        query.after,
       );
-    },
-  );
-  app.post(
-    '/api/v1/stores/:storeId/return-verifications/:verificationId/reconciliations',
-    {
-      config: {
-        trace: { module: 'checkout', resource: 'return-verification', action: 'reconcile' },
-      },
-    },
-    async (request) => {
-      const user = authenticated(request),
-        p = z.object({ storeId: identifier, verificationId: z.uuid() }).parse(request.params),
-        body = z.object({ operationId: z.uuid() }).strict().parse(request.body);
-      return verification.reconcile(user, p.storeId, p.verificationId, body.operationId);
     },
   );
   app.post(

@@ -34,6 +34,15 @@ import {
 } from './finalizer.js';
 import { returnReadService } from './returns.js';
 import { registerPayments } from './payments/routes.js';
+import { paymentInputSchema } from './payments/contracts.js';
+import {
+  checkUserExclusiveAdapter,
+  customerLookupBodySchema,
+  customerLookupService,
+  type CustomerLookupService,
+} from './customers/lookup.js';
+import { appCashbackCampaign } from '../customer-insights/benefits-gateway.js';
+import { AppError } from '../../domain/errors.js';
 import type { PaymentGateway } from './payments/contracts.js';
 import { registerReturns } from './return-workflow/routes.js';
 import type { ReturnGateway } from './return-workflow/contracts.js';
@@ -97,6 +106,7 @@ export interface CheckoutRegistrationOptions {
   /** Legacy `Helpers.sync_pos_product` after an order cancel commits (buildApp's adapter). */
   syncProducts?: ProductSyncAdapter;
   checkoutFlags?: ReturnType<typeof checkoutFlagsReader>;
+  customerLookup?: CustomerLookupService;
 }
 export function registerCheckout(
   app: FastifyInstance,
@@ -105,6 +115,7 @@ export function registerCheckout(
   overrides: CheckoutRegistrationOptions = {},
 ) {
   const environment = overrides.environment || checkoutEnvironment();
+  const late: { payments?: ReturnType<typeof registerPayments> } = {};
   const stateStore = overrides.stateStore || configuredStateStore(config),
     sessions = overrides.sessions || checkoutSessionStore(stateStore),
     shared = { stateStore, sessions, jobs: overrides.jobs };
@@ -133,11 +144,22 @@ export function registerCheckout(
         registrationEnvironment(),
         phoneOtpDelivery(),
         config.BUSINESS_TIMEZONE,
-        shared,
+        { ...shared, log: app.log },
       ),
+    customerLookup:
+      overrides.customerLookup ||
+      customerLookupService(db, config, {
+        adapter: checkUserExclusiveAdapter(config),
+        campaign: appCashbackCampaign(config),
+      }),
     finalizeOrder:
       overrides.finalizeOrder || orderFinalizer(db, config, 'ordinary', overrides.jobs),
     recordLineSalespersons: orderLineSalespersons(db),
+    startPayment: (user, storeId, orderId, input) => {
+      if (!late.payments)
+        throw new AppError(503, 'PAYMENT_UNAVAILABLE', 'Counter payments are not configured.');
+      return late.payments.start(user, storeId, orderId, input);
+    },
     prepaidSettlement: overrides.prepaidSettlement || prepaidSettlementReader(db),
     verifyCreatedOrder: overrides.verifyCreatedOrder || createdOrderVerifier(db),
     discounts:
@@ -152,6 +174,21 @@ export function registerCheckout(
   });
   const returns = returnReadService(db, gateway, assertCheckIn);
   const flags = overrides.checkoutFlags || checkoutFlagsReader(db, config);
+  /** Legacy payment form options for the sale's counter, before the order exists. */
+  app.get(session + '/payment-options', trace('payment-option', 'list'), async (request) => {
+    const user = authenticated(request),
+      p = sessionScope.parse(request.params);
+    z.object({})
+      .strict()
+      .parse(request.query ?? {});
+    const state = await service.read(user, p.storeId, p.checkoutId);
+    if (!late.payments)
+      throw new AppError(503, 'PAYMENT_UNAVAILABLE', 'Counter payments are not configured.');
+    return {
+      counterId: state.counterId,
+      options: await late.payments.counterOptions(user, p.storeId, state.counterId),
+    };
+  });
   function response(result: MutationReply) {
     return { ...result, state: publicState(result.state, config.CASHBACK_CREDIT_MESSAGE) };
   }
@@ -226,14 +263,8 @@ export function registerCheckout(
     async (request) => {
       const user = authenticated(request),
         p = storeScope.parse(request.params),
-        body = z
-          .object({
-            query: z.union([z.email().max(254), z.string().regex(/^\d{10,15}$/)]),
-            counterId: identifier,
-          })
-          .strict()
-          .parse(request.body);
-      return { data: await service.lookup(user, p.storeId, body.counterId, body.query) };
+        body = customerLookupBodySchema.parse(request.body);
+      return { data: await service.lookup(user, p.storeId, body.counterId, body) };
     },
   );
   app.put(session + '/customer', trace('checkout-customer', 'attach'), async (request) => {
@@ -266,6 +297,27 @@ export function registerCheckout(
           .parse(request.body);
       return response(
         await service.requestRegistration(user, p.storeId, p.checkoutId, body, body.details),
+      );
+    },
+  );
+  app.post(
+    session + '/customer-registration-challenges/self-verifications',
+    trace('customer-registration-challenge', 'self-verify'),
+    async (request) => {
+      const user = authenticated(request),
+        p = sessionScope.parse(request.params),
+        body = mutationSchema
+          .extend({ telephone: z.string().regex(/^[6-9]\d{9}$/) })
+          .strict()
+          .parse(request.body);
+      return response(
+        await service.selfVerifyRegistration(
+          user,
+          p.storeId,
+          p.checkoutId,
+          { operationId: body.operationId, expectedVersion: body.expectedVersion },
+          body.telephone,
+        ),
       );
     },
   );
@@ -646,8 +698,17 @@ export function registerCheckout(
     async (request, reply) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema.strict().parse(request.body);
-      const result = await service.submit(user, p.storeId, p.checkoutId, body);
+        body = mutationSchema
+          .extend({ payment: paymentInputSchema.optional() })
+          .strict()
+          .parse(request.body);
+      const result = await service.submit(
+        user,
+        p.storeId,
+        p.checkoutId,
+        { operationId: body.operationId, expectedVersion: body.expectedVersion },
+        body.payment ?? null,
+      );
       return reply.code(result.status === 'succeeded' ? 201 : 202).send(response(result));
     },
   );
@@ -718,7 +779,7 @@ export function registerCheckout(
       return returns.refund(user, p.storeId, p.orderId, p.lineId);
     },
   );
-  registerPayments(app, config, db, {
+  late.payments = registerPayments(app, config, db, {
     ...shared,
     gateway: overrides.paymentGateway,
     assertCheckIn: overrides.assertCheckIn
@@ -733,7 +794,6 @@ export function registerCheckout(
   });
   registerReturns(app, config, db, {
     ...shared,
-    customerOtp,
     customers: repository,
     signing: environment,
     orderGateway: gateway,
