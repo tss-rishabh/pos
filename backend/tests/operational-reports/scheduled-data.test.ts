@@ -10,7 +10,7 @@ import { scheduledReportOptions } from '../../src/modules/operational-reports/sc
 import { scheduleInput } from '../../src/modules/operational-reports/scheduled-domain.js';
 const config = readConfig({
     NODE_ENV: 'test',
-    DEMO_MODE: 'true',
+    MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
     SESSION_SECRET: 'scheduled-view-fixture-'.repeat(3),
   }),
   options = scheduledReportOptions(
@@ -105,7 +105,7 @@ describe('scheduled-report warehouse contracts', () => {
     ).rejects.toMatchObject({ code: 'DEPENDENCY_UNAVAILABLE' });
     expect(mysql).toBe(0);
   });
-  it('sanitizes malformed views/transport errors and disables demo Freshdesk traffic', async () => {
+  it('sanitizes malformed views/transport errors and refuses unconfigured Freshdesk traffic', async () => {
     const db: Databases = {
         get() {
           throw new Error('Historical MySQL forbidden');

@@ -30,7 +30,7 @@ describe('report export jobs E1-E6', () => {
       {
         config: readConfig({
           NODE_ENV: 'test',
-          DEMO_MODE: 'true',
+          MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
           SESSION_SECRET: 'export-jobs-fixture-'.repeat(3),
         }),
         db,

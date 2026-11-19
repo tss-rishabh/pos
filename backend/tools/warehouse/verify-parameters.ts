@@ -15,7 +15,7 @@ if (
   throw new Error('READ_ONLY_READER_KEY_PATH_REQUIRED');
 const config = readConfig({
   NODE_ENV: 'test',
-  DEMO_MODE: 'true',
+  MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
   SESSION_SECRET: randomBytes(48).toString('base64url'),
   BIGQUERY_PROJECT_ID: 'tssgcp2025',
   BIGQUERY_LOCATION: 'asia-south1',

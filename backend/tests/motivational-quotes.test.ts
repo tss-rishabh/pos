@@ -2,7 +2,7 @@ import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
 import { z, ZodError } from 'zod';
 import { AppError } from '../src/domain/errors.js';
-import { demoUser } from '../src/modules/demo.js';
+import { syntheticOperator } from './helpers/principals.js';
 import { registerMotivationalQuotes } from '../src/modules/motivational-quotes/index.js';
 import { motivationalQuotePool } from '../src/modules/motivational-quotes/pool.js';
 import { registerEventCatalog, resourceRoutes } from '../src/observability/events.js';
@@ -20,7 +20,8 @@ describe('source customer-service thoughts', () => {
     registerEventCatalog(app);
     app.decorateRequest('principal', null);
     app.addHook('preHandler', async (request) => {
-      if (request.headers['x-fixture-operator'] === 'signed-in') request.principal = demoUser;
+      if (request.headers['x-fixture-operator'] === 'signed-in')
+        request.principal = syntheticOperator;
     });
     app.setErrorHandler((error, _request, reply) => {
       const status =

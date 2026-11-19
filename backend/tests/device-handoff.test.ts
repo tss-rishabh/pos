@@ -11,7 +11,7 @@ import {
   handoffTotp,
 } from '../src/auth/device-handoff.js';
 import { assertRedisUrl } from '../src/redis/node-client.js';
-import { demoUser } from '../src/modules/demo.js';
+import { syntheticOperator } from './helpers/principals.js';
 import { goldenStdout } from './golden/load.js';
 
 it('matches the actual source QR TOTP verifier, rotation and TTL across secret and interval boundaries', () => {
@@ -57,17 +57,17 @@ it('matches the actual source QR TOTP verifier, rotation and TTL across secret a
 it('requires a trusted service key and verified contract, and rejects plaintext remote cache configurations', async () => {
   const config = readConfig({
       NODE_ENV: 'test',
-      DEMO_MODE: 'true',
+      MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
       SESSION_SECRET: 'handoff-private-test-secret-'.repeat(3),
     }),
     db = createDatabases(config),
     service = deviceHandoffService(config, db, deviceHandoffOptions({}), undefined, {
       authenticate: async () => null,
     });
-  expect(service.capabilities(demoUser).available).toBe(false);
+  expect(service.capabilities(syntheticOperator).available).toBe(false);
   for (const key of [undefined, [], {}, 'invalid'])
     expect(() => service.authorizeService(key)).toThrow('Service authentication');
-  await expect(service.issue(demoUser)).rejects.toMatchObject({
+  await expect(service.issue(syntheticOperator)).rejects.toMatchObject({
     code: 'DEVICE_HANDOFF_UNAVAILABLE',
   });
   for (const url of [

@@ -25,7 +25,7 @@ describe.skipIf(!connection)('source hyperlocal daily SQL on verified-schema loc
   const schema = `pos_rewrite_hyperlocal_daily_test_${randomUUID().replaceAll('-', '').slice(0, 12)}`,
     config = readConfig({
       NODE_ENV: 'test',
-      DEMO_MODE: 'true',
+      MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
       SESSION_SECRET: 'daily-report-mysql-'.repeat(4),
     }),
     user: Principal = {

@@ -67,7 +67,7 @@ describe('catalog maintenance source profiles and bounded transports', () => {
   it('posts the legacy inventory payload with the API key to an approved endpoint and returns the status', async () => {
     const config = readConfig({
         NODE_ENV: 'test',
-        DEMO_MODE: 'true',
+        MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
         SESSION_SECRET: 'maintenance-transport-fixture-'.repeat(3),
       }),
       options = catalogMaintenanceOptions({
@@ -92,14 +92,6 @@ describe('catalog maintenance source profiles and bounded transports', () => {
     expect(() =>
       createCatalogMaintenanceTransports(
         config,
-        { ...options, INVENTORY_SYNC_URL: 'https://external.invalid/pull' },
-        {},
-        fetcher,
-      ),
-    ).toThrow('approved inventory');
-    expect(() =>
-      createCatalogMaintenanceTransports(
-        { ...config, DEMO_MODE: false },
         { ...options, INVENTORY_SYNC_URL: 'https://external.invalid/pull?key=secret' },
         {},
         fetcher,

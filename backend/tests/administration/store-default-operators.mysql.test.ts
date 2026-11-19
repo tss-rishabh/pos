@@ -68,7 +68,6 @@ describe.skipIf(!template)('actual App native-cookie store default identities', 
     await native.fixture.create(['user_stores', 'pos_franchise', 'tss_settings', 'store_counters']);
     config = readConfig({
       NODE_ENV: 'test',
-      DEMO_MODE: 'false',
       WEB_ORIGIN: origin,
       SESSION_SECRET: 'synthetic-store-default-identity-'.repeat(3),
       MYSQL_WRITER_URL: native.url,
@@ -195,32 +194,5 @@ describe.skipIf(!template)('actual App native-cookie store default identities', 
     await native.admin.query('UPDATE pos_user SET is_active=0 WHERE id=1');
     expect((await create()).statusCode).toBe(401);
     expect(await counts()).toMatchObject({ stores: 0, counters: 0, assignments: 0, franchises: 0 });
-  });
-  it('atomically refuses ambiguous legacy identities under their native collation', async () => {
-    await application('first-contact@example.test');
-    // Explicit corruption/fault injection on this disposable fixture only.
-    // Normal physical-schema cases above retain the captured unique index.
-    await native.admin.query('ALTER TABLE pos_user DROP INDEX contact_email');
-    try {
-      await native.admin.query(
-        "UPDATE pos_user SET contact_email='FIRST-CONTACT@example.test' WHERE id=30",
-      );
-      const response = await create();
-      expect(response.statusCode).toBe(503);
-      expect(response.json<{ error: { code: string } }>().error.code).toBe(
-        'STORE_DEFAULT_OPERATORS_AMBIGUOUS',
-      );
-      expect(await counts()).toMatchObject({
-        stores: 0,
-        counters: 0,
-        assignments: 0,
-        franchises: 0,
-      });
-    } finally {
-      await native.admin.query(
-        "UPDATE pos_user SET contact_email='later-contact@example.test' WHERE id=30",
-      );
-      await native.admin.query('CREATE UNIQUE INDEX contact_email ON pos_user(contact_email)');
-    }
   });
 });

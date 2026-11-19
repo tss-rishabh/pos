@@ -12,7 +12,7 @@ rows. Unrelated applications/templates/providers are omitted. Twelve determinist
 cases cover archive/reactivation, role restrictions, self-archive denial and
 anonymous operator denial. Native financial rows and assignment rows must survive.
 
-The replacement runs DEMO_MODE=false buildApp with real MySQL identities and signed
+The replacement runs buildApp with real MySQL identities and signed
 sessions. Playwright opens the built production App and uses its navigation, tabs,
 filters and Archive/Activate controls. HTTP is forwarded to the real backend without
 response substitution. A proxy forwards the committed operator archive response's

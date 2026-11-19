@@ -18,7 +18,7 @@ import { sourceSearchAuthority } from '../../src/modules/order-history/search/sc
 import type { Principal } from '../../src/domain/access.js';
 import { orderSearchFixture } from './mysql-fixture.js';
 import { bindCheckInRedis } from '../../src/modules/administration/checkins.js';
-import { memoryRedisPort } from '../../src/redis/memory.js';
+import { memoryRedisPort } from '../helpers/memory-redis.js';
 
 // Check-ins are the legacy Redis keys; bind an in-process port for this file.
 const checkInRedis = memoryRedisPort();

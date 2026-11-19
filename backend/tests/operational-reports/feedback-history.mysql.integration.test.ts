@@ -142,7 +142,6 @@ describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
       primaryUrl.pathname = '/' + schemas[1];
       config = readConfig({
         NODE_ENV: 'test',
-        DEMO_MODE: 'false',
         SESSION_SECRET: 'native-feedback-history-'.repeat(4),
         MYSQL_WRITER_URL: writerUrl.href,
         MYSQL_PRIMARY_READER_URL: primaryUrl.href,

@@ -6,7 +6,7 @@ import {
 import { projectionContract } from '../src/db/stock-projection/domain.js';
 
 describe('explicit trusted system stock capability', () => {
-  const config = { DEMO_MODE: false, BUSINESS_TIMEZONE: 'Asia/Kolkata' };
+  const config = { BUSINESS_TIMEZONE: 'Asia/Kolkata' };
   it('requires both the ordinary storage contract and the separate system actor contract', () => {
     expect(configuredSystemStockProjection(config, {})).toBeUndefined();
     expect(
@@ -26,16 +26,7 @@ describe('explicit trusted system stock capability', () => {
       }),
     ).toBe('function');
   });
-  it('does not enable system stock in demo mode or accept an unknown contract', () => {
-    expect(
-      configuredSystemStockProjection(
-        { ...config, DEMO_MODE: true },
-        {
-          POS_STOCK_PROJECTION_CONTRACT: projectionContract,
-          POS_SYSTEM_STOCK_PROJECTION_CONTRACT: systemStockProjectionContract,
-        },
-      ),
-    ).toBeUndefined();
+  it('does not accept an unknown contract', () => {
     expect(() =>
       configuredSystemStockProjection(config, {
         POS_STOCK_PROJECTION_CONTRACT: projectionContract,

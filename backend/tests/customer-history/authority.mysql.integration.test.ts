@@ -6,7 +6,7 @@ import { createDatabases, type Databases } from '../../src/db/pools.js';
 import type { Principal } from '../../src/domain/access.js';
 import { AppError } from '../../src/domain/errors.js';
 import { bindCheckInRedis, checkInService } from '../../src/modules/administration/checkins.js';
-import { memoryRedisPort } from '../../src/redis/memory.js';
+import { memoryRedisPort } from '../helpers/memory-redis.js';
 
 import { checkoutStateSchema, type CheckoutState } from '../../src/modules/checkout/contracts.js';
 import { checkoutSessionStore } from '../../src/modules/checkout/session-store.js';
@@ -108,7 +108,6 @@ describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
       url.pathname = '/' + schema;
       config = readConfig({
         NODE_ENV: 'test',
-        DEMO_MODE: 'false',
         SESSION_SECRET: 'customer-history-native-scope-'.repeat(3),
         MYSQL_WRITER_URL: url.href,
         MYSQL_PRIMARY_READER_URL: url.href,

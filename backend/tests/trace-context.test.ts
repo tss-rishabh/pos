@@ -3,7 +3,7 @@ import { it, expect } from 'vitest';
 import { z } from 'zod';
 import { setTimeout } from 'node:timers/promises';
 import { currentRequestTrace, registerRequestTrace } from '../src/observability/context.js';
-import { demoUser } from '../src/modules/demo.js';
+import { syntheticOperator } from './helpers/principals.js';
 
 it('preserves the authenticated actor through async work without leaking context between requests', async () => {
   const app = Fastify({ logger: false });
@@ -16,7 +16,7 @@ it('preserves the authenticated actor through async work without leaking context
     async (request) => {
       const { id } = z.object({ id: z.enum(['1', '2']) }).parse(request.params);
       expect(currentRequestTrace()?.userId).toBeNull();
-      request.principal = { ...demoUser, id };
+      request.principal = { ...syntheticOperator, id };
       await setTimeout(id === '1' ? 20 : 5);
       return currentRequestTrace();
     },

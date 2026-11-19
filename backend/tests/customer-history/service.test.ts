@@ -13,7 +13,7 @@ import type { HistoryCapture } from '../../src/modules/customer-history/contract
 
 const config = readConfig({
     NODE_ENV: 'test',
-    DEMO_MODE: 'true',
+    MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
     SESSION_SECRET: 'customer-history-unit-'.repeat(4),
   }),
   user: Principal = {

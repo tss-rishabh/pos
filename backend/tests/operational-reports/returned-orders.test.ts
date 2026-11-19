@@ -12,7 +12,7 @@ import {
 import { reportCsvCell } from '../../src/modules/operational-reports/export-domain.js';
 const config = readConfig({
     NODE_ENV: 'test',
-    DEMO_MODE: 'true',
+    MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
     SESSION_SECRET: 'returned-report-fixture-'.repeat(3),
   }),
   user: Principal = {

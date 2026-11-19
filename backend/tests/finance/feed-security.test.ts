@@ -11,7 +11,7 @@ import { reconciliationPage } from '../../src/modules/finance/feed-domain.js';
 import { financeAlertOptions } from '../../src/modules/finance/alerts.js';
 const config = readConfig({
     NODE_ENV: 'test',
-    DEMO_MODE: 'true',
+    MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
     SESSION_SECRET: 'feed-security-fixture-'.repeat(3),
   }),
   key = 'isolated-feed-fixture-secret-'.repeat(2);

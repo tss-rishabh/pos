@@ -68,7 +68,7 @@ describe.skipIf(!connection)(
       },
       config = readConfig({
         NODE_ENV: 'test',
-        DEMO_MODE: 'true',
+        MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
         SESSION_SECRET: 'combined-order-fixture-'.repeat(3),
       }),
       clock = () => Temporal.Instant.from('2026-11-16T08:00:00Z');

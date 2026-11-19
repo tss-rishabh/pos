@@ -7,7 +7,7 @@ import { orderSearchFixture } from '../order-search/mysql-fixture.js';
 import { onlineOrderDetailService } from '../../src/modules/order-history/online-detail/service.js';
 import { onlineOrderDetail } from '../../src/modules/order-history/online-detail/contracts.js';
 import { bindCheckInRedis, checkInService } from '../../src/modules/administration/checkins.js';
-import { memoryRedisPort } from '../../src/redis/memory.js';
+import { memoryRedisPort } from '../helpers/memory-redis.js';
 
 import type { Principal } from '../../src/domain/access.js';
 import { testAuthRedis, testSessions } from '../helpers/auth-sessions.js';

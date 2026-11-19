@@ -8,7 +8,7 @@ import type { Principal } from '../../src/domain/access.js';
 import { AppError } from '../../src/domain/errors.js';
 import { bindCheckInRedis, checkInService } from '../../src/modules/administration/checkins.js';
 import { authKeys } from '../../src/auth/keys.js';
-import { memoryRedisPort } from '../../src/redis/memory.js';
+import { memoryRedisPort } from '../helpers/memory-redis.js';
 import { checkoutRepository } from '../../src/modules/checkout/repository.js';
 import { registerReturns } from '../../src/modules/checkout/return-workflow/routes.js';
 import { returnRepository } from '../../src/modules/checkout/return-workflow/repository.js';

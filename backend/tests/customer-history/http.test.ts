@@ -44,7 +44,7 @@ describe('customer-history private resource HTTP boundary', () => {
       app,
       readConfig({
         NODE_ENV: 'test',
-        DEMO_MODE: 'true',
+        MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
         SESSION_SECRET: 'history-http-fixture-'.repeat(4),
       }),
       db,

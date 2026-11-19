@@ -11,7 +11,7 @@ import {
 const config = readConfig({
   NODE_ENV: 'test',
   SESSION_SECRET: 'dashboard-warehouse-test-'.repeat(3),
-  DEMO_MODE: 'true',
+  MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
 });
 const now = Temporal.Instant.from('2026-06-15T06:30:00Z'),
   asOf = '2026-06-15T06:00:00.000000Z',

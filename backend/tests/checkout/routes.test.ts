@@ -18,7 +18,7 @@ let app: ReturnType<typeof Fastify>;
 beforeEach(async () => {
   const config = readConfig({
       NODE_ENV: 'test',
-      DEMO_MODE: 'true',
+      MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
       SESSION_SECRET: 'checkout-route-fixture-secret-'.repeat(2),
     }),
     db = createDatabases(config);

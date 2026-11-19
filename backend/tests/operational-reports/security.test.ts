@@ -8,7 +8,7 @@ import { registerOperationalReports } from '../../src/modules/operational-report
 import { recordingJobProducer } from '../../src/jobs/module-runtime.js';
 const config = readConfig({
     NODE_ENV: 'test',
-    DEMO_MODE: 'true',
+    MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
     SESSION_SECRET: 'operational-security-fixture-'.repeat(3),
   }),
   user: Principal = {

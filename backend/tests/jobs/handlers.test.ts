@@ -10,7 +10,7 @@ import type { JobRuntime } from '../../src/jobs/runtime.js';
 
 const config = readConfig({
   NODE_ENV: 'test',
-  DEMO_MODE: 'true',
+  MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
   SESSION_SECRET: 'job-handler-mapping-test-secret-'.repeat(2),
 });
 function runtime(closers: (() => Promise<void>)[] = []): JobRuntime {

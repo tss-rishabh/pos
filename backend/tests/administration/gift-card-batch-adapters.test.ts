@@ -4,7 +4,7 @@ import { createGiftCardBatchStorage } from '../../src/modules/gift-card-batches/
 import { createGiftCardBatchDelivery } from '../../src/modules/gift-card-batches/delivery.js';
 import { readGiftCardBatchOptions } from '../../src/modules/gift-card-batches/options.js';
 
-const config = { NODE_ENV: 'test' as const, DEMO_MODE: false };
+const config = { NODE_ENV: 'test' as const };
 const options = () =>
   readGiftCardBatchOptions({
     AWS_STORAGE_BUCKET_NAME: 'private-pos-fixture',
@@ -78,7 +78,7 @@ describe('gift card legacy storage and Netcore adapters', () => {
     const fetcher = vi
       .fn<typeof fetch>()
       .mockResolvedValue(new Response(JSON.stringify({ status: 'success' }), { status: 200 }));
-    const delivery = createGiftCardBatchDelivery(config, options(), fetcher)!,
+    const delivery = createGiftCardBatchDelivery(options(), fetcher)!,
       archive = Buffer.from('synthetic-zip');
     expect(
       await delivery.send({ collectionId: '7', recipient: 'fixture@example.test', archive }),
@@ -109,7 +109,6 @@ describe('gift card legacy storage and Netcore adapters', () => {
     ).toBe(false);
     expect(() =>
       createGiftCardBatchDelivery(
-        config,
         readGiftCardBatchOptions({ NETCORE_EMAIL_URL: 'http://mail.test', NETCORE_API_KEY: 'k' }),
       ),
     ).toThrow();

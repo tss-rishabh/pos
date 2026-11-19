@@ -30,10 +30,8 @@ import { inventoryImportJobs } from '../../src/modules/administration/import-job
 import { memoryCsvUploadStorage } from '../../src/modules/administration/import-storage.js';
 import { inventoryImportService } from '../../src/modules/administration/imports.js';
 import type { StockProcedureInput } from '../../src/modules/administration/stock-procedure.js';
-import {
-  legacyFixtureRecord,
-  legacyFixtureTableSql,
-} from '../../tools/administration/mysql-fixture.js';
+import { legacyFixtureRecord } from '../../tools/administration/mysql-fixture.js';
+import { createProductionTables } from '../helpers/production-schema.js';
 
 const template =
   process.env.INVENTORY_JOBS_MYSQL_TEST_URL ?? process.env.ADMINISTRATION_MYSQL_TEST_URL;
@@ -185,11 +183,9 @@ describe.skipIf(!template)('inventory CSV and ecommerce jobs on isolated MySQL',
     });
     await connection.query(`CREATE DATABASE ${mysql.escapeId(schema)}`);
     await connection.changeUser({ database: schema });
-    for (const table of tables) await connection.query(legacyFixtureTableSql(table));
-    // Production DDL (`tests/golden/schema/production-schema.json`).
-    await connection.query(
-      'ALTER TABLE product_store ADD UNIQUE KEY uq_product_store(product_id,store_id)',
-    );
+    // Production snapshot DDL (`tests/golden/schema/production-schema.json`), including
+    // `product_store.uq_product_store`.
+    await createProductionTables(connection, tables);
     db = createDatabases(config());
   });
   afterAll(async () => {

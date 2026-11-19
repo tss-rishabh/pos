@@ -53,7 +53,7 @@ describe('scoped Redis notification fanout', () => {
     bus = notificationBus(
       readConfig({
         NODE_ENV: 'test',
-        DEMO_MODE: 'true',
+        MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
         SESSION_SECRET: 'isolated-redis-notifications-'.repeat(3),
         REDIS_URL: `redis://127.0.0.1:${address.port}`,
       }),
@@ -108,7 +108,7 @@ describe('scoped Redis notification fanout', () => {
     const missing = notificationBus(
       readConfig({
         NODE_ENV: 'test',
-        DEMO_MODE: 'true',
+        MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
         SESSION_SECRET: 'missing-redis-fixture-'.repeat(3),
       }),
     );
@@ -125,7 +125,7 @@ describe('scoped Redis notification fanout', () => {
     const insecure = notificationBus({
       ...readConfig({
         NODE_ENV: 'test',
-        DEMO_MODE: 'true',
+        MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
         SESSION_SECRET: 'insecure-redis-fixture-'.repeat(3),
       }),
       NODE_ENV: 'production',

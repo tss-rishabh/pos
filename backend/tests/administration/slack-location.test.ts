@@ -10,7 +10,6 @@ import { goldenStdout } from '../golden/load.js';
 
 const config = {
   NODE_ENV: 'test' as const,
-  DEMO_MODE: false,
   WEB_ORIGIN: 'https://pos.example.test',
   SESSION_SECRET: 'isolated-slack-fixture-'.repeat(3),
 };
@@ -35,7 +34,6 @@ const grant = {
 describe('Slack OAuth and source location boundaries', () => {
   it('is unconfigured without the legacy client id/secret and keeps codes on this callback', () => {
     expect(createSlackOAuthProvider(config, readSlackOAuthOptions({}))).toBeUndefined();
-    expect(createSlackOAuthProvider({ ...config, DEMO_MODE: true }, options())).toBeUndefined();
     const fallback = createSlackOAuthProvider(
       config,
       options({ SLACK_OAUTH_REDIRECT_URI: '' }),

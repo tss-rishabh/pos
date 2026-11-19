@@ -216,7 +216,7 @@ describe.skipIf(!connection)('finance reconciliation on isolated local MySQL', (
     const service = financeFeedService(
       readConfig({
         NODE_ENV: 'test',
-        DEMO_MODE: 'true',
+        MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
         SESSION_SECRET: 'finance-feed-service-fixture-'.repeat(3),
       }),
       db(),

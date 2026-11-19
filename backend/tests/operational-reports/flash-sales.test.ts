@@ -72,7 +72,7 @@ describe('source flash-sales reducer and warehouse bindings', () => {
   it('routes historical relations to explicit views and preserves separate interactive/export join behavior', async () => {
     const config = readConfig({
         NODE_ENV: 'test',
-        DEMO_MODE: 'true',
+        MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
         SESSION_SECRET: 'flash-report-fixture-'.repeat(3),
       }),
       user: Principal = {

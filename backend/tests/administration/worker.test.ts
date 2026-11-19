@@ -9,7 +9,6 @@ import { goldenStdout } from '../golden/load.js';
 
 const config = {
   NODE_ENV: 'test' as const,
-  DEMO_MODE: false,
   TSS_API_MIGRATION_V2: true,
   TSS_API_BASE_URL: undefined,
 };
@@ -120,7 +119,7 @@ describe('inventory synchronization HTTP boundary', () => {
     );
     expect(() => productSynchronizationBody(['1,2'])).toThrow();
   });
-  it('rejects remote plaintext, URL credentials, origin confusion and demo remote endpoints', () => {
+  it('rejects remote plaintext, URL credentials, and origin confusion', () => {
     const options = (base: string) =>
       readAdministrationWorkerOptions({
         PRODUCT_SYNC_BASE_URL: base,
@@ -137,12 +136,6 @@ describe('inventory synchronization HTTP boundary', () => {
       );
     expect(() =>
       createProductSyncAdapter({ ...config, NODE_ENV: 'production' }, options('http://127.0.0.1/')),
-    ).toThrow();
-    expect(() =>
-      createProductSyncAdapter(
-        { ...config, DEMO_MODE: true },
-        options('https://sync.example.test/'),
-      ),
     ).toThrow();
   });
   it('uses bounded abortable HTTP calls and exposes only stable failure codes', async () => {

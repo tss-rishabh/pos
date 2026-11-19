@@ -52,7 +52,7 @@ function harness() {
     app,
     readConfig({
       NODE_ENV: 'test',
-      DEMO_MODE: 'true',
+      MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
       SESSION_SECRET: 'legacy-http-fixture-'.repeat(4),
     }),
     db,
