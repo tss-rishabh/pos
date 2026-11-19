@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './support/fixtures';
 import { signIn } from './support/login';
 
 test('desktop web flow: search, durable cart, offline reload, replay, and order details', async ({
@@ -21,6 +21,9 @@ test('desktop web flow: search, durable cart, offline reload, replay, and order 
   await page.reload();
   await expect(page.getByRole('heading', { name: 'The counter.' })).toBeVisible();
   await expect(page.getByText('₹1,998.00').first()).toBeVisible();
+  // Go offline only once the reloaded counter finished loading; dropping the network under an
+  // in-flight catalog read would fail it.
+  await page.waitForLoadState('networkidle');
   await context.setOffline(true);
   await page.reload();
   await expect(page.getByText('You’re offline. Your carts stay on this device.')).toBeVisible();
@@ -35,6 +38,8 @@ test('desktop web flow: search, durable cart, offline reload, replay, and order 
   await page.getByRole('link', { name: 'Orders', exact: true }).click();
   await page.getByRole('button', { name: 'View order 6008', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
+  // Close only after the details loaded; closing earlier cancels the detail read.
+  await expect(page.getByRole('dialog').getByText(/^Placed /)).toBeVisible();
   await page.getByRole('button', { name: 'Close order' }).click();
   await page.screenshot({ path: 'test-results/orders-desktop.png', fullPage: true });
   await page.getByRole('link', { name: 'The counter', exact: true }).click();
@@ -59,7 +64,10 @@ test('operator logout retains drafts but removes identity and cached catalog', a
 // so the real resource refuses daily reporting for the checked-in store.
 test('daily reports call the versioned resource and respect the day-close rollout', async ({
   page,
+  network,
 }) => {
+  // The rollout excludes the checked-in store, so the report is refused with 403.
+  network.expectFailure({ method: 'GET', path: '/api/v1/reports/daily-store-sales', outcome: 403 });
   await page.goto('/');
   await signIn(page);
   await page.getByRole('link', { name: 'Reports', exact: true }).click();

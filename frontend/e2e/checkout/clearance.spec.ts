@@ -1,4 +1,5 @@
-import { expect, test, type Page, type Route } from '@playwright/test';
+import { type Page, type Route } from '@playwright/test';
+import { expect, test } from '../support/fixtures';
 import type { CheckoutClearance } from '../../src/api/checkout-clearance';
 import type {
   ClearedDraft,
@@ -45,7 +46,14 @@ for (const delayed of [false, true]) {
   test(`two-tab clear ${delayed ? 'keeps a newer open review when its old callback arrives' : 'reuses one durable result after stale-tab recovery and reload'}`, async ({
     page,
     context,
+    network,
   }) => {
+    // The stale tab's quote after the clear is refused with 409 CHECKOUT_CLEARED on purpose.
+    network.expectFailure({
+      method: 'POST',
+      path: /^\/api\/v1\/stores\/1\/checkout-sessions\/[0-9a-f-]{36}\/quotes$/,
+      outcome: 409,
+    });
     const checkoutId = crypto.randomUUID();
     let draftId = '',
       draftVersion = 0,

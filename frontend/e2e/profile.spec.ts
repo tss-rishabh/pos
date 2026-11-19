@@ -1,12 +1,19 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './support/fixtures';
 import { z } from 'zod';
 import { sessionSchema } from '../src/api/schemas';
 import { signIn } from './support/login';
 
 test('self-service profile updates, password validation and offline restrictions', async ({
+  network,
   page,
   context,
 }) => {
+  // A wrong current password is refused with 400 on purpose.
+  network.expectFailure({
+    method: 'PUT',
+    path: '/api/v1/operators/current/password',
+    outcome: 400,
+  });
   await page.goto('/');
   await signIn(page);
   await expect(page.getByRole('heading', { name: 'The counter.' })).toBeVisible();

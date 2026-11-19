@@ -4,14 +4,23 @@ import {
   invoicePreviewPolicy,
 } from '../../../backend/src/modules/invoice-documents/presentation';
 import { sanitizeInvoiceHtml } from '../../../backend/src/modules/checkout/invoices';
-import { test, expect } from '@playwright/test';
+import { test, expect, sandboxedFrameTrace } from '../support/fixtures';
 import { exchangeRecoverySchema } from '../../src/pages/returns/client';
 import { eligibleLine } from '../support/eligibility';
 import { signIn } from '../support/login';
 
+test.use(sandboxedFrameTrace);
+
 test('exchange preserves stored picks after rejection and reload without retrying an uncertain child', async ({
   page,
+  network,
 }) => {
+  // The fixture rejects the first replacement on purpose.
+  network.expectFailure({
+    method: 'POST',
+    path: '/api/v1/stores/1/orders/8802/line-items/88021/exchanges',
+    outcome: 422,
+  });
   let exchangeId = '',
     phase = 'replacement-rejected',
     starts = 0,

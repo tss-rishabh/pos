@@ -1,26 +1,23 @@
-import { expect, test } from '@playwright/test';
+import type { Route } from '@playwright/test';
+import { expect, test } from '../support/fixtures';
 import { signIn } from '../support/login';
 
 test('opens exact order links in the current store and clears selection before a store transition', async ({
   page,
+  network,
 }) => {
   const id = '9007199254740993',
     requests: string[] = [];
-  await page.route('**/api/v1/stores/*/orders/*', async (route) => {
+  // The fixture order exists only in this spec, so its detail sub-resources are fixtures too.
+  const fixtureOrder = async (route: Route) => {
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith('/orders/searches')) return route.continue();
+    if (path.endsWith('/invoices/capabilities'))
+      return route.fulfill({ json: { storeId: '1', orderId: id, actions: [] } });
     if (path.endsWith('/cancellations'))
-      return route.fulfill({
-        json: {
-          orderId: id,
-          storeId: '1',
-          counterId: '1',
-          eligible: false,
-          snapshotHash: null,
-          blocker: 'ORDER_NOT_CANCELLABLE',
-          receipt: null,
-        },
-      });
+      return route.fulfill({ json: { orderId: id, storeId: '1', eligible: false } });
+    if (path.endsWith('/payment-options'))
+      return route.fulfill({ json: { payable: '99.95', counterId: '1', options: [] } });
     if (path.endsWith('/payment-context'))
       return route.fulfill({
         json: {
@@ -28,9 +25,11 @@ test('opens exact order links in the current store and clears selection before a
           storeId: '1',
           counterId: '1',
           payable: '99.95',
+          paid: false,
+          settlement: null,
+          transactionId: 'FIXTURE-LINK-TXN',
+          activeTransaction: null,
           canRecordPayment: false,
-          activeAttemptId: null,
-          legacyPayment: null,
           blocker: 'CHECK_IN_REQUIRED',
         },
       });
@@ -64,7 +63,9 @@ test('opens exact order links in the current store and clears selection before a
         ],
       },
     });
-  });
+  };
+  await page.route('**/api/v1/stores/*/orders/*', fixtureOrder);
+  await page.route(`**/api/v1/stores/*/orders/${id}/**`, fixtureOrder);
   await page.goto('/orders?orderId=' + id);
   await signIn(page);
   await expect(
@@ -75,9 +76,14 @@ test('opens exact order links in the current store and clears selection before a
   await expect(page.getByRole('dialog')).not.toBeVisible();
   await expect.poll(() => new URL(page.url()).searchParams.has('orderId')).toBe(false);
   expect(requests).toHaveLength(1);
+  // Let the store-2 workspace finish loading so the next navigation cancels nothing.
+  await page.waitForLoadState('networkidle');
   await page.goto('/orders?orderId=1e3');
   await expect(page.getByText('The order link contains an invalid reference.')).toBeVisible();
   expect(requests).toHaveLength(1);
+  await page.waitForLoadState('networkidle');
+  // Store 2 does not hold the fixture order: the exact link must answer 404.
+  network.expectFailure({ method: 'GET', path: `/api/v1/stores/2/orders/${id}`, outcome: 404 });
   await page.goto('/orders?orderId=' + id);
   await expect(page.getByText('This order is not in the selected store.')).toBeVisible();
   await expect(page.getByText('EXACT-LINK-FIXTURE')).not.toBeVisible();

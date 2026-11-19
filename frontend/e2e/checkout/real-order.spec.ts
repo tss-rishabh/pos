@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, sandboxedFrameTrace } from '../support/fixtures';
 import {
   invoicePreviewHtml,
   invoicePreviewPolicy,
@@ -6,6 +6,8 @@ import {
 import { sanitizeInvoiceHtml } from '../../../backend/src/modules/checkout/invoices';
 import { installInvoicePrintProbe } from './invoice-print-probe';
 import { signIn } from '../support/login';
+
+test.use(sandboxedFrameTrace);
 
 /**
  * A web checkout creates a real order on the real stack: real backend, seeded MySQL, the

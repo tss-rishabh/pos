@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/fixtures';
 import { signIn } from '../support/login';
 
 test('mounts scoped product feedback in the production app and rejects store changes and malformed IDs before reading', async ({
