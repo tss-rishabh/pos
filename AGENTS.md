@@ -128,3 +128,11 @@ These supersede earlier WIP patterns. Every agent must follow them.
   - The normal path creates the order only after the operator confirms the payment form, as legacy does.
   - Self-verify registration is kept, with the S36 guard.
   - Exchange and type-8 guards are enforced on the server (S35).
+- **Administration, 19 November 2026 (user and primary agent):**
+  - Delete the groups/permissions admin. There are no production tables for it, and legacy never checks it at runtime.
+  - Fix CSV `IsHold=0`: it must not hold stock (approved divergence).
+  - Delete the product-store CSV upload page (legacy URL commented out, `core/urls.py:11`) and the admin
+    "export all" (no legacy job).
+  - Drop the extra day-close window check.
+  - Franchise users see only their own franchise's stores (S45).
+  - Keep the working gift-card list search, limited to the fields legacy configured. Legacy raises `FieldError`.
