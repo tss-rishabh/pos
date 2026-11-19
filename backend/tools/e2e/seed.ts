@@ -8,6 +8,7 @@ import {
   Order,
   OrderStatus,
   OrderStore,
+  PaymentMethod,
   PaymentStatus,
   PosUser,
   Product,
@@ -261,6 +262,20 @@ export async function seedE2e(
       updated_at: stamp,
     },
   ]);
+  // Counter orders are created as payment method 14 ("coc", order/views.py:2730); the order list
+  // reads its name for unpaid orders (Helpers payment-method label), so production has the row.
+  await db.insert(PaymentMethod).values({
+    id: 14n,
+    name: 'POS Counter',
+    image: '',
+    value: 'coc',
+    status: 1,
+    payment_discount: 0,
+    payment_discount_type: 0,
+    sort_order: 14,
+    created_at: stamp,
+    updated_at: stamp,
+  });
   await db
     .insert(PaymentStatus)
     .values([
