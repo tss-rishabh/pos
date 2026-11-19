@@ -8,13 +8,16 @@ import { type Page } from '@playwright/test';
 import { expect, test, sandboxedFrameTrace, type NetworkGuard } from '../support/fixtures';
 import { recordedPaymentInputSchema } from '../../src/pages/checkout/payment-recovery';
 import { signIn } from '../support/login';
+import { createUnpaidCounterOrder } from '../../../backend/tools/e2e/fixture-orders';
 
 test.use(sandboxedFrameTrace);
 
 /**
  * Existing-order payment on the real stack (legacy order show/index pages, create_order.html
- * payment form). Orders 6001 and 6002 are seeded unpaid (backend/tools/e2e/seed.ts). Only the
- * invoice renderer, an external adapter, is answered by the test.
+ * payment form). Each test adds its own new unpaid counter order to the running stack's schema
+ * (backend/tools/e2e/fixture-orders.ts), so a repeated run on the same stack never meets an order
+ * an earlier run already paid. Only the invoice renderer, an external adapter, is answered by the
+ * test.
  */
 async function invoicePreview(page: Page, orderId: string) {
   const state = { reads: 0 };
@@ -128,17 +131,21 @@ test('existing order cash payment confirms on the real stack without completing 
   network,
 }) => {
   allowSupersededListSearch(network);
-  const invoice = await invoicePreview(page, '6001');
+  const orderId = await createUnpaidCounterOrder(process.env.E2E_MYSQL_URL);
+  const invoice = await invoicePreview(page, orderId);
   const attempts: unknown[] = [];
   page.on('request', (request) => {
-    if (request.method() === 'POST' && request.url().endsWith('/orders/6001/payment-attempts'))
+    if (
+      request.method() === 'POST' &&
+      request.url().endsWith(`/orders/${orderId}/payment-attempts`)
+    )
       attempts.push(request.postDataJSON());
   });
-  await openOrder(page, '6001');
+  await openOrder(page, orderId);
   const snapshot = await seedUnrelatedDraft(page);
   await confirmCash(page);
   await expect(
-    page.getByText('Payment has been Completed for order ID : 6001', { exact: false }),
+    page.getByText(`Payment has been Completed for order ID : ${orderId}`, { exact: false }),
   ).toBeVisible();
   expect(attempts).toHaveLength(1);
   const sent = recordedPaymentInputSchema.parse(attempts[0]);
@@ -147,7 +154,7 @@ test('existing order cash payment confirms on the real stack without completing 
   expect(Number(sent.cashAmount)).toBeGreaterThan(0);
   await expect(
     page
-      .frameLocator('iframe[title="Tax invoice for order 6001"]')
+      .frameLocator(`iframe[title="Tax invoice for order ${orderId}"]`)
       .getByRole('heading', { name: 'Existing order tax invoice' }),
   ).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-invoice-print-count', '1');
@@ -155,7 +162,7 @@ test('existing order cash payment confirms on the real stack without completing 
   await page.getByRole('button', { name: 'Close invoice' }).click();
   await page.reload();
   await expect(
-    page.getByText('Payment has been Completed for order ID : 6001', { exact: false }),
+    page.getByText(`Payment has been Completed for order ID : ${orderId}`, { exact: false }),
   ).toBeVisible();
   await expect(page.locator('iframe')).toHaveCount(0);
   expect(invoice.reads).toBe(1);
@@ -170,22 +177,23 @@ test('a lost payment response is read back by status check and never sent again'
   network,
 }) => {
   allowSupersededListSearch(network);
+  const orderId = await createUnpaidCounterOrder(process.env.E2E_MYSQL_URL);
   network.expectFailure({
     method: 'POST',
-    path: '/api/v1/stores/1/orders/6002/payment-attempts',
+    path: `/api/v1/stores/1/orders/${orderId}/payment-attempts`,
     outcome: 'net::ERR_CONNECTION_RESET',
   });
-  const invoice = await invoicePreview(page, '6002');
+  const invoice = await invoicePreview(page, orderId);
   let posts = 0;
   // The server records the payment, but its response never reaches the browser.
-  await page.route('**/api/v1/stores/1/orders/6002/payment-attempts', async (route) => {
+  await page.route(`**/api/v1/stores/1/orders/${orderId}/payment-attempts`, async (route) => {
     if (route.request().method() !== 'POST') return route.continue();
     posts++;
     const response = await route.fetch();
     expect(response.ok()).toBe(true);
     return route.abort('connectionreset');
   });
-  await openOrder(page, '6002');
+  await openOrder(page, orderId);
   const snapshot = await seedUnrelatedDraft(page);
   await confirmCash(page);
   await expect(
@@ -194,18 +202,18 @@ test('a lost payment response is read back by status check and never sent again'
   expect(posts).toBe(1);
   await page.getByRole('button', { name: 'Check payment status', exact: true }).click();
   await expect(
-    page.getByText('Payment has been Completed for order ID : 6002', { exact: false }),
+    page.getByText(`Payment has been Completed for order ID : ${orderId}`, { exact: false }),
   ).toBeVisible();
   await expect(
     page
-      .frameLocator('iframe[title="Tax invoice for order 6002"]')
+      .frameLocator(`iframe[title="Tax invoice for order ${orderId}"]`)
       .getByRole('heading', { name: 'Existing order tax invoice' }),
   ).toBeVisible();
   expect(invoice.reads).toBe(1);
   await page.getByRole('button', { name: 'Close invoice' }).click();
   await page.reload();
   await expect(
-    page.getByText('Payment has been Completed for order ID : 6002', { exact: false }),
+    page.getByText(`Payment has been Completed for order ID : ${orderId}`, { exact: false }),
   ).toBeVisible();
   expect(posts).toBe(1);
   const [draft, completed] = await snapshot();
