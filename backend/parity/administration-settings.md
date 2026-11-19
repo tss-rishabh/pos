@@ -1,44 +1,46 @@
 # Delivery timing and order settings
 
-The module implements source timing create/edit, single/all availability, global threshold/buffer updates and e-commerce controls. Source-extracted checks compare hours:minutes arithmetic and all five notice forms. Isolated MySQL covers concurrent edits, role/store checks, replay, ordering and recovery. No live provider, inventory procedure or entire legacy HTTP workflow is certified.
+Source: `PosDeliveryTimingEdit`, `AjaxDeliveryTimingUpdate` (`core/views.py:1794-1879`),
+`AjaxThresholdUpdate`, `AjaxOrderBufferUpdate`, `AjaxEcomSettingUpdate` (`core/views.py:1998-2167`).
 
-## Deployment
+## Effects (inline, after commit)
 
-Apply `src/modules/administration/settings-migration.sql` after administration/media migrations. It creates only rewrite-owned effects, replay records, cooldowns and a registry row. Root injects `createSettingsDelivery(config, db, readSettingsWorkerOptions())`, passes the cooldown and closes the adapter at shutdown. Construction makes no connection/send.
+The settings outbox and `worker:settings` are removed. After the writer transaction commits, the service
+runs the source effects in order: common-Redis `SET HYPERLOCAL_STOCK_THRESHOLD` /
+`SET ORDER_CREATION_BUFFER_TIME_IN_SEC` (seconds), and the Slack notices (buffer, slot timing, slot
+availability, ecommerce threshold, ecommerce availability) with source text. A failed effect is logged
+(`administration.settings-effect.failed`, static code) and never raised. Slack failures are swallowed in the
+source too (`helpers/helpers.py:1117-1121`); a common-Redis failure raised a 500 in the source after the
+database update was already committed.
 
-| Setting | Behavior |
-| --- | --- |
-| `COMMON_REDIS_URL` | Distinct common cache; never falls back to notification/check-in Redis. Production requires `rediss:`. |
-| `SLACK_URL` | Source common-channel webhook. Approved HTTPS Slack hosts and `/services/` paths only. |
-| `ECOM_DELIVERY_CHANGES_TIME` | Source default 180 seconds; bounds 1–3600. |
-| `SETTINGS_WORKER_ENABLED` | Defaults to false. |
-| `SETTINGS_WORKER_INTERVAL_MS` | Default 2000; bounds 1000–60000. |
-| `SETTINGS_WORKER_BATCH_SIZE` | Default 5; bounds 1–25. |
+Options (`settings-options.ts` `readSettingsOptions`): `COMMON_REDIS_URL`, `SLACK_URL`,
+`ECOM_DELIVERY_CHANGES_TIME` (default 180, 1-3600). `SETTINGS_WORKER_*` are unused.
 
-Run `npm run worker:settings` under supervision. No real sends occur in demo/disabled mode. Common-cache clients are lazy, bound queued commands/timeouts, disable offline queuing and destroy stalled connections. The [official command options](https://github.com/redis/node-redis/blob/master/docs/command-options.md) explain timeout scope: an already-written command may have taken effect, so SET retries remain idempotent.
+## Replay
 
-Missing adapters reject before mutation. Responses expose editing availability, never credentials/URLs. Threshold changes set exactly `HYPERLOCAL_STOCK_THRESHOLD`; buffer changes set `ORDER_CREATION_BUFFER_TIME_IN_SEC` in seconds, followed by the source notice. Arbitrary setting keys cannot be submitted.
+Each mutation carries `operationId`. `pos:idem:settings:{operationId}` holds
+`{actorId, hash, state: pending|done, result}` (SET NX, EX 86400). A completed replay returns the stored
+result without effects; reuse with other input or by another actor is 409 `SETTINGS_OPERATION_REUSED`; a
+replay while the first is running is 409 `SETTINGS_OPERATION_IN_PROGRESS`. Legacy has no replay
+protection. Optimistic version checks and row locks are unchanged; no administration lock is taken
+(legacy has none).
 
-## Consistency
+## Ecommerce
 
-Strict validation bounds stock integers, positive hours:minutes durations and exact times including seconds. Durations can exceed one day; zero stock threshold is supported. Negative thresholds are deliberately rejected. Source notice text/HH:MM display and business-local timestamps are preserved, with user/store text Slack-escaped against injected mentions.
+Role 1 only (`async_role_required([SUPERADMIN])`). The cooldown is the legacy key
+`ecom_delivery_{store_id}` on the POS Redis, set with `SET NX EX ECOM_DELIVERY_CHANGES_TIME` (source used
+EXISTS then SET) before the update and deleted when nothing changed (`core/views.py:2108-2132`). A change
+sends the notices and enqueues `core.tasks.sync_ecom_inventory` `{store_id}` on `core`; an enqueue failure
+is logged at error level. Rewrite-only refusals (stale version, store not found) also delete the key so a
+refused request does not hold the cooldown.
 
-Timing moves require current access to both active sales stores. Store locks protect weekday uniqueness. Writer-current roles/assignments are checked inside the mutation transaction. State hashes reject stale edits and changed whole-store collections. Stable operation UUIDs replay committed results without adding effects; conflicting reuse fails. Duplicate source setting rows remain supported: reads use first PK and writes update every matching row. Bounded reads reject overlarge unreconciled collections rather than truncate.
+| Case                       | Legacy                                                                                                       | Rewrite                                       |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------- |
+| cooldown active            | 200 `{status:"fail", message:"You cannot perform the action at this time, Please try again after sometime"}` | 409 `ECOMMERCE_CHANGE_COOLDOWN`, same message |
+| no change                  | 200 "No changes detected"                                                                                    | 200 "No changes detected"                     |
+| change                     | 200 "Ecom Setting Updated! Please wait, It will take time to reflect"                                        | 200, same message                             |
+| threshold/buffer saved     | 200 "Data Successfully Updated"                                                                              | 200, same                                     |
+| slot timing / availability | redirect "Delivery Time Slot has been updated!" / "Updated"                                                  | 200, same messages                            |
 
-Outbox effects commit with database changes. Per-resource ordering prevents stale cache retries overtaking newer changes; unrelated resources can progress. SET is idempotent. Slack is at least once: a crash after acceptance but before SQL acknowledgement can duplicate a notice. An arbitrary idempotency header cannot prove otherwise.
-
-Failed attempts persist; the tenth blocks that resource and emits a recovery event. Restart re-alerts blocked rows. Polling is bounded, batches have a 20-second deadline and cannot overlap, and shutdown aborts in-flight work. Events include module/resource/event/effect/request/user/store identifiers plus static codes. Names, payloads, webhooks, email, raw responses and errors are never logged. Names are loaded only to deliver the authorized source notice.
-
-After resolving an adapter failure, requeue one pending effect:
-
-```sh
-npm run worker:settings -- --retry-effect EFFECT_UUID
-```
-
-Recovery resets only attempts, cannot replay acknowledged effects and makes no immediate send. Review possible Slack duplicate delivery before recovery.
-
-## E-commerce dependency
-
-Real writes remain closed unless `ecommerceSyncVerified` and an injected `ecommerce.inventory.sync` delivery are provided. Source calls `pos_stock_syncer_bk` for eligible products, then full product sync. The self-committing backup/divergent inventory model do not verify that integration; see `administration-stock-dependency.md`. The default worker has no invented replacement.
-
-The verified adapter accepts `(eventId, storeId, signal?)` and must support safe retry/checkpointing. Changed values enqueue source threshold/availability notices followed by inventory sync and persist the configured cooldown. No-change requests produce no effects/cooldown. SQL replaces the new app's Redis throttle; it does not coordinate with running legacy instances. Quiesce legacy writers or supply an explicit shared-throttle bridge before mixed deployment. Inability to inspect a procedure is not proof of global absence.
+Removed tables: `pos_rewrite_settings_effects`, `pos_rewrite_settings_mutations`,
+`pos_rewrite_ecommerce_changes`.

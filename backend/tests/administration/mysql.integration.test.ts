@@ -72,6 +72,7 @@ import type {
 import { createSettingsDelivery } from '../../src/modules/administration/settings-adapters.js';
 import { inventoryService } from '../../src/modules/administration/inventory.js';
 import { assertCurrentStoreAccess } from '../../src/modules/administration/authorization.js';
+import type { StockProcedureInput } from '../../src/modules/administration/stock-procedure.js';
 import { operatorMfaService } from '../../src/modules/administration/mfa.js';
 import { operatorMfaEnrollments } from '../../src/modules/administration/mfa-schema.js';
 import {
@@ -3771,12 +3772,12 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     const calls: StockProcedureInput[] = [];
     const inventory = inventoryService(applicationConfig, db, {
       procedureVerified: true,
-      syncProducts: async () => {},
+      productSync: async () => true,
       stockProcedure: async (_tx, input) => {
         calls.push(input);
       },
     });
-    await inventory.setStock(actor, '1', '6001', 5, 0, randomUUID());
+    await inventory.setStock(actor, '1', '6001', 5, 0);
     const rows = await db
       .get('writer')
       .select()

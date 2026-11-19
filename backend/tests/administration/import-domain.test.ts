@@ -52,8 +52,7 @@ describe('inventory CSV source semantics', () => {
   });
   // Expected values below were produced by CPython's csv/int/json modules on the same inputs.
   it('parses lines like Python csv.reader over readlines()', () => {
-    const text =
-      'SkuId,StoreId\r\n\r\n1,"a,b"\n2,"multi\nline"\n" q ""x""",3,extra\n4\n\n5,6';
+    const text = 'SkuId,StoreId\r\n\r\n1,"a,b"\n2,"multi\nline"\n" q ""x""",3,extra\n4\n\n5,6';
     expect(pythonCsvRows(text)).toEqual({
       rows: [
         ['SkuId', 'StoreId'],
@@ -98,7 +97,7 @@ describe('inventory CSV source semantics', () => {
       ['abc', "invalid literal for int() with base 10: 'abc'"],
       ['', "invalid literal for int() with base 10: ''"],
       ["it's", 'invalid literal for int() with base 10: "it\'s"'],
-      ['x\'y"z', 'invalid literal for int() with base 10: \'x\\\'y"z\''],
+      ['x\'y"z', "invalid literal for int() with base 10: 'x\\'y\"z'"],
       ['tab\there', "invalid literal for int() with base 10: 'tab\\there'"],
       ['1.0', "invalid literal for int() with base 10: '1.0'"],
       ['1__0', "invalid literal for int() with base 10: '1__0'"],
