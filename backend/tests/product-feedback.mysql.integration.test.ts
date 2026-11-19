@@ -11,7 +11,9 @@ import { Order, PosUser, Store } from '../src/db/legacy-schema.js';
 import type { Principal } from '../src/domain/access.js';
 import { AppError } from '../src/domain/errors.js';
 import { registerRequestTrace } from '../src/observability/context.js';
-import { checkInService } from '../src/modules/administration/checkins.js';
+import { bindCheckInRedis, checkInService } from '../src/modules/administration/checkins.js';
+import { memoryRedisPort } from '../src/redis/memory.js';
+
 import { checkoutStateSchema } from '../src/modules/checkout/contracts.js';
 import { checkoutSessions } from '../src/modules/checkout/schema.js';
 import { benefitCustomers } from '../src/modules/customer-insights/benefits-schema.js';
@@ -20,6 +22,8 @@ import { productRatings } from '../src/modules/product-feedback/schema.js';
 import { feedbackReceiptKey } from '../src/modules/product-feedback/service.js';
 import { memoryOrderRedis } from '../src/modules/fulfillment/order-redis.js';
 import { verifiedMysqlFixture } from '../tools/operational-reports/verified-mysql-fixture.js';
+// Check-ins are the legacy Redis keys; bind an in-process port for this file.
+bindCheckInRedis(memoryRedisPort());
 
 const integration = process.env.MYSQL_INTEGRATION_URL;
 describe.skipIf(!integration)('native staff feedback atomicity and current scope', () => {

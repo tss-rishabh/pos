@@ -9,7 +9,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { migrationPaths, splitMigration } from '../src/db/migrations.js';
 import { MUser, PosUser, Store, StoreCounter } from '../src/db/legacy-schema.js';
 import type { Principal } from '../src/domain/access.js';
-import { checkInService } from '../src/modules/administration/checkins.js';
+import { bindCheckInRedis, checkInService } from '../src/modules/administration/checkins.js';
+import { memoryRedisPort } from '../src/redis/memory.js';
+
 import { checkoutStateSchema } from '../src/modules/checkout/contracts.js';
 import { checkoutSessions } from '../src/modules/checkout/schema.js';
 import {
@@ -26,6 +28,8 @@ import { customerBriefing } from '../src/modules/customer-insights/briefing-cont
 import { customerBenefitsService } from '../src/modules/customer-insights/benefits.js';
 import { benefitCustomers } from '../src/modules/customer-insights/benefits-schema.js';
 import { goldenStdout } from './golden/load.js';
+// Check-ins are the legacy Redis keys; bind an in-process port for this file.
+bindCheckInRedis(memoryRedisPort());
 
 it('replays the actual pinned property and business-update methods without contact or wallet changes', () => {
   const result: unknown = JSON.parse(goldenStdout('core', 'customer-profile-mysql-integration'));

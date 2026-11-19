@@ -7,7 +7,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { orderSearchFixture } from '../order-search/mysql-fixture.js';
 import { onlineOrderDetailService } from '../../src/modules/order-history/online-detail/service.js';
 import { onlineOrderDetail } from '../../src/modules/order-history/online-detail/contracts.js';
-import { checkInService } from '../../src/modules/administration/checkins.js';
+import { bindCheckInRedis, checkInService } from '../../src/modules/administration/checkins.js';
+import { memoryRedisPort } from '../../src/redis/memory.js';
+
 import type { Principal } from '../../src/domain/access.js';
 import { splitMigration } from '../../src/db/migrations.js';
 import { testAuthRedis, testSessions } from '../helpers/auth-sessions.js';
@@ -16,6 +18,8 @@ import { buildApp } from '../../src/app.js';
 import { readNativeOnlineDetail } from '../../src/modules/order-history/online-detail/native.js';
 import { goldenStdout } from '../golden/load.js';
 import { fixturePlaceholders } from '../golden/fixture-placeholders.js';
+// Check-ins are the legacy Redis keys; bind an in-process port for this file.
+bindCheckInRedis(memoryRedisPort());
 
 const connection = process.env.ORDER_SEARCH_MYSQL_TEST_URL;
 describe.skipIf(!connection)('native source-family order details', () => {
@@ -495,6 +499,8 @@ describe.skipIf(!connection)('native source-family order details', () => {
   });
   it('requires actual delivery type, current check-in and owning store for HL/HE', async () => {
     const service = onlineOrderDetailService(native.config, native.db, { clock: () => now });
+    // A session login in an earlier case re-checks the operator in through the app's Redis.
+    await checkInService(native.db, native.config).set(user, '1', '1');
     expect((await service.read(user, '1', '502', { type: 'HL' })).fact.delivery.ownerStoreId).toBe(
       '1',
     );
@@ -507,9 +513,7 @@ describe.skipIf(!connection)('native source-family order details', () => {
     await expect(service.read(user, '2', '502', { type: 'HL' })).rejects.toMatchObject({
       status: 409,
     });
-    await native.connection.query(
-      "UPDATE pos_rewrite_operator_checkins SET expires_at='2000-01-01 00:00:00' WHERE operator_id='9'",
-    );
+    await checkInService(native.db, native.config).clear(user);
     await expect(service.read(user, '1', '503', { type: 'HE' })).rejects.toMatchObject({
       status: 409,
     });
