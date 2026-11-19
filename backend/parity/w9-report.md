@@ -120,8 +120,8 @@ that the bound `CALL` executes.
   - **Documentation only, never executed:** index proposals in `parity/*-query-improvements.md`,
     `*-proposal(s).md`, `table-disposition.md` and `inventory-workbooks-query-plans.json`. Their owners did not ask
     W9 to edit them.
-  - **`frontend/electron/offline/database.ts`:** device-local encrypted SQLite for the approved offline billing.
-    This is not MySQL. See D3.
+  - **Excluded:** `frontend/electron/offline/database.ts` is the user-approved, device-local offline-billing
+    SQLite store (AGENTS.md), outside the MySQL freeze (coordinator, 19 November).
 - **`*.sql` files left outside administration:** two select-only projections with no DDL,
   `parity/bigquery-deployment/legacy-report-export-projection.sql` (read by `raw-export-projection.test.ts`) and
   `tools/dashboard/publication-projection.sql`.
@@ -138,9 +138,7 @@ Full `npx vitest run`:
 | Mode | Passed | Failed | Skipped |
 |---|---|---|---|
 | Without MySQL | 663 | 0 | 401 |
-| With every MySQL suite enabled | 972 | 3 | 89 |
-
-`administration-history` was fixed after the full MySQL run. It now passes 9 of 9.
+| With every MySQL suite enabled (snapshot `30983aa3`, 119 tables) | 987 | 3 | 74 |
 
 Before W9, the same environment had 55 failures: 26 files, including customer-profile (20), product-feedback (9),
 the migration tests (5), admin (10), order-history (3) and customer-history (3), plus several suites that failed in
@@ -151,8 +149,7 @@ setup.
 | Suite | Cause | Owner / action |
 |---|---|---|
 | `customer-history/mysql` Latin1 case | Pre-existing: under an empty `sql_mode` this only warns | Existing; W7 recorded it |
-| `catalog-details/mysql` detail oracle, `shipping-label` handler-context case | The golden captures are keyed to fixture rows that production unique keys forced to change (unique store phones, no duplicate express lines) | Recapture from pinned legacy |
-| `operational-reports/{flash-sales,scheduled-data,order-report-mysql}` | Setup fails: they need `automated_refund_sic_logs`, `hyperlocal_availability_log` and `order_attributes`, which are not in the snapshot | D1 |
+| `catalog-details/mysql` detail oracle, `shipping-label` handler-context case | The golden captures are keyed to fixture rows that production unique keys forced to change (unique store phones, no duplicate express lines) | Verification phase (§9) |
 | `administration/{collections,inventory-jobs,mysql.integration}` | Setup fails: they read the deleted `operational-reports/migration.sql`, or create `uq_product_store`, which production DDL already has | W8 |
 
 Frontend: not touched.
@@ -185,14 +182,33 @@ Frontend: not touched.
 - **`tools/verify-project.ts`:** removed `backend/migrations` and `MIGRATION_MYSQL_TEST_URL`.
 - **Not edited:** root `README.md` still describes the migration suites.
 
-## 8. NEEDS USER DECISION
+## 8. Snapshot recapture (coordinator, `30983aa3`)
 
-- **D1. Three production tables are missing from the snapshot:** `automated_refund_sic_logs`,
-  `hyperlocal_availability_log` and `order_attributes`. Report SQL reads them, and `evidence/mysql-schema.json`
-  lists them. Recapturing the snapshot to include them needs `POS_PROD_RO_MYSQL_URL`, which was not set. The other
-  option is to accept these three suites as blocked until then. Without them, `flash-sales`, `scheduled-data` and
-  `order-report-mysql` cannot run on snapshot-only DDL.
-- **D2. Two golden captures need recapturing** from the pinned legacy source: the catalog detail oracle and the
-  shipping-label handler context. Production keys forced their fixture rows to change.
-- **D3. Device SQLite DDL.** Confirm that the approved Electron offline-billing SQLite schema
-  (`frontend/electron/offline/database.ts`) is outside the MySQL schema freeze.
+The coordinator recaptured `production-schema.json` read-only: 119 tables, now including `automated_refund_sic_logs`,
+`hyperlocal_availability_log` and `order_attributes`. `orm-metadata` still has 0 mismatches. With it,
+`operational-reports/{flash-sales,scheduled-data,order-report-mysql}` and `checkout-payment-reversals` pass
+(12 of 12) with no test change.
+
+`tools/schema/snapshot-production-schema.ts` now exports `DEFAULT_EXTRA_TABLES` and always captures it. The constant
+holds the 22 snapshot tables no Drizzle schema references: raw report SQL tables (including the three above) and
+fixture-only tables. A plain rerun therefore reproduces the same 119-table set. Credential handling is unchanged.
+
+## 9. Resolved decisions and goldens for the verification phase
+
+- **D1 (missing tables):** resolved by the recapture above.
+- **D3 (device SQLite):** outside the MySQL freeze, and excluded from the DDL grep.
+- **D2 (goldens):** recapture both from the pinned legacy source `78d5b63` in the verification phase. Both fail with
+  "has no capture for input":
+  - **`tests/catalog-details/mysql.integration.test.ts`**, case "loads live variants, source zipped barcodes,
+    ordered check-in stock and description without per-cell queries".
+    - Golden: `catalog-details/mysql-integration.detail-oracle`.
+    - New input hash: `ac7b5d7974ca3475997ece2d05e6e63cfe12ca91d747f771514712dffed990be`.
+    - What changed: store phones are now unique, as `stores.phone_unique` requires.
+  - **`tests/fulfillment/shipping-label-mysql.integration.test.ts`**, case "matches the pinned handler context
+    across 11 native vectors, padded AWBs, missing addresses and exact BIGINT quantities".
+    - Golden: `fulfillment/shipping-label-mysql-integration`.
+    - New input hash: `986f7ad251196ec197c994f7ffe75e9fb3fe050b60861b779495435a98a2ed02`.
+    - What changed: unique store phone, and the duplicate express line rows were removed, as
+      `express_line_item.unique_order_product` requires.
+
+No NEEDS USER DECISION items remain.
