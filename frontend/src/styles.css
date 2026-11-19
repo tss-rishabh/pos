@@ -1125,13 +1125,18 @@ td small {
   background: #20291e77;
   z-index: 100;
   display: flex;
-  align-items: center;
+  /* A dialog taller than the viewport scrolls inside the backdrop from its top (close button
+     first), like the legacy Bootstrap modal, instead of overflowing above the viewport. */
+  align-items: flex-start;
   justify-content: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 30px;
   backdrop-filter: blur(3px);
 }
 .modal {
   position: relative;
+  margin-block: auto;
   background: #fafbf6;
   border: 1px solid #e2e7d6;
   border-radius: 11px;
