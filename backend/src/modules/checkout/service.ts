@@ -221,9 +221,27 @@ export function checkoutService(
     return issueCustomerToken(identity, environment, now());
   }
   async function readCart(state: CheckoutState, auth?: string) {
-    return cartSchema.parse(
-      await gateway.api(cartPath, readCartPayload(context(state)), auth || (await token(state))),
+    const value = await gateway.api(
+      cartPath,
+      readCartPayload(context(state)),
+      auth || (await token(state)),
     );
+    // CreateOrderView.get (order/views.py:1546-1552): an upstream `title` is shown as the error;
+    // an empty cart response is "We have a little problem, please try again later !".
+    const titled = z
+      .object({ title: z.string().min(1).max(500) })
+      .passthrough()
+      .safeParse(value);
+    if (titled.success && !cartSchema.safeParse(value).success)
+      throw new AppError(502, 'CART_UNAVAILABLE', titled.data.title);
+    const cart = cartSchema.safeParse(value);
+    if (!cart.success)
+      throw new AppError(
+        502,
+        'CART_UNAVAILABLE',
+        'We have a little problem, please try again later !',
+      );
+    return cart.data;
   }
   async function requireVerified(user: Principal, state: CheckoutState) {
     const customerId = state.customerId,
