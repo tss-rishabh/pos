@@ -83,24 +83,25 @@ test('store order search, detail and invoice (status only)', async () => {
   }
 });
 
-test('notifications, shortcuts reference, check-in page', async () => {
+test('notifications and the header check-in control', async () => {
   const { page } = desktop;
   await go(page, '/');
-  const bell = page.getByRole('button', { name: /notification/i }).first();
+  // W27: the bell exists only when the store's notification feed holds notifications.
+  const bell = page.getByRole('banner').getByRole('button', { name: /^Notifications/ });
   if (await bell.count()) {
     await bell.click();
     await page.waitForTimeout(3000);
     await shot(page, '03-notifications');
   }
   note('notifications', 'open', { bell: await bell.count(), alerts: await alerts(page) });
-  await go(page, '/shortcut-reference');
-  note('shortcuts', 'reference', {
-    rows: await page.getByRole('row').count(),
-    alerts: await alerts(page),
-  });
-  await go(page, '/check-in');
+  // The separate check-in page is gone; check-in lives in the header.
   await shot(page, '03-check-in');
-  note('check-in', 'page', { text: (await page.locator('main').innerText()).slice(0, 800) });
+  note('check-in', 'header', {
+    status: await page
+      .getByRole('banner')
+      .getByLabel(/^Store check-in:/)
+      .getAttribute('aria-label'),
+  });
 });
 
 test('session expiry: a removed session cookie returns to sign-in', async () => {
@@ -125,8 +126,10 @@ test('session expiry: a removed session cookie returns to sign-in', async () => 
 test('sign in again, then log out', async () => {
   const { page } = desktop;
   await signIn(page, uat.storeId);
-  // The app returns to the last route (here /check-in) after signing in again.
-  await expect(page.getByText('Checked in at Indiranagar, Bangalore').first()).toBeVisible();
+  // Signing in with the store checks in; the header shows it.
+  await expect(
+    page.getByRole('banner').getByLabel('Store check-in: Checked in', { exact: true }),
+  ).toBeVisible();
   const logout = page.getByRole('button', { name: /log ?out|sign ?out/i }).first();
   note('session', 'logout-control', { count: await logout.count() });
   if (await logout.count()) {

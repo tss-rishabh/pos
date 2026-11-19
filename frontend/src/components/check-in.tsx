@@ -22,13 +22,18 @@ export function markFreshSignIn() {
     // Without session storage the operator checks in from the header instead.
   }
 }
-function takeFreshSignIn(): boolean {
+function readFreshSignIn(): boolean {
   try {
-    const fresh = sessionStorage.getItem(freshSignInKey) === '1';
-    sessionStorage.removeItem(freshSignInKey);
-    return fresh;
+    return sessionStorage.getItem(freshSignInKey) === '1';
   } catch {
     return false;
+  }
+}
+function clearFreshSignIn() {
+  try {
+    sessionStorage.removeItem(freshSignInKey);
+  } catch {
+    // Nothing to clear.
   }
 }
 
@@ -203,7 +208,7 @@ export function CheckInPrompt({
   state: CheckInState;
   stores: readonly Store[];
 }) {
-  const [fresh] = useState(takeFreshSignIn);
+  const [fresh] = useState(readFreshSignIn);
   const [dismissed, setDismissed] = useState(false);
   const workspace = useWorkspace();
   const [storeId, setStoreId] = useState(() =>
@@ -230,7 +235,12 @@ export function CheckInPrompt({
           : (list[0]?.id ?? ''),
       );
   }, [counters.data, counterId, storeId, workspace.storeId, workspace.counterId]);
-  if (!fresh || dismissed || !state.loaded || state.checkIn || stores.length === 0) return null;
+  const resolved = !fresh || dismissed || (state.loaded && state.checkIn !== null);
+  // The prompt belongs to one sign-in: once answered (or already checked in) it stays closed.
+  useEffect(() => {
+    if (resolved) clearFreshSignIn();
+  }, [resolved]);
+  if (resolved || !state.loaded || stores.length === 0) return null;
   async function submit() {
     if (!storeId) return;
     if (await state.checkInAt(storeId, counterId)) {
