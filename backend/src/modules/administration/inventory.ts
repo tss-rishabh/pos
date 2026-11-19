@@ -65,9 +65,13 @@ export function inventoryService(config: Config, db: Databases, options: Invento
           stock: ProductStore.stock,
           available: ProductStore.is_avail,
           archived: ProductStore.is_del,
-          barcode: sql<
-            string | null
-          >`(select ${ProductBarcode.gtin} from ${ProductBarcode} where ${ProductBarcode.product}=${Product.id} order by ${ProductBarcode.id} asc limit 1)`,
+          barcode: sql<string | null>`${db
+            .get('primary')
+            .select({ gtin: ProductBarcode.gtin })
+            .from(ProductBarcode)
+            .where(eq(ProductBarcode.product, Product.id))
+            .orderBy(asc(ProductBarcode.id))
+            .limit(1)}`,
         })
         .from(ProductStore)
         .innerJoin(Product, eq(Product.id, ProductStore.product))
