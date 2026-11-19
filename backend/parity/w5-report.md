@@ -333,7 +333,7 @@ Checks: backend tsc, eslint, orm-metadata (0) pass; full backend vitest has only
 `tests/migrations.test.ts` failures (deleted module SQL still listed in `migrationPaths`); W5 MySQL suites
 pass; frontend tsc, eslint and vitest pass.
 
-The three NEEDS USER DECISION items below are resolved by this follow-up.
+The three NEEDS USER DECISION items above are resolved by this follow-up.
 
 # Appendix A — sub-agent section: fulfillment
 
