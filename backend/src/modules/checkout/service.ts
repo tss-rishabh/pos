@@ -1104,7 +1104,24 @@ export function checkoutService(
     },
     coupon(user: Principal, storeId: string, id: string, input: MutationInput, code: string) {
       return mutate(user, storeId, id, input, 'coupon.apply', { code }, async (state) => {
-        if (await repository.isEmployeeCoupon(code)) await requireVerified(user, state);
+        // AjaxCouponView (order/views.py:2365-2391): only a company email (the customer's, or the
+        // operator's for a walk-in cart) must be verified to use an employee coupon.
+        const email = state.customerId
+          ? ((await repository.customer(state.customerId))?.email ?? '')
+          : user.email;
+        if (email.includes('@thesouledstore.') && (await repository.isEmployeeCoupon(code))) {
+          try {
+            await requireVerified(user, state);
+          } catch (error) {
+            if (error instanceof AppError && error.code === 'CUSTOMER_VERIFICATION_REQUIRED')
+              throw new AppError(
+                403,
+                'CUSTOMER_VERIFICATION_REQUIRED',
+                'Please verify the user to use Employee Coupon.',
+              );
+            throw error;
+          }
+        }
         return cartMutation(
           state,
           'coupon',

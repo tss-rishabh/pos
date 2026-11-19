@@ -118,6 +118,28 @@ describe('checkout workflow authorization and external-effect safety', () => {
       service.salesperson(operator, '1', created.id, mutation(4), '5', '999'),
     ).rejects.toMatchObject({ code: 'SALESPERSON_PRODUCT_UNAVAILABLE' });
   });
+  it('requires verification for an employee coupon only for a company email, as legacy AjaxCouponView', async () => {
+    const walkIn = await service.create(operator, '1', '3');
+    expect((await service.coupon(operator, '1', walkIn.id, mutation(0), 'EMPLOYEE')).status).toBe(
+      'succeeded',
+    );
+    repository.customers.set('2002', {
+      ...repository.customers.get('1001')!,
+      id: '2002',
+      email: 'staff@thesouledstore.com',
+    });
+    const staff = await service.create(operator, '1', '3');
+    await service.attachCustomer(operator, '1', staff.id, mutation(0), '2002');
+    await expect(
+      service.coupon(operator, '1', staff.id, mutation(1), 'EMPLOYEE'),
+    ).rejects.toMatchObject({
+      code: 'CUSTOMER_VERIFICATION_REQUIRED',
+      message: 'Please verify the user to use Employee Coupon.',
+    });
+    expect((await service.coupon(operator, '1', staff.id, mutation(1), 'REGULAR')).status).toBe(
+      'succeeded',
+    );
+  });
   it('does not re-verify an applied employee coupon at order time, as legacy AjaxOrderView', async () => {
     const created = await service.create(operator, '1', '3');
     await service.attachCustomer(operator, '1', created.id, mutation(0), '1001');
