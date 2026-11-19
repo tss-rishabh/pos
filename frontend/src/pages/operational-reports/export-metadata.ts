@@ -1,20 +1,20 @@
-import type { z } from 'zod';
-import type { exportRowSchema } from './export-commands';
+import type { ReportExportRow } from './export-commands';
 import { csvCell } from '../reports';
 
-export type ExportMetadata = z.infer<typeof exportRowSchema>;
+export type ExportMetadata = ReportExportRow;
+/** Legacy export log columns (export_datatable.py) in source order. */
 export const exportMetadataColumns = [
   ['id', 'ID'],
-  ['reportName', 'Report'],
-  ['kind', 'Type'],
-  ['period', 'Period'],
+  ['reportName', 'Report name'],
+  ['kind', 'Report type'],
+  ['period', 'Time period'],
   ['status', 'Status'],
-  ['message', 'Message'],
+  ['note', 'Message'],
   ['requestedBy', 'Requested by'],
-  ['requestedAt', 'Requested'],
-  ['completedAt', 'Completed'],
+  ['requestedAt', 'Requested at'],
+  ['completedAt', 'Completed at'],
   ['format', 'Format'],
-  ['byteCount', 'Size'],
+  ['sizeKb', 'Size'],
   ['rowCount', 'Rows'],
 ] as const;
 export type ExportMetadataColumn = (typeof exportMetadataColumns)[number][0];
@@ -22,19 +22,10 @@ export function exportMetadataValue(
   row: ExportMetadata,
   field: ExportMetadataColumn,
 ): string | number | null {
-  if (field === 'period') {
-    if (row.period !== undefined) return row.period;
-    return row.from && row.to
-      ? `${row.from} – ${row.to}`
-      : row.kind === 'current-inventory-workbook'
-        ? 'Current snapshot'
-        : row.kind === 'administration-list'
-          ? 'Current collection'
-          : 'Legacy report';
-  }
+  if (field === 'status') return row.exportStatus || row.status;
   if (field === 'requestedBy') return row.requestedByName || row.requestedBy;
-  if (field === 'byteCount')
-    return row.byteCount === null ? null : `${(row.byteCount / 1024).toFixed(1)} KB`;
+  // Legacy shows "{export_size} KB", and "-" for an empty size.
+  if (field === 'sizeKb') return row.sizeKb ? `${row.sizeKb} KB` : '-';
   if (field === 'requestedAt' || field === 'completedAt') {
     const value = row[field];
     if (!value) return null;
@@ -43,7 +34,7 @@ export function exportMetadataValue(
   }
   return row[field];
 }
-/** Original server-side DataTables CSV exports the authenticated, loaded page. */
+/** DataTables CSV of the visible columns of the loaded export-log page. */
 export function exportMetadataCsv(
   rows: readonly ExportMetadata[],
   selected: readonly ExportMetadataColumn[],
@@ -58,7 +49,7 @@ export function exportMetadataCsv(
   )
     throw new Error('Choose visible metadata columns and a page of up to 500 rows.');
   const csv =
-    '\uFEFF' +
+    '﻿' +
     [
       columns.map(([, label]) => label),
       ...rows.map((row) => columns.map(([key]) => exportMetadataValue(row, key))),

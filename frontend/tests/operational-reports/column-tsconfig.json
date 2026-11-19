@@ -4,6 +4,7 @@
     "column-entry.tsx",
     "column-vite.config.ts",
     "export-commands.test.ts",
-    "export-metadata.test.ts"
+    "export-metadata.test.ts",
+    "page-csv.test.ts"
   ]
 }

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { ArrowDownToLine, Search, Columns3 } from 'lucide-react';
 import { z } from 'zod';
 import { request } from '../../api/client';
 import type { Principal } from '../../api/types';
 import { Empty, ErrorState, Loading, PageTitle } from '../../components/common';
 import { useOnline } from '../../hooks/use-pos';
-import { queueReportExport } from './export-commands';
 import { orderReportColumns } from './order-report-columns';
+import { downloadLoadedPageCsv } from './page-csv';
+import { QueuedExport } from './queued-export';
 import './style.css';
 type Field = (typeof orderReportColumns)[number][1];
 const scalar = z.union([z.string(), z.number().finite(), z.null()]),
@@ -82,7 +83,6 @@ function savedColumns(userId: string): Field[] {
 }
 export function OrderTransactionsPage({ user, storeId }: { user: Principal; storeId: string }) {
   const online = useOnline(),
-    queryClient = useQueryClient(),
     [filters, setFilters] = useState(() => initial(storeId)),
     [submitted, setSubmitted] = useState(() => initial(storeId)),
     [page, setPage] = useState(1),
@@ -95,6 +95,7 @@ export function OrderTransactionsPage({ user, storeId }: { user: Principal; stor
       /* Preferences are optional when local storage is unavailable. */
     }
   }, [selected, user.id]);
+  const visible = orderReportColumns.filter(([, field]) => selected.includes(field));
   const stores = useQuery({
       queryKey: [user.id, 'finance-cash-ledger-stores'],
       queryFn: () =>
@@ -114,38 +115,27 @@ export function OrderTransactionsPage({ user, storeId }: { user: Principal; stor
         ),
       retry: false,
     }),
-    createExport = useMutation({
-      mutationFn: (columns: readonly Field[] | null) =>
-        queueReportExport(user.id, {
-          kind: 'order-transactions',
-          ...submitted,
-          attempts: 'all',
-          search: '',
-          ...(columns ? { columns, sort: 'transaction_date', direction: 'desc' as const } : {}),
-        }),
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: [user.id, 'report-exports'] }),
+    pageCsv = useMutation({
+      mutationFn: async () =>
+        downloadLoadedPageCsv(
+          user.id,
+          `order-transactions-page-${report.data?.page ?? page}.csv`,
+          visible.map(([label]) => label),
+          (report.data?.data || []).map((row) => visible.map(([, field]) => row[field])),
+        ),
     });
   const update = <K extends keyof Filters>(key: K, value: Filters[K]) =>
-      setFilters((current) => ({ ...current, [key]: value })),
-    visible = orderReportColumns.filter(([, field]) => selected.includes(field));
+    setFilters((current) => ({ ...current, [key]: value }));
   return (
     <>
       <PageTitle eyebrow="EVERY LINE, ACCOUNTED FOR" title="Order transactions">
         <button
           className="button secondary"
-          disabled={!online || !report.data?.total || createExport.isPending}
-          onClick={() => createExport.mutate(null)}
+          disabled={!report.data?.data.length || !visible.length || pageCsv.isPending}
+          onClick={() => pageCsv.mutate()}
         >
           <ArrowDownToLine size={16} />
-          {createExport.isPending ? 'Requesting…' : 'Export complete CSV'}
-        </button>
-        <button
-          className="button secondary"
-          disabled={!online || !report.data?.total || !visible.length || createExport.isPending}
-          onClick={() => createExport.mutate(visible.map(([, field]) => field))}
-        >
-          <ArrowDownToLine size={16} />
-          {createExport.isPending ? 'Requesting…' : 'Export visible columns CSV'}
+          CSV
         </button>
       </PageTitle>
       <form
@@ -236,12 +226,16 @@ export function OrderTransactionsPage({ user, storeId }: { user: Principal; stor
         date. Each row represents a line transaction.
       </p>
       {stores.isError && <ErrorState error={stores.error} />}
-      {createExport.isError && <ErrorState error={createExport.error} />}
-      {createExport.isSuccess && (
-        <p className="operational-report-success" role="status">
-          Export requested. The complete file will appear in Report exports.
-        </p>
-      )}
+      <p className="muted">
+        CSV downloads the visible columns of the rows loaded on this page. Export prepares every
+        matching record in Report exports.
+      </p>
+      <QueuedExport
+        user={user}
+        disabled={!online}
+        filters={() => ({ kind: 'order-transactions', ...submitted })}
+      />
+      {pageCsv.isError && <ErrorState error={pageCsv.error} />}
       {!online && <p role="status">Connect to refresh reports or request a file.</p>}
       <details className="surface order-report-columns">
         <summary>

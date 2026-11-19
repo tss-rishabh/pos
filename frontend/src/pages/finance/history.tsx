@@ -5,7 +5,8 @@ import { z } from 'zod';
 import { captureOperatorScope, params, request } from '../../api/client';
 import type { Principal } from '../../api/types';
 import { Empty, ErrorState, Loading, PageTitle } from '../../components/common';
-import { downloadReportCsv } from './download';
+import { useOnline } from '../../hooks/use-pos';
+import { QueuedExport } from '../operational-reports/queued-export';
 import './style.css';
 import { csvCell } from '../reports';
 const fields = [
@@ -114,7 +115,8 @@ const query = (filters: Filters, page: number, pageSize: number) =>
     pageSize: String(pageSize),
   });
 export function DayCloseHistoryPage({ user, storeId }: { user: Principal; storeId: string }) {
-  const [filters, setFilters] = useState(() => initial(storeId)),
+  const online = useOnline(),
+    [filters, setFilters] = useState(() => initial(storeId)),
     [submitted, setSubmitted] = useState(() => initial(storeId)),
     [page, setPage] = useState(1),
     [pageSize, setPageSize] = useState(10);
@@ -136,14 +138,6 @@ export function DayCloseHistoryPage({ user, storeId }: { user: Principal; storeI
         resultSchema,
       ),
     retry: false,
-  });
-  const download = useMutation({
-    mutationFn: () =>
-      downloadReportCsv(
-        `/api/v1/reports/day-close-history/export?${query(submitted, 1, pageSize)}`,
-        `day-close-history-${submitted.from}-${submitted.to}.csv`,
-        user.id,
-      ),
   });
   const pageCsv = useMutation({
     mutationFn: async () => {
@@ -178,14 +172,6 @@ export function DayCloseHistoryPage({ user, storeId }: { user: Principal; storeI
         >
           <ArrowDownToLine size={16} />
           Download current page CSV
-        </button>
-        <button
-          className="button secondary"
-          disabled={!report.data?.total || download.isPending}
-          onClick={() => download.mutate()}
-        >
-          <ArrowDownToLine size={16} />
-          {download.isPending ? 'Preparing…' : 'Export filtered CSV'}
         </button>
       </PageTitle>
       {pageCsv.isError && <ErrorState error={pageCsv.error} />}
@@ -259,8 +245,18 @@ export function DayCloseHistoryPage({ user, storeId }: { user: Principal; storeI
           Apply filters
         </button>
       </form>
-      {stores.isError && <ErrorState error={stores.error} />}{' '}
-      {download.isError && <ErrorState error={download.error} />}{' '}
+      <QueuedExport
+        user={user}
+        disabled={!online}
+        filters={() => ({
+          kind: 'day-close-history',
+          from: submitted.from,
+          to: submitted.to,
+          storeIds: submitted.stores,
+          attempts: submitted.attempts,
+        })}
+      />
+      {stores.isError && <ErrorState error={stores.error} />}
       {report.isPending ? (
         <Loading />
       ) : report.isError ? (

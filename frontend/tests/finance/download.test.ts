@@ -21,19 +21,22 @@ describe('operator-bound private CSV downloads', () => {
         new Response('a,b\r\n1,2', { headers: { 'Content-Type': 'text/csv' } }),
     );
     vi.stubGlobal('fetch', fetch);
-    await downloadReportCsv(
-      '/api/v1/report-exports/12345678-1234-1234-1234-123456789abc/file',
-      'unsafe/name\n.csv',
-      '1',
-    );
+    await downloadReportCsv('/api/v1/report-exports/42/file', 'unsafe/name\n.csv', '1');
     expect(anchor.click).toHaveBeenCalledOnce();
     expect(anchor.download).toBe('unsafe-name-.csv');
     const options = fetch.mock.calls[0]?.[1] as RequestInit | undefined;
     expect(new Headers(options?.headers).get('X-Operator-ID')).toBe('1');
     expect(options).toMatchObject({ credentials: 'include', redirect: 'error' });
-    await expect(downloadReportCsv('https://invalid.test/private', 'x.csv', '1')).rejects.toThrow(
-      'Invalid report download path',
-    );
+    for (const path of [
+      'https://invalid.test/private',
+      '/api/v1/report-exports/legacy/42/file',
+      '/api/v1/report-exports/12345678-1234-1234-1234-123456789abc/file',
+      '/api/v1/reports/day-close-history/export',
+    ])
+      await expect(downloadReportCsv(path, 'x.csv', '1')).rejects.toThrow(
+        'Invalid report download path',
+      );
+    expect(fetch).toHaveBeenCalledOnce();
   });
   it('discards a file whose owner changes while its body is being consumed', async () => {
     let release: (() => void) | undefined;
@@ -58,11 +61,7 @@ describe('operator-bound private CSV downloads', () => {
       'fetch',
       vi.fn(async () => response),
     );
-    const pending = downloadReportCsv(
-      '/api/v1/report-exports/12345678-1234-1234-1234-123456789abc/file',
-      'x.csv',
-      '1',
-    );
+    const pending = downloadReportCsv('/api/v1/report-exports/42/file', 'x.csv', '1');
     await vi.waitFor(() => expect(reading).toHaveBeenCalledOnce());
     setRequestOperator('2');
     release?.();
