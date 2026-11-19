@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/global-reminders/source-expiry.py (W15 capture copy: pinned Helpers.get_checkin_data over a loopback Redis seeded from stdin checkIn)",
+  "runtime": "CPython 3.10.22 (uv venv: django 4.2.5, pymysql 1.1.1, redis 4.6.0); isolated loopback MySQL 8.4.11 and Redis",
+  "capturedAt": "2026-11-19T11:34:12Z",
+  "test": "tests/global-reminders/expiry.mysql.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "051446ac4e7947c41343399fa6b56ba14dbee3a4781847ba9a23c02892485f9e",
+      "args": ["tools/global-reminders/source-expiry.py"],
+      "status": 0,
+      "output": {
+        "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "hashes": {
+          "users/models.py": "c086c2b3a1de60f27dc4f3151e968b005b629d9f709f7edc700791e1d4483357",
+          "order/models.py": "e406410ae79dd2383a70f6a63a6fd29a4bac392e56e4cf1e66659d7dcc7bb05d",
+          "helpers/helpers.py": "7a5010baca25487e2020950ea0e129c2a72e0ab664dc6cf3207c7d6bb12f88c0",
+          "order/views.py": "3a91805d0f0006a90c6cebb744dc3cc742a384f449f60344469d2941875f1eea",
+          "order/urls.py": "072291b1b3da04ab20ef2c1326f457337b29590f64b23322a982f7069134ce49"
+        },
+        "routeId": "order/urls.py:107",
+        "body": {
+          "expiring_soon": [
+            {
+              "order_id": 110,
+              "type": "pending",
+              "expires_at": "2026-11-16T13:30:00"
+            },
+            {
+              "order_id": 101,
+              "type": "pending",
+              "expires_at": "2026-11-16T13:40:00"
+            },
+            {
+              "order_id": 102,
+              "type": "pending",
+              "expires_at": "2026-11-16T14:05:00"
+            },
+            {
+              "order_id": 105,
+              "type": "accepted",
+              "expires_at": "2026-11-16T13:44:00"
+            }
+          ],
+          "banner_counts": {
+            "unaccepted": 5,
+            "unpacked": 2,
+            "packed": 1
+          }
+        }
+      }
+    },
+    {
+      "inputSha256": "7ded36e1514ebbbdfa9ab6284ccb2226fde354f378453d9481d39b5275cc4989",
+      "args": ["tools/global-reminders/source-expiry.py"],
+      "status": 0,
+      "output": {
+        "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "hashes": {
+          "users/models.py": "c086c2b3a1de60f27dc4f3151e968b005b629d9f709f7edc700791e1d4483357",
+          "order/models.py": "e406410ae79dd2383a70f6a63a6fd29a4bac392e56e4cf1e66659d7dcc7bb05d",
+          "helpers/helpers.py": "7a5010baca25487e2020950ea0e129c2a72e0ab664dc6cf3207c7d6bb12f88c0",
+          "order/views.py": "3a91805d0f0006a90c6cebb744dc3cc742a384f449f60344469d2941875f1eea",
+          "order/urls.py": "072291b1b3da04ab20ef2c1326f457337b29590f64b23322a982f7069134ce49"
+        },
+        "routeId": "order/urls.py:107",
+        "body": {
+          "expiring_soon": []
+        }
+      }
+    }
+  ]
+}
