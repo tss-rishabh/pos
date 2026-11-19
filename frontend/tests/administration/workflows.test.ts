@@ -1691,9 +1691,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         } finally {
           releaseReload();
         }
-        await browserExpect(
-          page.getByLabel('Change profile image', { exact: true }),
-        ).toBeEnabled();
+        await browserExpect(page.getByLabel('Change profile image', { exact: true })).toBeEnabled();
         await browserExpect(page.getByRole('status')).toHaveText('Image saved.');
         const image = page.getByRole('img', { name: 'Profile image', exact: true });
         await browserExpect(image).toBeVisible();
