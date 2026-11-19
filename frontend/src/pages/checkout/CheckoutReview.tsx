@@ -1219,6 +1219,7 @@ export function CheckoutReview({
                         e.preventDefault();
                         void act(async () => {
                           await mutate('coupon', 'PUT', { code: coupon });
+                          setNotice('Applied Succesfully');
                           setCoupon('');
                         });
                       }}
@@ -1241,6 +1242,7 @@ export function CheckoutReview({
                         onClick={() =>
                           void act(async () => {
                             await mutate('coupon/removals', 'POST');
+                            setNotice('Removed Succesfully');
                           })
                         }
                       >
@@ -1304,6 +1306,7 @@ export function CheckoutReview({
                         }
                         setGiftPinRequested(false);
                         setGiftCode('');
+                        setNotice('Applied/Remove');
                       });
                     }}
                   >
@@ -1350,6 +1353,7 @@ export function CheckoutReview({
                       onClick={() =>
                         void act(async () => {
                           await mutate('gift-vouchers/removals', 'POST');
+                          setNotice('Applied/Remove');
                         })
                       }
                     >
@@ -1373,6 +1377,7 @@ export function CheckoutReview({
                               remark: discountRemark,
                               ...(discountKind === 'store' ? { reason: discountReason } : {}),
                             });
+                            setNotice('Applied Succesfully');
                           });
                         }}
                       >
@@ -1451,6 +1456,7 @@ export function CheckoutReview({
                                 amount: '0.00',
                                 apply: false,
                               });
+                              setNotice('Removed Succesfully');
                             })
                           }
                         >
