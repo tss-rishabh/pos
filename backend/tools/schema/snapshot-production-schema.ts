@@ -43,6 +43,35 @@ export function referencedProductionTables(srcDir: string): string[] {
   return [...names].sort();
 }
 
+/**
+ * Production tables captured in addition to the Drizzle-referenced ones: tables read only by raw
+ * report SQL or by test fixtures. With them, a plain rerun reproduces the committed 119-table set.
+ */
+export const DEFAULT_EXTRA_TABLES: readonly string[] = [
+  'auth_permission',
+  'automated_refund_sic_logs',
+  'bank_transfer_requests',
+  'cancel_orders',
+  'coupons_users',
+  'django_session',
+  'flag_history',
+  'hyperlocal_availability_log',
+  'jp_customers',
+  'order_attributes',
+  'order_cancel_message_mapping',
+  'order_coupon_log',
+  'order_freebie_triggers',
+  'order_freebies',
+  'order_tss_money',
+  'order_tss_point',
+  'refund_alternate_payment_details',
+  'refund_requests',
+  'reward_point_history',
+  'user_detail_logs',
+  'user_email_membership_copy_logs',
+  'welcome_offer',
+];
+
 interface ColumnRow extends RowDataPacket {
   TABLE_NAME: string;
   COLUMN_NAME: string;
@@ -60,7 +89,7 @@ async function main(): Promise<void> {
   const env = envSchema.parse(process.env);
   const url = new URL(env.POS_PROD_RO_MYSQL_URL);
   const database = decodeURIComponent(url.pathname.replace(/^\//, '')) || 'tss';
-  const tables = [...new Set([...referencedProductionTables(join(backendRoot, 'src')), ...process.argv.slice(2)])].sort();
+  const tables = [...new Set([...referencedProductionTables(join(backendRoot, 'src')), ...DEFAULT_EXTRA_TABLES, ...process.argv.slice(2)])].sort();
 
   const conn = await mysql.createConnection({
     host: url.hostname,
