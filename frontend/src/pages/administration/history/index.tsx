@@ -241,8 +241,8 @@ function HistoryScreen({
                           {value.actionTimeLabel}
                         </time>
                       </td>
-                      <td style={{ whiteSpace: 'pre-wrap' }}>{value.actor}</td>
-                      <td style={{ whiteSpace: 'pre-wrap' }}>{value.action}</td>
+                      <td className="administration-wrap">{value.actor}</td>
+                      <td className="administration-wrap">{value.action}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -58,7 +58,7 @@ function CountrySearch({ user }: { user: Principal }) {
   return (
     <>
       <PageTitle title="Secondary country lookup" />
-      <section className="surface" style={{ padding: 24 }}>
+      <section className="surface administration-panel">
         <form
           className="form-grid"
           onSubmit={(event) => {
@@ -75,7 +75,12 @@ function CountrySearch({ user }: { user: Principal }) {
               onChange={(event) => setSearch(event.target.value)}
             />
           </label>
-          <button className="button primary" disabled={!online || busy} type="submit">
+          <button
+            className="button primary"
+            disabled={!online || busy}
+            aria-busy={busy}
+            type="submit"
+          >
             Search countries
           </button>
         </form>

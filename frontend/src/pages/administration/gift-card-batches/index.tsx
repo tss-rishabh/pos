@@ -163,6 +163,7 @@ function GiftCardBatchWorkspace({ user }: { user: Principal }) {
           <button
             className="button primary"
             disabled={!online || busy || meta.data?.generationAvailable === false}
+            aria-busy={busy}
           >
             {busy ? 'Working…' : 'Generate Gift Cards'}
           </button>

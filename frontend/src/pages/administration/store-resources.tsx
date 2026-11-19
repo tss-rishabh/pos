@@ -5,7 +5,8 @@ import { Plus } from 'lucide-react';
 import { z } from 'zod';
 import type { Principal } from '../../api/types';
 import { request } from '../../api/client';
-import { ErrorState, Loading } from '../../components/common';
+import { ErrorState } from '../../components/common';
+import { SkeletonTable } from '../../components/loader';
 import { AdministrationEditor } from './editor';
 import { TerminalAdministration } from './terminals';
 import {
@@ -132,7 +133,7 @@ export function StoreResourceAdministration({
       {error !== null && <ErrorState error={error} />}
       <section className="surface">
         {collection.isPending ? (
-          <Loading />
+          <SkeletonTable />
         ) : collection.isError ? (
           <ErrorState error={collection.error} />
         ) : (

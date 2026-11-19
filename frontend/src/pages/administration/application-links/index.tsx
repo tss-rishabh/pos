@@ -149,6 +149,7 @@ function ApplicationLinkWorkspace({ user, storeId = '' }: ApplicationLinksProps)
               <button
                 className="button primary"
                 disabled={!online || busy !== null}
+                aria-busy={busy === 'staff'}
                 onClick={() => void generate('staff')}
               >
                 {staffQr ? 'Refresh staff QR' : 'Generate staff QR'}
@@ -162,6 +163,7 @@ function ApplicationLinkWorkspace({ user, storeId = '' }: ApplicationLinksProps)
                   <button
                     className="button secondary"
                     disabled={!online || busy !== null}
+                    aria-busy={busy === 'download'}
                     onClick={() => void downloadStaff()}
                   >
                     Download staff installer
@@ -183,6 +185,7 @@ function ApplicationLinkWorkspace({ user, storeId = '' }: ApplicationLinksProps)
               <button
                 className="button primary"
                 disabled={!online || busy !== null}
+                aria-busy={busy === 'customer'}
                 onClick={() => void generate('customer')}
               >
                 Generate customer QR

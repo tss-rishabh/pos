@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import type { Principal } from '../../api/types';
-import { ErrorState, Loading } from '../../components/common';
+import { ErrorState } from '../../components/common';
+import { SkeletonTable } from '../../components/loader';
 import { AdministrationEditor, type AdministrationField } from './editor';
 import { AssignmentEditor } from './assignments';
 import { OperatorMfaButton } from './mfa';
@@ -209,7 +210,7 @@ export function OperatorAdministration({ user }: { user: Principal }) {
       {error !== null && <ErrorState error={error} />}
       <section className="surface">
         {collection.isPending ? (
-          <Loading />
+          <SkeletonTable />
         ) : collection.isError ? (
           <ErrorState error={collection.error} />
         ) : (
@@ -433,7 +434,7 @@ export function SalespersonAdministration({ user }: { user: Principal }) {
       {error !== null && <ErrorState error={error} />}
       <section className="surface">
         {collection.isPending ? (
-          <Loading />
+          <SkeletonTable />
         ) : collection.isError ? (
           <ErrorState error={collection.error} />
         ) : (

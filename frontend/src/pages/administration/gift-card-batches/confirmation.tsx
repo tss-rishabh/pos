@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
 import { ErrorState } from '../../../components/common';
+import { Modal } from '../../../components/modal';
 
 /** Legacy `$.confirm` dialogs (gift_card/index.html:160-235): "Block", "Activate", "Mark As Printed". */
 export type BatchConfirmation = { batchId: string; action: 'print' | 'block' | 'active' };
@@ -18,12 +18,6 @@ export function BatchConfirmationDialog({
   onClose: () => void;
   onConfirm: () => void;
 }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const element = ref.current;
-    element?.showModal();
-    return () => element?.close();
-  }, []);
   const title =
     command.action === 'print'
       ? 'Mark As Printed'
@@ -31,26 +25,29 @@ export function BatchConfirmationDialog({
         ? 'Block'
         : 'Activate';
   return (
-    <dialog
-      ref={ref}
-      className="administration-dialog"
-      aria-label={title}
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!busy) onClose();
-      }}
+    <Modal
+      title={title}
+      size="sm"
+      dismissible={!busy}
+      onClose={onClose}
+      footer={
+        <>
+          <button className="button secondary" disabled={busy} onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="button primary"
+            disabled={!online || busy}
+            aria-busy={busy}
+            onClick={onConfirm}
+          >
+            {busy ? 'Working…' : 'Confirm'}
+          </button>
+        </>
+      }
     >
-      <h2>{title}</h2>
       <p>Collection {command.batchId}</p>
       {error !== undefined && <ErrorState error={error} />}
-      <div className="administration-actions">
-        <button className="button secondary" disabled={busy} onClick={onClose}>
-          Cancel
-        </button>
-        <button className="button primary" disabled={!online || busy} onClick={onConfirm}>
-          {busy ? 'Working…' : 'Confirm'}
-        </button>
-      </div>
-    </dialog>
+    </Modal>
   );
 }

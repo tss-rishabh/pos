@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { captureOperatorScope, request, requestWithResponse } from '../../api/client';
-import { ErrorState, Loading } from '../../components/common';
+import { ErrorState } from '../../components/common';
+import { Modal } from '../../components/modal';
+import { SkeletonText } from '../../components/loader';
 import { administrationIdentifier } from './api';
 const text = z.string().nullable();
 const detailSchema = z.object({
@@ -57,9 +59,9 @@ const detailSchema = z.object({
 /** Terminal cards of the legacy store page (`stores/templates/stores/show.html:66-122`). */
 function TerminalCard({ title, rows }: { title: string; rows: [string, string][] }) {
   return (
-    <section>
+    <section className="administration-detail-section">
       <h3>{title}</h3>
-      <dl>
+      <dl className="administration-detail-list">
         {rows.map(([label, value]) => (
           <div key={label}>
             <dt>{label}</dt>
@@ -79,8 +81,7 @@ export function StoreDetailDialog({
   storeId: string;
   onClose: () => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null),
-    [problem, setProblem] = useState<unknown>(),
+  const [problem, setProblem] = useState<unknown>(),
     [busy, setBusy] = useState(false),
     [imageFailed, setImageFailed] = useState(false);
   const detail = useQuery({
@@ -101,10 +102,6 @@ export function StoreDetailDialog({
       return result;
     },
   });
-  useEffect(() => {
-    dialog.current?.showModal();
-    return () => dialog.current?.close();
-  }, []);
   async function download() {
     setBusy(true);
     setProblem(undefined);
@@ -157,38 +154,39 @@ export function StoreDetailDialog({
   }
   const row = detail.data;
   return (
-    <dialog
-      ref={dialog}
-      className="administration-dialog"
-      aria-label="Store details"
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!busy) onClose();
-      }}
+    <Modal
+      title="Store details"
+      size="lg"
+      dismissible={!busy}
+      onClose={onClose}
+      footer={
+        <button className="button secondary" disabled={busy} onClick={onClose}>
+          Close store details
+        </button>
+      }
     >
-      <h2>Store details</h2>
       {detail.isPending ? (
-        <Loading />
+        <SkeletonText lines={6} label="Loading store details…" />
       ) : detail.isError ? (
         <ErrorState error={detail.error} />
       ) : (
         row && (
           <>
-            <h3>
+            <h3 className="administration-detail-title">
               {row.name} · {row.id}
             </h3>
-            <p>
+            <p className="administration-detail-meta">
               {row.active ? 'Active' : 'Archived'} · {row.type} · {row.category}
             </p>
             {row.active && !imageFailed && (
               <img
                 src={`/api/v1/admin/stores/${storeId}/image/content`}
                 alt={`Store ${row.name ?? storeId}`}
-                style={{ maxWidth: '100%' }}
+                className="administration-store-image"
                 onError={() => setImageFailed(true)}
               />
             )}
-            <dl>
+            <dl className="administration-detail-list">
               {[
                 ['Location code', row.locationCode],
                 ['Short name', row.shortName],
@@ -241,16 +239,21 @@ export function StoreDetailDialog({
                 ]}
               />
             ))}
-            <section>
+            <section className="administration-detail-section">
               <h3>Store marketing QR</h3>
-              <p>{row.publicUrl}</p>
+              <p className="administration-detail-meta">{row.publicUrl}</p>
               <img
                 src={`/api/v1/admin/stores/${storeId}/qr`}
                 width={256}
                 height={256}
                 alt={`Marketing QR for ${row.name ?? storeId}`}
               />
-              <button className="button secondary" disabled={busy} onClick={() => void download()}>
+              <button
+                className="button secondary"
+                disabled={busy}
+                aria-busy={busy}
+                onClick={() => void download()}
+              >
                 Download store QR PNG
               </button>
             </section>
@@ -258,9 +261,6 @@ export function StoreDetailDialog({
         )
       )}
       {problem !== undefined && <ErrorState error={problem} />}
-      <button className="button secondary" disabled={busy} onClick={onClose}>
-        Close store details
-      </button>
-    </dialog>
+    </Modal>
   );
 }
