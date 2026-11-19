@@ -230,11 +230,16 @@ export function catalogService(databases: Databases) {
                 .$dynamic()
             : reader
                 .select({
-                  id: sql<bigint>`/*+ JOIN_ORDER(product_store, products) */ ${Product.id}`.as(
+                  // `INDEX(...)` is the optimizer-hint form of FORCE INDEX (MySQL 8.0.20+): the
+                  // same plan where the index exists, but a missing index name is only a
+                  // warning (the optimizer then plans freely) instead of ER_KEY_DOES_NOT_EXITS,
+                  // which took down the counter catalogue and offline billing on a schema
+                  // without it (W26, UAT).
+                  id: sql<bigint>`/*+ JOIN_ORDER(product_store, products) INDEX(product_store idx_store_id_stock_is_avail_is_del) */ ${Product.id}`.as(
                     'page_id',
                   ),
                 })
-                .from(ProductStore, { forceIndex: 'idx_store_id_stock_is_avail_is_del' })
+                .from(ProductStore)
                 .innerJoin(Product, eq(Product.id, ProductStore.product))
                 .$dynamic();
         const page = (
