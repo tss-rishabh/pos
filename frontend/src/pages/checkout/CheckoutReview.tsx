@@ -24,6 +24,7 @@ import {
 } from './client';
 import { PaymentPanel, type ConfirmedPayment } from './PaymentPanel';
 import { FastCashCheckout } from './FastCashCheckout';
+import { WalletControls } from './WalletControls';
 import { SalespersonAssignments } from './SalespersonAssignments';
 import { confirmedPaymentSchema } from './receipts';
 import { InvoiceActions } from './InvoiceActions';
@@ -120,13 +121,36 @@ export function CheckoutReview({
     [discountKind, setDiscountKind] = useState<'pg' | 'store'>('store'),
     [discountRemark, setDiscountRemark] = useState(''),
     [discountReason, setDiscountReason] = useState(''),
-    [wallet, setWallet] = useState(''),
-    [walletMoney, setWalletMoney] = useState(true),
-    [walletPoints, setWalletPoints] = useState(false);
+    [appliedPrefill, setAppliedPrefill] = useState<string | null>(null);
   useEffect(() => {
     if (flags?.enableNewPgDiscount === false && flags.enableOldPgDiscount) setDiscountKind('pg');
     if (flags?.enableOldPgDiscount === false && flags.enableNewPgDiscount) setDiscountKind('store');
   }, [flags]);
+  // Applied coupon, voucher and PG amounts prefill their inputs from the cart, as legacy renders
+  // them from `cart.meta.items` (create_order.html:265, :279, :309, :335).
+  useEffect(() => {
+    if (!checkout?.cart) return;
+    const key = `${checkout.id}:${checkout.version}`;
+    if (appliedPrefill === key) return;
+    setAppliedPrefill(key);
+    const meta: unknown = checkout.cart.meta;
+    const items =
+      typeof meta === 'object' && meta !== null && 'items' in meta && Array.isArray(meta.items)
+        ? (meta.items as unknown[])
+        : [];
+    const find = (name: string) =>
+      items.find(
+        (item): item is Record<string, unknown> =>
+          typeof item === 'object' && item !== null && 'name' in item && item.name === name,
+      );
+    const text = (value: unknown) =>
+      typeof value === 'string' || typeof value === 'number' ? String(value) : '';
+    setCoupon(text(find('coupon')?.coupon));
+    setGiftCode(text(find('gift_voucher')?.voucher_code));
+    const pg = text(find('pg_discount')?.used_pg_discount),
+      storePg = text(find('store_discount_pg')?.used_store_discount_pg);
+    setDiscount(discountKind === 'pg' ? pg : storePg);
+  }, [checkout, appliedPrefill, discountKind]);
   const [profilePending, setProfilePending] = useState(false);
   const [contactPending, setContactPending] = useState(false);
   const [conversionPending, setConversionPending] = useState(false);
@@ -1139,6 +1163,13 @@ export function CheckoutReview({
                       >
                         Send verification code
                       </button>
+                      {/* create_order.html:258 */}
+                      <p role="status">
+                        {checkout.verifiedCustomerUntil &&
+                        checkout.verifiedCustomerUntil > Date.now()
+                          ? 'User is verified !'
+                          : 'Verify the user to use Tss Money/Points/Voucher !'}
+                      </p>
                       {checkout.verificationChallenge && !checkout.verifiedCustomerUntil && (
                         <div role="status">
                           <p>
@@ -1283,73 +1314,13 @@ export function CheckoutReview({
                 </details>
                 <details>
                   <summary>Wallet and gift voucher</summary>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void act(async () => {
-                        await mutate('wallet', 'PUT', {
-                          money: walletMoney,
-                          points: walletPoints,
-                          appliedMoney: walletMoney && wallet ? wallet : '0.00',
-                          custom: walletMoney && Boolean(wallet),
-                        });
-                      });
-                    }}
-                  >
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={walletMoney}
-                        onChange={(event) => setWalletMoney(event.target.checked)}
-                      />
-                      Use TSS Money
-                    </label>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={walletPoints}
-                        onChange={(event) => setWalletPoints(event.target.checked)}
-                      />
-                      Use TSS Points
-                    </label>
-                    <label>
-                      Wallet amount
-                      <input
-                        value={wallet}
-                        onChange={(e) => setWallet(e.target.value)}
-                        inputMode="decimal"
-                        pattern="[0-9]+(\.[0-9]{1,2})?"
-                        disabled={!walletMoney}
-                      />
-                    </label>
-                    <button
-                      className="button secondary"
-                      disabled={
-                        disabled ||
-                        !checkout.verifiedCustomerUntil ||
-                        checkout.verifiedCustomerUntil < Date.now()
-                      }
-                    >
-                      Use wallet
-                    </button>
-                    <button
-                      type="button"
-                      className="button secondary"
-                      disabled={disabled}
-                      onClick={() =>
-                        void act(async () => {
-                          await mutate('wallet', 'PUT', {
-                            money: false,
-                            points: false,
-                            appliedMoney: '0.00',
-                            custom: false,
-                          });
-                        })
-                      }
-                    >
-                      Remove wallet benefits
-                    </button>
-                  </form>
+                  <WalletControls
+                    checkout={checkout}
+                    operatorId={draft.ownerId}
+                    disabled={disabled}
+                    act={act}
+                    mutate={mutate}
+                  />
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
