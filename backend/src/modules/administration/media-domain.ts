@@ -76,7 +76,7 @@ export const assetReference = z.union([z.uuid(), z.string().regex(/^legacy-[0-9a
 export const documentationInput = z
   .object({
     operationId: z.uuid(),
-    expectedVersion: z.number().int().min(0).max(2_147_483_646),
+    expectedVersion: z.string().max(32),
     title: z.string().trim().min(1).max(100),
     summary: z.string().trim().min(1).max(500),
     description: z.string().max(1000),

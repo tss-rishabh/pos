@@ -12,7 +12,9 @@ import {
 import type { Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
 import type { AdministrationTransaction } from './checkins.js';
-import { lockAdministrationRegistry } from './locks.js';
+import { withAdministrationLock } from './locks.js';
+import type { EphemeralStore } from '../../jobs/ephemeral.js';
+import { administrationEphemeralStore } from './ephemeral-runtime.js';
 import { administrationAccessReceipts } from './access-receipts.js';
 import {
   accessVersion,
@@ -125,11 +127,15 @@ export async function assertModelAdministrationPermission(
   if (!group) throw denied();
   return actor;
 }
-export function administrationAccessService(config: Config, db: Databases) {
-  async function lock(tx: AdministrationTransaction) {
-    await lockAdministrationRegistry(tx, 'operators');
-    await lockAdministrationRegistry(tx, 'access-control');
-  }
+export function administrationAccessService(
+  config: Config,
+  db: Databases,
+  ephemeral: EphemeralStore = administrationEphemeralStore(config),
+) {
+  const locked = <T>(run: () => Promise<T>) =>
+    withAdministrationLock(ephemeral, 'operators', () =>
+      withAdministrationLock(ephemeral, 'access-control', () => retryTransaction(run)),
+    );
   const { inputHash, replay, receipt } = administrationAccessReceipts(config);
   async function lockedGroupMembers(tx: AdministrationTransaction, id: string) {
     const members = await tx
@@ -272,7 +278,7 @@ export function administrationAccessService(config: Config, db: Databases) {
     };
   }
   return {
-    ...administrationGroupDeletions(config, db, assertModelAdministrationPermission),
+    ...administrationGroupDeletions(config, db, assertModelAdministrationPermission, ephemeral),
     async capabilities(user: Principal) {
       return db.get('writer').transaction(async (tx) => {
         const [account] = await tx
@@ -395,9 +401,8 @@ export function administrationAccessService(config: Config, db: Databases) {
       const groupId = id || input.operationId,
         resourceId = `group:${groupId}`,
         hash = inputHash({ id: id || null, input });
-      return retryTransaction(() =>
+      return locked(() =>
         db.get('writer').transaction(async (tx) => {
-          await lock(tx);
           await assertModelAdministrationPermission(
             tx,
             user,
@@ -498,9 +503,8 @@ export function administrationAccessService(config: Config, db: Databases) {
     ) {
       const resourceId = `group:${id}`,
         hash = inputHash({ id, input });
-      return retryTransaction(() =>
+      return locked(() =>
         db.get('writer').transaction(async (tx) => {
-          await lock(tx);
           await assertModelAdministrationPermission(tx, user, ['auth.delete_group'], true);
           const previous = await replay(
             tx,
@@ -549,9 +553,8 @@ export function administrationAccessService(config: Config, db: Databases) {
         );
       const resourceId = `operator:${id}`,
         hash = inputHash({ id, input });
-      return retryTransaction(() =>
+      return locked(() =>
         db.get('writer').transaction(async (tx) => {
-          await lock(tx);
           await assertModelAdministrationPermission(tx, user, ['users.change_posuser'], true);
           const previous = await replay(
             tx,

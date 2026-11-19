@@ -7,7 +7,6 @@
   },
   "include": [
     "../../src/modules/administration/checkins.ts",
-    "../../src/modules/administration/authorization.ts",
-    "./checkin-lock-order.mysql.test.ts"
+    "../../src/modules/administration/authorization.ts"
   ]
 }

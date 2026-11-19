@@ -25,7 +25,51 @@ const detailSchema = z.object({
   shortName: text,
   publicUrl: z.string(),
   franchise: z.object({ name: text, description: text, cin: text }).nullable(),
+  pinelabMachines: z
+    .array(
+      z.object({
+        id: administrationIdentifier,
+        machineName: z.string(),
+        merchantName: z.string(),
+        clientId: z.string(),
+        hardwareId: z.string(),
+        imei: z.string(),
+        tid: z.string(),
+        merchantId: z.string(),
+        merchantStorePosCode: z.string(),
+      }),
+    )
+    .default([]),
+  paytmMachines: z
+    .array(
+      z.object({
+        id: administrationIdentifier,
+        machineName: z.string(),
+        merchantName: z.string(),
+        mid: z.string(),
+        tid: z.string(),
+        channelId: z.string(),
+        storeName: z.string(),
+      }),
+    )
+    .default([]),
 });
+/** Terminal cards of the legacy store page (`stores/templates/stores/show.html:66-122`). */
+function TerminalCard({ title, rows }: { title: string; rows: [string, string][] }) {
+  return (
+    <section>
+      <h3>{title}</h3>
+      <dl>
+        {rows.map(([label, value]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{value || '—'}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
 export function StoreDetailDialog({
   operatorId,
   storeId,
@@ -168,6 +212,35 @@ export function StoreDetailDialog({
                 </div>
               ))}
             </dl>
+            {row.pinelabMachines.map((machine) => (
+              <TerminalCard
+                key={`pinelab-${machine.id}`}
+                title={`Pos Pinelab Terminal Details - ${machine.machineName}`}
+                rows={[
+                  ['Merchant Name', machine.merchantName],
+                  ['Client Iid', machine.clientId],
+                  ['Hardware Id', machine.hardwareId],
+                  ['IMEI No', machine.imei],
+                  ['TID', machine.tid],
+                  ['Merchant Id', machine.merchantId],
+                  ['Merchant Store Pos Code', machine.merchantStorePosCode],
+                ]}
+              />
+            ))}
+            {row.paytmMachines.map((machine) => (
+              <TerminalCard
+                key={`paytm-${machine.id}`}
+                title={`Pos Paytm Terminal Details - ${machine.machineName}`}
+                rows={[
+                  ['Merchant Name', machine.merchantName],
+                  ['Machine Name', machine.machineName],
+                  ['Paytm MID', machine.mid],
+                  ['Paytm TID', machine.tid],
+                  ['Channel ID', machine.channelId],
+                  ['Store Name', machine.storeName],
+                ]}
+              />
+            ))}
             <section>
               <h3>Store marketing QR</h3>
               <p>{row.publicUrl}</p>

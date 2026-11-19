@@ -17,6 +17,8 @@ import {
   StoreSalesPerson,
   PosTutorial,
   POSFranchise,
+  PosMachine,
+  PosPaytmMachine,
   ReportExport,
 } from '../../src/db/legacy-schema.js';
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
@@ -48,6 +50,8 @@ describe.skipIf(!template)('native administration collection workflows', () => {
     StoreSalesPerson,
     PosTutorial,
     POSFranchise,
+    PosMachine,
+    PosPaytmMachine,
     ReportExport,
   ].map(getTableName);
   const actor: Principal = {

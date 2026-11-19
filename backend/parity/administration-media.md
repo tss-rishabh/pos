@@ -4,7 +4,7 @@ The guide editor/reader replace the pinned source's upload/edit, detail, lists a
 
 ## Deployment
 
-Apply `src/modules/administration/migration.sql`, then `src/modules/administration/media-migration.sql` through the writer-only runner. Only rewrite-owned tables/registry rows are created. Root registration injects `createDocumentationMediaStore(config, readDocumentationMediaOptions())` and closes it on shutdown. Missing bucket/prefix leaves attachments unavailable. Demo mode never creates the real adapter.
+No migration is needed (schema freeze). Root registration injects `createDocumentationMediaStore(config, readDocumentationMediaOptions())` and closes it on shutdown. Missing bucket/prefix leaves attachments unavailable. Demo mode never creates the real adapter.
 
 | Setting | Purpose |
 | --- | --- |
@@ -15,9 +15,6 @@ Apply `src/modules/administration/migration.sql`, then `src/modules/administrati
 | `AWS_S3_KMS_KEY_ID` | Optional KMS key; otherwise uploads request AES256 |
 | `AWS_S3_EXPECTED_BUCKET_OWNER` | Optional twelve-digit expected bucket owner; bound to readiness/read/delete requests |
 | `AWS_S3_PRESIGNED_URL_EXPIRY` | Form expiry bound, additionally capped at 900 seconds |
-| `DOCUMENTATION_MEDIA_WORKER_ENABLED` | Defaults to `false` |
-| `DOCUMENTATION_MEDIA_WORKER_INTERVAL_MS` | Default 30000; bounds 1000–60000 |
-| `DOCUMENTATION_MEDIA_WORKER_BATCH_SIZE` | Default 5; bounds 1–25 |
 
 New signed uploads first verify all four bucket-level Block Public Access flags and fail closed on absent/failed metadata. There is no success cache in the scoped upload adapter. Runtime credentials need `s3:GetBucketPublicAccessBlock`; optional expected-owner checks bind the account. Legacy reads remain separate. See the [S3 readiness API](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetPublicAccessBlock.html). The SDK uses its default credential chain. Scope API GetObject/PutObject and worker DeleteObject to this prefix; confirm key-policy permissions for checksum-enabled HEAD and encrypted reads before rollout. Keep the bucket private. Never log signed forms, keys, filenames, checksums, credentials or SDK errors.
 
@@ -25,24 +22,30 @@ Bucket CORS allows POST from exact `WEB_ORIGIN`. Electron loads HTTPS `POS_DESKT
 
 The [S3 POST API](https://docs.aws.amazon.com/AmazonS3/latest/developerguide/RESTObjectPOST.html) defines the checksum/encryption fields. Validate policy enforcement, CORS and private access in an isolated bucket before enabling real uploads.
 
-## Lifecycle
+## Lifecycle (schema freeze, W8a)
 
-Browser SHA256 precedes a UUID reservation binding exact size, type, checksum, actor and one-hour lease. The signed POST is shorter-lived and encrypted. Completion verifies HEAD size/type/SHA256 plus a small byte signature. A writer transaction rechecks current administrative privilege and atomically attaches owned READY uploads with the guide, version and replay record. Expected-version conflicts reject stale editors. Archive/status changes also advance the version.
+- Pending uploads: Redis `pos:doc_upload:{assetId}` → JSON `{id, objectKey, actorId, kind, name,
+  contentType, size, checksum, state PENDING|READY, expiresAt}`, EX 3600, `SET NX`; at most 40 open
+  per actor. Completion verifies the object and marks it READY (KEEPTTL).
+- Save attaches READY uploads by writing their keys into the `pos_tutorial` list columns (legacy
+  shape) and deletes the Redis reservations after commit.
+- Optimistic version = `pos_tutorial.updated_at` (`expectedVersion` is that string; `''` for a new
+  guide). It has 1-second precision, so two saves in the same second are last-write-wins, as
+  legacy is.
+- Save replays: `pos:idem:documentation:{operationId}` → JSON `{actorId, requestHash, documentId,
+  version, created}`, EX 86400, written after commit.
+- Removed attachments are deleted from S3 synchronously after commit (legacy `storage.delete`,
+  `core/views.py:2521-2522`); a failed delete emits the registered event
+  `administration.documentation-media.delete-failed` (ids only). Cancelling a pending upload deletes
+  its object.
+- Uploaded keys keep the original file name: `{dir}/{sanitised name}_{assetId}.{ext}`; the reader
+  shows the name without the id suffix. Attachment ids are derived from the stored key.
+- `worker:documentation-media` (`media-worker*.ts`, `media-cleanup.ts`, `media-schema.ts`) and the
+  `pos_rewrite_documentation_assets/_revisions/_mutations` tables are removed / no longer used.
+- Writers hold `pos:lock:admin:documentation`.
 
-Lists preserve source descending `sort_value`, with a stable ID tie/cursor. Asset/version/uploader reads are batched. Sanitized descriptions render inside an empty-sandbox iframe with restrictive CSP. Keys use generated names under source cover/image/video/document directories. Legacy JSON/Python-repr arrays are parsed without evaluation; invalid metadata fails closed. Attachment access re-reads current guide state on the writer to prevent replica revocation lag.
-
-Uploads accept JPEG/PNG/WebP/GIF images up to 10 MiB, MP4/WebM videos up to 100 MiB, PDF/Office Open XML documents up to 25 MiB, and plain text up to 5 MiB. Source UI had broader image/video selection, PDF-only documents and no server size bound. These are explicit validation changes. Unsupported legacy files remain forced downloads. Source automatic title-to-PNG generation becomes a live title card plus optional uploaded cover; this is visual redesign, not bitmap parity.
-
-## Cleanup/recovery
-
-Run `npm run worker:documentation-media` under supervision. It polls bounded batches without overlap, uses `FOR UPDATE SKIP LOCKED`, aborts each batch after 20 seconds and handles SIGTERM/SIGINT with bounded shutdown. Disabled execution makes no storage request.
-
-Unattached PENDING/READY uploads and removed DELETE_PENDING files become eligible after their lease plus fifteen-minute grace. Attached files are excluded. Generated never-attached orphans need no legacy reference scan. Removed/legacy files receive an exact shared-reference scan over bounded PK pages; shared files become RETAINED. Invalid metadata or more than 10000 guides prevents deletion and requires review. A verified normalized reference backfill should eventually replace this scan.
-
-Failures persist attempts; the tenth becomes BLOCKED. Events contain only module/resource/event/effect/document/request/user identifiers and static codes. Blocked rows are re-alerted after restart. After repairing permissions/scope/references, requeue one UUID:
-
-```sh
-npm run worker:documentation-media -- --retry-asset ASSET_UUID
-```
-
-Recovery resets a pending/blocked counter, makes no immediate delete, and cannot requeue attached/retained/deleted assets. Audit shared objects explicitly before any bucket lifecycle cleanup. Existing source writers need coordinated rollout because they do not maintain rewrite versions/media state.
+Validation differences kept: JPEG/PNG/WebP/GIF images ≤10 MiB, MP4/WebM videos ≤100 MiB,
+PDF/Office Open XML ≤25 MiB, plain text ≤5 MiB. Legacy generated a title PNG cover on every save;
+the rewrite shows a live title card plus an optional uploaded cover (visual redesign, open item).
+Abandoned reservations (object uploaded, never saved) need an S3 lifecycle rule on the
+`_<uuid>` keys of the tutorial prefix.

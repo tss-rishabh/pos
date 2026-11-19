@@ -1,15 +1,26 @@
-# Operator authenticator administration
+# Operator authenticator (MFA) administration
 
-Source: `users/views.py` `ActivateMfaView` / `AjaxActivateMfaView` and `users/admin.py`'s `is_mfa` / `mfa_hash` fields, at the pinned source baseline. The source GET mutates `mfa_hash` before verification and embeds the seed/account email in a Google Charts URL. The rewrite intentionally fixes both behaviors: it generates PNG QR data locally and persists only a purpose-bound encrypted ten-minute enrollment until the matching TOTP is verified.
+Legacy: `users/views.py:1008-1048` `AjaxActivateMfaView` (GET writes a new base32 secret to
+`pos_user.mfa_hash` unless `is_mfa==1`; POST verifies the TOTP against `mfa_hash` and sets
+`is_mfa=1`), and the Django `UserAdmin` `is_mfa`/`mfa_hash` fields (replace/disable).
 
-`operatorMfaService` implements five traced REST routes under `/api/v1/admin/operators/:operatorId`: safe settings GET, enrollment POST, verification POST, enrollment DELETE and write-only settings PUT. No read DTO returns an existing seed. Every response is `Cache-Control: no-store`; the React dialog uses ephemeral mounted state and never a persisted/query cache. Closing or leaving the dialog aborts requests and discards QR/input state. Pending server records expire independently.
+Rewrite (W8a, schema freeze): the pending secret is written to `pos_user.mfa_hash` with `is_mfa`
+unchanged, as legacy does. Rewrite-only attempt state lives in Redis:
+- `pos:mfa_enroll:{operatorId}` → JSON `{id, actorId, actorVersion, operatorVersion, secretDigest,
+  attempts, lastAttemptAt, verified, expiresAt}`, PX = 10 minutes. It never holds the secret. A new
+  enrollment replaces it; five wrong codes delete it; a one-second retry interval applies.
+- `pos:idem:mfa:{operationId}` → JSON `{actorId, operatorId, hash, result}`, EX 86400 (super-admin
+  replace/disable receipts), written after commit with `SET NX`.
+- Writers hold `pos:lock:admin:operators`.
+- Confirmation refuses a changed target (`MFA_SETTINGS_CHANGED`) or a revoked/changed actor
+  authentication version (`MFA_ENROLLMENT_EXPIRED`).
+`pos_rewrite_operator_mfa_enrollments` / `_mutations` are no longer used (the deprecated
+`operatorMfaEnrollments` export stays only for `src/auth/revocation.ts`).
 
-Enrollment follows the source role tiers 1–3, with current writer checks, managed-user tier restrictions, franchise scope and full coverage of the target's active assigned stores. Self enrollment is supported. Manual replacement/disable is super-administrator-only. Replacement requires proof of the new seed; disable clears the previous seed. Changes to MFA participate in the shared credential fingerprint, invalidating old sessions and pending login challenges. A self change tells the operator to sign in again.
-
-TOTP matches source PyOTP defaults: SHA1, six digits, 30-second period, zero adjacent-window tolerance. Verification persists incorrect attempts, imposes a one-second retry interval and cancels after five failures. Enrollment/cancel/reset are writer transactions with registry locking, fingerprint conflicts and UUID replay protection. The sealed record is bound to enrollment/actor/operator. A successful verification replay checks that the same seed is still active; it cannot revive an older reset.
-
-Apply `src/modules/administration/mfa-migration.sql` after the other administration migrations. It creates only rewrite-owned enrollment/replay tables. `pruneOperatorMfaEnrollments(db,before,limit)` removes bounded expired rows on the writer and is intended for the parent security cleanup runner. It never prints seed/QR/code/payload data. Request IDs are obtained from the shared request context; logs remain the parent's static resource/event trace.
-
-Six isolated local-MySQL checks cover encrypted pending state and existing-seed preservation, idempotent creation, exact TOTP activation, actual persistent-session invalidation, rejected-attempt durability/throttling/expiry, writer-role/store/franchise revocation, stale credentials, verified replacement/reset receipts and strict non-cacheable HTTP DTOs. A Chromium workflow exercises invalid/valid verification, local QR rendering, write-only reset, secret clearing on success/remount, and absence from browser storage/console using mocked HTTP. These are component checks; no complete deployed legacy workflow is certified.
-
-The default Django administration groups, direct permissions and staff/superuser controls remain a separate migration capability. Checked metadata exposes `tss.auth_permission` / `django_content_type`, but not this application's four group/M2M tables. A separate application's `mobile_cms` tables must not be reused. Stable permission-key import into rewrite-owned access tables requires reconciliation against the actual operational auth writer before production parity can be accepted.
+| Case | Legacy (HTTP 200 body) | Rewrite |
+|---|---|---|
+| Already active | `{status:400, message:"Already Activated"}` | 409 "Already Activated" |
+| Enrollment created | "Hash Has been generated, scan the above QR Code from you authenticator app and enter the otp." | 201 `{id, expiresAt, qrDataUrl}` (QR rendered locally, not via Google Charts) |
+| Wrong code | `{status:400, message:"Wrong OTP, Enter correct OTP"}` | 422 "Wrong OTP, Enter correct OTP" |
+| Verified | "Hash has been verified, MFA activated on your account" | 200, same text |
+| Missing user / OTP | "Please Provide Valid User." / "Please Provide Valid OTP." | 404 "Operator was not found." / 400 request validation |

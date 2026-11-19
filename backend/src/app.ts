@@ -24,6 +24,7 @@ import { registerDeviceHandoffs } from './auth/device-handoff-routes.js';
 import { registerOperatorBinding } from './auth/operator-binding.js';
 import { registerProfileMedia } from './auth/profile-media-routes.js';
 import { checkInService } from './modules/administration/checkins.js';
+import { useAdministrationEphemeralStore } from './modules/administration/ephemeral-runtime.js';
 import {
   createProductSyncAdapter,
   productSynchronizer,
@@ -179,6 +180,7 @@ export async function buildApp(
       };
   /** Job producer + ephemeral Redis state for the W8 modules (src/jobs). */
   const moduleRuntime = createModuleRuntime(config);
+  useAdministrationEphemeralStore(moduleRuntime.ephemeral);
   app.addHook('onClose', async () => {
     await identity.close();
     await db.close();
@@ -328,6 +330,7 @@ export async function buildApp(
     await settingsDelivery?.close?.();
   });
   registerAdministration(app, config, db, {
+    ephemeral: moduleRuntime.ephemeral,
     ...(stockProjection ? { procedureVerified: true, stockProcedure: stockProjection } : {}),
     slackOAuth: createSlackOAuthProvider(config, readSlackOAuthOptions()),
     productSync,

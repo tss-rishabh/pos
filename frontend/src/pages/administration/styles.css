@@ -375,3 +375,24 @@
 .application-qr-expiry[data-urgency='green'] { background: #dcfae6; color: #05603a; }
 .application-qr-expiry[data-urgency='orange'] { background: #fef0c7; color: #7a2e0e; }
 .application-qr-expiry[data-urgency='red'] { background: #fee4e2; color: #912018; }
+.administration-dialog .errorlist {
+  margin: 0.25rem 0 0;
+  padding-left: 1rem;
+  color: var(--danger, #bd2130);
+  font-size: 0.85rem;
+}
+.administration-store-image {
+  max-width: 12rem;
+  max-height: 8rem;
+  object-fit: contain;
+}
+.administration-location-code {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 1rem;
+}
+.administration-success {
+  color: var(--success, #1e7e34);
+}

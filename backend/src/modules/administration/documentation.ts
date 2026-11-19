@@ -1,9 +1,9 @@
 import { administrationCollectionPage, collectionField } from './collection-page.js';
 import { generatedId } from '../../db/generated-id.js';
-import { randomUUID, createHash } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { Temporal } from '@js-temporal/polyfill';
-import { and, asc, count, desc, eq, gt, inArray, like, lt, or } from 'drizzle-orm';
-import type { z } from 'zod';
+import { and, asc, desc, eq, gt, inArray, like, lt, or } from 'drizzle-orm';
+import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import { PosTutorial, PosUser } from '../../db/legacy-schema.js';
@@ -12,12 +12,6 @@ import { AppError } from '../../domain/errors.js';
 import { retryTransaction } from '../../db/retry.js';
 import { currentRequestTrace } from '../../observability/context.js';
 import {
-  documentationAssets,
-  documentationMutations,
-  documentationRevisions,
-} from './media-schema.js';
-import {
-  assetDigest,
   decodeDocumentationCursor,
   documentationPageQuery,
   encodeDocumentationCursor,
@@ -37,16 +31,26 @@ import {
   type DocumentationMediaStore,
   type ReservedMedia,
 } from './media-storage.js';
-import { lockAdministrationRegistry } from './locks.js';
+import type { EphemeralStore } from '../../jobs/ephemeral.js';
+import { withAdministrationLock } from './locks.js';
 import { legacyIntegerReference } from './policies.js';
-import type { AdministrationTransaction } from './checkins.js';
 import { assertCurrentOperatorRole } from './authorization.js';
+import { administrationEphemeralStore } from './ephemeral-runtime.js';
 
+export interface DocumentationEvent {
+  module: 'administration';
+  resource: 'documentation-media';
+  eventId: string;
+  requestId: string | null;
+  userId: string;
+  documentId: string;
+}
 export interface DocumentationOptions {
   mediaStore?: DocumentationMediaStore;
+  /** Registered resource event for an attachment that could not be deleted (no keys or names). */
+  documentationLog?: (event: DocumentationEvent) => void;
 }
 type Tutorial = typeof PosTutorial.$inferSelect;
-type Asset = typeof documentationAssets.$inferSelect;
 interface Attachment {
   id: string;
   key: string;
@@ -69,22 +73,53 @@ const readerAccess = (user: Principal, row: Tutorial) => {
   if (!row.is_active && user.role !== 1)
     throw new AppError(404, 'DOCUMENTATION_NOT_FOUND', 'Guide was not found.');
 };
-function attachmentList(row: Tutorial, owned: Asset[]): Attachment[] {
+/** Uploaded keys end in `_{uploadId}.{ext}`; the display name drops that suffix. */
+const uploadSuffix = /_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\.[^./]+)$/i;
+function attachmentList(row: Tutorial): Attachment[] {
   const result: Attachment[] = [];
   for (const [kind, column] of Object.entries(columns))
-    for (const key of parseLegacyAssetList(row[column as (typeof columns)[MediaKind]])) {
-      const matched = owned.find((asset) => asset.objectKey === key && asset.kind === kind);
+    for (const key of parseLegacyAssetList(row[column as (typeof columns)[MediaKind]]))
       result.push({
-        id: matched?.id || legacyAssetId(kind as MediaKind, key),
+        id: legacyAssetId(kind as MediaKind, key),
         key,
         kind: kind as MediaKind,
-        name: matched?.name || key.split('/').at(-1) || 'Attachment',
-        contentType: matched?.contentType || mediaContentTypeFromKey(key),
+        name: (key.split('/').at(-1) || 'Attachment').replace(uploadSuffix, '$1'),
+        contentType: mediaContentTypeFromKey(key),
       });
-    }
   return result;
 }
-function specification(row: Asset): ReservedMedia {
+/**
+ * Ledger administration/documentation-media: pending uploads live in Redis
+ * (`pos:doc_upload:{assetId}`, 1 h); attached paths are the `pos_tutorial` list columns; the
+ * optimistic version is `pos_tutorial.updated_at`; replays use `pos:idem:documentation:{op}`.
+ */
+export const documentationUploadKey = (id: string) => `pos:doc_upload:${id}`;
+export const documentationMutationKey = (id: string) => `pos:idem:documentation:${id}`;
+const pendingUpload = z
+  .object({
+    id: z.uuid(),
+    objectKey: z.string(),
+    actorId: z.string(),
+    kind: mediaKind,
+    name: z.string(),
+    contentType: z.string(),
+    size: z.number().int(),
+    checksum: z.string(),
+    state: z.enum(['PENDING', 'READY']),
+    expiresAt: z.string(),
+  })
+  .strict();
+type PendingUpload = z.infer<typeof pendingUpload>;
+const mutationReceipt = z
+  .object({
+    actorId: z.string(),
+    requestHash: z.string(),
+    documentId: z.string(),
+    version: z.string(),
+    created: z.boolean(),
+  })
+  .strict();
+function specification(row: PendingUpload): ReservedMedia {
   const parsed = uploadInput.parse({
     id: row.id,
     kind: row.kind,
@@ -95,10 +130,17 @@ function specification(row: Asset): ReservedMedia {
   });
   return { ...parsed, objectKey: row.objectKey, expiresAt: row.expiresAt };
 }
+const fileBase = (name: string) =>
+  name
+    .replace(/\.[^.]*$/, '')
+    .replace(/[^A-Za-z0-9_-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 80) || 'attachment';
 export function documentationService(
   config: Config,
   db: Databases,
   options: DocumentationOptions = {},
+  ephemeral: EphemeralStore = administrationEphemeralStore(config),
 ) {
   const localNow = () =>
     Temporal.Now.zonedDateTimeISO(config.BUSINESS_TIMEZONE)
@@ -115,22 +157,36 @@ export function documentationService(
     return options.mediaStore;
   };
   const traceId = () => currentRequestTrace()?.requestId || null;
-  async function attachments(
-    database: AdministrationTransaction | ReturnType<Databases['get']>,
-    rows: Tutorial[],
-  ) {
-    const ids = rows.map((row) => row.id);
-    return ids.length
-      ? database
-          .select()
-          .from(documentationAssets)
-          .where(
-            and(
-              inArray(documentationAssets.documentId, ids),
-              eq(documentationAssets.state, 'ATTACHED'),
-            ),
-          )
-      : [];
+  const versionOf = (row: Pick<Tutorial, 'updated_at'>) => row.updated_at;
+  const locked = <T>(run: () => Promise<T>) =>
+    withAdministrationLock(ephemeral, 'documentation', () => retryTransaction(run));
+  async function pending(id: string): Promise<PendingUpload | null> {
+    const raw = await ephemeral.get(documentationUploadKey(id));
+    if (raw === null) return null;
+    try {
+      const value = pendingUpload.parse(JSON.parse(raw) as unknown);
+      return value.expiresAt > utcMediaTimestamp() ? value : null;
+    } catch {
+      return null;
+    }
+  }
+  const savePending = (value: PendingUpload) =>
+    ephemeral.set(documentationUploadKey(value.id), JSON.stringify(value), { KEEPTTL: true });
+  /** Legacy `storage.delete` of replaced objects (`core/views.py:2521-2522`), after commit. */
+  async function removeObjects(user: Principal, documentId: string, keys: string[]) {
+    for (const key of keys)
+      try {
+        await storage().remove(key);
+      } catch {
+        options.documentationLog?.({
+          module: 'administration',
+          resource: 'documentation-media',
+          eventId: 'administration.documentation-media.delete-failed',
+          requestId: traceId(),
+          userId: user.id,
+          documentId,
+        });
+      }
   }
   async function uploaderNames(rows: Tutorial[]) {
     const ids = [...new Set(rows.map((row) => BigInt(row.created_by)))];
@@ -143,13 +199,13 @@ export function documentationService(
       : [];
     return new Map(users.map((user) => [String(user.id), `${user.first} ${user.last}`.trim()]));
   }
-  function response(row: Tutorial, owned: Asset[], version: number, uploaderName = 'Unknown') {
+  function response(row: Tutorial, uploaderName = 'Unknown') {
     let files: Attachment[] = [],
       mediaState: 'available' | 'not-configured' | 'invalid-metadata' = options.mediaStore
         ? 'available'
         : 'not-configured';
     try {
-      files = attachmentList(row, owned);
+      files = attachmentList(row);
     } catch {
       mediaState = 'invalid-metadata';
     }
@@ -177,7 +233,7 @@ export function documentationService(
       keywords: row.search_keyword,
       sortOrder: row.sort_value,
       active: row.is_active,
-      version,
+      version: versionOf(row),
       assets,
       mediaState,
       updatedAt: row.updated_at,
@@ -185,22 +241,18 @@ export function documentationService(
     };
   }
   async function replay(
-    transaction: AdministrationTransaction | ReturnType<Databases['get']>,
     user: Principal,
     input: DocumentationInput,
     hash: string,
     documentId?: string,
   ) {
-    const [existing] = await transaction
-      .select()
-      .from(documentationMutations)
-      .where(eq(documentationMutations.id, input.operationId))
-      .limit(1);
-    if (!existing) return null;
+    const raw = await ephemeral.get(documentationMutationKey(input.operationId));
+    if (raw === null) return null;
+    const existing = mutationReceipt.parse(JSON.parse(raw) as unknown);
     if (
       existing.actorId !== user.id ||
       existing.requestHash !== hash ||
-      (documentId && String(existing.documentId) !== documentId)
+      (documentId && existing.documentId !== documentId)
     )
       throw new AppError(
         409,
@@ -208,64 +260,13 @@ export function documentationService(
         'This save operation belongs to another guide change.',
       );
     return {
-      id: String(existing.documentId),
+      id: existing.documentId,
       version: existing.version,
       status: 'success',
-      message: documentId ? 'Documentation has been updated.' : 'Documentation has been created.',
+      message: existing.created
+        ? 'Documentation has been created.'
+        : 'Documentation has been updated.',
     };
-  }
-  async function queueRemoval(
-    transaction: AdministrationTransaction,
-    user: Principal,
-    asset: Attachment,
-    documentId: bigint,
-  ) {
-    const digest = assetDigest(asset.key),
-      now = utcMediaTimestamp();
-    const [existing] = await transaction
-      .select()
-      .from(documentationAssets)
-      .where(eq(documentationAssets.objectDigest, digest))
-      .limit(1)
-      .for('update');
-    if (existing) {
-      if (existing.objectKey !== asset.key)
-        throw new AppError(
-          409,
-          'DOCUMENTATION_ASSET_CONFLICT',
-          'Attachment identity could not be verified.',
-        );
-      await transaction
-        .update(documentationAssets)
-        .set({
-          state: 'DELETE_PENDING',
-          documentId,
-          attempts: 0,
-          updatedAt: now,
-          requestId: traceId(),
-          actorId: user.id,
-        })
-        .where(eq(documentationAssets.id, existing.id));
-    } else
-      await transaction.insert(documentationAssets).values({
-        id: randomUUID(),
-        objectKey: asset.key,
-        objectDigest: digest,
-        actorId: user.id,
-        requestId: traceId(),
-        documentId,
-        kind: asset.kind,
-        source: 'legacy',
-        name: asset.name.slice(0, 255),
-        contentType: asset.contentType,
-        size: 0,
-        checksum: null,
-        state: 'DELETE_PENDING',
-        attempts: 0,
-        expiresAt: now,
-        createdAt: now,
-        updatedAt: now,
-      });
   }
   return {
     capabilities(user: Principal) {
@@ -339,30 +340,10 @@ export function documentationService(
         )
         .orderBy(...(collection?.order ?? [desc(PosTutorial.sort_value), asc(PosTutorial.id)]))
         .limit(page.limit + 1);
-      const selected = rows.slice(0, page.limit),
-        owned = await attachments(db.get('primary'), selected),
-        versions = selected.length
-          ? await db
-              .get('primary')
-              .select()
-              .from(documentationRevisions)
-              .where(
-                inArray(
-                  documentationRevisions.documentId,
-                  selected.map((row) => row.id),
-                ),
-              )
-          : [];
+      const selected = rows.slice(0, page.limit);
       const names = await uploaderNames(selected);
       return {
-        data: selected.map((row) =>
-          response(
-            row,
-            owned.filter((asset) => asset.documentId === row.id),
-            versions.find((value) => value.documentId === row.id)?.version || 0,
-            names.get(String(row.created_by)),
-          ),
-        ),
+        data: selected.map((row) => response(row, names.get(String(row.created_by)))),
         nextCursor: collection
           ? collection.finish(rows).nextCursor
           : rows.length > page.limit
@@ -379,24 +360,12 @@ export function documentationService(
         .limit(1);
       const document = required(row);
       readerAccess(user, document);
-      const [version] = await db
-        .get('primary')
-        .select()
-        .from(documentationRevisions)
-        .where(eq(documentationRevisions.documentId, document.id))
-        .limit(1);
-      return response(
-        document,
-        await attachments(db.get('primary'), [document]),
-        version?.version || 0,
-        (await uploaderNames([document])).get(String(document.created_by)),
-      );
+      return response(document, (await uploaderNames([document])).get(String(document.created_by)));
     },
     async setStatus(user: Principal, documentId: string, active: boolean) {
       requireRole(user, [1]);
-      return retryTransaction(() =>
+      return locked(() =>
         db.get('writer').transaction(async (transaction) => {
-          await lockAdministrationRegistry(transaction, 'documentation');
           await assertCurrentOperatorRole(transaction, user.id, [1]);
           const [row] = await transaction
             .select({ id: PosTutorial.id, active: PosTutorial.is_active })
@@ -405,30 +374,11 @@ export function documentationService(
             .limit(1)
             .for('update');
           const document = required(row);
-          if (document.active !== (active ? 1 : 0)) {
-            const [revision] = await transaction
-              .select()
-              .from(documentationRevisions)
-              .where(eq(documentationRevisions.documentId, BigInt(documentId)))
-              .limit(1);
+          if (document.active !== (active ? 1 : 0))
             await transaction
               .update(PosTutorial)
               .set({ is_active: active ? 1 : 0, updated_at: localNow() })
               .where(eq(PosTutorial.id, BigInt(documentId)));
-            await transaction
-              .insert(documentationRevisions)
-              .values({
-                documentId: BigInt(documentId),
-                version: (revision?.version || 0) + 1,
-                requestId: traceId(),
-              })
-              .onDuplicateKeyUpdate({
-                set: {
-                  version: (revision?.version || 0) + 1,
-                  requestId: traceId(),
-                },
-              });
-          }
           return { status: 'success', message: 'documentation status updated' };
         }),
       );
@@ -436,80 +386,69 @@ export function documentationService(
     async reserve(user: Principal, input: UploadInput) {
       requireRole(user, [1]);
       const media = storage(),
-        now = utcMediaTimestamp(),
-        objectKey = media.keyFor(input);
-      const row = await retryTransaction(() =>
-        db.get('writer').transaction(async (transaction) => {
-          await lockAdministrationRegistry(transaction, 'documentation');
-          await assertCurrentOperatorRole(transaction, user.id, [1]);
-          const [existing] = await transaction
-            .select()
-            .from(documentationAssets)
-            .where(eq(documentationAssets.id, input.id))
-            .limit(1)
-            .for('update');
-          if (existing) {
-            if (
-              existing.actorId !== user.id ||
-              existing.state !== 'PENDING' ||
-              existing.objectKey !== objectKey ||
-              existing.checksum !== input.checksum ||
-              existing.size !== input.size ||
-              existing.contentType !== input.contentType ||
-              existing.name !== input.name ||
-              existing.expiresAt <= now
-            )
-              throw new AppError(
-                409,
-                'DOCUMENTATION_UPLOAD_CONFLICT',
-                'Choose this file again to start a fresh upload.',
-              );
-            return existing;
-          }
-          const [pending] = await transaction
-            .select({ total: count() })
-            .from(documentationAssets)
-            .where(
-              and(
-                eq(documentationAssets.actorId, user.id),
-                inArray(documentationAssets.state, ['PENDING', 'READY']),
-                gt(documentationAssets.expiresAt, now),
-              ),
-            );
-          if ((pending?.total || 0) >= 40)
-            throw new AppError(
-              429,
-              'DOCUMENTATION_UPLOAD_LIMIT',
-              'Finish or cancel existing guide uploads before adding more.',
-            );
-          const value: typeof documentationAssets.$inferInsert = {
-            id: input.id,
-            objectKey,
-            objectDigest: assetDigest(objectKey),
-            actorId: user.id,
-            requestId: traceId(),
-            documentId: null,
-            kind: input.kind,
-            source: 'upload',
-            name: input.name,
-            contentType: input.contentType,
-            size: input.size,
-            checksum: input.checksum,
-            state: 'PENDING',
-            attempts: 0,
-            expiresAt: utcMediaTimestamp(Temporal.Now.instant().add({ hours: 1 })),
-            createdAt: now,
-            updatedAt: now,
-          };
-          await transaction.insert(documentationAssets).values(value);
-          const [inserted] = await transaction
-            .select()
-            .from(documentationAssets)
-            .where(eq(documentationAssets.id, input.id))
-            .limit(1);
-          return required(inserted);
-        }),
-      );
+        generated = media.keyFor(input),
+        objectKey = generated.replace(
+          /\/[^/]+$/,
+          `/${fileBase(input.name)}_${input.id}.${mediaTypes[input.contentType].extension}`,
+        );
+      media.assertKey(objectKey);
+      await db
+        .get('writer')
+        .transaction((transaction) => assertCurrentOperatorRole(transaction, user.id, [1]));
+      const existing = await pending(input.id);
+      let row: PendingUpload;
+      if (existing) {
+        if (
+          existing.actorId !== user.id ||
+          existing.state !== 'PENDING' ||
+          existing.objectKey !== objectKey ||
+          existing.checksum !== input.checksum ||
+          existing.size !== input.size ||
+          existing.contentType !== input.contentType ||
+          existing.name !== input.name
+        )
+          throw new AppError(
+            409,
+            'DOCUMENTATION_UPLOAD_CONFLICT',
+            'Choose this file again to start a fresh upload.',
+          );
+        row = existing;
+      } else {
+        let open = 0;
+        for (const key of await ephemeral.scanKeys('pos:doc_upload:*')) {
+          const other = await pending(key.slice('pos:doc_upload:'.length));
+          if (other?.actorId === user.id) open++;
+        }
+        if (open >= 40)
+          throw new AppError(
+            429,
+            'DOCUMENTATION_UPLOAD_LIMIT',
+            'Finish or cancel existing guide uploads before adding more.',
+          );
+        row = {
+          id: input.id,
+          objectKey,
+          actorId: user.id,
+          kind: input.kind,
+          name: input.name,
+          contentType: input.contentType,
+          size: input.size,
+          checksum: input.checksum,
+          state: 'PENDING',
+          expiresAt: utcMediaTimestamp(Temporal.Now.instant().add({ hours: 1 })),
+        };
+        if (
+          !(await ephemeral.set(documentationUploadKey(row.id), JSON.stringify(row), {
+            NX: true,
+            EX: 3600,
+          }))
+        )
+          throw new AppError(
+            409,
+            'DOCUMENTATION_UPLOAD_CONFLICT',
+            'Choose this file again to start a fresh upload.',
+          );
+      }
       return {
         id: row.id,
         expiresAt: row.expiresAt.replace(' ', 'T') + 'Z',
@@ -519,76 +458,38 @@ export function documentationService(
     async complete(user: Principal, id: string) {
       requireRole(user, [1]);
       const media = storage();
-      const [candidate] = await db
-        .get('writer')
-        .select()
-        .from(documentationAssets)
-        .where(and(eq(documentationAssets.id, id), eq(documentationAssets.actorId, user.id)))
-        .limit(1);
-      const row = required(candidate);
-      if (row.expiresAt <= utcMediaTimestamp())
+      const row = await pending(id);
+      if (!row || row.actorId !== user.id)
         throw new AppError(
           409,
           'DOCUMENTATION_UPLOAD_EXPIRED',
           'Choose the file again to renew its upload.',
         );
       if (row.state === 'READY') return { id, status: 'success', message: 'Attachment is ready.' };
-      if (row.state !== 'PENDING' || row.expiresAt <= utcMediaTimestamp())
-        throw new AppError(
-          409,
-          'DOCUMENTATION_UPLOAD_EXPIRED',
-          'Choose the file again to renew its upload.',
-        );
       await media.verify(specification(row));
-      await db.get('writer').transaction(async (transaction) => {
-        await assertCurrentOperatorRole(transaction, user.id, [1]);
-        const [current] = await transaction
-          .select()
-          .from(documentationAssets)
-          .where(eq(documentationAssets.id, id))
-          .limit(1)
-          .for('update');
-        if (
-          !current ||
-          current.actorId !== user.id ||
-          !['PENDING', 'READY'].includes(current.state) ||
-          current.expiresAt <= utcMediaTimestamp()
-        )
-          throw new AppError(
-            409,
-            'DOCUMENTATION_UPLOAD_CONFLICT',
-            'The upload is no longer available for this guide.',
-          );
-        await transaction
-          .update(documentationAssets)
-          .set({ state: 'READY', updatedAt: utcMediaTimestamp(), requestId: traceId() })
-          .where(eq(documentationAssets.id, id));
-      });
+      await db
+        .get('writer')
+        .transaction((transaction) => assertCurrentOperatorRole(transaction, user.id, [1]));
+      await savePending({ ...row, state: 'READY' });
       return { id, status: 'success', message: 'Attachment is ready.' };
     },
     async cancel(user: Principal, id: string) {
       requireRole(user, [1]);
-      await db.get('writer').transaction(async (transaction) => {
-        await assertCurrentOperatorRole(transaction, user.id, [1]);
-        const [row] = await transaction
-          .select()
-          .from(documentationAssets)
-          .where(and(eq(documentationAssets.id, id), eq(documentationAssets.actorId, user.id)))
-          .limit(1)
-          .for('update');
-        if (!row || !['PENDING', 'READY', 'DELETE_PENDING'].includes(row.state))
-          throw new AppError(
-            404,
-            'DOCUMENTATION_UPLOAD_NOT_FOUND',
-            'Pending guide upload was not found.',
-          );
-        await transaction
-          .update(documentationAssets)
-          .set({ state: 'DELETE_PENDING', updatedAt: utcMediaTimestamp(), requestId: traceId() })
-          .where(eq(documentationAssets.id, id));
-      });
+      await db
+        .get('writer')
+        .transaction((transaction) => assertCurrentOperatorRole(transaction, user.id, [1]));
+      const row = await pending(id);
+      if (!row || row.actorId !== user.id)
+        throw new AppError(
+          404,
+          'DOCUMENTATION_UPLOAD_NOT_FOUND',
+          'Pending guide upload was not found.',
+        );
+      if (await ephemeral.delIfEquals(documentationUploadKey(id), JSON.stringify(row)))
+        await removeObjects(user, 'pending', [row.objectKey]);
       return { status: 'success', message: 'Guide upload canceled.' };
     },
+    /** `UploadOrEditTutorial.post` (`core/views.py:2475-2600`). */
     async save(user: Principal, input: DocumentationInput, documentId?: string) {
       requireRole(user, [1]);
       const normalized = {
@@ -599,7 +500,7 @@ export function documentationService(
         hash = createHash('sha256')
           .update(JSON.stringify({ documentId: documentId || null, ...normalized }))
           .digest('hex');
-      const repeated = await replay(db.get('writer'), user, normalized, hash, documentId);
+      const repeated = await replay(user, normalized, hash, documentId);
       if (repeated) return repeated;
       const html = sanitizeDocumentationHtml(input.description);
       if (html.length > 1000)
@@ -608,12 +509,20 @@ export function documentationService(
           'DOCUMENTATION_DESCRIPTION_TOO_LONG',
           'Shorten the guide description or its formatting.',
         );
-      return retryTransaction(() =>
+      const uploads: PendingUpload[] = [];
+      for (const id of normalized.uploadIds) {
+        const upload = await pending(id);
+        if (!upload || upload.actorId !== user.id || upload.state !== 'READY')
+          throw new AppError(
+            409,
+            'DOCUMENTATION_UPLOAD_NOT_READY',
+            'Complete each new attachment upload before saving.',
+          );
+        uploads.push(upload);
+      }
+      const outcome = await locked(() =>
         db.get('writer').transaction(async (transaction) => {
-          await lockAdministrationRegistry(transaction, 'documentation');
           await assertCurrentOperatorRole(transaction, user.id, [1]);
-          const existingResult = await replay(transaction, user, normalized, hash, documentId);
-          if (existingResult) return existingResult;
           const [current] = documentId
             ? await transaction
                 .select()
@@ -624,24 +533,13 @@ export function documentationService(
             : [];
           if (documentId && !current)
             throw new AppError(404, 'DOCUMENTATION_NOT_FOUND', 'Guide was not found.');
-          const [revision] = current
-            ? await transaction
-                .select()
-                .from(documentationRevisions)
-                .where(eq(documentationRevisions.documentId, current.id))
-                .limit(1)
-                .for('update')
-            : [];
-          const version = revision?.version || 0;
-          if (version !== input.expectedVersion)
+          if ((current ? versionOf(current) : '') !== input.expectedVersion)
             throw new AppError(
               409,
               'DOCUMENTATION_VERSION_CONFLICT',
               'This guide changed. Reload it before saving.',
             );
-          const currentFiles = current
-            ? attachmentList(current, await attachments(transaction, [current]))
-            : [];
+          const currentFiles = current ? attachmentList(current) : [];
           if (
             normalized.retainAssetIds.some((id) => !currentFiles.some((asset) => asset.id === id))
           )
@@ -653,33 +551,11 @@ export function documentationService(
           const selected = currentFiles.filter((asset) =>
             normalized.retainAssetIds.includes(asset.id),
           );
-          const uploads = normalized.uploadIds.length
-            ? await transaction
-                .select()
-                .from(documentationAssets)
-                .where(inArray(documentationAssets.id, normalized.uploadIds))
-                .orderBy(asc(documentationAssets.id))
-                .for('update')
-            : [];
-          if (
-            uploads.length !== normalized.uploadIds.length ||
-            uploads.some(
-              (asset) =>
-                asset.actorId !== user.id ||
-                asset.state !== 'READY' ||
-                asset.expiresAt <= utcMediaTimestamp(),
-            )
-          )
-            throw new AppError(
-              409,
-              'DOCUMENTATION_UPLOAD_NOT_READY',
-              'Complete each new attachment upload before saving.',
-            );
           selected.push(
             ...uploads.map((asset) => ({
               id: asset.id,
               key: asset.objectKey,
-              kind: mediaKind.parse(asset.kind),
+              kind: asset.kind,
               name: asset.name,
               contentType: asset.contentType,
             })),
@@ -690,19 +566,20 @@ export function documentationService(
               'DOCUMENTATION_COVER_CONFLICT',
               'Keep one cover image for this guide.',
             );
-          const values = {
-            title: input.title,
-            short_discription: input.summary,
-            discription: html,
-            search_keyword: input.keywords,
-            sort_value: input.sortOrder,
-            created_by: legacyIntegerReference(user.id),
-            updated_at: localNow(),
-            cover_image: '[]',
-            image_link: '[]',
-            video_link: '[]',
-            doc_link: '[]',
-          };
+          const updatedAt = localNow(),
+            values = {
+              title: input.title,
+              short_discription: input.summary,
+              discription: html,
+              search_keyword: input.keywords,
+              sort_value: input.sortOrder,
+              created_by: legacyIntegerReference(user.id),
+              updated_at: updatedAt,
+              cover_image: '[]',
+              image_link: '[]',
+              video_link: '[]',
+              doc_link: '[]',
+            };
           for (const [kind, column] of Object.entries(columns)) {
             const serialized = JSON.stringify(
               selected.filter((asset) => asset.kind === kind).map((asset) => asset.key),
@@ -725,48 +602,37 @@ export function documentationService(
               .values({ ...values, is_active: 1, created_at: localNow() });
             id = generatedId(created);
           }
-          if (uploads.length)
-            await transaction
-              .update(documentationAssets)
-              .set({
-                state: 'ATTACHED',
-                documentId: id,
-                updatedAt: utcMediaTimestamp(),
-                requestId: traceId(),
-              })
-              .where(
-                inArray(
-                  documentationAssets.id,
-                  uploads.map((asset) => asset.id),
-                ),
-              );
-          for (const removed of currentFiles.filter(
-            (asset) => !normalized.retainAssetIds.includes(asset.id),
-          ))
-            await queueRemoval(transaction, user, removed, id);
-          await transaction
-            .insert(documentationRevisions)
-            .values({ documentId: id, version: version + 1, requestId: traceId() })
-            .onDuplicateKeyUpdate({ set: { version: version + 1, requestId: traceId() } });
-          await transaction.insert(documentationMutations).values({
-            id: input.operationId,
-            actorId: user.id,
-            requestId: traceId(),
-            requestHash: hash,
-            documentId: id,
-            version: version + 1,
-            createdAt: utcMediaTimestamp(),
-          });
           return {
             id: String(id),
-            version: version + 1,
-            status: 'success',
-            message: current
-              ? 'Documentation has been updated.'
-              : 'Documentation has been created.',
+            version: updatedAt,
+            created: !current,
+            removed: currentFiles
+              .filter((asset) => !normalized.retainAssetIds.includes(asset.id))
+              .map((asset) => asset.key),
           };
         }),
       );
+      await ephemeral.set(
+        documentationMutationKey(input.operationId),
+        JSON.stringify({
+          actorId: user.id,
+          requestHash: hash,
+          documentId: outcome.id,
+          version: outcome.version,
+          created: outcome.created,
+        }),
+        { NX: true, EX: 86400 },
+      );
+      for (const upload of uploads) await ephemeral.del(documentationUploadKey(upload.id));
+      await removeObjects(user, outcome.id, outcome.removed);
+      return {
+        id: outcome.id,
+        version: outcome.version,
+        status: 'success',
+        message: outcome.created
+          ? 'Documentation has been created.'
+          : 'Documentation has been updated.',
+      };
     },
     async content(
       user: Principal,
@@ -784,9 +650,7 @@ export function documentationService(
         .limit(1);
       const document = required(row);
       readerAccess(user, document);
-      const file = attachmentList(document, await attachments(db.get('writer'), [document])).find(
-        (asset) => asset.id === assetId,
-      );
+      const file = attachmentList(document).find((asset) => asset.id === assetId);
       if (!file)
         throw new AppError(
           404,
