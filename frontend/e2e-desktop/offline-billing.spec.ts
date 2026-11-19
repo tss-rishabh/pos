@@ -1,5 +1,5 @@
 import { test, expect, _electron, type ElectronApplication, type Page } from '@playwright/test';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,9 +12,15 @@ import type { IpcChannel, OfflineSale, OfflineStatus } from '../src/offline/bill
  * (backend/tools/e2e/offline-billing-stack.ts): seeded loopback MySQL, private Redis, the real
  * backend behind a TCP gate, and a stateful API-v2 order stand-in that writes real order rows.
  *
- * safeStorage: Chromium's standard `--use-mock-keychain` switch is passed so the test never
- * creates or reads an item in the developer's login keychain. The wrap/unwrap path is the real
- * Electron safeStorage API; only the OS keystore behind it is Chromium's mock keychain.
+ * safeStorage: on macOS Chromium's standard `--use-mock-keychain` switch is passed so the test
+ * never creates or reads an item in the developer's login keychain (the wrap/unwrap path is the
+ * real Electron safeStorage API; only the keystore behind it is mocked). Windows has no mock
+ * keystore: there the key is wrapped by real DPAPI for the runner's Windows user.
+ *
+ * Printing: the provisional receipt is rendered to PDF through Electron's print pipeline on every
+ * platform. When E2E_PRINTER_NAME names a print-to-file queue (CI creates one with the built-in
+ * "Microsoft Print to PDF" driver and E2E_PRINTER_OUTPUT as its file port), the receipt is also
+ * spooled to that real Windows printer silently and the spooled PDF is checked.
  */
 const CONTROL = desktopControl;
 const WORKSPACE = desktopWorkspace;
@@ -65,7 +71,7 @@ let closingApp: ElectronApplication | null = null;
 
 async function launch() {
   app = await _electron.launch({
-    args: ['--use-mock-keychain', '.'],
+    args: [...(process.platform === 'darwin' ? ['--use-mock-keychain'] : []), '.'],
     env: {
       ...process.env,
       NODE_ENV: 'development',
@@ -161,6 +167,61 @@ async function billViaBridge(productId = '1001') {
     tender: { mode: 'cash', receivedPaise: 300000 },
   });
 }
+/**
+ * Print the open receipt through Electron's print pipeline (the cashier's Print button calls
+ * window.print(), which adds only the OS print dialog). Every platform renders it to PDF; with a
+ * print-to-file queue configured (Windows CI), it is also spooled to that real printer silently.
+ */
+async function printReceipt() {
+  const pdf = Buffer.from(
+    await app.evaluate(async ({ BrowserWindow }) => {
+      const contents = BrowserWindow.getAllWindows()[0]!.webContents;
+      return (await contents.printToPDF({ printBackground: false })).toString('base64');
+    }),
+    'base64',
+  );
+  expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+  const pages = pdf.toString('latin1').match(/\/Type\s*\/Page\b/g)?.length ?? 0;
+  expect(pages).toBeGreaterThanOrEqual(1);
+  console.log(`[desktop-e2e] receipt printToPDF: ${pdf.length} bytes, ${pages} page(s)`);
+  const printer = process.env.E2E_PRINTER_NAME,
+    output = process.env.E2E_PRINTER_OUTPUT;
+  if (!printer || !output) return;
+  const printers = await app.evaluate(async ({ BrowserWindow }) =>
+    (await BrowserWindow.getAllWindows()[0]!.webContents.getPrintersAsync()).map(
+      (item) => item.name,
+    ),
+  );
+  expect(printers).toContain(printer);
+  expect(printers).toContain('Microsoft Print to PDF');
+  await rm(output, { force: true });
+  const printed = await app.evaluate(
+    ({ BrowserWindow }, deviceName) =>
+      new Promise<{ success: boolean; reason: string }>((resolve) =>
+        BrowserWindow.getAllWindows()[0]!.webContents.print(
+          { silent: true, deviceName, printBackground: false },
+          (success, reason) => resolve({ success, reason }),
+        ),
+      ),
+    printer,
+  );
+  expect(printed.success, printed.reason).toBe(true);
+  let size = -1;
+  await expect
+    .poll(
+      async () => {
+        const current = (await stat(output).catch(() => null))?.size ?? 0;
+        const settledSize = current > 0 && current === size;
+        size = current;
+        return settledSize;
+      },
+      { timeout: 60000, intervals: [1000] },
+    )
+    .toBe(true);
+  const spooled = await readFile(output);
+  expect(spooled.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+  console.log(`[desktop-e2e] receipt spooled to "${printer}": ${spooled.length} bytes`);
+}
 async function goOffline() {
   await network(false);
   await waitForStatus((value) => !value.online, 45000);
@@ -231,6 +292,7 @@ test.describe.serial('desktop offline billing on the real stack', () => {
     ).toBeVisible();
     await expect(receipt).toContainText('Provisional — final invoice issued on sync');
     await expect(receipt).toContainText('Change Rs. 1.00');
+    await printReceipt();
     await receipt.getByRole('button', { name: 'Close receipt' }).click();
 
     await search.fill('Urban');

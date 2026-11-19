@@ -11,7 +11,8 @@ test('native desktop shell loads the shared UI with a sandboxed, isolated render
 }) => {
   const profile = await mkdtemp(join(tmpdir(), 'souled-pos-electron-'));
   const app = await _electron.launch({
-    args: ['.'],
+    // macOS: never touch the developer's login keychain (Windows uses real DPAPI).
+    args: [...(process.platform === 'darwin' ? ['--use-mock-keychain'] : []), '.'],
     env: {
       ...process.env,
       NODE_ENV: 'development',
@@ -59,7 +60,8 @@ test('desktop shell blocks external links, redirects and new windows', async ({ 
   const origin = `http://127.0.0.1:${address.port}`;
   const profile = await mkdtemp(join(tmpdir(), 'souled-pos-navigation-'));
   const app = await _electron.launch({
-    args: ['.'],
+    // macOS: never touch the developer's login keychain (Windows uses real DPAPI).
+    args: [...(process.platform === 'darwin' ? ['--use-mock-keychain'] : []), '.'],
     env: {
       ...process.env,
       NODE_ENV: 'development',
