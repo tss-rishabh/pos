@@ -125,3 +125,20 @@
 .order-detail h3 {
   margin: var(--space-2) 0 0;
 }
+/* W27: the order table fits its panel; long cells truncate with the full value in the tooltip
+   (TextCell) instead of pushing the table past the edge. */
+.order-table {
+  table-layout: fixed;
+}
+.order-table th {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.order-table th,
+.order-table td {
+  padding-left: var(--space-3);
+  padding-right: var(--space-3);
+}
+.order-table td:last-child {
+  white-space: normal;
+}

@@ -12,6 +12,7 @@ import { currency } from '../lib/format';
 import { useOnline } from '../hooks/use-pos';
 import { dailyReportDates } from './finance/report-dates';
 import { ReportNavigation } from '../components/report-navigation';
+import { TextCell } from '../components/text-cell';
 
 const metric = z.union([z.string(), z.number().finite(), z.null()]);
 const responseSchema = z.object({
@@ -484,9 +485,7 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
                     .map((row, i) => (
                       <tr key={i}>
                         {fields.map(([key]) => (
-                          <td key={key}>
-                            {row[key] === null || row[key] === undefined ? '—' : String(row[key])}
-                          </td>
+                          <TextCell key={key} value={row[key]} />
                         ))}
                       </tr>
                     ))}

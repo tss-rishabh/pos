@@ -5,9 +5,16 @@ import { readCustomerBenefits } from '../customer-insights/benefits-client';
 import type { ProfileScope } from '../customer-insights/client';
 import './CartQuoteSummary.css';
 
-function Amount({ value }: { value: unknown }) {
+/** A rupee amount from the quote, or null when the quote does not carry a numeric value. */
+function rupees(value: unknown): string | null {
   const amount = quoteAmount(value);
-  return <>{amount === null ? 'Unavailable — refresh quote' : `₹${amount}`}</>;
+  return amount === null ? null : `₹${amount}`;
+}
+/** Legacy prints the round-off as a deduction ("-" + value); the sign goes on numbers only. */
+function deduction(value: unknown): string | null {
+  const amount = quoteAmount(value);
+  if (amount === null) return null;
+  return amount.startsWith('-') ? `₹${amount.slice(1)}` : `-₹${amount}`;
 }
 export function CartQuoteSummary({
   checkout,
@@ -52,88 +59,59 @@ export function CartQuoteSummary({
   // W27: the breakdown exists only for a current final quote with amounts. No placeholder is
   // shown for a stale or missing quote; the dialog shows a loader while a quote is requested.
   if (!current || !calculations) return null;
+  const savings: [string, string | null] = customer?.membership.active
+    ? ['Membership Savings', rupees(calculations.exclusive_savings)]
+    : !customerId || customer
+      ? [
+          hasMembershipProduct ? 'Membership Savings' : 'Discount',
+          rupees(checkout.quoteDisplay?.nonCouponDiscount),
+        ]
+      : ['Total savings (membership unconfirmed)', rupees(calculations.total_savings)];
+  // W27: a row is shown only when the final quote carries its value; nothing prints a placeholder.
+  const rows = (
+    [
+      ['Cart Total', rupees(calculations.products_total)],
+      savings,
+      ['Store discount(PG)', rupees(calculations.used_store_discount_pg)],
+      ['TSS Points Applied', quoteAmount(calculations.used_tss_points)],
+      ['Coupon Discount', rupees(calculations.coupon_discount)],
+      ['Gift Voucher', rupees(calculations.gift_voucher_value)],
+      ['TSS Money Applied', rupees(calculations.used_tss_money)],
+      ['GST (included in cart total)', rupees(calculations.gst_total)],
+      ['Total', rupees(checkout.quoteDisplay?.totalBeforeRounding)],
+      ['Round Off Value', deduction(calculations.rounding_off)],
+    ] satisfies [string, string | null][]
+  ).filter((row): row is [string, string] => row[1] !== null);
+  // With no breakdown rows the dialog's "Confirmed payable" panel shows the payable alone.
+  if (!rows.length) return null;
+  const payable = rupees(calculations.total);
+  const cashback =
+    customer?.app.discountEligible === true ? rupees(calculations.app_cashback) : null;
   return (
     <section className="checkout-quote-summary" aria-label="Quote breakdown">
       <h3>Quote breakdown</h3>
       <dl>
-        <dt>Cart Total</dt>
-        <dd>
-          <Amount value={calculations.products_total} />
-        </dd>
-        {customer?.membership.active ? (
-          <>
-            <dt>Membership Savings</dt>
-            <dd>
-              <Amount value={calculations.exclusive_savings} />
-            </dd>
-          </>
-        ) : !customerId || customer ? (
-          <>
-            <dt>{hasMembershipProduct ? 'Membership Savings' : 'Discount'}</dt>
-            <dd>
-              <Amount value={checkout.quoteDisplay?.nonCouponDiscount} />
-            </dd>
-          </>
-        ) : (
-          <>
-            <dt>Total savings (membership unconfirmed)</dt>
-            <dd>
-              <Amount value={calculations.total_savings} />
-            </dd>
-          </>
+        {rows.map(([label, value]) => (
+          <div key={label} className="checkout-quote-row">
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+        {payable !== null && (
+          <div className="checkout-quote-row">
+            <dt>Total Payable (₹)</dt>
+            <dd>{payable}</dd>
+          </div>
         )}
-
-        <dt>Store discount(PG)</dt>
-        <dd>
-          <Amount value={calculations.used_store_discount_pg} />
-        </dd>
-        <dt>TSS Points Applied</dt>
-        <dd>{quoteAmount(calculations.used_tss_points) ?? 'Unavailable — refresh quote'}</dd>
-        <dt>Coupon Discount</dt>
-        <dd>
-          <Amount value={calculations.coupon_discount} />
-        </dd>
-        <dt>Gift Voucher</dt>
-        <dd>
-          <Amount value={calculations.gift_voucher_value} />
-        </dd>
-        <dt>TSS Money Applied</dt>
-        <dd>
-          <Amount value={calculations.used_tss_money} />
-        </dd>
-        <dt>GST (included in cart total)</dt>
-        <dd>
-          <Amount value={calculations.gst_total} />
-        </dd>
-        <dt>Total</dt>
-        <dd>
-          <Amount value={checkout.quoteDisplay?.totalBeforeRounding} />
-        </dd>
-        <dt>Round Off Value</dt>
-        <dd>
-          -<Amount value={calculations.rounding_off} />
-        </dd>
-        <dt>Total Payable (₹)</dt>
-        <dd>
-          <Amount value={calculations.total} />
-        </dd>
-        {customer?.app.discountEligible === true && (
-          <>
+        {cashback !== null && (
+          <div className="checkout-quote-row">
             <dt>Cashback Earned (₹)</dt>
-            <dd>
-              <Amount value={calculations.app_cashback} />
-            </dd>
-          </>
+            <dd>{cashback}</dd>
+          </div>
         )}
       </dl>
-      {customer?.app.discountEligible === true && (
-        <p>
-          {checkout.quoteDisplay?.cashbackCreditMessage ??
-            'Cashback credit timing is unavailable. Refresh the sale.'}
-        </p>
-      )}
-      {current && customerId && (!customer || customer.app.discountEligible === null) && (
-        <p role="status">Cashback eligibility is unavailable. No cashback amount is promised.</p>
+      {cashback !== null && checkout.quoteDisplay?.cashbackCreditMessage && (
+        <p>{checkout.quoteDisplay.cashbackCreditMessage}</p>
       )}
     </section>
   );

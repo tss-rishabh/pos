@@ -20,6 +20,8 @@ import {
 } from './search-client';
 import './order-search.css';
 import './table-tools.css';
+import { paymentMethodLabel } from './payment-method-label';
+import { TextCell } from '../../components/text-cell';
 import { onlineOrderDetailLink } from './online-detail-client';
 const titles = { ST: 'Store', HL: 'Local delivery', HE: 'Express', N: 'Online' } as const;
 const columns: [keyof SourceOrderRow, string, SearchSort?][] = [
@@ -478,7 +480,7 @@ export function SourceOrderList({
             {data?.fetchedAt ? ' · Updated ' + new Date(data.fetchedAt).toLocaleTimeString() : ''}
           </p>
           <div className="table-wrap">
-            <table>
+            <table className="order-table">
               <thead>
                 <tr>
                   {columns
@@ -524,24 +526,29 @@ export function SourceOrderList({
                   <tr key={row.rowKey}>
                     {columns
                       .filter(([key]) => visible.includes(key))
-                      .map(([key]) => (
-                        <td key={key}>
-                          {key === 'order_amt' ? (
-                            currency(row.order_amt)
-                          ) : key === 'id' ? (
-                            <>
-                              <button className="text-button" onClick={() => setSummary(row)}>
-                                {row.id}
-                              </button>
-                              {row.is_offline_order && <small>Offline order</small>}
-                              {row.is_shopify_order && <small>Shopify</small>}
-                              {row.is_global_order !== 0 && <small>Global</small>}
-                            </>
-                          ) : (
-                            String(row[key] ?? '')
-                          )}
-                        </td>
-                      ))}
+                      .map(([key]) =>
+                        key === 'id' ? (
+                          <td key={key}>
+                            <button className="text-button" onClick={() => setSummary(row)}>
+                              {row.id}
+                            </button>
+                            {row.is_offline_order && <small>Offline order</small>}
+                            {row.is_shopify_order && <small>Shopify</small>}
+                            {row.is_global_order !== 0 && <small>Global</small>}
+                          </td>
+                        ) : (
+                          <TextCell
+                            key={key}
+                            value={
+                              key === 'order_amt'
+                                ? currency(row.order_amt)
+                                : key === 'payment_methods__name'
+                                  ? paymentMethodLabel(row.payment_methods__name)
+                                  : row[key]
+                            }
+                          />
+                        ),
+                      )}
                     <td>
                       {appliedType === 'ST' ? (
                         <button

@@ -1120,6 +1120,12 @@ td {
   border-bottom: 1px solid #f0f1e9;
   color: #7a846d;
 }
+td.text-cell {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 td strong {
   font-size: 11px;
   color: #3e4b32;

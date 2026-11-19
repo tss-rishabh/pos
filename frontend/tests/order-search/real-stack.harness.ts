@@ -155,7 +155,9 @@ test('order search drives the real list, filters, paging, exports and order type
     'POS Counter: CASH + Online (Other) +UPI',
   );
   expect(await columnText(page, 'Payment method', '6001')).toBe('POS Counter (Pending)');
-  expect(await columnText(page, 'Payment method', '6008')).toBe(': CASH  ');
+  // Legacy composes ": CASH  " for an order without a method name; the server keeps that value and
+  // the table joins the parts only when both exist (W27).
+  expect(await columnText(page, 'Payment method', '6008')).toBe('CASH');
   expect(await columnText(page, 'Store', '6104')).toBe('Bandra Flagship (Counter 01)');
 
   // 3. Contact filters reach the server in the POST body only, never URL or storage.

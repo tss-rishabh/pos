@@ -52,6 +52,7 @@ describe.skipIf(process.env.CHECKOUT_ACTIONS_BROWSER_TESTS !== 'true')(
     for (const mode of [
       'normal',
       'missing',
+      'payable-only',
       'stale',
       'cashback',
       'ineligible',
@@ -97,14 +98,21 @@ describe.skipIf(process.env.CHECKOUT_ACTIONS_BROWSER_TESTS !== 'true')(
             await browserExpect(page.getByRole('link', { name: 'Quoted shirt' })).toBeVisible();
             await browserExpect(summary).toHaveCount(0);
             await browserExpect(page.getByText('₹868.49', { exact: true })).toHaveCount(0);
+          } else if (mode === 'payable-only') {
+            // Only the payable is known: no breakdown (the dialog shows the payable alone).
+            await browserExpect(page.getByRole('link', { name: 'Quoted shirt' })).toBeVisible();
+            await browserExpect(summary).toHaveCount(0);
           } else await browserExpect(summary).toBeVisible();
-          if (mode === 'stale') {
+          // W27: no placeholder text anywhere; values the quote does not carry are not shown.
+          await browserExpect(page.getByText(/Unavailable/)).toHaveCount(0);
+          if (mode === 'stale' || mode === 'payable-only') {
             // Checked above.
           } else if (mode === 'missing') {
-            await browserExpect(
-              summary.getByText('Unavailable — refresh quote', { exact: true }),
-            ).not.toHaveCount(0);
+            await browserExpect(summary.getByText('Cart Total', { exact: true })).toHaveCount(0);
+            await browserExpect(summary.getByText('GST (included in cart total)')).toHaveCount(0);
             await browserExpect(summary.getByText('₹0.00', { exact: true })).toHaveCount(0);
+            // The deduction sign applies to the number only.
+            await browserExpect(summary.getByText('-₹0.49', { exact: true })).toBeVisible();
             await browserExpect(summary.getByText('₹868.00', { exact: true })).toBeVisible();
           } else {
             await browserExpect(summary.getByText('₹999.99', { exact: true })).toBeVisible();
@@ -121,9 +129,9 @@ describe.skipIf(process.env.CHECKOUT_ACTIONS_BROWSER_TESTS !== 'true')(
           await browserExpect(
             page.getByRole('link', { name: 'Complimentary bag', exact: true }),
           ).toHaveAttribute('href', '/catalog/products/9007199254740995');
-          if (mode === 'stale') {
+          if (mode === 'stale' || mode === 'payable-only') {
             await browserExpect(summary).toHaveCount(0);
-            await browserExpect(remove).toBeDisabled();
+            if (mode === 'stale') await browserExpect(remove).toBeDisabled();
           } else if (mode === 'cashback') {
             await browserExpect(
               summary.getByText('Cashback Earned (₹)', { exact: true }),
@@ -140,8 +148,9 @@ describe.skipIf(process.env.CHECKOUT_ACTIONS_BROWSER_TESTS !== 'true')(
             if (mode === 'ineligible')
               await browserExpect(summary.getByText('Discount', { exact: true })).toBeVisible();
             else
+              // Unconfirmed membership: the savings row says so; no eligibility placeholder.
               await browserExpect(
-                summary.getByText(/Cashback eligibility is unavailable/),
+                summary.getByText('Total savings (membership unconfirmed)', { exact: true }),
               ).toBeVisible();
             await browserExpect(
               summary.getByText('Cashback Earned (₹)', { exact: true }),
