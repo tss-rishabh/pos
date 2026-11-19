@@ -74,15 +74,6 @@ export async function modelAccountFixture(connection: string) {
             .join(',')})`,
         );
     }
-    for (const migration of [
-      'src/modules/administration/migration.sql',
-      'src/modules/administration/access-migration.sql',
-    ])
-      for (const statement of readFileSync(migration, 'utf8')
-        .replace(/^--.*$/gm, '')
-        .split(';')
-        .filter((value) => value.trim()))
-        await admin.query(statement);
     url.pathname = '/' + schema;
     const config = readConfig({
         NODE_ENV: 'test',
@@ -101,18 +92,7 @@ export async function modelAccountFixture(connection: string) {
       db,
       url: url.href,
       async reset() {
-        await admin.query('DROP TRIGGER IF EXISTS reject_model_account_receipt');
-        for (const table of [
-          'pos_rewrite_administration_access_mutations',
-          'pos_rewrite_administration_direct_permissions',
-          'pos_rewrite_administration_group_permissions',
-          'pos_rewrite_administration_memberships',
-          'pos_rewrite_administration_groups',
-          'pos_rewrite_administration_permissions',
-          'pos_rewrite_administration_access_reconciliation',
-          ...tables,
-        ])
-          await admin.query('DELETE FROM ' + mysql.escapeId(table));
+        for (const table of tables) await admin.query('DELETE FROM ' + mysql.escapeId(table));
         for (const [id, role, type, staff, superuser, active] of [
           ['900001', 1, 1, 1, 1, 1],
           ['900002', 1, 1, 1, 1, 1],
@@ -136,10 +116,6 @@ export async function modelAccountFixture(connection: string) {
           platform: 'STORE_LOCATION_CODE',
           value: JSON.stringify(['MDL-0', 'MDL-1', 'MDL-2']),
         });
-        await admin.query(
-          "INSERT INTO pos_rewrite_administration_access_reconciliation VALUES ('legacy',1,?,?,'900001',NULL,'{}','2026-06-15 12:00:00')",
-          ['a'.repeat(64), 'b'.repeat(64)],
-        );
       },
       seed(table: string, values: Record<string, FixtureValue>) {
         return fixture.insert(table, values);

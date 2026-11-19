@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { z } from 'zod';
 import { useOnline } from '../../hooks/use-pos';
-import { Link } from 'react-router-dom';
 import { captureOperatorScope } from '../../api/client';
 import { Empty, ErrorState } from '../../components/common';
-import { queueAdministrationCollectionExport } from '../operational-reports/export-commands';
 
 export type AdministrationResource =
   'stores' | 'operators' | 'salespeople' | 'counters' | 'storage' | 'documentation';
@@ -120,7 +118,6 @@ export function AdministrationCollectionTable<T extends { id: string }>({
       }
     }),
     [problem, setProblem] = useState<unknown>(),
-    [queued, setQueued] = useState<string | null>(null),
     [busy, setBusy] = useState(false);
   useEffect(() => view.setIndex(0), [search, active, storeId, view.resource]);
   useEffect(() => {
@@ -150,28 +147,6 @@ export function AdministrationCollectionTable<T extends { id: string }>({
       if (view.index + 1 >= pages.length) await collection.fetchNextPage();
       signal.throwIfAborted();
       if (current.current === original) view.setIndex(view.index + 1);
-    } catch (error) {
-      setProblem(error);
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function exportAll() {
-    setBusy(true);
-    setProblem(undefined);
-    const original = identity;
-    try {
-      const result = await queueAdministrationCollectionExport(ownerId, {
-        kind: 'administration-list',
-        resource: view.resource,
-        storeIds: storeId ? [storeId] : [],
-        search,
-        active: active as 'true' | 'false' | 'all',
-        sort: view.options.sort,
-        direction: view.options.direction,
-        columns: visible.map((column) => column.key),
-      });
-      if (current.current === original) setQueued(result.id);
     } catch (error) {
       setProblem(error);
     } finally {
@@ -267,20 +242,8 @@ export function AdministrationCollectionTable<T extends { id: string }>({
         <button className="button secondary" disabled={!rows.length || busy} onClick={exportPage}>
           Export visible page CSV
         </button>
-        <button
-          className="button secondary"
-          disabled={!online || !rows.length || busy || collection.isFetching}
-          onClick={() => void exportAll()}
-        >
-          Queue all matching CSV
-        </button>
       </div>
       {problem !== undefined && <ErrorState error={problem} />}
-      {queued && (
-        <p role="status">
-          CSV export queued. <Link to="/reports/exports">Open export archive</Link> · {queued}
-        </p>
-      )}
       <div className="table-wrap">
         <table className="administration-table">
           <thead>

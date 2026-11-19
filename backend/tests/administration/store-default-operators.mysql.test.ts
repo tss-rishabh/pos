@@ -1,11 +1,9 @@
-import { readFileSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import type { RowDataPacket } from 'mysql2/promise';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../../src/app.js';
 import { testAuthRedis, testSessions } from '../helpers/auth-sessions.js';
 import { seal } from '../../src/auth/crypto.js';
-import { migrationPaths, splitMigration } from '../../src/db/migrations.js';
 import { readConfig } from '../../src/config.js';
 import { readStoreDefaultOperatorOptions } from '../../src/modules/administration/store-default-operators.js';
 import { barcodeFixture } from '../../tools/administration/barcodes/fixture.js';
@@ -68,15 +66,6 @@ describe.skipIf(!template)('actual App native-cookie store default identities', 
       throw new Error('EXPLICIT_OWNED_STORE_DEFAULT_FIXTURE_REQUIRED');
     native = await barcodeFixture(template!);
     await native.fixture.create(['user_stores', 'pos_franchise', 'tss_settings', 'store_counters']);
-    const already = new Set([
-      'src/modules/catalog-details/maintenance-migration.sql',
-      'src/modules/administration/barcodes/migration.sql',
-    ]);
-    for (const file of migrationPaths) {
-      if (already.has(file)) continue;
-      for (const statement of splitMigration(readFileSync(file, 'utf8')))
-        await native.admin.query(statement);
-    }
     config = readConfig({
       NODE_ENV: 'test',
       DEMO_MODE: 'false',

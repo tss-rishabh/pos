@@ -35,8 +35,6 @@ import { registerTerminalDirectory } from './terminal-directory.js';
 import { storeImageService, type StoreImageOptions } from './store-images.js';
 import { FormInvalid, storeFormInput } from './store-form.js';
 import { registerStoreImages } from './store-image-routes.js';
-import { administrationAccessService } from './access-control.js';
-import { registerAdministrationAccess } from './access-routes.js';
 import { operatorAdministrationService, type OperatorAdminOptions } from './operator-admin.js';
 import { registerOperatorAdministration } from './operator-admin-routes.js';
 import { slackConnectionService } from './slack-connections.js';
@@ -225,8 +223,6 @@ export function registerAdministration(
   });
   const mfa = operatorMfaService(config, db, undefined, undefined, ephemeral);
   registerStoreImages(app, storeImages);
-  const access = administrationAccessService(config, db);
-  registerAdministrationAccess(app, access);
   const operatorAdministration = operatorAdministrationService(
     config,
     db,
@@ -1102,7 +1098,6 @@ export function registerAdministration(
     imports,
     mfa,
     storeImages,
-    access,
     operatorAdministration,
     slack,
     locations,

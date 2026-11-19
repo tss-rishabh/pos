@@ -68,7 +68,6 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
               models: [
                 { id: 'operator', label: 'Operator' },
                 { id: 'store', label: 'Store' },
-                { id: 'group', label: 'Group' },
               ],
               pageSize: 100,
               dailyConfigured: true,
@@ -92,7 +91,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
           }
           const input = z
             .object({
-              model: z.enum(['operator', 'store', 'group']),
+              model: z.enum(['operator', 'store']),
               objectId: z.string(),
               from: z.string().nullable(),
               to: z.string().nullable(),
@@ -106,7 +105,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
               resource: {
                 model: input.model,
                 objectId: input.objectId,
-                label: input.model === 'group' ? 'Imported source group' : 'Fixture object',
+                label: 'Fixture object',
               },
               reader:
                 input.from === '2026-11-16' && input.to === '2026-11-16'
@@ -188,22 +187,18 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
       } finally {
         await page.close();
       }
-    },15000);
-    it('selects imported group history and exposes source readiness errors with retry', async () => {
+    }, 15000);
+    it('selects store history and exposes source readiness errors with retry', async () => {
       const page = await browser.newPage();
       try {
         const state = await fixture(page);
-        await page.getByLabel('History model', { exact: true }).selectOption('group');
-        await page
-          .getByLabel('History object ID', { exact: true })
-          .fill('64f6d568-21d5-448c-87bc-e184fd4fcbdc');
+        await page.getByLabel('History model', { exact: true }).selectOption('store');
+        await page.getByLabel('History object ID', { exact: true }).fill('1');
         await page.getByRole('button', { name: 'View history', exact: true }).click();
-        await browserExpect(
-          page.getByRole('heading', { name: 'Imported source group' }),
-        ).toBeVisible();
+        await browserExpect(page.getByRole('heading', { name: 'Fixture object' })).toBeVisible();
         expect(
           state.calls.filter((call) => call.path.endsWith('/search')).at(-1)?.body,
-        ).toMatchObject({ model: 'group', objectId: '64f6d568-21d5-448c-87bc-e184fd4fcbdc' });
+        ).toMatchObject({ model: 'store', objectId: '1' });
         state.fail();
         await page.getByRole('button', { name: 'Today', exact: true }).click();
         await browserExpect(page.getByRole('alert')).toContainText(

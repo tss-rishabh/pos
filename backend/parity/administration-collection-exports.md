@@ -1,3 +1,7 @@
+> **Deleted (19 November 2026).** The administration list "queue all matching CSV" export is removed (user
+> decision N4): legacy has no such job. Lists keep the client-side "Export visible page CSV". This note is
+> historical evidence.
+
 # Current administration collections in the shared export queue
 
 `administration-list` is a date-free kind in the existing `report-exports` API and worker. Its strict resource/sort/column/filter schema is owned by `administration/collection-export-contracts.ts`. It has no `from`/`to` fields and cannot enter a dated report or historical-warehouse branch. Native queue and artifact metadata remain current operational state.

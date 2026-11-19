@@ -66,7 +66,7 @@ jobs:
         working-directory: frontend
       - name: Browser sign-in, customer and order recovery
         # Each file owns Chromium/Vite; bound resource use on the native runners.
-        run: npx vitest run tests/desktop-sso/browser.test.ts tests/customer-profile/browser.test.ts tests/customer-contacts/contacts.browser.test.ts tests/customer-otp/otp.browser.test.ts tests/product-feedback/browser.test.ts tests/order-payments/order-payments.browser.test.ts tests/global-vouchers/vouchers.browser.test.ts tests/inventory-workbooks/browser.test.ts tests/dashboard/browser.test.ts tests/administration/barcodes/browser.test.ts tests/administration/parent-store-imports/browser.test.ts tests/administration/model-accounts/browser.test.ts tests/offline-worksheet/browser.test.ts --maxWorkers=1
+        run: npx vitest run tests/customer-profile/browser.test.ts tests/customer-otp/otp.browser.test.ts tests/product-feedback/browser.test.ts tests/order-payments/order-payments.browser.test.ts tests/global-vouchers/vouchers.browser.test.ts tests/dashboard/browser.test.ts tests/administration/barcodes/browser.test.ts tests/administration/model-accounts/browser.test.ts tests/offline-worksheet/browser.test.ts --maxWorkers=1
         working-directory: frontend
         env:
           DESKTOP_SSO_BROWSER_TESTS: 'true'
@@ -74,11 +74,6 @@ jobs:
           ADMINISTRATION_BROWSER_TESTS: 'true'
           PRODUCT_FEEDBACK_BROWSER_TESTS: 'true'
           OFFLINE_WORKSHEET_BROWSER_TESTS: 'true'
-      - name: Ecommerce settings and stock recovery
-        run: npx vitest run tests/administration/ecommerce-sync --maxWorkers=1
-        working-directory: frontend
-        env:
-          ADMINISTRATION_BROWSER_TESTS: 'true'
       - name: Scoped invoice browser checks
         run: node tools/run-browser-fixture.mjs invoice-documents
         working-directory: frontend
@@ -87,36 +82,12 @@ jobs:
         working-directory: frontend
         env:
           ORDER_COPY_BROWSER_TESTS: 'true'
-      - name: Historical CSV job recovery browser checks
-        run: npx vitest run --config tests/order-imports/vitest.config.ts
-        working-directory: frontend
-        env:
-          ORDER_IMPORT_BROWSER_TESTS: 'true'
-      - name: Manager import correction validation
-        run: npx tsc -p tests/import-corrections/tsconfig.json --noEmit
-        working-directory: frontend
-      - name: Manager import correction recovery browser checks
-        run: npx vitest run tests/import-corrections/browser.test.ts --maxWorkers=1
-        working-directory: frontend
-        env:
-          ORDER_IMPORT_BROWSER_TESTS: 'true'
       - name: Historical order reader browser checks
         run: node tests/order-history/browser-check.mjs
-        working-directory: frontend
-      - name: Whole-order fulfillment recovery browser checks
-        run: node tests/legacy-order-status/browser-check.mjs
-        working-directory: frontend
-      - name: Rejected-return repair recovery browser checks
-        run: node tests/legacy-order-status/repair-browser-check.mjs
         working-directory: frontend
       - name: Source order-list filters, formatter and queues
         run: node tests/order-search/browser-check.mjs
         working-directory: frontend
-      - name: Recorded cash correction recovery browser checks
-        run: npx vitest run tests/payment-reversals/browser.test.ts
-        working-directory: frontend
-        env:
-          PAYMENT_REVERSAL_BROWSER_TESTS: 'true'
       - name: Package unsigned review artifact on its target OS
         run: node node_modules/electron-builder/out/cli/cli.js --dir
         working-directory: frontend

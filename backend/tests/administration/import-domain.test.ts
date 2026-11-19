@@ -7,6 +7,7 @@ import {
   pythonInt,
   pythonJsonDumps,
   pythonRepr,
+  templateInput,
   templates,
   PythonError,
 } from '../../src/modules/administration/import-domain.js';
@@ -45,7 +46,13 @@ describe('inventory CSV source semantics', () => {
     expect(pythonInt(records[0]!.get('SkuId')!)).toBe(1234n);
     expect(pythonInt(records[0]!.get('StoreId')!)).toBe(1n);
   });
-  it('records that IsHold=0 enters the source hold branch (unhold is unreachable)', () => {
+  it('accepts only the stock upload; the product-store upload route is deleted', () => {
+    const body = { name: 'upload.csv', csv: 'SkuId,StoreId,IsActive\n' };
+    expect(csvUploadInput.safeParse({ ...body, type: 'PRODUCT_STORE_CSV' }).success).toBe(false);
+    expect(csvUploadInput.safeParse({ ...body, type: 'PRODUCT_STOCK_CSV' }).success).toBe(true);
+    expect(templateInput.safeParse({ type: 'PRODUCT_STORE_CSV' }).success).toBe(false);
+  });
+  it('records that legacy IsHold=0 enters the hold branch (the rewrite unholds: approved divergence)', () => {
     expect(oracle('stock-csv-branches', [{ isHold: '0', quantity: '2' }])).toEqual([
       { hold: true, unhold: false },
     ]);

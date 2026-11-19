@@ -22,6 +22,16 @@ export function registerOperatorAdministration(
     },
   });
   app.get(
+    '/api/v1/admin/operator-administration/capabilities',
+    trace('operator-administration', 'capabilities'),
+    async (request, reply) => {
+      z.object({}).strict().parse(request.query);
+      return reply
+        .header('Cache-Control', 'private, no-store')
+        .send(await service.capabilities(authenticated(request)));
+    },
+  );
+  app.get(
     '/api/v1/admin/operators/:operatorId/administrative-profile',
     trace('operator-administrative-profile', 'read'),
     async (request, reply) =>

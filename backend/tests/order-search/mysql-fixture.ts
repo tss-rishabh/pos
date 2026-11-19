@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import mysql from 'mysql2/promise';
 import { readConfig } from '../../src/config.js';
 import { createDatabases } from '../../src/db/pools.js';
@@ -47,12 +46,6 @@ export async function orderSearchFixture(template: string) {
       'pos_terminal_transactions',
       'pos_paytm_transactions',
     ]);
-    for (const path of ['src/modules/administration/migration.sql'])
-      for (const statement of readFileSync(path, 'utf8')
-        .replace(/^--.*$/gm, '')
-        .split(';')
-        .filter((value) => value.trim()))
-        await connection.query(statement);
     await connection.query("SET SESSION sql_mode='STRICT_TRANS_TABLES,NO_AUTO_VALUE_ON_ZERO'");
     url.pathname = '/' + schema;
     const config = readConfig({

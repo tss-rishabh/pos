@@ -22,7 +22,10 @@ import { ecommerceInventoryJob } from '../../src/modules/administration/ecommerc
 import {
   importMessages,
   importProgressKey,
+  importProgressTtlSeconds,
+  initialProgress,
 } from '../../src/modules/administration/import-domain.js';
+import { generatedId } from '../../src/db/generated-id.js';
 import { inventoryImportJobs } from '../../src/modules/administration/import-job.js';
 import { memoryCsvUploadStorage } from '../../src/modules/administration/import-storage.js';
 import { inventoryImportService } from '../../src/modules/administration/imports.js';
@@ -111,6 +114,37 @@ describe.skipIf(!template)('inventory CSV and ecommerce jobs on isolated MySQL',
     csv: string,
     user: Principal = admin,
   ) {
+    if (type === 'PRODUCT_STORE_CSV') {
+      // The product-store upload route is deleted (legacy `core/urls.py:11`); job C1 still
+      // processes an upload row that already exists, as the kept legacy Celery task does.
+      const filename = await storage.save(
+        `uploads/csv/Csv-${randomUUID()}.csv`,
+        Buffer.from(csv, 'utf8'),
+      );
+      const id = String(
+        generatedId(
+          await db
+            .get('writer')
+            .insert(CsvUpload)
+            .values({
+              upload_type: 'PRODUCT_STORE_CSV',
+              uploaded_by: BigInt(user.id),
+              filename,
+              is_imported: false,
+              created_at: '2026-06-15 12:00:00',
+              updated_at: '2026-06-15 12:00:00',
+            }),
+        ),
+      );
+      await ephemeral.set(importProgressKey(id), JSON.stringify(initialProgress()), {
+        EX: importProgressTtlSeconds,
+      });
+      return {
+        id,
+        message: importMessages.uploaded,
+        args: { upload_id: id, user_id: user.id, role_id: user.role },
+      };
+    }
     const service = inventoryImportService(config(), db, {
       csvStorage: storage,
       moduleRuntime: { jobs, ephemeral },
@@ -239,19 +273,21 @@ describe.skipIf(!template)('inventory CSV and ecommerce jobs on isolated MySQL',
     ).rejects.toMatchObject({ status: 403 });
   });
 
-  it('holds stock, including IsHold=0, with source logs, procedure call and product sync', async () => {
+  it('holds with IsHold=1 and unholds with IsHold=0 (approved divergence), with source logs, procedure calls and product sync', async () => {
     await seed(ProductStore, { product_id: 11, store_id: 1, stock: 10, is_avail: 1, is_del: 0 });
     const { id, args } = await upload(
       'PRODUCT_STOCK_CSV',
-      stockHeader + '11,1,1,3,,1\n11,1,0,2,0,\n',
+      stockHeader + '11,1,1,3,,1\n11,1,0,2,0,\n11,1,0,5,,\n',
       manager,
     );
     await handlers().productStock(args, context());
+    // Hold 3 (10 -> 7), then unhold 2 back into store stock (7 -> 9) through the legacy
+    // `inward_product_to_store` path; the flags use the association read before the record.
     expect(await rows('SELECT stock,is_avail,is_del FROM product_store')).toEqual([
-      { stock: 5, is_avail: 0, is_del: 1 },
+      { stock: 9, is_avail: 0, is_del: 1 },
     ]);
     expect(await rows('SELECT product_id,store_id,stock FROM hold_stock_store')).toEqual([
-      { product_id: '11', store_id: '1', stock: 5 },
+      { product_id: '11', store_id: '1', stock: 1 },
     ]);
     expect(
       await rows(
@@ -266,9 +302,9 @@ describe.skipIf(!template)('inventory CSV and ecommerce jobs on isolated MySQL',
       },
       {
         stock_before: '3',
-        stock_after: '5',
+        stock_after: '1',
         pos_user_id: '2',
-        comment: 'Hold Stock inventory added into Hold Stock from admin panel .',
+        comment: 'Hold Stock inventory reduced to add into Product inventory.',
       },
     ]);
     expect(procedureCalls).toEqual([
@@ -282,20 +318,36 @@ describe.skipIf(!template)('inventory CSV and ecommerce jobs on isolated MySQL',
       {
         storeId: '1',
         productId: '11',
-        stock: 5,
+        stock: 9,
         operatorId: '2',
-        comment: 'Product inventory added into hold stock.',
+        comment: 'Product inventory added from admin panel from Hold Stock',
       },
     ]);
-    expect(await uploadRow(id)).toMatchObject({
+    const upload_ = await uploadRow(id);
+    expect(upload_).toMatchObject({
       is_imported: 1,
       message: 'Product Stock Data Updated Successfully.',
-      failed_data: '[]',
     });
-    expect(syncs).toEqual([{ productIds: ['11', '11'], operatorId: '2' }]);
+    // Unholding more than is held fails the record with the legacy message (`task_helpers.py:278`).
+    expect(JSON.parse(String(upload_.failed_data))).toEqual([
+      {
+        data: {
+          SkuId: '11',
+          StoreId: '1',
+          IsHold: '0',
+          'Hold/UnholdQty': '5',
+          IsAvailable: '',
+          IsDelete: '',
+        },
+        message: 'Stock not available to unhold.',
+      },
+    ]);
+    expect(syncs).toEqual([
+      { productIds: ['11'], operatorId: '2' },
+      { productIds: ['11', '11'], operatorId: '2' },
+    ]);
     expect(await ephemeral.get(importProgressKey(id))).toBeNull();
   });
-
   it('records source failure messages and keeps the partial writes the source commits', async () => {
     await seed(ProductStore, { product_id: 11, store_id: 1, stock: 1, is_avail: 1, is_del: 0 });
     await seed(ProductStore, { product_id: 99, store_id: 1, stock: 0, is_avail: 1, is_del: 0 });

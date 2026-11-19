@@ -6,8 +6,7 @@ import type { Databases } from '../../db/pools.js';
 import { PosUser, Store } from '../../db/legacy-schema.js';
 import type { Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
-import { assertModelAdministrationPermission } from '../administration/access-control.js';
-import { administrationGroups } from '../administration/access-schema.js';
+import { assertModelAdministrator } from '../administration/model-administration.js';
 import { warehouseService } from '../warehouse.js';
 import {
   administrationHistoryModels,
@@ -42,19 +41,11 @@ const models = {
     appLabel: 'users',
     model: 'posuser',
     label: 'Operator',
-    permissions: ['users.view_posuser', 'users.change_posuser'],
   },
   store: {
     appLabel: 'stores',
     model: 'store',
     label: 'Store',
-    permissions: ['stores.view_store', 'stores.change_store'],
-  },
-  group: {
-    appLabel: 'auth',
-    model: 'group',
-    label: 'Group',
-    permissions: ['auth.view_group', 'auth.change_group'],
   },
 } as const;
 const unavailable = () =>
@@ -90,7 +81,7 @@ export function administrationHistoryService(
   );
   async function authorize(user: Principal, model: Model, objectId?: string) {
     return db.get('writer').transaction(async (tx) => {
-      await assertModelAdministrationPermission(tx, user, models[model].permissions);
+      await assertModelAdministrator(tx, user);
       if (objectId === undefined) return null;
       if (model === 'operator') {
         const [target] = await tx
@@ -112,15 +103,7 @@ export function administrationHistoryService(
         if (!target) throw missing();
         return { id: target.id.toString(), label: target.label || target.id.toString() };
       }
-      const [target] = await tx
-        .select({ id: administrationGroups.legacyId, label: administrationGroups.name })
-        .from(administrationGroups)
-        .where(eq(administrationGroups.id, objectId))
-        .limit(1)
-        .for('share');
-      if (!target) throw missing();
-      if (target.id !== null && !/^[1-9]\d{0,18}$/.test(target.id)) throw invalid();
-      return target;
+      throw missing();
     });
   }
   return {
@@ -148,20 +131,6 @@ export function administrationHistoryService(
         target = (await authorize(user, input.model, input.objectId))!,
         scope = historyReadScope(config, input, clock());
       const resource = { model: input.model, objectId: input.objectId, label: target.label };
-      // New rewrite groups have no source object key; receipts are never presented as Django logs.
-      if (target.id === null)
-        return {
-          resource,
-          reader: 'none' as const,
-          today: scope.today,
-          timeZone: config.BUSINESS_TIMEZONE,
-          provenance: 'django-admin' as const,
-          notice: 'This group was created in the rewrite and has no legacy Django history.',
-          total: '0',
-          ...sourceHistoryPage(input.page, 0n),
-          pageSize: 100,
-          data: [],
-        };
       let total: string, records: z.infer<typeof historyProjection>[];
       if (scope.reader === 'data-reader') {
         if (!dailyConfigured) throw unavailable();

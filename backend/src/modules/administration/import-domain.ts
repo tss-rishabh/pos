@@ -8,6 +8,12 @@ import { identifier } from '../../domain/validation.js';
 export const uploadTypes = ['PRODUCT_STOCK_CSV', 'PRODUCT_STORE_CSV'] as const;
 export const uploadType = z.enum(uploadTypes);
 export type UploadType = z.infer<typeof uploadType>;
+/**
+ * Only the stock upload is reachable. The product-store upload page and route are deleted
+ * (user decision, 19 Nov 2026): legacy `core/urls.py:11` comments its URL out. Its Celery task
+ * stays registered as job C1, as legacy keeps `core/tasks.py:28-37`, for already queued work.
+ */
+export const liveUploadType = z.literal('PRODUCT_STOCK_CSV');
 
 /** Request bound (the JSON body limit); legacy has none. */
 export const maximumImportBytes = 256 * 1024;
@@ -15,7 +21,7 @@ export const maximumImportBytes = 256 * 1024;
 /** Legacy form: `FileField` + `validate_file_extension` (`name.endswith('.csv')`, case-sensitive). */
 export const csvUploadInput = z
   .object({
-    type: uploadType,
+    type: liveUploadType,
     name: z
       .string()
       .min(5)
@@ -39,7 +45,7 @@ export const uploadListInput = z
     limit: z.coerce.number().int().min(1).max(100).default(30),
   })
   .strict();
-export const templateInput = z.object({ type: uploadType }).strict();
+export const templateInput = z.object({ type: liveUploadType }).strict();
 
 /** `ProductsStoreBulkUploadView` / `ProductsStockBulkUploadView` download rows (`core/views.py:146-151,405-411`). */
 export const templates: Record<
@@ -323,6 +329,7 @@ export const importMessages = {
   missing: 'Required parameters are missing.',
   traversal: 'Error while traversing csv data.',
   noHoldStock: 'Stock is not available to hold.',
+  noUnholdStock: 'Stock not available to unhold.',
   /** Rewrite-only: the progress cursor was lost, so the upload is closed instead of re-applied. */
   interrupted:
     'Import was interrupted and has not been resumed. Please upload the remaining records again.',

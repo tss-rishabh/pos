@@ -55,7 +55,6 @@ const OfflineWorksheetPage = lazy(() => import('./pages/offline-worksheet'));
 const OfflineBillingPage = lazy(() => import('./pages/offline-billing'));
 const DashboardPage = lazy(() => import('./pages/dashboard'));
 const BarcodeAssignmentsPage = lazy(() => import('./pages/administration/barcodes'));
-const ParentStoreImportsPage = lazy(() => import('./pages/administration/parent-store-imports'));
 const OperatorModelAccountsPage = lazy(() => import('./pages/administration/model-accounts'));
 const SecondaryCountrySearchPage = lazy(() => import('./pages/administration/secondary-countries'));
 const InventoryPage = lazy(() =>
@@ -245,11 +244,6 @@ const links = [
     icon: UserRound,
     roles: [1],
     internalOnly: true,
-  },
-  {
-    to: '/administration/parent-store-imports',
-    name: 'Product/store assignments',
-    icon: Building2,
   },
   { to: '/documentation', name: 'Help & documents', icon: BookOpen },
   { to: '/application-links', name: 'Application links', icon: QrCode },
@@ -520,10 +514,6 @@ function Workspace({ user }: { user: Principal }) {
                 <Route
                   path="/administration/model-accounts"
                   element={<OperatorModelAccountsPage user={user} />}
-                />
-                <Route
-                  path="/administration/parent-store-imports"
-                  element={<ParentStoreImportsPage user={user} online={sync.online} />}
                 />
                 <Route path="/dashboard" element={<DashboardPage key={user.id} user={user} />} />
                 <Route

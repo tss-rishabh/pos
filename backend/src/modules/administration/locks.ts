@@ -9,7 +9,6 @@ export type AdministrationLockResource =
   | 'documentation'
   | 'settings'
   | 'inventory-imports'
-  | 'access-control'
   | 'gift-card-batches';
 
 /** Ledger `administration/locks`: `pos:lock:admin:{resource}`, SET NX PX, token-checked release. */

@@ -130,16 +130,14 @@ describe.skipIf(process.env.CHECKOUT_ACTIONS_BROWSER_TESTS !== 'true')(
             ).toBeVisible();
           } else if (mode === 'ineligible' || mode === 'wrong-customer') {
             if (mode === 'ineligible')
-              await browserExpect(
-                summary.getByText('Discount', { exact: true }),
-              ).toBeVisible();
+              await browserExpect(summary.getByText('Discount', { exact: true })).toBeVisible();
             else
               await browserExpect(
                 summary.getByText(/Cashback eligibility is unavailable/),
               ).toBeVisible();
-            await browserExpect(summary.getByText('Cashback Earned (₹)', { exact: true })).toHaveCount(
-              0,
-            );
+            await browserExpect(
+              summary.getByText('Cashback Earned (₹)', { exact: true }),
+            ).toHaveCount(0);
           } else if (mode === 'remove') {
             await remove.click();
             await browserExpect(page.getByRole('status', { name: 'Recorded commands' })).toHaveText(

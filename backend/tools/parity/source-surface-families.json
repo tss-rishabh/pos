@@ -6,9 +6,7 @@
       "backend": [
         "backend/src/modules/gift-card-batches/index.ts",
         "backend/src/modules/gift-card-batches/service.ts",
-        "backend/src/modules/gift-card-batches/history.ts",
         "backend/src/modules/gift-card-batches/generation.ts",
-        "backend/src/modules/gift-card-batches/worker.ts",
         "backend/src/modules/gift-card-batches/storage.ts",
         "backend/src/modules/gift-card-batches/delivery.ts"
       ],
@@ -65,13 +63,6 @@
         },
         {
           "$review": true,
-          "path": "backend/src/modules/administration/collection-export.ts",
-          "anchor": "export function administrationCollectionExport(",
-          "scope": "Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle.",
-          "source": false
-        },
-        {
-          "$review": true,
           "path": "backend/src/modules/administration/store-detail-routes.ts",
           "anchor": "export function registerAdministrationStoreDetails(",
           "scope": "Actual selected-store detail/PNG endpoints recheck current native scope and encode only the exact static public marketing URL, not a login/application capability.",
@@ -94,9 +85,7 @@
         "backend/src/modules/administration/store-image-routes.ts",
         "backend/src/modules/administration/ecommerce-sync/index.ts",
         "backend/src/modules/administration/image-lifecycle/service.ts",
-        "backend/src/modules/administration/image-lifecycle/cleanup.ts",
-        "backend/src/modules/administration/image-lifecycle/validation.ts",
-        "backend/src/modules/administration/store-image-worker-main.ts"
+        "backend/src/modules/administration/image-lifecycle/validation.ts"
       ],
       "frontend": ["frontend/src/pages/administration/store-images.tsx"],
       "tests": ["backend/tests/administration", "frontend/tests/administration"],
@@ -121,7 +110,6 @@
         "backend/src/modules/administration/slack-provider.ts",
         "backend/src/modules/administration/slack-connections.ts",
         "backend/src/modules/administration/slack-routes.ts",
-        "backend/src/modules/administration/slack-schema.ts",
         "backend/src/modules/administration/slack-url.ts"
       ],
       "frontend": ["frontend/src/pages/administration/slack-return.ts"],
@@ -221,7 +209,6 @@
       "backend": [
         "backend/src/modules/application-links/index.ts",
         "backend/src/modules/application-links/service.ts",
-        "backend/src/modules/application-links/artifact.ts",
         "backend/src/modules/application-links/domain.ts"
       ],
       "frontend": ["frontend/src/pages/administration/application-links"],
@@ -246,7 +233,6 @@
       "backend": [
         "backend/src/modules/application-links/index.ts",
         "backend/src/modules/application-links/service.ts",
-        "backend/src/modules/application-links/customer-cache.ts",
         "backend/src/modules/application-links/provider.ts",
         "backend/src/modules/application-links/schema.ts"
       ],
@@ -321,13 +307,6 @@
           "anchor": "export function AdministrationCollectionTable",
           "scope": "Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue.",
           "source": false
-        },
-        {
-          "$review": true,
-          "path": "backend/src/modules/administration/collection-export.ts",
-          "anchor": "export function administrationCollectionExport(",
-          "scope": "Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle.",
-          "source": false
         }
       ]
     },
@@ -365,13 +344,6 @@
           "anchor": "export function AdministrationCollectionTable",
           "scope": "Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue.",
           "source": false
-        },
-        {
-          "$review": true,
-          "path": "backend/src/modules/administration/collection-export.ts",
-          "anchor": "export function administrationCollectionExport(",
-          "scope": "Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle.",
-          "source": false
         }
       ]
     },
@@ -408,13 +380,6 @@
           "path": "frontend/src/pages/administration/collection-table.tsx",
           "anchor": "export function AdministrationCollectionTable",
           "scope": "Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue.",
-          "source": false
-        },
-        {
-          "$review": true,
-          "path": "backend/src/modules/administration/collection-export.ts",
-          "anchor": "export function administrationCollectionExport(",
-          "scope": "Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle.",
           "source": false
         }
       ]
@@ -454,23 +419,13 @@
           "anchor": "export function AdministrationCollectionTable",
           "scope": "Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue.",
           "source": false
-        },
-        {
-          "$review": true,
-          "path": "backend/src/modules/administration/collection-export.ts",
-          "anchor": "export function administrationCollectionExport(",
-          "scope": "Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle.",
-          "source": false
         }
       ]
     },
     {
       "id": "operator-mfa",
       "implementation_status": "implementation_present",
-      "backend": [
-        "backend/src/modules/administration/mfa.ts",
-        "backend/src/modules/administration/mfa-schema.ts"
-      ],
+      "backend": ["backend/src/modules/administration/mfa.ts"],
       "frontend": ["frontend/src/pages/administration/mfa.tsx"],
       "tests": ["backend/tests/administration", "frontend/tests/administration"],
       "parity_documents": ["backend/parity/administration.md"],
@@ -511,18 +466,11 @@
     {
       "id": "model-administration-access",
       "implementation_status": "implementation_present",
-      "backend": [
-        "backend/src/modules/administration/access-control.ts",
-        "backend/src/modules/administration/access-domain.ts",
-        "backend/src/modules/administration/access-reconciliation.ts",
-        "backend/src/modules/administration/access-routes.ts",
-        "backend/src/modules/administration/access-schema.ts",
-        "backend/src/modules/administration/group-deletions.ts"
-      ],
-      "frontend": ["frontend/src/pages/administration/access.tsx"],
+      "backend": ["backend/src/modules/administration/model-administration.ts"],
+      "frontend": [],
       "tests": ["backend/tests/administration", "frontend/tests/administration"],
       "parity_documents": ["backend/parity/administration.md"],
-      "implemented_scope": "Source Django UserAdmin staff/superuser flags, groups and direct model permissions; inherited GroupAdmin CRUD/search/permission assignment plus selected-group preview/atomic bulk deletion with optimistic scopes, receipts and deduplicated revocation. Rewrite-owned stable-key catalog/grants with complete verified-source import gate, writer-current permission checks, internal role1 superuser-only privilege mutation, monotonic group revisions and UUID receipts. Native pinned Django32-case permission oracle, isolated SQL and Chromium components; operational auth source reconciliation/full workflow parity remain required.",
+      "implemented_scope": "Groups/permissions administration deleted (user decision 19 Nov 2026, AGENTS.md \"Administration\"): there are no production tables for Django auth groups or grants and legacy never checks them at runtime. Model administration (operator administrative profiles, model accounts, model history) requires a current active internal role-1 staff superuser, rechecked on the writer; POS access stays role/user_type plus store assignment.",
       "remaining_code": [],
       "external_acceptance": [
         "Reconcile the operational auth/group/actor namespace and complete source import/history publication; visible tss.auth_user and pos_user are not interchangeable."
@@ -582,10 +530,7 @@
       "backend": [
         "backend/src/modules/administration/imports.ts",
         "backend/src/modules/administration/import-domain.ts",
-        "backend/src/modules/administration/import-history.ts",
-        "backend/src/modules/administration/import-schema.ts",
-        "backend/src/modules/administration/stock-procedure.ts",
-        "backend/src/modules/administration/worker.ts"
+        "backend/src/modules/administration/stock-procedure.ts"
       ],
       "frontend": ["frontend/src/pages/administration/imports.tsx"],
       "tests": ["backend/tests/administration", "frontend/tests/administration"],
@@ -631,9 +576,7 @@
         "backend/src/modules/administration/support.ts",
         "backend/src/modules/administration/settings.ts",
         "backend/src/modules/administration/settings-domain.ts",
-        "backend/src/modules/administration/settings-outbox.ts",
-        "backend/src/modules/administration/settings-adapters.ts",
-        "backend/src/modules/administration/settings-worker.ts"
+        "backend/src/modules/administration/settings-adapters.ts"
       ],
       "frontend": ["frontend/src/pages/administration/settings.tsx"],
       "tests": ["backend/tests/administration", "frontend/tests/administration"],
@@ -702,9 +645,7 @@
       "backend": [
         "backend/src/modules/administration/documentation.ts",
         "backend/src/modules/administration/media-domain.ts",
-        "backend/src/modules/administration/media-storage.ts",
-        "backend/src/modules/administration/media-cleanup.ts",
-        "backend/src/modules/administration/media-worker.ts"
+        "backend/src/modules/administration/media-storage.ts"
       ],
       "frontend": ["frontend/src/pages/administration/documentation.tsx"],
       "tests": ["backend/tests/administration", "frontend/tests/administration"],
@@ -734,13 +675,6 @@
           "path": "frontend/src/pages/administration/collection-table.tsx",
           "anchor": "export function AdministrationCollectionTable",
           "scope": "Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue.",
-          "source": false
-        },
-        {
-          "$review": true,
-          "path": "backend/src/modules/administration/collection-export.ts",
-          "anchor": "export function administrationCollectionExport(",
-          "scope": "Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle.",
           "source": false
         }
       ]
@@ -939,18 +873,13 @@
       "backend": [
         "backend/src/modules/administration/settings.ts",
         "backend/src/modules/administration/settings-adapters.ts",
-        "backend/src/modules/administration/ecommerce-sync",
-        "backend/src/modules/administration/settings-worker-main.ts"
+        "backend/src/modules/administration/ecommerce-sync"
       ],
       "frontend": [
         "frontend/src/pages/administration/settings.tsx",
         "frontend/src/pages/administration/ecommerce-sync"
       ],
-      "tests": [
-        "backend/tests/administration/ecommerce-sync",
-        "backend/tests/administration/settings.test.ts",
-        "frontend/tests/administration/ecommerce-sync"
-      ],
+      "tests": ["backend/tests/administration/settings.test.ts"],
       "parity_documents": [
         "backend/parity/administration-settings.md",
         "backend/parity/ecommerce-inventory-sync.md"
@@ -1062,10 +991,7 @@
         "backend/src/auth/revocation.ts"
       ],
       "frontend": ["frontend/src/pages/login.tsx"],
-      "tests": [
-        "backend/tests/auth.mysql.integration.test.ts",
-        "backend/tests/otp-delivery.test.ts"
-      ],
+      "tests": ["backend/tests/otp-delivery.test.ts"],
       "parity_documents": [],
       "implemented_scope": "Password/MFA/login OTP, source channel/resend budgets, active-account checks, sessions/logout and monotonic revocation.",
       "remaining_code": [],
@@ -1087,11 +1013,7 @@
         "backend/src/auth/password-policy.ts"
       ],
       "frontend": ["frontend/src/pages/profile"],
-      "tests": [
-        "backend/tests/auth.mysql.integration.test.ts",
-        "backend/tests/profile-image-validation.test.ts",
-        "frontend/tests/administration"
-      ],
+      "tests": ["backend/tests/profile-image-validation.test.ts", "frontend/tests/administration"],
       "parity_documents": [],
       "implemented_scope": "Current operator profile/password/private image lifecycle and self MFA; source-policy password and current actor fences.",
       "remaining_code": [],
@@ -1314,7 +1236,6 @@
       "tests": [
         "backend/tests/checkout-payment-reversals",
         "backend/tests/finance",
-        "frontend/tests/payment-reversals",
         "frontend/tests/order-payments"
       ],
       "parity_documents": [
@@ -1591,7 +1512,7 @@
       "implementation_status": "partial",
       "backend": ["backend/src/modules/customer-contacts"],
       "frontend": ["frontend/src/pages/customer-contacts"],
-      "tests": ["backend/tests/customer-contacts", "frontend/tests/customer-contacts"],
+      "tests": ["backend/tests/customer-contacts"],
       "parity_documents": ["backend/parity/customer-contacts.md"],
       "implemented_scope": "Add-missing mobile/email two-stage verified durable claims, current checkout/contact revision, reference updates and sealed side-effect bridge.",
       "remaining_code": [
@@ -1650,13 +1571,6 @@
       "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
       "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
       "implementation_review": [
-        {
-          "$review": true,
-          "path": "backend/src/modules/invoice-documents/global-proof.ts",
-          "anchor": "export function issueGlobalOnlineInvoiceProof(",
-          "scope": "Explicit genuine paid N access binds authorized context separately from ownerStoreId:null and source issuer policy, current actor/native financial snapshot and complete history proof. Scoped source/native/UI checks do not establish a deployed SDD renderer or legal approval.",
-          "source": false
-        },
         {
           "$review": true,
           "path": "frontend/src/pages/order-history/OnlineOrderDetail.tsx",
@@ -1957,44 +1871,9 @@
       "implementation_review": [
         {
           "$review": true,
-          "path": "frontend/src/pages/operational-reports/performance.tsx",
-          "anchor": "exportKind=\"salesperson-performance\"",
-          "scope": "Actual performance page selects the queued source-screen CSV kind; cashier has its distinct registered kind.",
-          "source": false
-        },
-        {
-          "$review": true,
-          "path": "frontend/src/pages/operational-reports/acceptance.tsx",
-          "anchor": "exportKind=\"hyperlocal-acceptance\"",
-          "scope": "Actual hyperlocal acceptance page exposes the source CSV action through the common private queue.",
-          "source": false
-        },
-        {
-          "$review": true,
-          "path": "frontend/src/pages/operational-reports/report-view.tsx",
-          "anchor": "mutationFn: (variant: 'visible' | 'full')",
-          "scope": "Actual visible-column export binds the submitted result filters/sort and current finite column selection; complete CSV remains a distinct action.",
-          "source": false
-        },
-        {
-          "$review": true,
-          "path": "backend/src/modules/operational-reports/export-presentation.ts",
-          "anchor": "export function reportColumnSelection(",
-          "scope": "Finite per-screen presentation allowlists reject arbitrary SQL/unknown/duplicate columns and preserve source column order.",
-          "source": false
-        },
-        {
-          "$review": true,
           "path": "backend/src/modules/operational-reports/export-service.ts",
           "anchor": "export function reportExportBuilder(",
           "scope": "Actual worker builder dispatches performance/acceptance and selected-screen variants; unmarked full export retains its original query/layout.",
-          "source": false
-        },
-        {
-          "$review": true,
-          "path": "backend/src/modules/operational-reports/screen-report-csv.ts",
-          "anchor": "export function screenReportCsv(",
-          "scope": "Bounded UTF-8 CSV includes all matching rows in selected sort and original visible-column order; no truncated artifact is published.",
           "source": false
         }
       ]
@@ -2018,10 +1897,7 @@
     {
       "id": "scheduled-reports",
       "implementation_status": "implementation_present",
-      "backend": [
-        "backend/src/modules/operational-reports/scheduled-service.ts",
-        "backend/src/modules/operational-reports/scheduled-worker.ts"
-      ],
+      "backend": [],
       "frontend": ["frontend/src/pages/operational-reports"],
       "tests": ["backend/tests/operational-reports"],
       "parity_documents": ["backend/parity/scheduled-reports.md"],
@@ -2041,15 +1917,10 @@
       "implementation_status": "implementation_present",
       "backend": [
         "backend/src/modules/operational-reports/export-service.ts",
-        "backend/src/modules/operational-reports/export-storage.ts",
-        "backend/src/modules/operational-reports/export-worker.ts"
+        "backend/src/modules/operational-reports/export-storage.ts"
       ],
       "frontend": ["frontend/src/pages/operational-reports/exports.tsx"],
-      "tests": [
-        "backend/tests/operational-reports",
-        "backend/tests/inventory-workbooks",
-        "frontend/tests/operational-reports"
-      ],
+      "tests": ["backend/tests/operational-reports", "frontend/tests/operational-reports"],
       "parity_documents": [
         "backend/parity/report-exports.md",
         "backend/parity/export-history.md",
@@ -2086,11 +1957,11 @@
     {
       "id": "inventory-workbooks",
       "implementation_status": "implementation_present",
-      "backend": ["backend/src/modules/inventory-workbooks"],
+      "backend": [],
       "frontend": ["frontend/src/pages/operational-reports/exports.tsx"],
-      "tests": ["backend/tests/inventory-workbooks", "frontend/tests/inventory-workbooks"],
+      "tests": [],
       "parity_documents": ["backend/parity/inventory-workbooks.md"],
-      "implemented_scope": "Literal nine-column per-selected-store workbook pipeline, bounded DATA snapshot, streaming private spool and queued lifecycle; debug task is inlined pass-through.",
+      "implemented_scope": "Deleted rewrite-only current-inventory workbook export (user decision 19 Nov 2026). Legacy reaches it only through a commented-out URL (report/urls.py:26), so no source surface is served.",
       "remaining_code": [],
       "external_acceptance": [
         "Accept actual reader lag/ambiguity reconciliation and private report storage; no live upload or production timing proof is implied."
@@ -2126,22 +1997,11 @@
     {
       "id": "parent-store-assignment-csv",
       "implementation_status": "implementation_present",
-      "backend": [
-        "backend/src/modules/administration/parent-store-imports",
-        "backend/src/modules/administration/import-profile.ts",
-        "backend/src/modules/administration/imports.ts",
-        "backend/src/modules/administration/worker.ts"
-      ],
-      "frontend": [
-        "frontend/src/pages/administration/parent-store-imports.tsx",
-        "frontend/src/pages/administration/imports.tsx"
-      ],
-      "tests": [
-        "backend/tests/administration/parent-store-imports",
-        "frontend/tests/administration/parent-store-imports"
-      ],
+      "backend": ["backend/src/modules/administration/import-job.ts"],
+      "frontend": [],
+      "tests": [],
       "parity_documents": ["backend/parity/parent-store-imports.md"],
-      "implemented_scope": "Active three-column SkuId/StoreId/IsActive parent/store upload and retained task: source global-live family selection, audited row-atomic zero/reset/delete/recreate, strict duplicate-pair correction, durable profiled queue/control/GET recovery and source parent-ID synchronization through existing worker; six-column stock defaults are preserved.",
+      "implemented_scope": "Upload page and route deleted (user decision 19 Nov 2026): legacy comments out the URL (core/urls.py:11). Job C1 core.tasks.parse_csv_product_store stays registered for uploads that already exist, as legacy keeps the Celery task (core/tasks.py:28-37).",
       "remaining_code": [],
       "external_acceptance": [
         "Accept selected atomic stock projection and replay-safe product synchronization, reconcile old pending source uploads/tasks at cutover and publish missing immutable parent-store historical job/row versions. No historical MySQL fallback."
@@ -2302,7 +2162,7 @@
     {
       "id": "order-messages",
       "implementation_status": "implementation_present",
-      "backend": ["backend/src/modules/checkout/order-messages"],
+      "backend": [],
       "frontend": ["frontend/src/pages/checkout/CheckoutReview.tsx"],
       "tests": ["backend/tests/checkout"],
       "parity_documents": ["backend/parity/order-messages.md"],

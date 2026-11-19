@@ -1,3 +1,8 @@
+> **Upload page and route deleted (19 November 2026).** User decision N3: legacy comments the URL out
+> (`core/urls.py:11`). Job C1 `core.tasks.parse_csv_product_store` stays registered for uploads that already
+> exist (`src/modules/administration/import-job.ts`). The rewrite-only audit table described below is gone; see
+> `administration-imports.md`. This note is historical evidence.
+
 # Three-column parent/store assignment imports
 
 Source baseline `78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`: active `ProductsStoreBulkUploadView`, `core/views.py:115–181`; `core/templates/products/store/index.html`; `core/tasks.py:29`; `ProductStoreParseCSV`, `helpers/task_helpers.py:64–173`; `GenericHelper`, `helpers/task_helpers.py:27–62`; `Helpers.live_variant_ids`, `helpers/helpers.py:106–112`. This is the **three-column** `SkuId,StoreId,IsActive` assignment task, separate from six-column held-stock imports, parent-association repair and seven/nine-column catalog exports. Its upload task caller is executable, not commented out.

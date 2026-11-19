@@ -82,11 +82,6 @@ export async function barcodeFixture(connection: string) {
             .join(',')})`,
         );
     }
-    for (const migration of ['src/modules/catalog-details/maintenance-migration.sql'])
-      for (const statement of readFileSync(migration, 'utf8')
-        .split(';')
-        .filter((value) => value.trim()))
-        await admin.query(statement);
     url.pathname = '/' + schema;
     const config = readConfig({
         NODE_ENV: 'test',
@@ -106,14 +101,7 @@ export async function barcodeFixture(connection: string) {
       url: url.href,
       async reset() {
         await admin.query('DROP TRIGGER IF EXISTS reject_barcode_audit');
-        for (const table of [
-          'pos_rewrite_catalog_reconciliations',
-          'pos_rewrite_catalog_deliveries',
-          'pos_rewrite_catalog_commands',
-          ...tables,
-          'pos_rewrite_catalog_locks',
-        ])
-          await admin.query('DELETE FROM ' + mysql.escapeId(table));
+        for (const table of tables) await admin.query('DELETE FROM ' + mysql.escapeId(table));
         for (const [id, role, type, active] of [
           ['900001', 1, 1, 1],
           ['900002', 2, 1, 1],

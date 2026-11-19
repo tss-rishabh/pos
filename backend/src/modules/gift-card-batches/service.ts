@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { Temporal } from '@js-temporal/polyfill';
-import { asc, desc, eq, like, or, sql } from 'drizzle-orm';
+import { asc, desc, eq, like, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
@@ -306,12 +306,13 @@ export function giftCardBatchService(
         created_at: GiftCardCollection.created_at,
       };
       const pattern = giftCardBatchPattern(input.search);
+      // Legacy configures `product__product__icontains | product__id__icontains`
+      // (`core/datatables/gift_card_datatable.py:47-51`), but `gift_card_collection` has no
+      // product relation (`core/models.py:742-757`), so legacy raises FieldError. Kept working
+      // (user decision N7) and limited to the configured fields that exist: the `id` lookup.
+      // The product name has no column here, so it is not searched.
       const condition = input.search
-        ? or(
-            like(sql`CAST(${GiftCardCollection.id} AS CHAR)`, pattern),
-            like(sql`CAST(${GiftCardCollection.size} AS CHAR)`, pattern),
-            like(GiftCardCollection.message, pattern),
-          )
+        ? like(sql`CAST(${GiftCardCollection.id} AS CHAR)`, pattern)
         : undefined;
       const reader = db.get('primary');
       const [tally] = await reader

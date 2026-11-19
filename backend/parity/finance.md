@@ -16,10 +16,10 @@ The finance plugin currently implements twelve resource routes. Daily store sale
 | Eligible cash-ledger stores                       | `GET /api/v1/reports/store-cash-balances/stores`                                             |
 | Glassbox orders reconciliation feed               | `GET /api/v1/finance/reconciliation/orders`, service header `X-API-Key`                      |
 | Cross-store day-close logs/search/latest attempts | `GET /api/v1/reports/day-close-history`; `DayCloseHistoryPage`                               |
-| Complete filtered close-history CSV               | `GET /api/v1/reports/day-close-history/export`                                               |
+| Complete filtered close-history CSV               | Job E5 `report.datatables.day_close_datatable.do_day_close_export` (`report-exports.md`)      |
 | Scheduled pending-close alert                     | `POST /api/v1/webhooks/day-close-alerts`, service header `X-API-Key` using `REPORTS_API_KEY` |
 
-Apply `src/modules/finance/migration.sql` after the shared legacy mapping, administration/check-in, and fulfillment outbox prerequisites. Only rewrite-owned close-command and alert-command idempotency tables are created. Legacy banking/day-close uniqueness and ID generation must match verified source metadata; the runner must never recreate legacy tables.
+Finance creates no tables. Day-close command receipts live in Redis `pos:finance_day_close_cmd:{operatorId}:{commandId}` (`{requestHash, closeId}`, SET NX, 7 days) and alert command receipts in `pos:finance_day_close_alert_cmd:{commandId}` (`{requestHash, result}`, 1 day). The close facts stay in `store_day_close` and `store_day_banking`.
 
 Offline cash was deleted (W7, 19 November 2026). Collection snapshots and the current ledger use the source cash sum (`order_stores.offline_payment`, `COUNT(*)` orders) plus the payment-correction adjustments only. The late-offline-cash ledger note is gone. Historical cash rollups must now acknowledge `BQ_FINANCE_CASH_COLLECTIONS_OFFLINE_CONTRACT=pos-cash-collections-v2` and expose `offline_cash_projection_contract` with that value; the `late_offline_cash` column is no longer read, and the cash-ledger payment-correction baseline hash no longer includes it. See `w7-report.md`.
 
@@ -55,7 +55,7 @@ Cross-store history preserves every attempt or latest-per-store/day filtering, l
 
 Current-day history uses the data reader; historical or mixed-day history uses `BQ_FINANCE_DAY_CLOSES` with full raw close columns required by `history.ts`, labeled `day-close-history`. Current store names and operator usernames are batched metadata reads from the primary reader, not historical financial fallback. Comments/search values/usernames are not logged. Ingress/access logs must also omit query strings because report search can contain sensitive free text.
 
-The pending-alert service derives the last expired business day from the configured close cutoff. It refuses an active close window, checks enabled active stores against authoritative writer closes under store locks, and queues at most one effect set per immutable command ID. The application worker delivers those effects; route responses distinguish queued from delivered. `REPORTS_API_KEY` is required in `X-API-Key` and browser cookies cannot bypass it. Retry receipts remain tied to the original selected day. Local fixtures test concurrent duplicate commands, active-window rejection, filed closes, current rollout rules and request-ID propagation; actual Slack delivery has not been invoked by tests/tools.
+The pending-alert service follows legacy `DayClosePendingAlertView` (`report/views.py:2557-2581`): it alerts the requested `close_date`, defaulting to the last expired business day derived from the close cutoff, with no close-window check (user decision 19 Nov 2026; the earlier `DAY_CLOSE_WINDOW_ACTIVE` refusal is removed). It finds enabled active stores without a valid close for that day and posts Slack synchronously to each store's `slack_group_url`, plus the common channel when `COMMON_GROUP_ALERT_ON` is set, instead of the deleted fulfillment outbox.
 
 ## Cash ledger warehouse contract
 

@@ -442,3 +442,87 @@ the port `buildApp` binds. `tests/administration/checkins.test.ts` and the two c
 - MySQL suites ran on isolated loopback MySQL 8.4 with an empty `sql_mode`, now stopped:
   administration, legacy-fulfillment, fulfillment, return-window, auth, catalog-details and jobs.
   Result: 334 passed, 10 failed. All 10 failures are the pre-existing ones listed above.
+
+## Follow-up (19 November 2026, decisions N1–N7 and merge leftovers)
+
+Commits on `w8/admin-reports-jobs` after `16030d3d`:
+- `a4e78e36` decisions N1–N5 and N7
+- `327e690c` W8 MySQL suites
+- `31858a13` workflow, source-surface and parity references
+
+**N1 — groups/permissions deleted end to end.**
+- Removed:
+  - the routes, service, domain, reconciliation and group-deletion code;
+  - `access-schema.ts` and `access-migration.sql`;
+  - `tools/administration/reconcile-access.ts`;
+  - the "Model access" tab and the operator access button;
+  - the group model in model history;
+  - their tests.
+- `pos_rewrite_administration_{groups,memberships,permissions,group_permissions,direct_permissions,access_reconciliation,access_mutations}`
+  are no longer used.
+- Model administration (operator administrative profiles, model accounts, model history) now requires a current
+  active internal role-1 staff superuser (`administration/model-administration.ts`). Django grants every model
+  permission to a superuser, and those are the only grants left to prove.
+- New `GET /api/v1/admin/operator-administration/capabilities` replaces `/admin/access/capabilities`.
+- Operator-admin and model-account replay receipts moved to Redis `pos:idem:admin_access:{operationId}` (EX 86400).
+  They are checked under the `operators` lock before the transaction and saved only after commit.
+- POS access stays role/user_type plus store assignment.
+
+**N2 — `IsHold` in the stock CSV.**
+- `IsHold=1` holds. `IsHold=0` unholds through legacy `inward_product_to_store`
+  (`order/libs/calculations.py:286-321`) and fails with "Stock not available to unhold." when too little is held.
+- This is an approved divergence: legacy `helpers/task_helpers.py:241` also holds for `IsHold=0`, so its unhold
+  branch `:272-292` is unreachable. Recorded in `administration-imports.md`.
+
+**N3 — product-store CSV upload deleted.** The page, route, nav entry and template input are gone, and upload
+accepts only `PRODUCT_STOCK_CSV`. Job C1 stays registered (contract `JOB_NAMES`), as legacy keeps
+`core/tasks.py:28-37` while `core/urls.py:11` is commented out.
+
+**N4 — administration list "queue all matching CSV" deleted.** Removed `collection-export*.ts`,
+`operational-reports/export-{artifact,format}.ts`, the frontend helper and the button. The visible-page CSV stays.
+
+**N5 — day-close alert window check removed.** `DAY_CLOSE_WINDOW_ACTIVE` is gone, as legacy
+`report/views.py:2557-2581` has no such check.
+
+**N6 — no change.** Franchise users stay limited to their franchise's stores (S45).
+
+**N7 — gift-card search matches `id` only.**
+- Legacy configures `product__product__icontains | product__id__icontains`
+  (`core/datatables/gift_card_datatable.py:47-51`). `gift_card_collection` has no product relation
+  (`core/models.py:742-757`), which is why legacy raises `FieldError`.
+- The search is kept working and limited to the configured fields that exist, which is the `id` lookup.
+  It no longer matches size or message.
+
+**Merge leftovers:**
+- **Retired sessions:** the remaining administration MySQL cases use `tests/helpers/auth-sessions.ts`
+  (`testSessions`, `testAuthRedis`) instead of W3's retired `mysqlSessions`. Their expectations follow W3:
+  - sessions end only on a password change or deactivation;
+  - Django 4.2 PBKDF2 uses 600 000 iterations;
+  - the auth version derives from the account row;
+  - the Redis image reservation is consumed after a successful attach.
+- **`migrations.ts` and migration SQL:** these no longer read `src/db/migrations.ts` or any W8 migration `.sql`:
+  `store-default-operators`, `creator-authority`, `collections`, `administration/mysql.integration`,
+  `application-links`, `administration-history` and `finance` tests, and the barcode, model-account and
+  dashboard fixtures.
+- **Deleted:** all 16 W8 module `.sql` files, plus the now-unused `administration/schema.ts`, `mfa-schema.ts` and
+  `image-lifecycle/{runner,cleanup}.ts`.
+- **One-line fixes outside W8:** removed reads of deleted W8 SQL files in `tests/customer-otp/service.mysql.test.ts`,
+  `tests/order-history/online-detail.mysql.test.ts` and `tests/order-search/mysql-fixture.ts`.
+- **`.github/workflows/desktop-platforms.yml`:** dropped six deleted test paths, and steps whose only targets
+  were deleted (order-imports, import-corrections, legacy-order-status checks, payment-reversals, ecommerce-sync).
+- **`tools/parity/source-surface-families.json`:** dropped absent paths and stale review anchors and recorded the
+  N1/N3 and workbook deletions. `source-surface-map.{json,md}` is regenerated and `--check` passes.
+- **Parity notes:**
+  - rewritten: `report-exports.md`, `scheduled-reports.md`, `export-history.md`, `inventory-workbooks.md`;
+  - updated: `finance.md`, `administration-{access,collection-exports,gift-card-batches,imports}.md`,
+    `parent-store-imports.md`.
+
+**Checks:**
+- Backend `tsc` and `eslint .` pass. Backend `vitest` passes except the two expected `tests/migrations.test.ts` failures.
+- Frontend `tsc`, `eslint .` and `vitest` (292) pass.
+- All W8 MySQL-backed suites pass on isolated MySQL 8.4 (empty `sql_mode`, loopback, now stopped): administration,
+  administration-history, finance, catalog-details, operational-reports, jobs, dashboard and
+  special-permission-history, 76 files / 400 tests.
+
+**Security decision for numbering:** with grants deleted, model administration is limited to staff superusers. Legacy
+also admitted staff users holding Django model grants, which can no longer be read.

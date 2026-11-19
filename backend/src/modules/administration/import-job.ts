@@ -74,6 +74,8 @@ interface RecordOutcome {
   /** Source appends `product_id` when the record ended without a failure. */
   productId: string | null;
   inserts: [string, string][];
+  /** Unhold: legacy `inward_product_to_store` syncs these products right after the record. */
+  syncNow: string[];
 }
 interface ImportScope {
   uploadId: string;
@@ -170,13 +172,74 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
     return rows.map((row) => row.id);
   }
 
+  /**
+   * `inward_product_to_store` (`order/libs/calculations.py:286-321`): add the released quantity to
+   * the store stock, re-list the product (and, for a variant, its live siblings and parent) with
+   * `is_del=0, is_avail=1`, log through the stock procedure, and return the ids to sync.
+   */
+  async function inwardProductToStore(
+    tx: AdministrationTransaction,
+    scope: ImportScope,
+    productId: bigint,
+    storeId: bigint,
+    quantity: bigint,
+    context: JobContext,
+  ) {
+    const [current] = await tx
+      .select({ stock: ProductStore.stock })
+      .from(ProductStore)
+      .where(and(eq(ProductStore.product, productId), eq(ProductStore.store, storeId)))
+      .orderBy(asc(ProductStore.id))
+      .limit(1);
+    const updated = (current ? BigInt(current.stock) : 0n) + quantity;
+    const [product] = await tx
+      .select({ parentId: Product.parent_prod_id })
+      .from(Product)
+      .where(eq(Product.id, productId))
+      .limit(1);
+    let ids: bigint[] = [productId];
+    if (product && product.parentId > 0n) {
+      ids = await liveVariantIds(tx, product.parentId);
+      if (!ids.includes(productId)) ids.push(productId);
+      ids.push(product.parentId);
+    }
+    for (const id of ids) {
+      const where = and(eq(ProductStore.product, id), eq(ProductStore.store, storeId));
+      const [existing] = await tx
+        .select({ id: ProductStore.id })
+        .from(ProductStore)
+        .where(where)
+        .limit(1);
+      if (existing)
+        await tx.update(ProductStore).set({ is_del: false, is_avail: true }).where(where);
+      else
+        await tx
+          .insert(ProductStore)
+          .values({ product: id, store: storeId, stock: 0, is_avail: true, is_del: false });
+    }
+    await syncPosInventory(
+      tx,
+      scope,
+      storeId,
+      [productId],
+      updated,
+      'Product inventory added from admin panel from Hold Stock',
+      context,
+    );
+    await tx
+      .update(ProductStore)
+      .set({ stock: sql`${updated}` })
+      .where(and(eq(ProductStore.product, productId), eq(ProductStore.store, storeId)));
+    return ids.map(String);
+  }
+
   async function productStoreRecord(
     tx: AdministrationTransaction,
     scope: ImportScope,
     record: CsvRecord,
     context: JobContext,
   ): Promise<RecordOutcome> {
-    const outcome: RecordOutcome = { failed: [], productId: null, inserts: [] };
+    const outcome: RecordOutcome = { failed: [], productId: null, inserts: [], syncNow: [] };
     const data = {
       SkuId: record.get('SkuId') ?? null,
       StoreId: record.get('StoreId') ?? null,
@@ -245,7 +308,7 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
     record: CsvRecord,
     context: JobContext,
   ): Promise<RecordOutcome> {
-    const outcome: RecordOutcome = { failed: [], productId: null, inserts: [] };
+    const outcome: RecordOutcome = { failed: [], productId: null, inserts: [], syncNow: [] };
     const data = {
       SkuId: record.get('SkuId') ?? null,
       StoreId: record.get('StoreId') ?? null,
@@ -298,11 +361,50 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
             eq(ProductStore.product, productId),
             eq(ProductStore.store, storeId),
           );
-          // Source `if is_hold != "" and hold_unhold_qty != ""` also catches IsHold=0, so the
-          // unhold `elif` (`helpers/task_helpers.py:265-292`) is unreachable and not reproduced.
-          if (isHold !== '' && quantity !== '') {
-            pythonInt(isHold);
-            const qty = pythonInt(quantity),
+          // Approved divergence (user, 19 Nov 2026; AGENTS.md "Administration"): legacy
+          // `if is_hold != "" and hold_unhold_qty != ""` (`helpers/task_helpers.py:241`) also
+          // matches IsHold=0, so legacy holds stock for IsHold=0 and its unhold `elif`
+          // (`:272-292`) is unreachable. Here a non-zero IsHold holds and IsHold=0 unholds.
+          const hold = isHold !== '' && quantity !== '' ? pythonInt(isHold) : null;
+          if (hold === 0n) {
+            const qty = pythonInt(quantity!);
+            const [held] = await tx
+              .select()
+              .from(HoldStockStore)
+              .where(and(eq(HoldStockStore.product, productId), eq(HoldStockStore.store, storeId)))
+              .orderBy(asc(HoldStockStore.id))
+              .limit(1);
+            if (!held || qty > BigInt(held.stock)) fail(importMessages.noUnholdStock);
+            else {
+              const before = BigInt(held.stock),
+                after = before - qty;
+              await tx
+                .update(HoldStockStore)
+                .set({ stock: sql`${after}` })
+                .where(
+                  and(eq(HoldStockStore.product, productId), eq(HoldStockStore.store, storeId)),
+                );
+              await tx.insert(PosHoldStockLog).values({
+                product_id: productId,
+                store_id: storeId,
+                stock_before: String(before),
+                stock_after: String(after),
+                pos_user_id: BigInt(scope.userId),
+                comment: 'Hold Stock inventory reduced to add into Product inventory.',
+                created_at: scope.now,
+                updated_at: scope.now,
+              });
+              outcome.syncNow = await inwardProductToStore(
+                tx,
+                scope,
+                productId,
+                storeId,
+                qty,
+                context,
+              );
+            }
+          } else if (hold !== null) {
+            const qty = pythonInt(quantity!),
               stock = BigInt(ps.stock);
             if (qty > stock) fail(importMessages.noHoldStock);
             else {
@@ -485,6 +587,8 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
       };
       await ephemeral.set(key, JSON.stringify(progress), { EX: importProgressTtlSeconds });
       await ephemeral.expire(lockKey, lockMs / 1000);
+      if (outcome.syncNow.length)
+        await deps.productSync(outcome.syncNow, { operatorId: args.user_id });
     }
     // Source iterates the reader inside its loop: a malformed line ends the task after the
     // records before it, leaving the upload unimported.

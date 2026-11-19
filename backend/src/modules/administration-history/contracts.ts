@@ -1,7 +1,7 @@
 import { Temporal } from '@js-temporal/polyfill';
 import { z } from 'zod';
 
-export const administrationHistoryModels = ['operator', 'store', 'group'] as const;
+export const administrationHistoryModels = ['operator', 'store'] as const;
 const date = z.iso.date().refine((value) => {
   try {
     return Temporal.PlainDate.from(value).year >= 1000;
@@ -52,11 +52,7 @@ export const historyInput = z
   })
   .strict()
   .superRefine((value, context) => {
-    if (
-      value.model === 'group'
-        ? !z.uuid().safeParse(value.objectId).success
-        : !numericId.safeParse(value.objectId).success
-    )
+    if (!numericId.safeParse(value.objectId).success)
       context.addIssue({
         code: 'custom',
         path: ['objectId'],

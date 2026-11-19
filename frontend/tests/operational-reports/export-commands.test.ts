@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, setRequestOperator } from '../../src/api/client';
 import {
   exportInputSchema,
-  queueAdministrationCollectionExport,
   queueReportExport,
   reportExportInput,
   type ReportExportFilters,
@@ -136,21 +135,6 @@ describe('legacy report export requests (E1-E6)', () => {
     await expect(queueReportExport('10', dayClose)).rejects.toBeInstanceOf(ApiError);
     const fetch = stubFetch({ message: queued });
     await expect(queueReportExport('11', dayClose)).rejects.toMatchObject({ name: 'AbortError' });
-    expect(fetch).not.toHaveBeenCalled();
-  });
-  it('refuses the removed administration list export without calling the API', async () => {
-    const fetch = stubFetch({ message: queued });
-    await expect(
-      queueAdministrationCollectionExport('10', {
-        resource: 'operators',
-        storeIds: [],
-        search: '',
-        active: 'all',
-        sort: 'name',
-        direction: 'asc',
-        columns: ['name'],
-      }),
-    ).rejects.toThrow('Administration list exports are not available.');
     expect(fetch).not.toHaveBeenCalled();
   });
 });

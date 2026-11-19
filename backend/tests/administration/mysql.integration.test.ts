@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { Readable } from 'node:stream';
 import { createHash, randomUUID } from 'node:crypto';
 import { Secret, TOTP } from 'otpauth';
@@ -64,32 +63,13 @@ import { inventoryService } from '../../src/modules/administration/inventory.js'
 import { assertCurrentStoreAccess } from '../../src/modules/administration/authorization.js';
 import type { StockProcedureInput } from '../../src/modules/administration/stock-procedure.js';
 import { operatorMfaService } from '../../src/modules/administration/mfa.js';
-import { operatorMfaEnrollments } from '../../src/modules/administration/mfa-schema.js';
-import type { ImageCleanupEvent } from '../../src/modules/administration/image-lifecycle/cleanup.js';
-import {
-  loginChallenges,
-  loginSecurity,
-  mysqlSessions,
-  operatorAuthEpochs,
-  profileMediaCleanup,
-  profileUploads,
-} from '../helpers/retired-auth.js';
+import { testAuthRedis, testSessions } from '../helpers/auth-sessions.js';
 import { checkInRedis } from '../helpers/check-ins.js';
 import {
   deliverablePincodes,
   locationZones,
 } from '../../src/modules/administration/location-schema.js';
 import type { SlackOAuthProvider } from '../../src/modules/administration/slack-provider.js';
-import { reconcileAdministrationAccess } from '../../src/modules/administration/access-reconciliation.js';
-import {
-  administrationAccessReconciliation,
-  administrationDirectPermissions,
-  administrationGroupPermissions,
-  administrationGroups,
-  administrationMemberships,
-  administrationPermissions,
-} from '../../src/modules/administration/access-schema.js';
-import { assertModelAdministrationPermission } from '../../src/modules/administration/access-control.js';
 import { imageReservationInput } from '../../src/modules/administration/image-lifecycle/domain.js';
 import { operatorAdminProfileInput } from '../../src/modules/administration/operator-admin-domain.js';
 import { goldenStdout } from '../golden/load.js';
@@ -318,19 +298,6 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     await connection.query(
       'ALTER TABLE pos_user MODIFY last_login DATETIME(6) NULL, MODIFY date_joined DATETIME(6) NOT NULL',
     );
-    for (const file of [
-      'src/modules/administration/migration.sql',
-      'src/modules/administration/media-migration.sql',
-      'src/modules/administration/mfa-migration.sql',
-      'src/modules/administration/store-image-migration.sql',
-      'src/modules/administration/access-migration.sql',
-      'src/modules/administration/slack-migration.sql',
-    ])
-      for (const statement of readFileSync(file, 'utf8')
-        .replace(/^--.*$/gm, '')
-        .split(';')
-        .filter((s) => s.trim()))
-        await connection.query(statement);
     url.pathname = '/' + schemaName;
     const config = readConfig({
       NODE_ENV: 'test',
@@ -366,6 +333,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       mediaStore: media,
       storeImageStore,
       operatorImageStore,
+      operatorImageReservations: testAuthRedis,
       slackOAuth: slackProvider,
       productSync: async (products, context) => {
         deliveries.push({ products: [...products], context });
@@ -396,24 +364,6 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     settingsDeliveries.length = 0;
     for (const table of [...tables].reverse())
       await connection.query('DELETE FROM ' + mysql.escapeId(describeTable(table).name));
-    for (const table of [
-      'pos_rewrite_documentation_assets',
-      'pos_rewrite_documentation_revisions',
-      'pos_rewrite_documentation_mutations',
-      'pos_rewrite_operator_mfa_enrollments',
-      'pos_rewrite_operator_mfa_mutations',
-      'pos_rewrite_store_image_uploads',
-      'pos_rewrite_store_image_jobs',
-      'pos_rewrite_administration_permissions',
-      'pos_rewrite_administration_groups',
-      'pos_rewrite_administration_group_permissions',
-      'pos_rewrite_administration_memberships',
-      'pos_rewrite_administration_direct_permissions',
-      'pos_rewrite_administration_access_reconciliation',
-      'pos_rewrite_administration_access_mutations',
-      'pos_rewrite_slack_connections',
-    ])
-      await connection.query('DELETE FROM ' + mysql.escapeId(table));
     for (const id of [1, 2])
       await seed(Store, {
         id,
@@ -1810,7 +1760,8 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       ]);
     expect((await service.products(actor, '1', '%')).data).toEqual([]);
   });
-  async function reconciledAccessFixture() {
+  /** Operator 1 is a current staff superuser; operator 2 is role-1 staff without superuser. */
+  async function modelAdministratorFixture() {
     await db
       .get('writer')
       .update(PosUser)
@@ -1821,52 +1772,6 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       .update(PosUser)
       .set({ role: 1, is_staff: true, is_superuser: false })
       .where(eq(PosUser.id, 2n));
-    const accounts = await db
-      .get('writer')
-      .select({ id: PosUser.id, isStaff: PosUser.is_staff, isSuperuser: PosUser.is_superuser })
-      .from(PosUser);
-    const permissions = [
-      'auth.add_group',
-      'auth.view_group',
-      'auth.change_group',
-      'auth.delete_group',
-      'users.view_posuser',
-      'users.change_posuser',
-      'stores.view_store',
-      'stores.change_store',
-    ].map((key) => {
-      const [appLabel, codename] = key.split('.');
-      return {
-        key,
-        appLabel: appLabel!,
-        codename: codename!,
-        model: codename!.split('_').at(-1)!,
-        name: `Fixture ${key}`,
-      };
-    });
-    const snapshot = {
-      version: 1,
-      sourceVerified: true,
-      sourceFingerprint: 'a'.repeat(64),
-      exportedAt: '2026-11-16T00:00:00Z',
-      permissions,
-      groups: [
-        {
-          legacyId: '10',
-          name: 'Fixture administration readers',
-          permissionKeys: ['auth.view_group', 'stores.view_store'],
-        },
-      ],
-      operators: accounts.map((account) => ({
-        id: String(account.id),
-        isStaff: account.isStaff,
-        isSuperuser: account.isSuperuser,
-        legacyGroupIds: account.id === 2n ? ['10'] : [],
-        permissionKeys: account.id === 2n ? ['users.view_posuser'] : [],
-      })),
-    };
-    await reconcileAdministrationAccess(db, snapshot, { operatorId: '1' });
-    return snapshot;
   }
   async function administrativeProfileInput(operatorId = '4') {
     const current = await services.operatorAdministration.profile(actor, operatorId);
@@ -1890,7 +1795,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     });
   }
   it('edits complete UserAdmin source fields with native username normalization, exact wall dates and safe DTOs', async () => {
-    await reconciledAccessFixture();
+    await modelAdministratorFixture();
     await db
       .get('writer')
       .update(PosUser)
@@ -1907,7 +1812,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       /private-password-hash-canary|PRIVATESEEDCANARY|mfa_hash|profile_image|cover_image/,
     );
     expect(view.json()).toMatchObject({ canEdit: true, canResetPassword: true, mfaEnabled: true });
-    const sessionStore = mysqlSessions(db),
+    const sessionStore = testSessions(applicationConfig, db),
       credential = await sessionStore.create('4');
     const original = await administrativeProfileInput();
     const profile = {
@@ -1954,7 +1859,8 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     expect((await services.operatorAdministration.profile(actor, '4')).username).toBe(
       'floor.fixture',
     );
-    expect(await sessionStore.valid('4', credential)).toBe(false);
+    // Legacy ends sessions only on a password change or deactivation (W3, sessions.ts).
+    expect(await sessionStore.valid('4', credential)).toBe(true);
     const duplicates = { ...(await administrativeProfileInput()), username: 'fixture3' };
     await expect(
       services.operatorAdministration.updateProfile(actor, '4', duplicates),
@@ -1968,28 +1874,24 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
         })
       ).statusCode,
     ).toBe(400);
-    const epoch = (
-      await db
-        .get('writer')
-        .select()
-        .from(operatorAuthEpochs)
-        .where(eq(operatorAuthEpochs.userId, '4'))
-    )[0];
-    expect(epoch?.epoch).toBe(1n);
   });
-  it('rechecks model permissions and self/superuser restrictions for administrative profiles', async () => {
-    await reconciledAccessFixture();
+  it('requires a current staff superuser and refuses self changes for administrative profiles', async () => {
+    await modelAdministratorFixture();
     const update = await administrativeProfileInput(),
       scoped = { ...actor, id: '2' };
-    expect((await services.operatorAdministration.profile(scoped, '4')).canEdit).toBe(false);
+    // Groups/permissions were deleted: a non-superuser staff account has no model access.
+    await expect(services.operatorAdministration.profile(scoped, '4')).rejects.toMatchObject({
+      code: 'MODEL_ADMINISTRATION_DENIED',
+    });
     await expect(
       services.operatorAdministration.updateProfile(scoped, '4', update),
     ).rejects.toMatchObject({ status: 403 });
-    await db
-      .get('writer')
-      .insert(administrationDirectPermissions)
-      .values({ operatorId: '2', permissionKey: 'users.change_posuser' });
-    expect((await services.operatorAdministration.profile(scoped, '4')).canEdit).toBe(true);
+    expect(await services.operatorAdministration.capabilities(scoped)).toEqual({
+      canViewOperators: false,
+    });
+    expect(await services.operatorAdministration.capabilities(actor)).toEqual({
+      canViewOperators: true,
+    });
     await expect(
       services.operatorAdministration.updateProfile(
         actor,
@@ -1997,52 +1899,43 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
         await administrativeProfileInput('1'),
       ),
     ).rejects.toMatchObject({ code: 'SELF_ADMIN_PROFILE_CHANGE_DENIED' });
-    await expect(
-      services.operatorAdministration.updateProfile(
-        scoped,
-        '1',
-        await administrativeProfileInput('1'),
-      ),
-    ).rejects.toMatchObject({ code: 'OPERATOR_ADMIN_TARGET_DENIED' });
+    await db.get('writer').update(PosUser).set({ is_superuser: true }).where(eq(PosUser.id, 2n));
+    expect((await services.operatorAdministration.profile(scoped, '4')).canEdit).toBe(true);
     await db.get('writer').update(PosUser).set({ is_staff: false }).where(eq(PosUser.id, 2n));
     await expect(
       services.operatorAdministration.updateProfile(scoped, '4', update),
     ).rejects.toMatchObject({ status: 403 });
     expect((await services.operatorAdministration.profile(actor, '4')).username).toBe('fixture4');
   });
-  it('permanently revokes authentication on administrative credential changes even after restoring source fields', async () => {
-    await reconciledAccessFixture();
-    const sessions = mysqlSessions(db),
+  it('keeps sessions across identity edits and ends them on deactivation, as legacy', async () => {
+    await modelAdministratorFixture();
+    const sessions = testSessions(applicationConfig, db),
       credential = await sessions.create('4');
     const original = await administrativeProfileInput();
     const changed = { ...original, username: 'different.login' };
     expect(await services.operatorAdministration.updateProfile(actor, '4', changed)).toMatchObject({
       credentialsChanged: true,
     });
+    // Same operation id: the Redis receipt replays the original result.
     expect(await services.operatorAdministration.updateProfile(actor, '4', changed)).toMatchObject({
       credentialsChanged: true,
     });
-    expect(await sessions.valid('4', credential)).toBe(false);
+    await expect(
+      services.operatorAdministration.updateProfile(actor, '4', {
+        ...changed,
+        firstName: 'Different input',
+      }),
+    ).rejects.toMatchObject({ code: 'ADMIN_ACCESS_OPERATION_REUSED' });
+    expect(await sessions.valid('4', credential)).toBe(true);
     await services.operatorAdministration.updateProfile(actor, '4', {
-      ...original,
-      operationId: randomUUID(),
-      expectedVersion: (await services.operatorAdministration.profile(actor, '4')).revision,
+      ...(await administrativeProfileInput()),
+      active: false,
     });
     expect(await sessions.valid('4', credential)).toBe(false);
-    expect(
-      (
-        await db
-          .get('writer')
-          .select()
-          .from(operatorAuthEpochs)
-          .where(eq(operatorAuthEpochs.userId, '4'))
-      )[0]?.epoch,
-    ).toBe(2n);
-    expect(await sessions.valid('4', await sessions.create('4'))).toBe(true);
   });
   it('uses source password policy, current superuser authority and idempotent write-only password resets', async () => {
-    await reconciledAccessFixture();
-    const sessions = mysqlSessions(db),
+    await modelAdministratorFixture();
+    const sessions = testSessions(applicationConfig, db),
       credential = await sessions.create('4');
     const current = await services.operatorAdministration.profile(actor, '4');
     const input = {
@@ -2067,29 +1960,17 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     expect(saved.headers['cache-control']).toBe('no-store');
     expect(saved.body).not.toMatch(/Riv3r|pbkdf2|Cobalt/);
     const [account] = await db.get('writer').select().from(PosUser).where(eq(PosUser.id, 4n));
-    expect(account?.password).toMatch(/^pbkdf2_sha256\$1000000\$/);
+    // Django 4.2 PBKDF2 iterations (W3, S6: `DJANGO_PBKDF2_ITERATIONS`).
+    expect(account?.password).toMatch(/^pbkdf2_sha256\$600000\$/);
     expect(await verifyDjangoPassword(input.newPassword, account!.password)).toBe(true);
     expect(await sessions.valid('4', credential)).toBe(false);
     await services.operatorAdministration.resetPassword(actor, '4', input);
     expect(
       (await db.get('writer').select().from(PosUser).where(eq(PosUser.id, 4n)))[0]?.password,
     ).toBe(account?.password);
-    expect(
-      (
-        await db
-          .get('writer')
-          .select()
-          .from(operatorAuthEpochs)
-          .where(eq(operatorAuthEpochs.userId, '4'))
-      )[0]?.epoch,
-    ).toBe(1n);
-    await db
-      .get('writer')
-      .insert(administrationDirectPermissions)
-      .values({ operatorId: '2', permissionKey: 'users.change_posuser' });
     await expect(
       services.operatorAdministration.resetPassword({ ...actor, id: '2' }, '4', input),
-    ).rejects.toMatchObject({ code: 'OPERATOR_PASSWORD_RESET_DENIED' });
+    ).rejects.toMatchObject({ code: 'MODEL_ADMINISTRATION_DENIED' });
     await expect(
       services.operatorAdministration.resetPassword(actor, '1', {
         ...input,
@@ -2097,12 +1978,9 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       }),
     ).rejects.toMatchObject({ code: 'SELF_ADMIN_PROFILE_CHANGE_DENIED' });
   }, 5000);
-  it('reuses private profile lifecycle for actor-bound managed images and cross-owner cleanup references', async () => {
-    await reconciledAccessFixture();
-    await db
-      .get('writer')
-      .insert(administrationDirectPermissions)
-      .values({ operatorId: '2', permissionKey: 'users.change_posuser' });
+  it('reuses private profile lifecycle for actor-bound managed images', async () => {
+    await modelAdministratorFixture();
+    await db.get('writer').update(PosUser).set({ is_superuser: true }).where(eq(PosUser.id, 2n));
     const scoped = { ...actor, id: '2' },
       service = services.operatorAdministration;
     const current = await service.profile(scoped, '4');
@@ -2125,7 +2003,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       service.images.attach(scoped, '3', input.upload.id, input.revision),
     ).rejects.toMatchObject({ code: 'OPERATOR_ADMIN_UPLOAD_NOT_FOUND' });
     await expect(
-      profileMediaService(applicationConfig, db, operatorImageStore).attach(
+      profileMediaService(applicationConfig, db, operatorImageStore, testAuthRedis).attach(
         { ...actor, id: '4', role: 4 },
         input.upload.id,
         input.revision,
@@ -2138,7 +2016,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     ).rejects.toMatchObject({ status: 400 });
     storeImageBytes = valid;
     await service.images.attach(scoped, '4', input.upload.id, input.revision);
-    await service.images.attach(scoped, '4', input.upload.id, input.revision);
+    // W3's Redis reservation is consumed on success (src/auth/image-reservations.ts).
     actor = scoped;
     const streamed = await app.inject('/api/v1/admin/operators/4/profile/images/image');
     expect(streamed.statusCode).toBe(200);
@@ -2152,686 +2030,13 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       upload: { ...input.upload, id: randomUUID() },
     });
     await service.images.reserve(scoped, '4', replacement);
-    await db
-      .get('writer')
-      .delete(administrationDirectPermissions)
-      .where(eq(administrationDirectPermissions.operatorId, '2'));
+    await db.get('writer').update(PosUser).set({ is_superuser: false }).where(eq(PosUser.id, 2n));
     const verificationCount = storeImageVerifications.length;
     await expect(
       service.images.attach(scoped, '4', replacement.upload.id, replacement.revision),
     ).rejects.toMatchObject({ status: 403 });
     expect(storeImageVerifications).toHaveLength(verificationCount);
-    await db
-      .get('writer')
-      .update(PosUser)
-      .set({ cover_image: `uploads/users/profile_image/${input.upload.id}.png`, is_active: false })
-      .where(eq(PosUser.id, 5n));
-    const uploads = await db.get('writer').select().from(profileUploads);
-    expect(uploads).toHaveLength(2);
-    expect(uploads.every((upload) => upload.ownerId !== '2' && upload.ownerId !== '4')).toBe(true);
-    const events: ImageCleanupEvent[] = [];
-    const worker = profileMediaCleanup(
-      db,
-      operatorImageStore,
-      (event) => events.push(event),
-      () => Date.now() + 17 * 60000,
-    );
-    await worker.runOnce();
-    await worker.stop();
-    expect(storeImageDeletes).toEqual([`uploads/users/profile_image/${replacement.upload.id}.png`]);
-    expect(events.every((event) => event.userId === '2')).toBe(true);
-    expect(JSON.stringify(events)).not.toMatch(/example.test|uploads\/users|Private operator/);
   });
-  it('requires complete verified auth reconciliation and imports grants atomically with stable replay', async () => {
-    await db
-      .get('writer')
-      .update(PosUser)
-      .set({ is_staff: true, is_superuser: true })
-      .where(eq(PosUser.id, 1n));
-    const pending = await app.inject('/api/v1/admin/access/groups');
-    expect(pending.statusCode).toBe(503);
-    expect(pending.json<{ error: { code: string } }>().error.code).toBe(
-      'ADMIN_ACCESS_RECONCILIATION_REQUIRED',
-    );
-    const snapshot = await reconciledAccessFixture();
-    expect(
-      await reconcileAdministrationAccess(
-        db,
-        { ...snapshot, exportedAt: '2026-11-17T00:00:00Z' },
-        { operatorId: '1' },
-      ),
-    ).toMatchObject({ replay: true, counts: { operators: 6, groups: 1 } });
-    await expect(
-      reconcileAdministrationAccess(
-        db,
-        { ...snapshot, sourceFingerprint: 'b'.repeat(64) },
-        { operatorId: '1' },
-      ),
-    ).rejects.toMatchObject({ code: 'ADMIN_ACCESS_ALREADY_RECONCILED' });
-    expect(await db.get('writer').select().from(administrationAccessReconciliation)).toHaveLength(
-      1,
-    );
-    expect(await db.get('writer').select().from(administrationGroups)).toHaveLength(1);
-    expect(await db.get('writer').select().from(administrationMemberships)).toHaveLength(1);
-    expect(await db.get('writer').select().from(administrationDirectPermissions)).toHaveLength(1);
-    const catalog = await app.inject({
-      method: 'POST',
-      url: '/api/v1/admin/access/permissions/search',
-      payload: { search: 'stores.' },
-    });
-    expect(catalog.statusCode).toBe(200);
-    expect(catalog.headers['cache-control']).toBe('private, no-store');
-    expect(catalog.json<{ data: { key: string }[] }>().data.map((row) => row.key)).toEqual([
-      'stores.change_store',
-      'stores.view_store',
-    ]);
-  });
-  it('rejects incomplete/mismatched source access without partial catalog or grant publication', async () => {
-    await db
-      .get('writer')
-      .update(PosUser)
-      .set({ is_staff: true, is_superuser: true })
-      .where(eq(PosUser.id, 1n));
-    const accounts = await db
-      .get('writer')
-      .select({ id: PosUser.id, isStaff: PosUser.is_staff, isSuperuser: PosUser.is_superuser })
-      .from(PosUser);
-    const base = {
-      version: 1,
-      sourceVerified: true,
-      sourceFingerprint: 'a'.repeat(64),
-      exportedAt: '2026-11-16T00:00:00Z',
-      permissions: [
-        {
-          key: 'stores.view_store',
-          appLabel: 'stores',
-          model: 'store',
-          codename: 'view_store',
-          name: 'Can view store',
-        },
-      ],
-      groups: [],
-      operators: accounts.map((account) => ({
-        id: String(account.id),
-        isStaff: account.isStaff,
-        isSuperuser: account.isSuperuser,
-        legacyGroupIds: [],
-        permissionKeys: [],
-      })),
-    };
-    await expect(
-      reconcileAdministrationAccess(
-        db,
-        { ...base, operators: base.operators.slice(1) },
-        { operatorId: '1' },
-      ),
-    ).rejects.toMatchObject({ code: 'ADMIN_ACCESS_SOURCE_MISMATCH' });
-    await expect(
-      reconcileAdministrationAccess(
-        db,
-        {
-          ...base,
-          operators: base.operators.map((operator) =>
-            operator.id === '2' ? { ...operator, isStaff: true } : operator,
-          ),
-        },
-        { operatorId: '1' },
-      ),
-    ).rejects.toMatchObject({ code: 'ADMIN_ACCESS_SOURCE_MISMATCH' });
-    expect(await db.get('writer').select().from(administrationPermissions)).toEqual([]);
-    expect(await db.get('writer').select().from(administrationAccessReconciliation)).toEqual([]);
-  });
-  it('unions current direct/group permissions while restricting privilege mutations and honoring revocation', async () => {
-    await reconciledAccessFixture();
-    const reader: Principal = { ...actor, id: '2', role: 1 };
-    await expect(
-      db
-        .get('writer')
-        .transaction((tx) => assertModelAdministrationPermission(tx, reader, ['auth.view_group'])),
-    ).resolves.toMatchObject({ id: 2n });
-    await expect(
-      db
-        .get('writer')
-        .transaction((tx) =>
-          assertModelAdministrationPermission(tx, reader, ['users.view_posuser']),
-        ),
-    ).resolves.toMatchObject({ id: 2n });
-    await expect(
-      db
-        .get('writer')
-        .transaction((tx) =>
-          assertModelAdministrationPermission(tx, reader, ['stores.change_store']),
-        ),
-    ).rejects.toMatchObject({ code: 'MODEL_ADMINISTRATION_DENIED' });
-    await expect(
-      services.access.saveGroup(reader, undefined, {
-        operationId: randomUUID(),
-        expectedVersion: null,
-        name: 'Escalation denied',
-        permissionKeys: [],
-      }),
-    ).rejects.toMatchObject({ code: 'ADMIN_PRIVILEGE_MUTATION_DENIED' });
-    await db
-      .get('writer')
-      .delete(administrationMemberships)
-      .where(eq(administrationMemberships.operatorId, '2'));
-    await expect(
-      db
-        .get('writer')
-        .transaction((tx) => assertModelAdministrationPermission(tx, reader, ['auth.view_group'])),
-    ).rejects.toMatchObject({ code: 'MODEL_ADMINISTRATION_DENIED' });
-    await db.get('writer').update(PosUser).set({ is_staff: false }).where(eq(PosUser.id, 2n));
-    await expect(
-      db
-        .get('writer')
-        .transaction((tx) =>
-          assertModelAdministrationPermission(tx, reader, ['users.view_posuser']),
-        ),
-    ).rejects.toMatchObject({ code: 'MODEL_ADMINISTRATION_DENIED' });
-  });
-  it('serializes group CRUD, preserves idempotent receipts and refuses stale/deleted or unknown grants', async () => {
-    await reconciledAccessFixture();
-    const input = {
-      operationId: randomUUID(),
-      expectedVersion: null,
-      name: 'Fixture cash supervisors',
-      permissionKeys: ['stores.change_store'],
-    };
-    const created = await services.access.saveGroup(actor, undefined, input);
-    expect(await services.access.saveGroup(actor, undefined, input)).toEqual(created);
-    const first = await services.access.group(actor, created.id);
-    const update = {
-      operationId: randomUUID(),
-      expectedVersion: first.version,
-      name: 'Fixture floor supervisors',
-      permissionKeys: ['stores.view_store'],
-    };
-    await services.access.saveGroup(actor, created.id, update);
-    await expect(
-      services.access.saveGroup(actor, created.id, { ...update, operationId: randomUUID() }),
-    ).rejects.toMatchObject({ code: 'ADMIN_ACCESS_CHANGED' });
-    const current = await services.access.group(actor, created.id);
-    await expect(
-      services.access.saveGroup(actor, created.id, {
-        ...update,
-        expectedVersion: current.version,
-        operationId: randomUUID(),
-        permissionKeys: ['stores.unknown_permission'],
-      }),
-    ).rejects.toMatchObject({ code: 'ADMIN_PERMISSION_NOT_FOUND' });
-    const removed = { operationId: randomUUID(), expectedVersion: current.version };
-    await services.access.deleteGroup(actor, created.id, removed);
-    await expect(services.access.deleteGroup(actor, created.id, removed)).resolves.toMatchObject({
-      status: 'success',
-    });
-    expect(
-      await db
-        .get('writer')
-        .select()
-        .from(administrationGroupPermissions)
-        .where(eq(administrationGroupPermissions.groupId, created.id)),
-    ).toEqual([]);
-    const duplicates = await Promise.allSettled(
-      [0, 1].map(() =>
-        services.access.saveGroup(actor, undefined, { ...input, operationId: randomUUID() }),
-      ),
-    );
-    expect(duplicates.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-    expect(duplicates.filter((result) => result.status === 'rejected')).toHaveLength(1);
-  });
-  it('previews and atomically deletes selected groups, deduplicates operator revocation and replays a single receipt', async () => {
-    await reconciledAccessFixture();
-    const groups = await Promise.all(
-      ['Bulk fixture first', 'Bulk fixture second'].map((name) =>
-        services.access.saveGroup(actor, undefined, {
-          operationId: randomUUID(),
-          expectedVersion: null,
-          name,
-          permissionKeys: ['stores.view_store'],
-        }),
-      ),
-    );
-    const current = await services.access.operator(actor, '4');
-    await services.access.updateOperator(actor, '4', {
-      operationId: randomUUID(),
-      expectedVersion: current.version,
-      isStaff: current.isStaff,
-      isSuperuser: current.isSuperuser,
-      groupIds: groups.map((group) => group.id),
-      permissionKeys: current.permissionKeys,
-    });
-    const enrollmentId = randomUUID();
-    await db
-      .get('writer')
-      .insert(operatorMfaEnrollments)
-      .values({
-        id: enrollmentId,
-        actorId: '4',
-        operatorId: '2',
-        actorVersion: 'a'.repeat(64),
-        operatorVersion: 'b'.repeat(64),
-        sealedSecret: 'synthetic-sealed-value',
-        state: 'PENDING',
-        attempts: 0,
-        expiresAt: '2099-01-01 00:00:00.000',
-        createdAt: '2026-11-16 00:00:00.000',
-      });
-    const sessions = mysqlSessions(db),
-      affected = await sessions.create('4'),
-      unaffected = await sessions.create('5');
-    const before = (
-      await db
-        .get('writer')
-        .select()
-        .from(operatorAuthEpochs)
-        .where(eq(operatorAuthEpochs.userId, '4'))
-    )[0]!.epoch;
-    const response = await app.inject({
-      method: 'POST',
-      url: '/api/v1/admin/access/group-deletion-previews',
-      payload: { groupIds: groups.map((group) => group.id) },
-    });
-    expect(response.statusCode).toBe(200);
-    expect(response.headers['cache-control']).toBe('private, no-store');
-    const preview = response.json<{
-      groups: { id: string; version: string; memberCount: string; permissionCount: number }[];
-      membershipCount: number;
-      permissionAssignmentCount: number;
-      operatorAccountsDeleted: number;
-    }>();
-    expect(preview).toMatchObject({
-      membershipCount: 2,
-      permissionAssignmentCount: 2,
-      operatorAccountsDeleted: 0,
-    });
-    expect(
-      preview.groups.every((group) => group.memberCount === '1' && group.permissionCount === 1),
-    ).toBe(true);
-    const command = {
-      operationId: randomUUID(),
-      groups: preview.groups.map((group) => ({ id: group.id, expectedVersion: group.version })),
-    };
-    const results = await Promise.all([
-      services.access.deleteGroups(actor, command),
-      services.access.deleteGroups(actor, { ...command, groups: [...command.groups].reverse() }),
-    ]);
-    expect(results[0]).toEqual(results[1]);
-    expect(results[0].deletedGroupIds).toEqual(groups.map((group) => group.id).sort());
-    expect(results[0].reauthenticate).toBe(false);
-    expect(
-      (
-        await db
-          .get('writer')
-          .select()
-          .from(operatorAuthEpochs)
-          .where(eq(operatorAuthEpochs.userId, '4'))
-      )[0]!.epoch,
-    ).toBe(before + 1n);
-    expect(await sessions.valid('4', affected)).toBe(false);
-    expect(await sessions.valid('5', unaffected)).toBe(true);
-    expect(
-      (
-        await db
-          .get('writer')
-          .select()
-          .from(operatorMfaEnrollments)
-          .where(eq(operatorMfaEnrollments.id, enrollmentId))
-      )[0]!.state,
-    ).toBe('CANCELLED');
-    expect(
-      await db.get('writer').select({ id: PosUser.id }).from(PosUser).where(eq(PosUser.id, 4n)),
-    ).toHaveLength(1);
-    const [receipt] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT id FROM pos_rewrite_administration_access_mutations WHERE id=?',
-      [command.operationId],
-    );
-    expect(receipt).toHaveLength(1);
-    await expect(
-      services.access.deleteGroups(actor, { ...command, groups: command.groups.slice(0, 1) }),
-    ).rejects.toMatchObject({ code: 'ADMIN_ACCESS_OPERATION_REUSED' });
-  });
-  it('rejects stale membership previews and missing groups without deleting any selected group', async () => {
-    await reconciledAccessFixture();
-    const created = await Promise.all(
-      ['Scope fixture first', 'Scope fixture second'].map((name) =>
-        services.access.saveGroup(actor, undefined, {
-          operationId: randomUUID(),
-          expectedVersion: null,
-          name,
-          permissionKeys: [],
-        }),
-      ),
-    );
-    const ids = created.map((group) => group.id),
-      preview = await services.access.previewGroupDeletion(actor, { groupIds: ids });
-    const current = await services.access.operator(actor, '4');
-    await services.access.updateOperator(actor, '4', {
-      operationId: randomUUID(),
-      expectedVersion: current.version,
-      isStaff: current.isStaff,
-      isSuperuser: current.isSuperuser,
-      groupIds: ids,
-      permissionKeys: current.permissionKeys,
-    });
-    const command = {
-      operationId: randomUUID(),
-      groups: preview.groups.map((group) => ({ id: group.id, expectedVersion: group.version })),
-    };
-    await expect(services.access.deleteGroups(actor, command)).rejects.toMatchObject({
-      code: 'ADMIN_ACCESS_CHANGED',
-    });
-    expect(
-      (await services.access.previewGroupDeletion(actor, { groupIds: ids })).membershipCount,
-    ).toBe(2);
-    await expect(
-      services.access.previewGroupDeletion(actor, { groupIds: [...ids, randomUUID()] }),
-    ).rejects.toMatchObject({ code: 'ADMIN_GROUP_NOT_FOUND' });
-    for (const id of ids)
-      await expect(services.access.group(actor, id)).resolves.toMatchObject({ id });
-    const [receipts] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT id FROM pos_rewrite_administration_access_mutations WHERE id=?',
-      [command.operationId],
-    );
-    expect(receipts).toEqual([]);
-  });
-  it('rolls back all group/M2M writes and audit receipts on a failed selected-group deletion', async () => {
-    await reconciledAccessFixture();
-    const created = await Promise.all(
-      ['Rollback fixture first', 'Rollback fixture second'].map((name) =>
-        services.access.saveGroup(actor, undefined, {
-          operationId: randomUUID(),
-          expectedVersion: null,
-          name,
-          permissionKeys: ['stores.view_store'],
-        }),
-      ),
-    );
-    const ids = created.map((group) => group.id),
-      current = await services.access.operator(actor, '4');
-    await services.access.updateOperator(actor, '4', {
-      operationId: randomUUID(),
-      expectedVersion: current.version,
-      isStaff: current.isStaff,
-      isSuperuser: current.isSuperuser,
-      groupIds: ids,
-      permissionKeys: current.permissionKeys,
-    });
-    const preview = await services.access.previewGroupDeletion(actor, { groupIds: ids }),
-      command = {
-        operationId: randomUUID(),
-        groups: preview.groups.map((group) => ({ id: group.id, expectedVersion: group.version })),
-      };
-    const sessions = mysqlSessions(db),
-      credential = await sessions.create('4');
-    await connection.query(
-      "CREATE TRIGGER tr_group_bulk_reject BEFORE DELETE ON pos_rewrite_administration_groups FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='synthetic group delete rejected'",
-    );
-    try {
-      await expect(services.access.deleteGroups(actor, command)).rejects.toThrow();
-    } finally {
-      await connection.query('DROP TRIGGER tr_group_bulk_reject');
-    }
-    expect(await services.access.previewGroupDeletion(actor, { groupIds: ids })).toEqual(preview);
-    expect(await sessions.valid('4', credential)).toBe(true);
-    const [receipts] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT id FROM pos_rewrite_administration_access_mutations WHERE id=?',
-      [command.operationId],
-    );
-    expect(receipts).toEqual([]);
-    await expect(services.access.deleteGroups(actor, command)).resolves.toMatchObject({
-      status: 'success',
-    });
-  });
-  it('checks current group-deletion privileges, enforces exact selection validation and signals actor reauthentication', async () => {
-    await reconciledAccessFixture();
-    const created = await services.access.saveGroup(actor, undefined, {
-      operationId: randomUUID(),
-      expectedVersion: null,
-      name: 'Actor fixture group',
-      permissionKeys: [],
-    });
-    await db
-      .get('writer')
-      .insert(administrationMemberships)
-      .values({ groupId: created.id, operatorId: '1' });
-    const reader = { ...actor, id: '2' as const };
-    await expect(
-      services.access.previewGroupDeletion(reader, { groupIds: [created.id] }),
-    ).rejects.toMatchObject({ code: 'ADMIN_PRIVILEGE_MUTATION_DENIED' });
-    const preview = await services.access.previewGroupDeletion(actor, { groupIds: [created.id] });
-    for (const groupIds of [
-      [],
-      [created.id, created.id],
-      Array.from({ length: 101 }, () => randomUUID()),
-    ])
-      expect(
-        (
-          await app.inject({
-            method: 'POST',
-            url: '/api/v1/admin/access/group-deletion-previews',
-            payload: { groupIds },
-          })
-        ).statusCode,
-      ).toBe(400);
-    expect(
-      (
-        await app.inject({
-          method: 'POST',
-          url: '/api/v1/admin/access/group-deletion-previews?search=private',
-          payload: { groupIds: [created.id] },
-        })
-      ).statusCode,
-    ).toBe(400);
-    const input = {
-      operationId: randomUUID(),
-      groups: preview.groups.map((group) => ({ id: group.id, expectedVersion: group.version })),
-    };
-    await db.get('writer').update(PosUser).set({ is_superuser: false }).where(eq(PosUser.id, 1n));
-    await expect(services.access.deleteGroups(actor, input)).rejects.toMatchObject({
-      code: 'ADMIN_PRIVILEGE_MUTATION_DENIED',
-    });
-    await db.get('writer').update(PosUser).set({ is_superuser: true }).where(eq(PosUser.id, 1n));
-    const response = await app.inject({
-      method: 'POST',
-      url: '/api/v1/admin/access/group-deletions',
-      payload: input,
-    });
-    expect(response.statusCode).toBe(200);
-    expect(response.json<{ reauthenticate: boolean }>().reauthenticate).toBe(true);
-  });
-  it('updates operator flags/groups/direct grants atomically, invalidates sessions and detects group-version changes', async () => {
-    await reconciledAccessFixture();
-    const sessions = mysqlSessions(db),
-      credential = await sessions.create('4');
-    const current = await services.access.operator(actor, '4');
-    const group = await services.access.saveGroup(actor, undefined, {
-      operationId: randomUUID(),
-      expectedVersion: null,
-      name: 'Fixture store controllers',
-      permissionKeys: ['stores.change_store'],
-    });
-    const input = {
-      operationId: randomUUID(),
-      expectedVersion: current.version,
-      isStaff: true,
-      isSuperuser: false,
-      groupIds: [group.id],
-      permissionKeys: ['users.view_posuser'],
-    };
-    await services.access.updateOperator(actor, '4', input);
-    expect(await sessions.valid('4', credential)).toBe(false);
-    expect(await services.access.updateOperator(actor, '4', input)).toMatchObject({
-      status: 'success',
-    });
-    const assigned = await services.access.operator(actor, '4'),
-      details = await services.access.group(actor, group.id);
-    expect(assigned).toMatchObject({
-      isStaff: true,
-      isSuperuser: false,
-      groupIds: [group.id],
-      permissionKeys: ['users.view_posuser'],
-    });
-    expect(details.memberCount).toBe('1');
-    await services.access.saveGroup(actor, group.id, {
-      operationId: randomUUID(),
-      expectedVersion: details.version,
-      name: details.name,
-      permissionKeys: ['stores.view_store'],
-    });
-    await expect(
-      services.access.updateOperator(actor, '4', {
-        ...input,
-        operationId: randomUUID(),
-        expectedVersion: assigned.version,
-      }),
-    ).rejects.toMatchObject({ code: 'ADMIN_ACCESS_CHANGED' });
-    await expect(
-      services.access.updateOperator(actor, actor.id, {
-        ...input,
-        operationId: randomUUID(),
-        expectedVersion: (await services.access.operator(actor, actor.id)).version,
-      }),
-    ).rejects.toMatchObject({ code: 'SELF_PRIVILEGE_CHANGE_DENIED' });
-    await db.get('writer').update(PosUser).set({ is_superuser: false }).where(eq(PosUser.id, 1n));
-    await expect(
-      services.access.updateOperator(actor, '4', { ...input, operationId: randomUUID() }),
-    ).rejects.toMatchObject({ status: 403 });
-  });
-  it('does not revive old sessions or actor-bound MFA proofs when access flags and groups are restored', async () => {
-    await reconciledAccessFixture();
-    const sessions = mysqlSessions(db),
-      prior = await sessions.create('2'),
-      operator = await services.access.operator(actor, '2');
-    const reader: Principal = { ...actor, id: '2', role: 1 },
-      timestamp = Date.now();
-    const enrollments = operatorMfaService(
-      applicationConfig,
-      db,
-      () => timestamp,
-      async () => 'data:image/png;base64,aGVsbG8=',
-    );
-    const pending = await enrollments.start(reader, '3', {
-      operationId: randomUUID(),
-      expectedVersion: (await enrollments.read(reader, '3')).version,
-    });
-    await db
-      .get('writer')
-      .insert(loginChallenges)
-      .values({
-        id: randomUUID(),
-        userId: '2',
-        proofHash: 'a'.repeat(64),
-        authVersion: 'b'.repeat(64),
-        expiresAt: new Date(timestamp + 600000),
-        sentCount: 0,
-      });
-    await db
-      .get('writer')
-      .insert(loginSecurity)
-      .values({
-        userId: '2',
-        otpHash: 'c'.repeat(64),
-        otpExpiresAt: new Date(timestamp + 600000),
-        failedCount: 3,
-        lockedUntil: new Date(timestamp + 120000),
-        lastSentAt: new Date(timestamp),
-        failureWindowUntil: new Date(timestamp + 3600000),
-      });
-    const input = {
-      operationId: randomUUID(),
-      expectedVersion: operator.version,
-      isStaff: false,
-      isSuperuser: false,
-      groupIds: [],
-      permissionKeys: [],
-    };
-    await services.access.updateOperator(actor, '2', input);
-    const changed = await services.access.operator(actor, '2');
-    await services.access.updateOperator(actor, '2', {
-      operationId: randomUUID(),
-      expectedVersion: changed.version,
-      isStaff: operator.isStaff,
-      isSuperuser: operator.isSuperuser,
-      groupIds: operator.groupIds,
-      permissionKeys: operator.permissionKeys,
-    });
-    expect(await sessions.valid('2', prior)).toBe(false);
-    await expect(
-      enrollments.confirm(reader, '3', pending.id, { code: '123456' }),
-    ).rejects.toMatchObject({ code: 'MFA_ENROLLMENT_EXPIRED' });
-    expect(
-      await db.get('writer').select().from(loginChallenges).where(eq(loginChallenges.userId, '2')),
-    ).toEqual([]);
-    const [budget] = await db
-      .get('writer')
-      .select()
-      .from(loginSecurity)
-      .where(eq(loginSecurity.userId, '2'));
-    expect(budget).toMatchObject({ otpHash: null, otpExpiresAt: null, failedCount: 3 });
-    expect(budget?.lockedUntil?.getTime()).toBe(timestamp + 120000);
-    expect(budget?.lastSentAt?.getTime()).toBe(timestamp);
-    expect(await sessions.valid('2', await sessions.create('2'))).toBe(true);
-  });
-  it('revokes effective group grants across the500-operator batch boundary and keeps no-op saves harmless', async () => {
-    await reconciledAccessFixture();
-    const group = await services.access.saveGroup(actor, undefined, {
-      operationId: randomUUID(),
-      expectedVersion: null,
-      name: 'Bulk fixture operators',
-      permissionKeys: ['stores.view_store'],
-    });
-    const ids = Array.from({ length: 501 }, (_value, index) => String(1000 + index));
-    for (const id of ids)
-      await seed(PosUser, {
-        id: BigInt(id),
-        username: `bulk${id}`,
-        first_name: 'Synthetic',
-        last_name: 'Fixture',
-        role: 5,
-        user_type: 1,
-        is_active: true,
-        is_staff: false,
-        is_superuser: false,
-      });
-    for (let start = 0; start < ids.length; start += 200)
-      await db
-        .get('writer')
-        .insert(administrationMemberships)
-        .values(ids.slice(start, start + 200).map((id) => ({ operatorId: id, groupId: group.id })));
-    const sessions = mysqlSessions(db),
-      first = await sessions.create(ids[0]!),
-      last = await sessions.create(ids.at(-1)!);
-    const detail = await services.access.group(actor, group.id);
-    await services.access.saveGroup(actor, group.id, {
-      operationId: randomUUID(),
-      expectedVersion: detail.version,
-      name: detail.name,
-      permissionKeys: detail.permissionKeys,
-    });
-    expect(await sessions.valid(ids[0]!, first)).toBe(true);
-    await services.access.saveGroup(actor, group.id, {
-      operationId: randomUUID(),
-      expectedVersion: detail.version,
-      name: detail.name,
-      permissionKeys: ['stores.change_store'],
-    });
-    expect(await sessions.valid(ids[0]!, first)).toBe(false);
-    expect(await sessions.valid(ids.at(-1)!, last)).toBe(false);
-    const epochs = await db.get('writer').select().from(operatorAuthEpochs);
-    expect(epochs.filter((epoch) => ids.includes(epoch.userId))).toHaveLength(501);
-    expect(
-      epochs.filter((epoch) => ids.includes(epoch.userId)).every((epoch) => epoch.epoch === 1n),
-    ).toBe(true);
-    const current = await services.access.group(actor, group.id);
-    await services.access.saveGroup(actor, group.id, {
-      operationId: randomUUID(),
-      expectedVersion: current.version,
-      name: detail.name,
-      permissionKeys: detail.permissionKeys,
-    });
-    expect(await sessions.valid(ids[0]!, first)).toBe(false);
-    expect(await sessions.valid(ids.at(-1)!, last)).toBe(false);
-  }, 10000);
   it('returns an exact auto-generated counter ID above the JavaScript safe integer range', async () => {
     const highId = '9007199254740993';
     await connection.query('ALTER TABLE store_counters AUTO_INCREMENT=9007199254740993');
@@ -2857,7 +2062,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       await connection.query('ALTER TABLE store_counters AUTO_INCREMENT=3');
     }
   }, 5000);
-  it('activates an authenticator only after exact source TOTP verification and invalidates existing sessions', async () => {
+  it('activates an authenticator only after exact source TOTP verification, keeping sessions as legacy', async () => {
     let uri = '';
     const timestamp = 1805328000000,
       service = operatorMfaService(
@@ -2869,7 +2074,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
           return 'data:image/png;base64,aGVsbG8=';
         },
       );
-    const sessions = mysqlSessions(db),
+    const sessions = testSessions(applicationConfig, db),
       credential = await sessions.create('4');
     expect(await sessions.valid('4', credential)).toBe(true);
     const current = await service.read(actor, '4'),
@@ -2888,7 +2093,8 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     await expect(service.confirm(actor, '4', id, { code })).resolves.toMatchObject({
       status: 'success',
     });
-    expect(await sessions.valid('4', credential)).toBe(false);
+    // Legacy ends sessions only on a password change or deactivation (W3, sessions.ts).
+    expect(await sessions.valid('4', credential)).toBe(true);
     const [target] = await db.get('writer').select().from(PosUser).where(eq(PosUser.id, 4n));
     expect(target).toMatchObject({ is_mfa: true, mfa_hash: secret });
     await expect(
