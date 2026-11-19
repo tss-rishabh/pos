@@ -43,6 +43,11 @@ export function CartQuoteSummary({
     queryFn: ({ signal }) => readCustomerBenefits(scope, checkout.version, signal),
   });
   const calculations = calculationAmounts(checkout.quote);
+  // updateDiscountLabel (create_order.html:2509-2520): a membership product (prod_type 5) in the
+  // cart relabels "Discount" as "Membership Savings".
+  const hasMembershipProduct = (checkout.cart?.products.items ?? []).some(
+    (item) => Number(item.prod_type) === 5,
+  );
   const customer = current && !benefits.isFetching && !benefits.isError ? benefits.data : undefined;
   return (
     <section className="checkout-quote-summary" aria-label="Quote breakdown">
@@ -60,20 +65,20 @@ export function CartQuoteSummary({
       ) : (
         <>
           <dl>
-            <dt>Cart total</dt>
+            <dt>Cart Total</dt>
             <dd>
               <Amount value={calculations.products_total} />
             </dd>
             {customer?.membership.active ? (
               <>
-                <dt>Membership savings</dt>
+                <dt>Membership Savings</dt>
                 <dd>
                   <Amount value={calculations.exclusive_savings} />
                 </dd>
               </>
             ) : !customerId || customer ? (
               <>
-                <dt>Discount (excluding coupon)</dt>
+                <dt>{hasMembershipProduct ? 'Membership Savings' : 'Discount'}</dt>
                 <dd>
                   <Amount value={checkout.quoteDisplay?.nonCouponDiscount} />
                 </dd>
@@ -87,23 +92,21 @@ export function CartQuoteSummary({
               </>
             )}
 
-            <dt>Store discount (PG)</dt>
+            <dt>Store discount(PG)</dt>
             <dd>
               <Amount value={calculations.used_store_discount_pg} />
             </dd>
-            <dt>TSS Points applied</dt>
-            <dd>
-              <Amount value={calculations.used_tss_points} />
-            </dd>
-            <dt>Coupon discount</dt>
+            <dt>TSS Points Applied</dt>
+            <dd>{quoteAmount(calculations.used_tss_points) ?? 'Unavailable — refresh quote'}</dd>
+            <dt>Coupon Discount</dt>
             <dd>
               <Amount value={calculations.coupon_discount} />
             </dd>
-            <dt>Gift voucher</dt>
+            <dt>Gift Voucher</dt>
             <dd>
               <Amount value={calculations.gift_voucher_value} />
             </dd>
-            <dt>TSS Money applied</dt>
+            <dt>TSS Money Applied</dt>
             <dd>
               <Amount value={calculations.used_tss_money} />
             </dd>
@@ -111,21 +114,21 @@ export function CartQuoteSummary({
             <dd>
               <Amount value={calculations.gst_total} />
             </dd>
-            <dt>Total before rounding</dt>
+            <dt>Total</dt>
             <dd>
               <Amount value={checkout.quoteDisplay?.totalBeforeRounding} />
             </dd>
-            <dt>Rounding value</dt>
+            <dt>Round Off Value</dt>
             <dd>
-              <Amount value={calculations.rounding_off} />
+              -<Amount value={calculations.rounding_off} />
             </dd>
-            <dt>Official payable</dt>
+            <dt>Total Payable (₹)</dt>
             <dd>
               <Amount value={calculations.total} />
             </dd>
             {customer?.app.discountEligible === true && (
               <>
-                <dt>Cashback earned</dt>
+                <dt>Cashback Earned (₹)</dt>
                 <dd>
                   <Amount value={calculations.app_cashback} />
                 </dd>

@@ -119,7 +119,7 @@ describe.skipIf(process.env.CHECKOUT_ACTIONS_BROWSER_TESTS !== 'true')(
             await browserExpect(remove).toBeDisabled();
           } else if (mode === 'cashback') {
             await browserExpect(
-              summary.getByText('Cashback earned', { exact: true }),
+              summary.getByText('Cashback Earned (₹)', { exact: true }),
             ).toBeVisible();
             await browserExpect(summary.getByText('₹20.49', { exact: true })).toBeVisible();
             await browserExpect(
@@ -131,13 +131,13 @@ describe.skipIf(process.env.CHECKOUT_ACTIONS_BROWSER_TESTS !== 'true')(
           } else if (mode === 'ineligible' || mode === 'wrong-customer') {
             if (mode === 'ineligible')
               await browserExpect(
-                summary.getByText('Discount (excluding coupon)', { exact: true }),
+                summary.getByText('Discount', { exact: true }),
               ).toBeVisible();
             else
               await browserExpect(
                 summary.getByText(/Cashback eligibility is unavailable/),
               ).toBeVisible();
-            await browserExpect(summary.getByText('Cashback earned', { exact: true })).toHaveCount(
+            await browserExpect(summary.getByText('Cashback Earned (₹)', { exact: true })).toHaveCount(
               0,
             );
           } else if (mode === 'remove') {
