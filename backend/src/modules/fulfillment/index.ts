@@ -25,7 +25,12 @@ import {
 import { fulfillmentEffects, fulfillmentLogger, type FulfillmentEffects } from './effects.js';
 import { redisCheckIns, type CheckInReader } from './checkin.js';
 import type { OrderRedis } from './order-redis.js';
-import { fulfillmentMonitoring, monitorTabSchema, monitorTabs } from './monitoring.js';
+import {
+  fulfillmentMonitoring,
+  monitoringSelection,
+  monitorTabSchema,
+  monitorTabs,
+} from './monitoring.js';
 import {
   enqueueAdvanceOrderNotification,
   enqueueAutoReject,
@@ -162,7 +167,8 @@ export async function registerFulfillment(
     if ((await checkins.checkedInStore(userId)) !== storeId)
       throw new AppError(403, 'CHECK_IN_REQUIRED', `Check into this store to receive ${purpose}.`);
   }
-  const monitoring = fulfillmentMonitoring(config, db, checkins);
+  const monitoring = fulfillmentMonitoring(config, db, checkins),
+    selection = monitoringSelection(options.redis);
   app.addHook('onClose', async () => {
     await bus.close();
     await effects.idle();
@@ -337,14 +343,32 @@ export async function registerFulfillment(
     { config: trace('store-monitoring-default', 'read') },
     async (request) => {
       z.object({}).strict().parse(request.query);
-      return monitoring.defaults(authenticated(request));
+      // Legacy first GET stores the initial selection in the session (`order/views.py:5412-5414`).
+      const defaults = await monitoring.defaults(authenticated(request));
+      await selection.save(request.authSessionId, request.sessionExpiresAt, defaults.storeIds);
+      return defaults;
+    },
+  );
+  /** Legacy dashboard POST: `request.session['hla_store_ids'] = store ids` (`order/views.py:5442-5444`). */
+  app.put(
+    '/api/v1/fulfillment/store-monitoring/selection',
+    { config: trace('store-monitoring-selection', 'update') },
+    async (request) => {
+      authenticated(request);
+      z.object({}).strict().parse(request.query);
+      const body = z
+        .object({ storeIds: z.array(z.string().regex(/^\d{1,10}$/)).max(5000) })
+        .strict()
+        .parse(request.body);
+      await selection.save(request.authSessionId, request.sessionExpiresAt, body.storeIds);
+      return { storeIds: [...new Set(body.storeIds)] };
     },
   );
   app.get(
     '/api/v1/fulfillment/store-monitoring',
     { config: trace('store-monitoring', 'list') },
     async (request) => {
-      authenticated(request);
+      const user = authenticated(request);
       // Legacy `HLGlobalFilters.from_request` sanitises instead of rejecting.
       const date = z
         .string()
@@ -372,7 +396,6 @@ export async function registerFulfillment(
         .object({
           from: date,
           to: date,
-          storeIds: ids,
           orderIds: ids,
           tab: z.string().max(32).optional(),
           subStatuses: z.string().max(500).optional(),
@@ -385,19 +408,28 @@ export async function registerFulfillment(
         allowed: readonly string[] = monitorTabs[tab],
         page = Math.max(1, Number.parseInt(raw.page ?? '1', 10) || 1),
         size = Number.parseInt(raw.pageSize ?? '25', 10);
-      return monitoring.read({
-        from: raw.from,
-        to: raw.to,
-        storeIds: raw.storeIds.filter((id) => BigInt(id) <= 2147483647n),
-        orderIds: raw.orderIds,
-        tab,
-        subStatuses: (raw.subStatuses ?? '')
-          .split(',')
-          .filter((status) => allowed.includes(status))
-          .map((status) => expressStatusSchema.parse(status)),
-        page,
-        pageSize: ([10, 25, 50, 100, 500] as const).find((value) => value === size) ?? 25,
-      });
+      // The data view reads the store selection from the session only (`order/views.py:5481`).
+      const storeIds = await selection.read(request.authSessionId);
+      return monitoring.read(
+        {
+          from: raw.from,
+          to: raw.to,
+          storeIds: storeIds.filter((id) => BigInt(id) <= 2147483647n),
+          orderIds: raw.orderIds,
+          tab,
+          subStatuses: (raw.subStatuses ?? '')
+            .split(',')
+            .filter((status) => allowed.includes(status))
+            .map((status) => expressStatusSchema.parse(status)),
+          page,
+          pageSize: ([10, 25, 50, 100, 500] as const).find((value) => value === size) ?? 25,
+        },
+        {
+          role: user.role,
+          storeIds: user.storeIds,
+          checkedInStore: await checkins.checkedInStore(user.id),
+        },
+      );
     },
   );
 

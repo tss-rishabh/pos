@@ -8,11 +8,15 @@ import { existsSync, readFileSync } from 'node:fs';
 import { migrationPaths, splitMigration } from '../../src/db/migrations.js';
 import type { Principal } from '../../src/domain/access.js';
 import { AppError } from '../../src/domain/errors.js';
-import { checkInService } from '../../src/modules/administration/checkins.js';
+import { bindCheckInRedis, checkInService } from '../../src/modules/administration/checkins.js';
+import { memoryRedisPort } from '../../src/redis/memory.js';
+
 import { checkoutStateSchema } from '../../src/modules/checkout/contracts.js';
 import { checkoutSessions } from '../../src/modules/checkout/schema.js';
 import { customerHistoryService } from '../../src/modules/customer-history/service.js';
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
+// Check-ins are the legacy Redis keys; bind an in-process port for this file.
+bindCheckInRedis(memoryRedisPort());
 
 describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
   'customer-history writer capture around external reads',

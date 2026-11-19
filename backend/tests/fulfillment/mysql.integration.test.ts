@@ -575,21 +575,37 @@ describe.skipIf(!connection)('fulfillment lifecycle on isolated local MySQL', ()
         tab: 'in_queue' as const,
         page: 99,
         pageSize: 10 as const,
-      };
+      },
+      viewer = { role: user.role, storeIds: user.storeIds, checkedInStore: null };
     expect(await monitor.defaults(user)).toMatchObject({
       from: '2026-11-16',
       to: '2026-11-16',
       storeIds: ['1'],
     });
-    const scoped = await monitor.read({ ...input, storeIds: ['1'] });
+    const scoped = await monitor.read({ ...input, storeIds: ['1'] }, viewer);
     expect(scoped.tabCounts.in_queue).toBe(1);
     expect(scoped.page).toBe(1);
     expect(scoped.data[0]?.lines).toHaveLength(2);
     expect(scoped.data[0]?.storeOrderAmount).toBe(210);
-    const all = await monitor.read({ ...input, from: '2026-11-17', to: '2026-11-15' });
+    const all = await monitor.read({ ...input, from: '2026-11-17', to: '2026-11-15' }, viewer);
     expect(all.total).toBe(2);
     expect(all.data.every((row) => row.isSplit)).toBe(true);
-    expect((await monitor.read({ ...input, from: undefined, to: undefined })).total).toBe(2);
+    // S24: names only for assigned/checked-in stores; role 1 sees every store.
+    expect(all.data.map((row) => [row.storeId, row.customerName]).sort()).toEqual([
+      ['1', 'Fixture'],
+      ['2', 'F*****e'],
+    ]);
+    const checkedIn = await monitor.read(
+      { ...input, from: undefined, to: undefined },
+      { ...viewer, checkedInStore: '2' },
+    );
+    expect(checkedIn.data.every((row) => row.customerName === 'Fixture')).toBe(true);
+    const roleOne = await monitor.read(
+      { ...input, from: undefined, to: undefined },
+      { role: 1, storeIds: [], checkedInStore: null },
+    );
+    expect(roleOne.total).toBe(2);
+    expect(roleOne.data.every((row) => row.customerName === 'Fixture')).toBe(true);
     expect((await monitor.stores()).data.map((store) => store.id)).toEqual(['1', '2']);
     await db()
       .get('writer')
@@ -603,7 +619,7 @@ describe.skipIf(!connection)('fulfillment lifecycle on isolated local MySQL', ()
       new_status: 'PACKED',
       changed_at: '2026-11-16 13:00:00',
     });
-    const packed = await monitor.read({ ...input, tab: 'packed', storeIds: ['1'] });
+    const packed = await monitor.read({ ...input, tab: 'packed', storeIds: ['1'] }, viewer);
     expect(packed.data[0]?.packedAt).toBe('2026-11-16 13:00:00');
     expect(packed.data[0]?.packedSeconds).toBe(1800);
   });

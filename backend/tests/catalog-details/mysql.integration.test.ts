@@ -22,6 +22,11 @@ import {
   inventoryMatrixInput,
 } from '../../src/modules/catalog-details/matrix.js';
 import { goldenStdout } from '../golden/load.js';
+import { bindCheckInRedis } from '../../src/modules/administration/checkins.js';
+import { memoryRedisPort } from '../../src/redis/memory.js';
+
+const checkInRedis = memoryRedisPort();
+bindCheckInRedis(checkInRedis);
 
 const integration = process.env.MYSQL_INTEGRATION_URL;
 const oracleResponse = z.object({
@@ -175,9 +180,9 @@ describe.skipIf(!integration)(
         user_type: 2,
       });
       await fixture.insert('user_stores', { django_user_id: 2, store_id: 1 });
-      await connection.query(
-        "INSERT INTO pos_rewrite_operator_checkins(operator_id,store_id,counter_id,checked_in_at,expires_at) VALUES ('1',2,NULL,'2026-11-16 00:00:00','2099-12-31 23:59:59'),('2',1,NULL,'2026-11-16 00:00:00','2099-12-31 23:59:59')",
-      );
+      // Check-ins are the legacy Redis keys (`check_in_{uid}` = [store_id, name]).
+      await checkInRedis.set('check_in_1', '[2, ""]', { EX: 3600 });
+      await checkInRedis.set('check_in_2', '[1, ""]', { EX: 3600 });
       for (const [id, type] of [
         [1, 'Simple'],
         [3, 'Configurable'],
@@ -628,7 +633,7 @@ describe.skipIf(!integration)(
       const scoped = await catalog.detail(franchise, '10');
       expect(scoped.stores.map((row) => row.id)).toEqual(['1']);
       expect(scoped.stock.every((row) => row.storeId === '1')).toBe(true);
-      await native().query("DELETE FROM pos_rewrite_operator_checkins WHERE operator_id='2'");
+      await checkInRedis.del(['check_in_2']);
       const empty = await catalog.detail(franchise, '10');
       expect(empty.checkInRequired).toBe(true);
       expect(empty.stock).toEqual([]);

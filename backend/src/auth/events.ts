@@ -16,7 +16,6 @@ export const authEventIds = [
   'identity.login-otp.verification-failed',
   'identity.login-otp.totp-unavailable',
   'identity.login-otp.alert-failed',
-  'identity.check-in.mirror-failed',
   'identity.session.logout-check-in-cleanup-failed',
 ] as const;
 export type AuthEventId = (typeof authEventIds)[number];

@@ -35,7 +35,7 @@ import { deviceHandoffOptions, deviceHandoffService } from './auth/device-handof
 import { redisDeviceHandoffStore } from './auth/device-handoff-store.js';
 import { registerDeviceHandoffs } from './auth/device-handoff-routes.js';
 import { registerProfileMedia } from './auth/profile-media-routes.js';
-import { checkInService } from './modules/administration/checkins.js';
+import { bindCheckInRedis } from './modules/administration/checkins.js';
 import { createProductSyncAdapter } from './modules/administration/product-sync.js';
 import { readAdministrationWorkerOptions } from './modules/administration/worker-options.js';
 import { createSettingsDelivery } from './modules/administration/settings-adapters.js';
@@ -185,6 +185,8 @@ export async function buildApp(
       : config.REDIS_URL
         ? connectRedisPort(config.REDIS_URL, config.NODE_ENV)
         : unavailableRedisPort());
+  // Check-ins are the legacy `check_in_{uid}` / `check_in_list_{store}` keys login writes.
+  bindCheckInRedis(authRedis);
   const db = createDatabases(config),
     identity = identityService(config, db, authEvents);
   // W4: one Redis-backed store for checkout, returns and payments state. The job producer is
@@ -305,7 +307,6 @@ export async function buildApp(
       },
     });
   });
-  const checkins = checkInService(db, config);
   const sessions = redisSessions(
     config,
     config.DEMO_MODE ? demoAccountReader(demoUser) : activeAccountReader(db),
@@ -338,11 +339,6 @@ export async function buildApp(
     checkIns: loginCheckIn,
     log: authEvents,
     demoUser,
-    // Interim: keep the administration check-in record in step until it reads the legacy keys.
-    mirrorCheckIn: config.DEMO_MODE
-      ? undefined
-      : (user, storeId) =>
-          storeId === '0' ? checkins.clear(user) : checkins.set(user, storeId, null),
   });
   app.addHook('onClose', async () => {
     await otpDelivery.drain();

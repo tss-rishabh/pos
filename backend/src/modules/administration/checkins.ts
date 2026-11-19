@@ -1,68 +1,83 @@
 import { Temporal } from '@js-temporal/polyfill';
-import { and, eq, exists, gt, inArray, or } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
+import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
-import { PosUser, Store, StoreCounter, UserStore } from '../../db/legacy-schema.js';
-import { requireStore, type Principal } from '../../domain/access.js';
+import { Store, StoreCounter } from '../../db/legacy-schema.js';
+import type { Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
-import { operatorCheckIns } from './schema.js';
+import { authKeys } from '../../auth/keys.js';
+import { loginCheckIns, storeDirectory } from '../../auth/checkin.js';
+import type { RedisPort } from '../../redis/port.js';
+import { connectRedisPort } from '../../redis/node-client.js';
 import { assertCurrentStoreAccess } from './authorization.js';
 
 export type AdministrationTransaction = Parameters<
   Parameters<ReturnType<Databases['get']>['transaction']>[0]
 >[0];
-function sqlInstant(value: Temporal.Instant) {
-  return value
-    .toZonedDateTimeISO('UTC')
-    .toPlainDateTime()
-    .toString({ smallestUnit: 'millisecond' })
-    .replace('T', ' ');
+/** Instant at which a check-in made `now` expires: legacy `time_until_end_of_day() - 1`. */
+export function checkInExpiry(now = Temporal.Now.instant(), zone = 'Asia/Kolkata') {
+  return now.add({ seconds: checkInSeconds(now, zone) });
 }
-function expiredCheckIn(row: Pick<typeof operatorCheckIns.$inferSelect, 'expiresAt'> | undefined) {
-  return (
-    !row ||
-    Temporal.Instant.compare(
-      Temporal.PlainDateTime.from(row.expiresAt.replace(' ', 'T'))
-        .toZonedDateTime('UTC')
-        .toInstant(),
-      Temporal.Now.instant(),
-    ) <= 0
+/** Legacy `Helpers.time_until_end_of_day() - 1` (`helpers/helpers.py:759-765`, `core/views.py:2421`). */
+export function checkInSeconds(now = Temporal.Now.instant(), zone = 'Asia/Kolkata') {
+  const local = now.toZonedDateTimeISO(zone);
+  return Math.max(
+    1,
+    (24 - local.hour - 1) * 3600 + (60 - local.minute - 1) * 60 + (60 - local.second) - 1,
   );
 }
-export function checkInExpiry(now = Temporal.Now.instant(), zone = 'Asia/Kolkata') {
-  const local = now.toZonedDateTimeISO(zone);
-  const seconds =
-    (24 - local.hour - 1) * 3600 + (60 - local.minute - 1) * 60 + (60 - local.second) - 1;
-  return now.add({ seconds });
+
+/**
+ * The check-in store lives only in the legacy Redis keys that login (W3) and a running legacy
+ * app write: `check_in_{uid}` = JSON `[store_id, "store name"]` until the end of the business
+ * day, and `check_in_list_{store}` = operator ids (`helpers/helpers.py:794-812`). The rewrite-only
+ * `pos_rewrite_operator_checkins` table is no longer read or written.
+ *
+ * `buildApp` binds the authentication Redis port here; otherwise one client per `REDIS_URL`
+ * is created lazily. Without either, every check-in read is refused (503).
+ */
+let bound: RedisPort | undefined;
+const shared = new Map<string, RedisPort>();
+export function bindCheckInRedis(port: RedisPort | undefined) {
+  bound = port;
 }
-export function checkInService(db: Databases, config: Pick<Config, 'BUSINESS_TIMEZONE'>) {
-  function currentCheckInAuthorization(database: Pick<ReturnType<Databases['get']>, 'select'>) {
-    return and(
-      or(eq(PosUser.user_type, 1), and(eq(PosUser.user_type, 2), eq(Store.category, 'FRANCHISE'))),
-      or(
-        and(eq(PosUser.role, 1), eq(PosUser.user_type, 1)),
-        exists(
-          database
-            .select({ id: UserStore.id })
-            .from(UserStore)
-            .where(
-              and(
-                eq(UserStore.django_user_id, PosUser.id),
-                eq(UserStore.store_id, operatorCheckIns.storeId),
-              ),
-            ),
-        ),
-      ),
-    );
+function checkInRedis(config: Partial<Pick<Config, 'REDIS_URL' | 'NODE_ENV'>>): RedisPort | null {
+  if (bound) return bound;
+  if (!config.REDIS_URL) return null;
+  let port = shared.get(config.REDIS_URL);
+  if (!port) {
+    port = connectRedisPort(config.REDIS_URL, config.NODE_ENV ?? 'production');
+    shared.set(config.REDIS_URL, port);
   }
-  async function currentStoreAccess(
-    userId: string,
-    storeId: string,
-    transaction: AdministrationTransaction,
-    storeLock: 'share' | 'update' = 'update',
-  ) {
-    return assertCurrentStoreAccess(transaction, userId, storeId, undefined, storeLock);
+  return port;
+}
+const unavailable = () =>
+  new AppError(503, 'CHECK_IN_UNAVAILABLE', 'Store check-in is temporarily unavailable.');
+const legacyValue = z.tuple([z.union([z.number().int(), z.string().regex(/^\d+$/)]), z.unknown()]);
+/** Legacy `Helpers.get_checkin_data` (`helpers/helpers.py:1235-1240`): `[0, ""]` when absent. */
+export function parseCheckInValue(raw: string | null): string | null {
+  if (raw === null) return null;
+  try {
+    const parsed = legacyValue.safeParse(JSON.parse(raw));
+    if (!parsed.success) return null;
+    const id = String(parsed.data[0]);
+    return id === '0' ? null : id;
+  } catch {
+    return null;
   }
+}
+
+export function checkInService(
+  db: Databases,
+  config: Pick<Config, 'BUSINESS_TIMEZONE'> & Partial<Pick<Config, 'REDIS_URL' | 'NODE_ENV'>>,
+  redis?: RedisPort,
+) {
+  const port = () => {
+    const value = redis ?? checkInRedis(config);
+    if (!value) throw unavailable();
+    return value;
+  };
   async function activeCounter(
     storeId: string,
     counterId: string,
@@ -83,11 +98,7 @@ export function checkInService(db: Databases, config: Pick<Config, 'BUSINESS_TIM
     if (!counter)
       throw new AppError(409, 'COUNTER_UNAVAILABLE', 'Select an active counter in this store.');
   }
-  async function activeScope(
-    storeId: string,
-    counterId: string | null,
-    transaction: AdministrationTransaction,
-  ) {
+  async function activeStore(storeId: string, transaction: AdministrationTransaction) {
     const [store] = await transaction
       .select({ id: Store.id })
       .from(Store)
@@ -102,130 +113,61 @@ export function checkInService(db: Databases, config: Pick<Config, 'BUSINESS_TIM
       .for('share');
     if (!store)
       throw new AppError(409, 'STORE_UNAVAILABLE', 'Select an active store or core warehouse.');
-    if (counterId) await activeCounter(storeId, counterId, transaction);
+  }
+  async function storeOf(userId: string): Promise<string | null> {
+    return parseCheckInValue(await port().get(authKeys.checkIn(userId)));
+  }
+  async function record(userId: string, storeId: string) {
+    await loginCheckIns(storeDirectory(db), port()).record(
+      userId,
+      storeId,
+      checkInSeconds(Temporal.Now.instant(), config.BUSINESS_TIMEZONE),
+    );
+  }
+  async function expiresAt(userId: string) {
+    const ttl = await port().pTtl(authKeys.checkIn(userId));
+    return ttl > 0 ? Temporal.Now.instant().add({ milliseconds: ttl }).toString() : null;
   }
   return {
-    async checkedInStore(userId: string): Promise<string | null> {
-      const database = db.get('writer');
-      const [row] = await database
-        .select({ storeId: operatorCheckIns.storeId })
-        .from(operatorCheckIns)
-        .innerJoin(PosUser, eq(PosUser.id, BigInt(userId)))
-        .innerJoin(Store, eq(Store.id, operatorCheckIns.storeId))
-        .where(
-          and(
-            eq(operatorCheckIns.operatorId, userId),
-            gt(operatorCheckIns.expiresAt, sqlInstant(Temporal.Now.instant())),
-            eq(PosUser.is_active, true),
-            inArray(PosUser.role, [1, 2, 3, 4, 5]),
-            eq(Store.is_active, true),
-            inArray(Store.type, ['STORE', 'CORE_WAREHOUSE']),
-            currentCheckInAuthorization(database),
-          ),
-        )
-        .limit(1);
-      return row ? String(row.storeId) : null;
-    },
+    /** The operator's checked-in store id, or null for none / "Not at the store" (store 0). */
+    checkedInStore: storeOf,
+    /** Legacy `Helpers.get_checked_in_user` (`helpers/helpers.py:815-823`). */
     async checkedInUsers(storeId: string): Promise<string[]> {
-      const database = db.get('writer');
-      const rows = await database
-        .select({ operatorId: operatorCheckIns.operatorId })
-        .from(operatorCheckIns)
-        .innerJoin(PosUser, eq(PosUser.id, operatorCheckIns.operatorId))
-        .innerJoin(Store, eq(Store.id, operatorCheckIns.storeId))
-        .where(
-          and(
-            eq(operatorCheckIns.storeId, BigInt(storeId)),
-            gt(operatorCheckIns.expiresAt, sqlInstant(Temporal.Now.instant())),
-            eq(PosUser.is_active, true),
-            inArray(PosUser.role, [1, 2, 3, 4, 5]),
-            eq(Store.is_active, true),
-            inArray(Store.type, ['STORE', 'CORE_WAREHOUSE']),
-            currentCheckInAuthorization(database),
-          ),
-        );
-      return rows.map((row) => row.operatorId);
+      if (BigInt(storeId) <= 0n) return [];
+      return (await port().lRange(authKeys.checkInList(storeId), 0, -1)).filter((id) =>
+        /^\d+$/.test(id),
+      );
     },
+    /** Legacy `AjaxGetCheckindataView` check-in id (`core/views.py:2399-2400`). */
     async current(user: Principal) {
-      const [hint] = await db
-        .get('writer')
-        .select()
-        .from(operatorCheckIns)
-        .where(eq(operatorCheckIns.operatorId, user.id))
-        .limit(1);
-      if (!hint || expiredCheckIn(hint)) return null;
-      requireStore(user, String(hint.storeId));
-      try {
-        // This method owns its transaction, so the unlocked hint consumes no
-        // transaction/pool slot while waiting. It grants no authority and is
-        // compared with a current locked row after the authority prefix.
-        return await db.get('writer').transaction(async (tx) => {
-          await currentStoreAccess(user.id, String(hint.storeId), tx, 'share');
-          await activeScope(
-            String(hint.storeId),
-            hint.counterId === null ? null : String(hint.counterId),
-            tx,
-          );
-          const [row] = await tx
-            .select()
-            .from(operatorCheckIns)
-            .where(eq(operatorCheckIns.operatorId, user.id))
-            .limit(1)
-            .for('share');
-          if (
-            !row ||
-            row.storeId !== hint.storeId ||
-            row.counterId !== hint.counterId ||
-            expiredCheckIn(row)
-          )
-            return null;
-          return {
-            storeId: String(row.storeId),
-            counterId: row.counterId === null ? null : String(row.counterId),
-            expiresAt: Temporal.PlainDateTime.from(row.expiresAt.replace(' ', 'T'))
-              .toZonedDateTime('UTC')
-              .toInstant()
-              .toString(),
-          };
-        });
-      } catch (error) {
-        if (error instanceof AppError && [401, 403, 409].includes(error.status)) return null;
-        throw error;
-      }
+      const storeId = await storeOf(user.id);
+      if (!storeId) return null;
+      return { storeId, counterId: null, expiresAt: await expiresAt(user.id) };
     },
+    /**
+     * Legacy `AjaxSetCheckindataView` (`core/views.py:2406-2425`): `user_can_check_in` (STORE or
+     * CORE_WAREHOUSE, closed stores allowed, assigned unless role 1), then `set_check_in_store`
+     * until the end of the business day. Legacy check-ins carry no counter; `counterId` is ignored.
+     */
     async set(
       user: Principal,
       storeId: string,
-      counterId: string | null,
-      transaction?: AdministrationTransaction,
+      _counterId: string | null,
+      _transaction?: AdministrationTransaction,
     ) {
-      requireStore(user, storeId);
-      const save = async (transaction: AdministrationTransaction) => {
-        await currentStoreAccess(user.id, storeId, transaction);
-        await activeScope(storeId, counterId, transaction);
-        const now = Temporal.Now.instant(),
-          expires = checkInExpiry(now, config.BUSINESS_TIMEZONE);
-        const record = {
-          operatorId: user.id,
-          storeId: BigInt(storeId),
-          counterId: counterId ? BigInt(counterId) : null,
-          expiresAt: sqlInstant(expires),
-          checkedInAt: sqlInstant(now),
-        };
-        await transaction
-          .insert(operatorCheckIns)
-          .values(record)
-          .onDuplicateKeyUpdate({ set: record });
-        return { storeId, counterId, expiresAt: expires.toString() };
-      };
-      return transaction ? save(transaction) : db.get('writer').transaction(save);
+      if (!(await loginCheckIns(storeDirectory(db), port()).allowed(user.id, user.role, storeId)))
+        throw new AppError(403, 'STORE_ACCESS_DENIED', 'You are not assigned to this store');
+      await record(user.id, storeId);
+      return { storeId, counterId: null, expiresAt: await expiresAt(user.id) };
     },
+    /** "Not at the store": legacy check-in to store 0 (`helpers/helpers.py:782-783`). */
     async clear(user: Principal) {
-      await db
-        .get('writer')
-        .delete(operatorCheckIns)
-        .where(eq(operatorCheckIns.operatorId, user.id));
+      await record(user.id, '0');
     },
+    /**
+     * Current store access and an active store (and counter, when given) under the caller's
+     * transaction, then the operator's legacy check-in must be this store.
+     */
     async assertCheckIn(
       userId: string,
       storeId: string,
@@ -235,45 +177,23 @@ export function checkInService(db: Databases, config: Pick<Config, 'BUSINESS_TIM
       const assertCurrent = async (current: AdministrationTransaction) => {
         let scopeError: AppError | undefined;
         try {
-          await currentStoreAccess(userId, storeId, current);
-          await activeScope(storeId, counterId ?? null, current);
+          await assertCurrentStoreAccess(current, userId, storeId);
+          await activeStore(storeId, current);
+          if (counterId) await activeCounter(storeId, counterId, current);
         } catch (error: unknown) {
           if (
             error instanceof AppError &&
             ['STORE_ACCESS_DENIED', 'STORE_UNAVAILABLE', 'COUNTER_UNAVAILABLE'].includes(error.code)
           )
-            // These refusals are reached only after the Store header is
-            // locked. Preserve CHECK_IN_REQUIRED for a missing/expired/wrong
-            // check-in, then return the original current-scope refusal.
             scopeError = error;
           else throw error;
         }
-        const [row] = await current
-          .select()
-          .from(operatorCheckIns)
-          .where(eq(operatorCheckIns.operatorId, userId))
-          .limit(1)
-          .for('update');
-        if (
-          !row ||
-          expiredCheckIn(row) ||
-          String(row.storeId) !== storeId ||
-          (counterId && String(row.counterId) !== counterId)
-        )
-          throw new AppError(
-            409,
-            'CHECK_IN_REQUIRED',
-            'Check in to this store and counter before continuing.',
-          );
+        if ((await storeOf(userId)) !== storeId)
+          throw new AppError(409, 'CHECK_IN_REQUIRED', 'Check in to this store before continuing.');
         if (scopeError) throw scopeError;
-        if (counterId === undefined && row.counterId !== null)
-          // The exclusive Store header already excludes a cooperating
-          // Store→counter→check-in writer. Read the optional counter from the
-          // current check-in, then validate it with a current locking read.
-          // No plain RR hint or extra pool connection is needed.
-          await activeCounter(storeId, String(row.counterId), current);
       };
       return transaction ? assertCurrent(transaction) : db.get('writer').transaction(assertCurrent);
     },
   };
 }
+export type CheckInService = ReturnType<typeof checkInService>;

@@ -17,6 +17,12 @@ import {
 import { sourceSearchAuthority } from '../../src/modules/order-history/search/scope.js';
 import type { Principal } from '../../src/domain/access.js';
 import { orderSearchFixture } from './mysql-fixture.js';
+import { bindCheckInRedis } from '../../src/modules/administration/checkins.js';
+import { memoryRedisPort } from '../../src/redis/memory.js';
+
+// Check-ins are the legacy Redis keys; bind an in-process port for this file.
+const checkInRedis = memoryRedisPort();
+bindCheckInRedis(checkInRedis);
 const template = process.env.ORDER_SEARCH_MYSQL_TEST_URL;
 const now = Date.parse('2026-11-17T06:00:00Z');
 const scope = (raw: OrderSearchRequest): SourceSearchScope => {
@@ -357,7 +363,6 @@ describe.skipIf(!template)('pinned Django datatable and optimized native search'
   async function currentActor() {
     await native.connection.query('DELETE FROM pos_user');
     await native.connection.query('DELETE FROM user_stores');
-    await native.connection.query('DELETE FROM pos_rewrite_operator_checkins');
     await native.fixture.insert('pos_user', {
       id: '1',
       username: 'synthetic',
@@ -367,9 +372,7 @@ describe.skipIf(!template)('pinned Django datatable and optimized native search'
       is_active: 1,
     });
     await native.fixture.insert('user_stores', { id: '1', django_user_id: '1', store_id: '1' });
-    await native.connection.query(
-      "INSERT INTO pos_rewrite_operator_checkins(operator_id,store_id,counter_id,expires_at,checked_in_at) VALUES('1',1,NULL,'2099-01-01 00:00:00','2026-11-17 00:00:00')",
-    );
+    await checkInRedis.set('check_in_1', '[1, "Synthetic store"]', { EX: 3600 });
   }
   it('uses writer-current store authority for selected stores and keeps the legacy N-type ID rule', async () => {
     await currentActor();

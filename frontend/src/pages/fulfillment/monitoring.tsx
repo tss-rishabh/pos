@@ -138,7 +138,7 @@ export function FulfillmentMonitoringPage({ user, storeId }: { user: Principal; 
     enabled: !defaults.isPending,
     queryFn: () =>
       request(
-        `/api/v1/fulfillment/store-monitoring?${params({ from, to, storeIds: selectedStores.join(','), orderIds: orderIds.replace(/\s/g, ''), tab, subStatuses: subStatuses.join(','), page: String(page), pageSize: String(pageSize) })}`,
+        `/api/v1/fulfillment/store-monitoring?${params({ from, to, orderIds: orderIds.replace(/\s/g, ''), tab, subStatuses: subStatuses.join(','), page: String(page), pageSize: String(pageSize) })}`,
         {},
         result,
       ),
@@ -175,9 +175,18 @@ export function FulfillmentMonitoringPage({ user, storeId }: { user: Principal; 
           <select
             multiple
             value={selectedStores}
-            onChange={(event) =>
-              setStores(Array.from(event.target.selectedOptions, (option) => option.value))
-            }
+            onChange={(event) => {
+              const storeIds = Array.from(event.target.selectedOptions, (option) => option.value);
+              // Legacy keeps the selection in the login session (`hla_store_ids`).
+              void request(
+                '/api/v1/fulfillment/store-monitoring/selection',
+                { method: 'PUT', body: JSON.stringify({ storeIds }) },
+                z.object({ storeIds: z.array(z.string()) }),
+              ).then(
+                (saved) => setStores(saved.storeIds),
+                () => undefined,
+              );
+            }}
           >
             {stores.data?.data.map((store) => (
               <option key={store.id} value={store.id}>

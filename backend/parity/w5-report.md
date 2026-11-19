@@ -292,6 +292,49 @@ exact matching; online detail store-scoped; target-user list not exposed.
 
 ---
 
+## Follow-up (20 November 2026, on integration head `5ad0a8e`)
+
+Decisions applied (user and primary agent):
+1. **Order history reads MySQL for every date** (legacy). No code change; AGENTS.md updated by the primary agent.
+2. **Hyperlocal bugs fixed as approved divergences** (`backend/parity/local-delivery-lifecycle.md`):
+   (a) a split order still "Order Placed" moves to the accepting store and status 21 on courier
+   acceptance (legacy `order/views.py:3503-3507` compared the FK object with 1); (b) the transfer path
+   enqueues O3 with the pass reason in `reason_dropdown` and the operator in `staff_user` (legacy
+   `order/views.py:3915` bound them positionally). MySQL tests cover both.
+3. **S24 implemented.**
+   - Lookup of any store's order and invoice by order number stays (order-ID search, `?cr=1` store detail,
+     `access=global-online` invoices). It requires a session and now logs the registered resource event
+     `orders.cross-store-lookup.read.completed` with request id, user id, store id and order id or count only
+     (`backend/src/modules/order-history/audit.ts`).
+   - The all-stores express monitor shows customer names only for the operator's assigned or checked-in
+     stores; role 1 sees all stores (`users/views.py:135-140`). Other stores get legacy `Helpers.mask_name`
+     (`helpers/helpers.py:2030-2034`).
+4. **Check-in on the legacy keys.** `administration/checkins.ts` now reads and writes only `check_in_{uid}`
+   (`[store_id, "name"]`, end of business day) and `check_in_list_{store}` (`helpers/helpers.py:794-823`,
+   `core/views.py:2386-2425`): set = `user_can_check_in` + `set_check_in_store` (closed stores allowed,
+   legacy messages "You are not assigned to this store"), clear = check in to store 0, `assertCheckIn`
+   compares the key with the store after the current store/counter checks. Legacy check-ins carry no
+   counter, so `counterId` is no longer stored or compared. `buildApp` binds the auth Redis port;
+   W3's interim mirror (`mirrorCheckIn` and its event) is removed. `pos_rewrite_operator_checkins` is
+   no longer used by any source module (the definition stays in `administration/schema.ts` for W8's
+   migration clean-up and the tests below).
+5. **`hla_store_ids`** (legacy dashboard session value, `order/views.py:5409-5481`): `pos:hla_store_ids:{sessionId}`
+   → JSON array of store ids, `PX` = remaining session lifetime. Set from the check-in store on the first
+   load (defaults route) and by `PUT /api/v1/fulfillment/store-monitoring/selection`; the data route reads
+   only the session value, as legacy. The frontend saves the selection through the new route.
+
+Tests updated for Redis check-ins: order-search native, online-detail, product-feedback, customer-profile,
+customer-history authority and catalog-details MySQL tests bind an in-process Redis port. Still seeding
+`pos_rewrite_operator_checkins` and needing the same change (owners W4/W8, env-gated, not run here):
+`tests/return-window/native.mysql.test.ts`, `tests/checkout/mysql.integration.test.ts`,
+`tests/administration/{checkin-lock-order,application-links}.mysql*.test.ts`.
+
+Checks: backend tsc, eslint, orm-metadata (0) pass; full backend vitest has only the two known
+`tests/migrations.test.ts` failures (deleted module SQL still listed in `migrationPaths`); W5 MySQL suites
+pass; frontend tsc, eslint and vitest pass.
+
+The three NEEDS USER DECISION items above are resolved by this follow-up.
+
 # Appendix A — sub-agent section: fulfillment
 
 ## A. Fulfillment (express / hyperlocal, routes D1–D16, jobs O1/O5, thread T4)

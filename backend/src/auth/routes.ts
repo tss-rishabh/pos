@@ -70,8 +70,6 @@ export interface AuthRouteOptions {
   challenges: LoginChallengeService;
   checkIns: LoginCheckIns;
   log: AuthEventLogger;
-  /** Interim bridge to the administration check-in record until it reads the legacy keys. */
-  mirrorCheckIn?: (user: Principal, storeId: string) => Promise<unknown>;
   /** Isolated demo workspace only (DEMO_MODE, refused in production). */
   demoUser?: Principal;
 }
@@ -204,12 +202,6 @@ export function registerAuth(app: FastifyInstance, options: AuthRouteOptions) {
       await identity.recordLogin(user.id);
       const eod = Math.max(1, Math.floor((sessionExpiresAt - Date.now()) / 1000));
       await checkIns.record(user.id, storeId, eod);
-      if (options.mirrorCheckIn)
-        try {
-          await options.mirrorCheckIn(user, storeId);
-        } catch {
-          log({ eventId: 'identity.check-in.mirror-failed', userId: user.id, level: 'warn' });
-        }
       return { user, sessionExpiresAt, checkInStoreId: storeId };
     },
   );

@@ -379,14 +379,20 @@ export function hyperlocalLifecycle(runtime: LifecycleRuntime, stock: LifecycleS
           posUserId: adminId,
           comment: `Hyperlocal Order Created in Borzo, Order location : ${name}`,
         });
-        // Legacy compares the order_statuses FK object with 1 (`views.py:3504`), which is never
-        // true, so a split order keeps its location and status; only its HL lines move.
-        if (current.split === 1)
+        if (current.split === 1) {
+          // Approved divergence (user, 20 November 2026): legacy `views.py:3504` compares the
+          // order_statuses FK object with 1, which is never true, so a split order never moved.
+          // The intended rule applies: a split order still "Order Placed" (1) moves to this
+          // store and status 21 ("Processing").
+          await tx
+            .update(Order)
+            .set({ location_id: Number(storeId), order_statuses: 21n })
+            .where(and(eq(Order.id, BigInt(orderId)), eq(Order.order_statuses, 1n)));
           await tx
             .update(HasProduct)
             .set({ status: 'PROCESSING' })
             .where(and(eq(HasProduct.order, BigInt(orderId)), eq(HasProduct.order_platform, 4n)));
-        else {
+        } else {
           await tx
             .update(Order)
             .set({ location_id: Number(storeId), order_statuses: 21n })
@@ -832,12 +838,14 @@ export function hyperlocalLifecycle(runtime: LifecycleRuntime, stock: LifecycleS
           .update(OrderAddon)
           .set({ order_transferred_timestamp: runtime.timestamp() })
           .where(eq(OrderAddon.order_id, BigInt(orderId)));
-        // Legacy passes [order_id, store_id, platform, next_ids, "", reason_dropdown] positionally,
-        // so the dropdown text lands in `staff_user` and `reason_dropdown` stays "".
+        // Approved divergence (user, 20 November 2026): legacy `views.py:3915` passes
+        // [order_id, store_id, platform, next_ids, "", reason_dropdown] positionally, so the
+        // dropdown landed in `staff_user` and `reason_dropdown` stayed "". The pass reason now
+        // goes to `reason_dropdown` and the staff user to `staff_user`, as the other branches.
         await online(pythonRepr(nextIds), buffer, {
           reason: '',
-          staffUser: reasonDropdown,
-          reasonDropdown: '',
+          staffUser,
+          reasonDropdown,
         });
         const comment = `Hyperlocal Order has been Transferred to the other stores, ${pythonRepr(nextIds)}`;
         await runtime.transactionLog(db(), { orderId, storeId, posUserId: '0', comment });

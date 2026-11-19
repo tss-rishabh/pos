@@ -417,6 +417,52 @@ describe.skipIf(!connection)('legacy hyperlocal lifecycle on isolated local MySQ
     ).toEqual({ status: 400, message: 'Order Already CONVERT_ONLINE' });
   });
 
+  it('passes the transfer reason dropdown in reason_dropdown (approved fix of views.py:3915)', async () => {
+    const runtime = lifecycleRuntime(deps),
+      actions = legacyFulfillmentActions(runtime);
+    await actions.lifecycle.arrival('1001', '1', false);
+    jobs.length = 0;
+    // A manual pass (`AjaxPassOrderView`) runs O2 inline with the operator and dropdown.
+    await actions.lifecycle.transfer('1001', {
+      staffUser: 'Asha',
+      reason: 'Out of stock',
+      isAuto: false,
+      reasonDropdown: 'Item not available',
+    });
+    expect(jobs).toEqual([
+      expect.objectContaining({
+        name: 'order.views.auto_hl_order_to_online',
+        args: expect.objectContaining({
+          reason: '',
+          staff_user: 'Asha',
+          reason_dropdown: 'Item not available',
+        }),
+      }),
+    ]);
+  });
+
+  it('moves a split order still placed to the accepting store and status 21 (approved fix of views.py:3504)', async () => {
+    await admin.query('UPDATE orders SET is_split_order=1 WHERE id=1001');
+    await admin.query(
+      "INSERT INTO hyperlocal_order_log (order_id, action, delivery_exception_date, created_at, updated_at) VALUES (1001,'NO_ACTION','2026-11-19 11:00:00','2026-11-19 11:00:00','2026-11-19 11:00:00')",
+    );
+    responses.borzo = ok({
+      is_successful: true,
+      order: {
+        order_id: 556,
+        points: [{ tracking_url: 'https://t.example/a' }, { tracking_url: 'https://t.example/b' }],
+      },
+    });
+    const actions = legacyFulfillmentActions(lifecycleRuntime(deps));
+    await actions.create(operator, '1', '1001');
+    expect(await query('SELECT location_id, order_status FROM orders WHERE id=1001')).toEqual([
+      { location_id: 1, order_status: 21 },
+    ]);
+    expect(await query('SELECT DISTINCT status FROM has_products WHERE order_id=1001')).toEqual([
+      { status: 'PROCESSING' },
+    ]);
+  });
+
   it('AjaxHlOrderView.create records the courier order and moves the order to processing', async () => {
     await admin.query(
       "INSERT INTO hyperlocal_order_log (order_id, action, delivery_exception_date, created_at, updated_at) VALUES (1001,'NO_ACTION','2026-11-19 11:00:00','2026-11-19 11:00:00','2026-11-19 11:00:00')",
