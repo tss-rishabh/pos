@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { desktopStoreServiceUnreachable } from '../offline/billing/bridge';
 let operatorId: string | null = null;
 let operatorScope = new AbortController();
 export function setRequestOperator(id: string | null) {
@@ -98,6 +99,8 @@ async function openResponse(
       /* Non-JSON gateway errors use a safe fallback. */
     }
     signal.throwIfAborted();
+    if (desktopStoreServiceUnreachable(response.status, error !== undefined))
+      throw new NetworkError();
     if (error?.code === 'OPERATOR_CHANGED' && typeof window !== 'undefined')
       window.dispatchEvent(new Event('pos-operator-changed'));
     throw new ApiError(

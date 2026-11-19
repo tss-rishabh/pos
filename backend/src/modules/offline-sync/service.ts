@@ -14,11 +14,7 @@ import {
 } from './contracts.js';
 import type { OfflineSyncCoordinator, SaleRecord } from './locks.js';
 import type { OfflineBillingLimits } from './options.js';
-import {
-  offlineCommentPrefix,
-  type OfflineOrder,
-  type OfflineSyncRepository,
-} from './repository.js';
+import type { OfflineOrder, OfflineSyncRepository } from './repository.js';
 
 /** The ordinary checkout service (modules/checkout/service.ts) as used here. */
 export type CheckoutReply =
@@ -71,6 +67,14 @@ export interface OfflineSyncDeps {
   operationSecret: string;
   quotePayable(quote: Record<string, unknown>): string;
   limits: OfflineBillingLimits;
+  /** Assigns the invoice number (and line salespersons) of an order created outside this
+   * sync's own submit, such as a manager-linked order; returns the invoice number. */
+  finalizeOrder?: (input: {
+    orderId: string;
+    storeId: string;
+    counterId: string;
+    salespersonId: string;
+  }) => Promise<string | null>;
   now?: () => number;
 }
 
@@ -212,7 +216,12 @@ export function offlineSyncService(deps: OfflineSyncDeps) {
             onlineAmount: payable,
             cashAmount: '0.00',
             cashReceived: '0.00',
-            externalReference: sale.tender.reference,
+            // Legacy "Others" (1001) settlement: the cashier's typed text is the payment
+            // Message, stored in order_stores.message; transaction_id stays the generated one
+            // (create_order.html:5825-5870 and 5913-5920 -> AjaxTransactionUploadView,
+            // order/views.py:3020-3063 -> Helpers.complete_order(others=True),
+            // helpers/helpers.py:635-641).
+            message: sale.tender.reference,
           };
     await deps.payments.start(user, storeId, orderId, input);
   }
@@ -237,10 +246,42 @@ export function offlineSyncService(deps: OfflineSyncDeps) {
         userId: user.id,
       });
     if (!order.paid) await pay(user, sale, storeId, orderId, order.payable);
+    if (
+      sale.tender.mode !== 'cash' &&
+      !(await repository.reconciliationFlagged(orderId, sale.provisionalRef))
+    ) {
+      // A manually entered reference never blocks the sale (AGENTS.md, 19 Nov): a terminal row
+      // is checked when one exists; anything short of a match is flagged for finance.
+      const match = await repository.tenderMatch({
+        storeId,
+        orderId,
+        reference: sale.tender.reference,
+        amount: order.payable,
+      });
+      if (match !== 'matched')
+        await repository.flagReconciliation({
+          orderId,
+          reference: sale.provisionalRef,
+          mode: sale.tender.mode,
+          tenderReference: sale.tender.reference,
+          match,
+          userId: user.id,
+        });
+    }
+    // A manager-linked order whose pos/order reply was lost never reached the finalizer: assign
+    // its invoice number the way the order flow does (generated whether or not confirmed).
+    let invoiceNumber = order.invoiceNumber;
+    if (!invoiceNumber && deps.finalizeOrder)
+      invoiceNumber = await deps.finalizeOrder({
+        orderId,
+        storeId,
+        counterId,
+        salespersonId: sale.salespersonId,
+      });
     return {
       status,
       orderId,
-      invoiceNumber: order.invoiceNumber,
+      invoiceNumber,
       provisionalRef: sale.provisionalRef,
     };
   }
@@ -467,7 +508,7 @@ export function offlineSyncService(deps: OfflineSyncDeps) {
       throw refuse('That order has different products or quantities from this offline sale.');
     if (
       candidate.offlineComments.some(
-        (comment) => !comment.startsWith(offlineCommentPrefix(sale.provisionalRef)),
+        (comment) => !comment.startsWith(`Offline bill ${sale.provisionalRef} `),
       )
     )
       throw refuse('That order is already linked to another offline sale.');
@@ -604,14 +645,6 @@ export function offlineSyncService(deps: OfflineSyncDeps) {
             throw conflict(
               'OPERATOR_REVOKED',
               'The operator who billed this sale no longer has access to this store.',
-            );
-          if (
-            sale.tender.mode !== 'cash' &&
-            !(await repository.tenderReferenceExists(storeId, sale.tender.reference))
-          )
-            throw conflict(
-              'TENDER_REFERENCE_NOT_FOUND',
-              'The card/UPI reference was not found in this store’s terminal transactions.',
             );
         }
         const inFlight = {

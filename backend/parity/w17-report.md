@@ -176,25 +176,14 @@ backend cases were added: link, recreate, and the pre-dispatch refusal.
 
 ## 6. Bugs and gaps left (outside ownership, or a decision is needed)
 
-- **Backend down behind a reachable web origin forces the login page.** This is UI/API-client ownership
-  (`src/hooks/use-pos.ts` `useOperator`, `src/api/client.ts`). When nginx answers 502, the renderer treats
-  it as an error, not as offline, and shows "Could not connect" on the login page after a reload. Offline
-  billing is then unreachable until the backend is back. A total network loss works (cached session plus
-  service worker).
-- **W10 stack (`stack.ts`) cannot create orders.** It has no `TSS_JWT_HS256_KEY`, no operator checkout
-  account, no salespeople, no `order_status` 3, no terminal mode 1001, and a generic API-v2 fake. This
-  probably explains some failing web checkout specs (W14). The pieces are in the W17 harness and could be
-  reused.
-- **NEEDS USER DECISION: card/UPI references from a standalone terminal.**
-  - The sync requires the reference to exist in `pos_terminal_transactions`/`pos_paytm_transactions` for
-    the store, otherwise `TENDER_REFERENCE_NOT_FOUND`. A standalone terminal never writes those rows, so
-    in practice every offline card/UPI sale goes to a manager. The e2e seeded the reference to test the
-    automatic path.
-  - The tender settles as the "Others" mode 1001. If that mode is inactive in production, the order is
-    created but payment fails, and the sale shows `REJECTED` with the order already recorded. A manager
-    "accept" re-runs only the payment.
-- **Linked uncertain orders have no POS invoice number.** The finalizer never ran for them, the same as
-  the legacy KeyError outcome. Recovery (invoice and confirmation) is not implemented for `link-order`.
+- **The "Others" mode 1001 must be active in production.** Card/UPI offline sales settle as legacy
+  "Others" (1001). If `pos_terminal_payment_modes` has 1001 inactive, the order is created but the
+  payment is refused, and the sale shows `REJECTED` with the order already recorded. A manager
+  "accept" re-runs only the payment.
+- **Linked orders get no payment-order confirmation.** Their invoice number and line salespersons are
+  now assigned (§7.3). The payment-microservice confirmation for an order whose `pos/order` reply was
+  lost is still never sent, the same as the legacy KeyError outcome.
+- **W10 stack cannot create orders.** Routed to W14; see §7.4.
 - **Automatic re-upload after a lost response or a 5xx.** This is a status lookup against the Redis
   record (`pos:offline_sale:<ref>`, 30 days) and the comment fallback. The server never resends
   `pos/order` without a manager. Residual risk: if the process dies between `pos/order` and the comment
@@ -210,3 +199,96 @@ backend cases were added: link, recreate, and the pre-dispatch refusal.
   `pkill -f "redis-server 127.0.0.1"` (about 17:07). It could also have stopped another agent's private
   test Redis at that moment. If a W14/W16 suite failed with a Redis connection error around then, re-run
   it.
+
+## 7. Follow-up (coordinator, after merge at `544b8ab9`)
+
+### 7.1 Standalone-terminal card/UPI references are accepted (AGENTS.md "Offline card/UPI")
+- **Legacy representation.** In the counter payment form, the "Transaction ID" field is generated and
+  disabled. The cashier types free text into the required "Message" field
+  (`order/templates/order/create_order.html:5825-5870`, required at `:5913-5920`). It is posted to
+  `/orders/ajax-transaction-upload/`, which is `AjaxTransactionUploadView` (`order/views.py:3020-3063`).
+  For "Others" mode 1001 that calls `Helpers.complete_order(..., others=True, is_terminal=False)`
+  (`order/views.py:3060-3063`). complete_order (`helpers/helpers.py:625-641`) stores:
+  - the typed text in `order_stores.message`;
+  - the generated id in `transaction_id`;
+  - `is_manually_paid=1` and `online_other_payment=<amount>`;
+  - payment status 4 and order status 3;
+  - the legacy "status changed by pos admin" comment.
+- **Rewrite.** The offline sync now settles a card/UPI sale through the ordinary payment service as
+  `channel: 'other'` with `message = <typed reference>`. Before this change the reference was passed as
+  `externalReference`, which the "other" channel ignores, so it was dropped. The
+  `TENDER_REFERENCE_NOT_FOUND` gate is removed. A missing match no longer blocks a sale or sends it to a
+  manager. The device keeps accepting that code from older servers.
+- **Terminal check and finance flag.**
+  - After payment, `pos_terminal_transactions` and `pos_paytm_transactions` are read for the store and
+    reference.
+  - **Matched** means a row with the same amount that is unattached (`order_id=0`) or attached to this
+    order. A matched sale gets no flag.
+  - Otherwise (missing, or a different amount or order), one legacy-style `comments` row is written on
+    the order, once (idempotent by prefix):
+    `Offline bill <ref> reconciliation: CARD reference <typed> has no matching terminal transaction. Finance to reconcile.`
+    (or "... does not match the terminal transaction amount or order ...").
+  - No new columns. The prefix differs from the billing comment (`Offline bill <ref> billed at …`), so the
+    durable fallback lookup and the link check never confuse the two.
+  - Finance can query `comments.comment LIKE 'Offline bill % reconciliation: %'`.
+- **E2E.** The standalone card sale (no terminal row seeded) now syncs to a real order. The test asserts:
+  - `order_stores.message='RRN-SYN-0001'`;
+  - `is_manually_paid=1`, `online_other_payment=1899`, payment status 4;
+  - `transaction_id` is the generated one;
+  - exactly one reconciliation comment.
+
+### 7.2 Backend down, web server up: a reload opens offline billing
+- `src/api/client.ts` (3 lines, outside my original ownership, requested by the coordinator): on desktop
+  only, a 5xx without the API error envelope throws `NetworkError`. That shape comes from the web server
+  or proxy (nginx 502/504, vite 500), never from the store service itself, which always answers with an
+  envelope. The helper is `desktopStoreServiceUnreachable` in `src/offline/billing/bridge.ts`.
+- Every existing offline path then applies: the cached session (Dexie `sessions`, only while `expiresAt`
+  has not passed), cached stores and counters, and the auto-switch to offline billing. Billing itself
+  still requires the device's own eligible offline session.
+- Web clients are unchanged: they still report the error.
+- New e2e step: web gate up, backend gate down. A reload lands on `/offline-billing` showing "Working
+  offline" and the composer, with no login page.
+
+### 7.3 Linked orders show their real invoice number
+- `finish()` now calls `finalizeOrder` when the order has no invoice. This is wired in
+  `offline-sync/routes.ts` to the ordinary `orderLineSalespersons` (the sale's salesperson,
+  `order/views.py:2779-2795`) and `orderFinalizer(..., { confirmed: false })`. That finalizer generates
+  the invoice number whether or not the order is confirmed (`order/views.py:2799-2809`), with no
+  gift-card, NPS or SMS side effects.
+- O7 now asserts that the linked sale's invoice (`…INV#####`) is in MySQL and shown on the device.
+
+### 7.4 Why the W10 stack cannot create orders (not fixed: not a small fake-adapter gap; for W14)
+An order placed through `backend/tools/e2e/stack.ts` stops at each of these, in order:
+1. `stack.ts` sets no `TSS_JWT_HS256_KEY` or `TSS_JWT_HS512_KEY`. Every cart call needs a customer token,
+   so it fails with `CHECKOUT_IDENTITY_UNAVAILABLE` (503, `checkout/crypto.ts:13-19`).
+2. `seed.ts` has no checkout account for operator 900001 (`m_user` with `user_type='8'` and
+   `pos_admin_id=900001`, read by `checkout/repository.ts`), so it fails with
+   `CHECKOUT_CUSTOMER_UNAVAILABLE`.
+3. `fakes.ts` answers every `/api-v2/*` call with `{status:'success',success:true,data:{}}`:
+   - cart reads fail `cartSchema` (no `products.items`);
+   - `processorder` has no `meta.calculations.total`;
+   - `pos/order` lacks `order`, `method`, `isValid` and `name`, giving `CHECKOUT_OUTCOME_UNCERTAIN`;
+   - no order rows are ever written.
+4. `seed.ts` has no `salespersons` or `store_salesperson` rows, so the submit fails with
+   `SALESPERSON_REQUIRED`.
+5. Payment: there is no `order_status` id 3 (`ORDER_STATUS_UNAVAILABLE`), and no active
+   `pos_terminal_payment_modes` row for the modes used (`PAYMENT_METHOD_UNAVAILABLE`).
+
+Ready-made fixes exist in the W17 harness. `backend/tools/e2e/order-api.ts` is a self-contained stateful
+API-v2 stand-in (`startOrderApiFake(connection)`); `offline-billing-stack.ts` has the extra seed rows and
+env. Adopting them in `stack.ts`, `seed.ts` and `fakes.ts` spans three W14-owned files, so I made no
+change there.
+
+### 7.5 Results (follow-up)
+- **Desktop e2e:** 12/12 pass in real Electron. This adds the "backend down, web up, reload" step, plus
+  the standalone-card and linked-invoice assertions. `e2e/electron.spec.ts` passes 2/2.
+- **Flaky run:** one earlier run failed at the very first sign-in with a 401 "username or email and
+  password do not match". The next full run passed, and I could not reproduce it. The likely cause is the
+  shared `signIn` helper typing before the login form is ready. Not investigated further.
+- **Backend:**
+  - `tsc` and `eslint` are clean;
+  - `tests/offline-sync` 27/27: the unmatched-reference test replaces the old `TENDER_REFERENCE_NOT_FOUND`
+    case, and the matched case asserts the payment message.
+- **Frontend:** `tsc` and `eslint` are clean; vitest 298 passed, 112 skipped.
+- **Files touched outside my original ownership, at the coordinator's request:** `frontend/src/api/client.ts`
+  (+3 lines).
