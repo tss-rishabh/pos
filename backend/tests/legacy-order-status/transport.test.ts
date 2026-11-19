@@ -24,7 +24,10 @@ describe('Helpers.call_status_api port', () => {
     );
     expect(await call(12n, [3n, '4'], 'SHIP')).toBe('sent');
     expect(await call('12', ['3'], 'PACK', true)).toBe('sent');
-    const [first, second] = fetcher.mock.calls as unknown as [string, RequestInit][];
+    const [first, second] = fetcher.mock.calls as unknown as [
+      [string, RequestInit],
+      [string, RequestInit],
+    ];
     expect(first[0]).toBe('https://sync.synthetic.invalid/store-order/status');
     expect(first[1].headers).toEqual({ 'Content-Type': 'application/json', 'x-api-key': 'k' });
     expect(JSON.parse(String(first[1].body))).toEqual({
