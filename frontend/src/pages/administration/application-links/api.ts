@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { request } from '../../../api/client';
+import { newRequestId, request } from '../../../api/client';
 
 const token = z.string().regex(/^[A-Za-z0-9_-]{43}$/),
   customerToken = z.string().regex(/^[1-9]\d{0,9}\.[A-Za-z0-9_-]{43}$/),
@@ -102,7 +102,7 @@ async function publicResponse(
       credentials: 'omit',
       cache: 'no-store',
       redirect: 'error',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Request-Id': newRequestId() },
       body: JSON.stringify(body),
       signal: AbortSignal.any([
         signal,

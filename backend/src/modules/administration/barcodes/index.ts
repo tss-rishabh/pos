@@ -4,8 +4,11 @@ import type { Config } from '../../../config.js';
 import type { Databases } from '../../../db/pools.js';
 import { authenticated } from '../../../auth/routes.js';
 import type { EphemeralStore } from '../../../jobs/ephemeral.js';
+import { noQuery, routeSchema, transportHeaders } from '../../../domain/route-validation.js';
+import { barcodeAssignmentInput } from './domain.js';
 import { barcodeAssignmentService } from './service.js';
 export { barcodeAssignmentService } from './service.js';
+const operationScope = z.object({ operationId: z.uuid() }).strict();
 export function registerBarcodeAssignments(
   app: FastifyInstance,
   config: Config,
@@ -19,18 +22,32 @@ export function registerBarcodeAssignments(
         rateLimit: { max: 60, timeWindow: '1 minute' },
       },
     });
-  app.post('/api/v1/admin/barcode-assignments', trace('create'), async (request, reply) => {
-    z.object({}).strict().parse(request.query);
-    return reply
-      .header('Cache-Control', 'private, no-store')
-      .send(await service.assign(authenticated(request), request.body));
-  });
+  app.post(
+    '/api/v1/admin/barcode-assignments',
+    {
+      ...trace('create'),
+      ...routeSchema({
+        querystring: noQuery,
+        body: barcodeAssignmentInput,
+        headers: transportHeaders,
+      }),
+    },
+    async (request, reply) => {
+      noQuery.parse(request.query);
+      return reply
+        .header('Cache-Control', 'private, no-store')
+        .send(await service.assign(authenticated(request), request.body));
+    },
+  );
   app.get(
     '/api/v1/admin/barcode-assignments/:operationId',
-    trace('read'),
+    {
+      ...trace('read'),
+      ...routeSchema({ params: operationScope, querystring: noQuery, headers: transportHeaders }),
+    },
     async (request, reply) => {
-      z.object({}).strict().parse(request.query);
-      const { operationId } = z.object({ operationId: z.uuid() }).strict().parse(request.params);
+      noQuery.parse(request.query);
+      const { operationId } = operationScope.parse(request.params);
       return reply
         .header('Cache-Control', 'private, no-store')
         .send(await service.get(authenticated(request), operationId));

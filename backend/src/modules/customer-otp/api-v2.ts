@@ -1,7 +1,7 @@
 import type { Config } from '../../config.js';
 import { AppError } from '../../domain/errors.js';
 import { boundedJson } from '../../domain/http-json.js';
-import { currentRequestTrace } from '../../observability/context.js';
+import { currentRequestTrace, tracedFetch } from '../../observability/context.js';
 import { stringifyNumericJson } from '../upstream.js';
 import type { CustomerOtpApi, CustomerOtpApiReply } from './contracts.js';
 
@@ -16,7 +16,7 @@ const unavailable = () =>
  */
 export function customerOtpApiV2(
   config: Pick<Config, 'TSS_API_BASE_URL' | 'NODE_ENV'>,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = tracedFetch,
 ): CustomerOtpApi {
   function base() {
     const raw = config.TSS_API_BASE_URL;

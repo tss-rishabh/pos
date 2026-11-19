@@ -1,9 +1,9 @@
 import type { FastifyInstance } from 'fastify';
-import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import { authenticated } from '../../auth/routes.js';
 import { AppError } from '../../domain/errors.js';
+import { noQuery, operatorHeaders, routeSchema } from '../../domain/route-validation.js';
 import type { Principal } from '../../domain/access.js';
 import type { CheckoutEnvironment } from '../checkout/gateway.js';
 import { quotePayable } from '../checkout/service.js';
@@ -66,20 +66,32 @@ export function registerOfflineSync(
   });
   app.get(
     '/api/v1/offline-billing/settings',
-    trace('offline-billing-settings', 'read'),
+    {
+      ...trace('offline-billing-settings', 'read'),
+      ...routeSchema({ querystring: noQuery, headers: operatorHeaders }),
+    },
     async (request) => {
       authenticated(request);
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       return service.settings();
     },
   );
   app.post(
     '/api/v1/stores/:storeId/counters/:counterId/offline-sales',
-    { ...trace('offline-sale', 'sync'), bodyLimit: 64_000 },
+    {
+      ...trace('offline-sale', 'sync'),
+      bodyLimit: 64_000,
+      ...routeSchema({
+        params: offlineSaleParamsSchema,
+        querystring: noQuery,
+        body: offlineSaleUploadSchema,
+        headers: operatorHeaders,
+      }),
+    },
     async (request, reply) => {
       const user = authenticated(request);
       const params = offlineSaleParamsSchema.parse(request.params);
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       if (request.headers['x-operator-id'] !== user.id)
         throw new AppError(
           409,

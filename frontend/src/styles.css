@@ -726,6 +726,11 @@ h1 {
   margin: 0;
   color: #929c86;
 }
+.request-reference code {
+  font-size: 10px;
+  user-select: all;
+  word-break: break-all;
+}
 .empty h3 {
   font-size: 13px;
   font-weight: 500;

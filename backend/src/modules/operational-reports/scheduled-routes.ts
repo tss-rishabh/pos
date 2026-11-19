@@ -4,6 +4,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import { AppError } from '../../domain/errors.js';
+import { noQuery, requestHeaders, routeSchema } from '../../domain/route-validation.js';
 import { secretMatches } from '../fulfillment/options.js';
 import { scheduleInput, type ScheduleInput, type ScheduledArtifact } from './scheduled-domain.js';
 import type { ScheduledReportOptions } from './scheduled-options.js';
@@ -98,6 +99,7 @@ export function reportApiKeyGuard(apiKey: string | undefined) {
       throw new AppError(401, 'SERVICE_AUTHENTICATION_REQUIRED', 'Invalid or missing API key');
   };
 }
+const deliveryBody = z.object({ input: scheduleInput }).strict();
 export async function registerScheduledReportRoutes(
   app: FastifyInstance,
   run: ReturnType<typeof scheduledReportRunner>,
@@ -115,9 +117,15 @@ export async function registerScheduledReportRoutes(
         },
       },
       preValidation: reportApiKeyGuard(options.REPORTS_API_KEY),
+      ...routeSchema({
+        querystring: noQuery,
+        body: deliveryBody,
+        // The guard compares `apikey` and answers its absence with 401.
+        headers: requestHeaders({ apikey: z.string().max(4096).optional() }),
+      }),
     },
     async (request) => {
-      const body = z.object({ input: scheduleInput }).strict().parse(request.body);
+      const body = deliveryBody.parse(request.body);
       return run(body.input, (level, event, message) => app.log[level](event, message), request.id);
     },
   );

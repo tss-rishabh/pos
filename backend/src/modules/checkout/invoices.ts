@@ -9,6 +9,7 @@ import { authenticated } from '../../auth/routes.js';
 import { requireStore, type Principal } from '../../domain/access.js';
 import { identifier } from '../../domain/validation.js';
 import { AppError } from '../../domain/errors.js';
+import { noQuery, routeSchema, transportHeaders } from '../../domain/route-validation.js';
 import { boundedText } from '../../domain/http-json.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { currentRequestTrace } from '../../observability/context.js';
@@ -221,20 +222,32 @@ export function registerInvoices(
   fetcher: typeof fetch = fetch,
 ) {
   const invoice = invoiceService(db, config, environment, fetcher);
+  const invoiceParams = z.object({ storeId: identifier, orderId: identifier }).strict(),
+    invoiceInput = routeSchema({
+      params: invoiceParams,
+      querystring: noQuery,
+      headers: transportHeaders,
+    });
   app.get(
     '/api/v1/stores/:storeId/orders/:orderId/invoice',
-    { config: { trace: { module: 'checkout', resource: 'tax-invoice', action: 'read' } } },
+    {
+      config: { trace: { module: 'checkout', resource: 'tax-invoice', action: 'read' } },
+      ...invoiceInput,
+    },
     async (request, reply) => {
-      const p = z.object({ storeId: identifier, orderId: identifier }).parse(request.params);
+      const p = invoiceParams.parse(request.params);
       reply.header('Cache-Control', 'no-store').header('Pragma', 'no-cache');
       return invoice(authenticated(request), p.storeId, p.orderId);
     },
   );
   app.get(
     '/api/v1/stores/:storeId/orders/:orderId/invoice/preview',
-    { config: { trace: { module: 'checkout', resource: 'tax-invoice', action: 'preview' } } },
+    {
+      config: { trace: { module: 'checkout', resource: 'tax-invoice', action: 'preview' } },
+      ...invoiceInput,
+    },
     async (request, reply) => {
-      const p = z.object({ storeId: identifier, orderId: identifier }).parse(request.params),
+      const p = invoiceParams.parse(request.params),
         document = await invoice(authenticated(request), p.storeId, p.orderId);
       return reply
         .header('Cache-Control', 'no-store')

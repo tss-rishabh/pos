@@ -25,7 +25,13 @@ function log(event: OfflineLogEvent & { channel?: string }) {
   process.stdout.write(
     JSON.stringify({
       module: 'desktop-offline-billing',
+      resource: event.channel ?? 'runtime',
       time: new Date().toISOString(),
+      // Same trace fields as the backend: requestId equals traceId and reaches the server as
+      // X-Request-Id on sync/heartbeat calls.
+      requestId: event.traceId,
+      eventInstanceId: randomUUID(),
+      userId: null,
       ...event,
     }) + '\n',
   );

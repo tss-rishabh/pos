@@ -1,3 +1,4 @@
+import { registerRouteValidation } from '../../src/domain/route-validation.js';
 import { Temporal } from '@js-temporal/polyfill';
 import { MySqlDialect } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
@@ -353,6 +354,7 @@ describe.skipIf(!connection)('source dashboard on isolated verified MySQL', () =
     const app = Fastify({ logger: false }),
       traces: unknown[] = [];
     app.decorateRequest('principal', null);
+    registerRouteValidation(app);
     app.addHook('onRoute', (route) => {
       traces.push(route.config?.trace);
     });

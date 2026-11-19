@@ -4,6 +4,12 @@ import type { Config } from '../../../config.js';
 import type { Databases } from '../../../db/pools.js';
 import { authenticated } from '../../../auth/routes.js';
 import { identifier } from '../../../domain/validation.js';
+import {
+  noBody,
+  noQuery,
+  routeSchema,
+  transportHeaders,
+} from '../../../domain/route-validation.js';
 import type { JobProducer } from '../../../jobs/contract.js';
 import type { StockProcedure } from '../../administration/stock-procedure.js';
 import type { AdministrationTransaction } from '../../administration/checkins.js';
@@ -29,6 +35,7 @@ import { returnService } from './service.js';
 import { exchangeService } from './exchanges.js';
 import { returnWindowExtensions } from './extensions.js';
 import { returnState } from './state.js';
+import { tracedFetch } from '../../../observability/context.js';
 
 export interface ReturnRegistrationOptions {
   signing: CheckoutEnvironment;
@@ -65,7 +72,7 @@ export function registerReturns(
   options: ReturnRegistrationOptions,
 ) {
   const environment = options.environment || returnEnvironment(),
-    gateway = options.gateway || returnGateway(config, environment, fetch, app.log),
+    gateway = options.gateway || returnGateway(config, environment, tracedFetch, app.log),
     state = returnState(options.stateStore || configuredStateStore(config)),
     repository = returnRepository(db, config, {
       returnPeriodDays: environment.returnPeriodDays,
@@ -89,9 +96,23 @@ export function registerReturns(
       context,
       options.orderGateway || checkoutGateway(config, options.signing),
     ),
-    scope = z.object({ storeId: identifier, orderId: identifier, lineId: identifier }),
-    returnScope = z.object({ storeId: identifier, returnId: z.uuid() }),
-    exchangeScope = z.object({ storeId: identifier, exchangeId: z.uuid() }),
+    scope = z.strictObject({ storeId: identifier, orderId: identifier, lineId: identifier }),
+    orderScope = scope.omit({ lineId: true }),
+    returnScope = z.strictObject({ storeId: identifier, returnId: z.uuid() }),
+    exchangeScope = z.strictObject({ storeId: identifier, exchangeId: z.uuid() }),
+    eligibilityQuery = exchangeRecoveryScope.extend({ kind: z.enum(['return', 'exchange']) }),
+    recoveryClaimPath = exchangeRecoveryPath.extend({ claimId: z.uuid() }),
+    returnLinesQuery = z
+      .object({
+        counterId: identifier,
+        after: z
+          .string()
+          .regex(/^\d{1,20}$/)
+          .optional(),
+      })
+      .strict(),
+    continuationBody = z.object({}).strict(),
+    retryBody = z.object({ salespersonId: identifier }).strict(),
     trace = (action: string) => ({
       config: { trace: { module: 'checkout', resource: 'return-operation', action } },
     }),
@@ -101,13 +122,18 @@ export function registerReturns(
   const extensions = returnWindowExtensions(db, config, { repository });
   app.get(
     '/api/v1/stores/:storeId/orders/:orderId/line-items/:lineId/return-eligibility',
-    { config: { trace: { module: 'checkout', resource: 'return-eligibility', action: 'read' } } },
+    {
+      config: { trace: { module: 'checkout', resource: 'return-eligibility', action: 'read' } },
+      ...routeSchema({
+        params: exchangeRecoveryPath,
+        querystring: eligibilityQuery,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) => {
       reply.header('Cache-Control', 'no-store');
       const p = exchangeRecoveryPath.parse(request.params),
-        q = exchangeRecoveryScope
-          .extend({ kind: z.enum(['return', 'exchange']) })
-          .parse(request.query);
+        q = eligibilityQuery.parse(request.query);
       return service.eligibility(
         authenticated(request),
         p.storeId,
@@ -122,6 +148,11 @@ export function registerReturns(
     '/api/v1/stores/:storeId/orders/:orderId/line-items/:lineId/exchange-recovery',
     {
       config: { trace: { module: 'checkout', resource: 'exchange-recovery', action: 'read' } },
+      ...routeSchema({
+        params: exchangeRecoveryPath,
+        querystring: exchangeRecoveryScope,
+        headers: transportHeaders,
+      }),
     },
     async (request, reply) => {
       reply.header('Cache-Control', 'no-store');
@@ -141,10 +172,15 @@ export function registerReturns(
       config: {
         trace: { module: 'checkout', resource: 'exchange-recovery-claim', action: 'read' },
       },
+      ...routeSchema({
+        params: recoveryClaimPath,
+        querystring: exchangeRecoveryScope,
+        headers: transportHeaders,
+      }),
     },
     async (request, reply) => {
       reply.header('Cache-Control', 'no-store');
-      const p = exchangeRecoveryPath.extend({ claimId: z.uuid() }).parse(request.params);
+      const p = recoveryClaimPath.parse(request.params);
       return repository.exchangeRecoveryClaimStatus(
         authenticated(request),
         p.storeId,
@@ -159,6 +195,12 @@ export function registerReturns(
     '/api/v1/stores/:storeId/orders/:orderId/line-items/:lineId/exchange-recoveries',
     {
       config: { trace: { module: 'checkout', resource: 'exchange-recovery', action: 'claim' } },
+      ...routeSchema({
+        params: exchangeRecoveryPath,
+        querystring: noQuery,
+        body: exchangeRecoveryClaim,
+        headers: transportHeaders,
+      }),
     },
     async (request, reply) => {
       reply.header('Cache-Control', 'no-store');
@@ -178,6 +220,11 @@ export function registerReturns(
       config: {
         trace: { module: 'checkout', resource: 'return-window-extension', action: 'read' },
       },
+      ...routeSchema({
+        params: returnWindowPathSchema,
+        querystring: returnWindowScopeSchema,
+        headers: transportHeaders,
+      }),
     },
     async (request, reply) => {
       reply.header('Cache-Control', 'no-store');
@@ -197,6 +244,12 @@ export function registerReturns(
       config: {
         trace: { module: 'checkout', resource: 'return-window-extension', action: 'update' },
       },
+      ...routeSchema({
+        params: returnWindowPathSchema,
+        querystring: noQuery,
+        body: returnWindowInputSchema,
+        headers: transportHeaders,
+      }),
     },
     async (request, reply) => {
       reply.header('Cache-Control', 'no-store');
@@ -212,20 +265,18 @@ export function registerReturns(
   );
   app.get(
     '/api/v1/stores/:storeId/orders/:orderId/return-lines',
-    { config: { trace: { module: 'checkout', resource: 'return-line', action: 'list' } } },
+    {
+      config: { trace: { module: 'checkout', resource: 'return-line', action: 'list' } },
+      ...routeSchema({
+        params: orderScope,
+        querystring: returnLinesQuery,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) => {
       reply.header('Cache-Control', 'no-store');
-      const p = scope.omit({ lineId: true }).parse(request.params),
-        query = z
-          .object({
-            counterId: identifier,
-            after: z
-              .string()
-              .regex(/^\d{1,20}$/)
-              .optional(),
-          })
-          .strict()
-          .parse(request.query);
+      const p = orderScope.parse(request.params),
+        query = returnLinesQuery.parse(request.query);
       return repository.lines(
         authenticated(request),
         p.storeId,
@@ -237,7 +288,15 @@ export function registerReturns(
   );
   app.post(
     '/api/v1/stores/:storeId/orders/:orderId/line-items/:lineId/returns',
-    trace('create'),
+    {
+      ...trace('create'),
+      ...routeSchema({
+        params: scope,
+        querystring: noQuery,
+        body: returnInputSchema,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) => {
       const p = scope.parse(request.params),
         body = returnInputSchema.parse(request.body),
@@ -245,24 +304,45 @@ export function registerReturns(
       return reply.code(result.phase === 'completed' ? 201 : 202).send(result);
     },
   );
-  app.get('/api/v1/stores/:storeId/returns/:returnId', trace('read'), async (request) => {
-    const p = returnScope.parse(request.params);
-    return service.read(authenticated(request), p.storeId, p.returnId);
-  });
-  app.post(
-    '/api/v1/stores/:storeId/returns/:returnId/continuations',
-    trace('continue'),
+  app.get(
+    '/api/v1/stores/:storeId/returns/:returnId',
+    {
+      ...trace('read'),
+      ...routeSchema({ params: returnScope, querystring: noQuery, headers: transportHeaders }),
+    },
     async (request) => {
       const p = returnScope.parse(request.params);
-      z.object({})
-        .strict()
-        .parse(request.body || {});
+      return service.read(authenticated(request), p.storeId, p.returnId);
+    },
+  );
+  app.post(
+    '/api/v1/stores/:storeId/returns/:returnId/continuations',
+    {
+      ...trace('continue'),
+      ...routeSchema({
+        params: returnScope,
+        querystring: noQuery,
+        body: noBody,
+        headers: transportHeaders,
+      }),
+    },
+    async (request) => {
+      const p = returnScope.parse(request.params);
+      continuationBody.parse(request.body || {});
       return service.continue(authenticated(request), p.storeId, p.returnId);
     },
   );
   app.post(
     '/api/v1/stores/:storeId/orders/:orderId/line-items/:lineId/exchanges',
-    exchangeTrace('create'),
+    {
+      ...exchangeTrace('create'),
+      ...routeSchema({
+        params: scope,
+        querystring: noQuery,
+        body: exchangeInputSchema,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) => {
       const p = scope.parse(request.params),
         body = exchangeInputSchema.parse(request.body),
@@ -278,7 +358,10 @@ export function registerReturns(
   );
   app.get(
     '/api/v1/stores/:storeId/exchanges/:exchangeId',
-    exchangeTrace('read'),
+    {
+      ...exchangeTrace('read'),
+      ...routeSchema({ params: exchangeScope, querystring: noQuery, headers: transportHeaders }),
+    },
     async (request) => {
       const p = exchangeScope.parse(request.params);
       return exchanges.read(authenticated(request), p.storeId, p.exchangeId);
@@ -286,21 +369,35 @@ export function registerReturns(
   );
   app.post(
     '/api/v1/stores/:storeId/exchanges/:exchangeId/continuations',
-    exchangeTrace('continue'),
+    {
+      ...exchangeTrace('continue'),
+      ...routeSchema({
+        params: exchangeScope,
+        querystring: noQuery,
+        body: noBody,
+        headers: transportHeaders,
+      }),
+    },
     async (request) => {
       const p = exchangeScope.parse(request.params);
-      z.object({})
-        .strict()
-        .parse(request.body || {});
+      continuationBody.parse(request.body || {});
       return exchanges.continue(authenticated(request), p.storeId, p.exchangeId);
     },
   );
   app.post(
     '/api/v1/stores/:storeId/exchanges/:exchangeId/retries',
-    exchangeTrace('retry'),
+    {
+      ...exchangeTrace('retry'),
+      ...routeSchema({
+        params: exchangeScope,
+        querystring: noQuery,
+        body: retryBody,
+        headers: transportHeaders,
+      }),
+    },
     async (request) => {
       const p = exchangeScope.parse(request.params),
-        body = z.object({ salespersonId: identifier }).strict().parse(request.body);
+        body = retryBody.parse(request.body);
       return exchanges.retry(authenticated(request), p.storeId, p.exchangeId, body.salespersonId);
     },
   );

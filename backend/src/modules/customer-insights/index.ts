@@ -3,7 +3,8 @@ import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import { authenticated } from '../../auth/routes.js';
-import { customerProfileScope } from './contracts.js';
+import { noQuery, routeSchema, transportHeaders } from '../../domain/route-validation.js';
+import { customerProfileAdjustmentInput, customerProfileScope } from './contracts.js';
 import { customerProfileService } from './profile.js';
 import { customerProfileAdjustmentService } from './adjustments.js';
 import type { OrderRedis } from '../fulfillment/order-redis.js';
@@ -27,6 +28,12 @@ export function registerCustomerWorkspace(
     db,
     customerBriefingGateway(config, readCustomerBriefingOptions()),
   );
+  const read = routeSchema({
+      params: customerProfileScope,
+      querystring: noQuery,
+      headers: transportHeaders,
+    }),
+    adjustmentScope = customerProfileScope.extend({ operationId: z.uuid() }).strict();
   app.get(
     '/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-profile',
     {
@@ -34,9 +41,10 @@ export function registerCustomerWorkspace(
         trace: { module: 'customer-workspace', resource: 'customer-profile', action: 'read' },
         rateLimit: { max: 60, timeWindow: '1 minute' },
       },
+      ...read,
     },
     async (request, reply) => {
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       const result = await service.read(
         authenticated(request),
         customerProfileScope.parse(request.params),
@@ -51,9 +59,10 @@ export function registerCustomerWorkspace(
         trace: { module: 'customer-workspace', resource: 'customer-benefit', action: 'read' },
         rateLimit: { max: 60, timeWindow: '1 minute' },
       },
+      ...read,
     },
     async (request, reply) => {
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       return reply
         .header('Cache-Control', 'private, no-store')
         .send(
@@ -68,9 +77,10 @@ export function registerCustomerWorkspace(
         trace: { module: 'customer-workspace', resource: 'customer-insight', action: 'read' },
         rateLimit: { max: 20, timeWindow: '1 minute' },
       },
+      ...read,
     },
     async (request, reply) => {
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       return reply
         .header('Cache-Control', 'private, no-store')
         .send(
@@ -89,9 +99,15 @@ export function registerCustomerWorkspace(
         },
         rateLimit: { max: 30, timeWindow: '1 minute' },
       },
+      ...routeSchema({
+        params: customerProfileScope,
+        querystring: noQuery,
+        body: customerProfileAdjustmentInput,
+        headers: transportHeaders,
+      }),
     },
     async (request, reply) => {
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       return reply
         .header('Cache-Control', 'private, no-store')
         .send(
@@ -114,13 +130,15 @@ export function registerCustomerWorkspace(
         },
         rateLimit: { max: 60, timeWindow: '1 minute' },
       },
+      ...routeSchema({
+        params: adjustmentScope,
+        querystring: noQuery,
+        headers: transportHeaders,
+      }),
     },
     async (request, reply) => {
-      z.object({}).strict().parse(request.query);
-      const { operationId, ...scope } = customerProfileScope
-        .extend({ operationId: z.uuid() })
-        .strict()
-        .parse(request.params);
+      noQuery.parse(request.query);
+      const { operationId, ...scope } = adjustmentScope.parse(request.params);
       return reply
         .header('Cache-Control', 'private, no-store')
         .send(await adjustments.read(authenticated(request), scope, operationId));

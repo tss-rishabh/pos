@@ -8,6 +8,7 @@ import {
   type CustomerBriefing,
 } from './briefing-contracts.js';
 import type { CustomerBriefingOptions } from './briefing-options.js';
+import { tracedFetch } from '../../observability/context.js';
 
 function unavailable() {
   return new AppError(
@@ -22,7 +23,7 @@ export interface CustomerBriefingGateway {
 export function customerBriefingGateway(
   config: Config,
   options: CustomerBriefingOptions,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = tracedFetch,
 ): CustomerBriefingGateway {
   return {
     async read(identity, storeId) {

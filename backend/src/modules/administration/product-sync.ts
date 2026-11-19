@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { JobLogger } from '../../jobs/runtime.js';
-import { currentRequestTrace } from '../../observability/context.js';
+import { currentRequestTrace, tracedFetch } from '../../observability/context.js';
 import { AppError } from '../../domain/errors.js';
 import type { InventorySynchronizationContext } from './inventory.js';
 import type { AdministrationWorkerOptions } from './worker-options.js';
@@ -40,7 +40,7 @@ export function productSynchronizationBody(ids: string[], troubleshoot = false):
 export function createProductSyncAdapter(
   config: Pick<Config, 'NODE_ENV' | 'DEMO_MODE' | 'TSS_API_BASE_URL' | 'TSS_API_MIGRATION_V2'>,
   options: AdministrationWorkerOptions,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = tracedFetch,
   { requireReplaySafe = true }: { requireReplaySafe?: boolean } = {},
 ): ProductSyncAdapter | undefined {
   const base =

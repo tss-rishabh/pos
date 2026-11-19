@@ -5,6 +5,7 @@ import { AppError } from '../../domain/errors.js';
 import { boundedJson } from '../../domain/http-json.js';
 import { safeApplicationDestination, type ApplicationLinkOptions } from './contracts.js';
 import { sourceCustomerLinkBody } from './domain.js';
+import { tracedFetch } from '../../observability/context.js';
 
 export interface CustomerApplicationProvider {
   destination(storeId: string): Promise<string>;
@@ -26,7 +27,7 @@ const unavailable = () =>
 export function createCustomerApplicationProvider(
   config: Pick<Config, 'DEMO_MODE'>,
   options: ApplicationLinkOptions,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = tracedFetch,
 ): CustomerApplicationProvider | undefined {
   if (config.DEMO_MODE || !options.MAIN_SITE_API_V2) return undefined;
   const endpoint = new URL('firebase-dynamic-link', options.MAIN_SITE_API_V2.replace(/\/?$/, '/')),

@@ -7,6 +7,7 @@ import { registerCheckout } from '../../src/modules/checkout/index.js';
 import { AppError } from '../../src/domain/errors.js';
 import { registerEventCatalog, resourceRoutes } from '../../src/observability/events.js';
 import { checkoutFlags } from '../../src/modules/checkout/legacy-flags.js';
+import { registerRouteValidation } from '../../src/domain/route-validation.js';
 import {
   FixtureGateway,
   MemoryCheckoutRepository,
@@ -23,6 +24,7 @@ beforeEach(async () => {
     }),
     db = createDatabases(config);
   app = Fastify({ logger: false });
+  registerRouteValidation(app);
   registerEventCatalog(app);
   app.decorateRequest('principal', null);
   app.addHook('preHandler', async (request) => {

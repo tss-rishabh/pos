@@ -6,6 +6,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { RowDataPacket } from 'mysql2/promise';
 import type { Principal } from '../../src/domain/access.js';
 import { AppError } from '../../src/domain/errors.js';
+import { registerRouteValidation } from '../../src/domain/route-validation.js';
 import { bindCheckInRedis, checkInService } from '../../src/modules/administration/checkins.js';
 import { authKeys } from '../../src/auth/keys.js';
 import { memoryRedisPort } from '../../src/redis/memory.js';
@@ -147,6 +148,7 @@ describe.skipIf(!template)('manager return date on verified native source tables
     repository = returnRepository(f.db, f.config, { returnPeriodDays: 30, state });
     extension = returnWindowExtensions(f.db, f.config, { repository });
     api = Fastify();
+    registerRouteValidation(api);
     api.addHook('preHandler', async (request) => {
       request.principal = currentActor;
     });

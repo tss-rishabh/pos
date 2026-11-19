@@ -1,3 +1,4 @@
+import { registerRouteValidation } from '../../src/domain/route-validation.js';
 import { randomUUID } from 'node:crypto';
 import mysql, { type Connection } from 'mysql2/promise';
 import { drizzle } from 'drizzle-orm/mysql2';
@@ -128,6 +129,7 @@ describe.skipIf(!template)('source SpecialPermission activity against isolated M
     db = createDatabases(config);
     app = Fastify({ logger: false });
     app.decorateRequest('principal', null);
+    registerRouteValidation(app);
     app.addHook('preHandler', async (request) => {
       request.principal = actor;
     });

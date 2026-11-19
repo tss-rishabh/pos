@@ -8,6 +8,7 @@ import { identifier } from '../domain/validation.js';
 import type { Principal } from '../domain/access.js';
 import type { ProductDto } from '../domain/contracts.js';
 import { AppError } from '../domain/errors.js';
+import { routeSchema, transportHeaders } from '../domain/route-validation.js';
 import { requireStore } from '../domain/access.js';
 import { assertCurrentStoreAccess } from './administration/authorization.js';
 import type { CatalogService } from './catalog.js';
@@ -154,16 +155,22 @@ export async function readCatalogStockLocations(
   return { data: stockLocations(productIds, held, storages) };
 }
 
+const stockLocationParams = z.object({ storeId: identifier }).strict();
 /** `GET /api/v1/stores/:storeId/catalog/stock-locations?productIds=1,2` (read-only, no PII). */
 export function registerCatalogStockLocations(app: FastifyInstance, db: Databases | null) {
   app.get(
     '/api/v1/stores/:storeId/catalog/stock-locations',
     {
       config: { trace: { module: 'catalog', resource: 'product-stock-location', action: 'list' } },
+      ...routeSchema({
+        params: stockLocationParams,
+        querystring: stockLocationQuery,
+        headers: transportHeaders,
+      }),
     },
     async (request, reply) => {
       const user = authenticated(request);
-      const { storeId } = z.object({ storeId: identifier }).strict().parse(request.params);
+      const { storeId } = stockLocationParams.parse(request.params);
       const { productIds } = stockLocationQuery.parse(request.query);
       const result = await readCatalogStockLocations(db, user, storeId, productIds);
       return reply.header('Cache-Control', 'private, no-store').send(result);

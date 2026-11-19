@@ -24,6 +24,7 @@ import {
 } from './options.js';
 import { wholeOrderStatusLogs } from './schema.js';
 import { syncRepoStatusApi, type CallStatusApi, type SyncRepoOutcome } from './transport.js';
+import { tracedFetch } from '../../observability/context.js';
 
 const notFound = () =>
   new AppError(404, 'ORDER_NOT_FOUND', 'This order was not found for this store.');
@@ -33,7 +34,7 @@ export function statusApiFromOptions(
   config: Pick<Config, 'NODE_ENV'>,
   options: WholeOrderStatusOptions,
   log: (outcome: SyncRepoOutcome, hyperlocal: boolean) => void = () => {},
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = tracedFetch,
 ): CallStatusApi {
   return syncRepoStatusApi(
     {

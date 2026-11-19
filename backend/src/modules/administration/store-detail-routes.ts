@@ -5,6 +5,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Databases } from '../../db/pools.js';
 import { POSFranchise, PosMachine, PosPaytmMachine, Store } from '../../db/legacy-schema.js';
 import { authenticated } from '../../auth/routes.js';
+import { noQuery, routeSchema, transportHeaders } from '../../domain/route-validation.js';
 import { identifier } from '../../domain/validation.js';
 import { AppError } from '../../domain/errors.js';
 import { assertCurrentStoreAccess } from './authorization.js';
@@ -15,6 +16,7 @@ export function registerAdministrationStoreDetails(app: FastifyInstance, db: Dat
   const params = z.object({ storeId: identifier }).strict();
   const trace = (action: string) => ({
     config: { trace: { module: 'administration', resource: 'store-detail', action } },
+    ...routeSchema({ params, querystring: noQuery, headers: transportHeaders }),
   });
   async function read(request: Parameters<typeof authenticated>[0]) {
     const user = authenticated(request),
@@ -99,11 +101,11 @@ export function registerAdministrationStoreDetails(app: FastifyInstance, db: Dat
     });
   }
   app.get('/api/v1/admin/stores/:storeId/detail', trace('read'), async (request, reply) => {
-    z.object({}).strict().parse(request.query);
+    noQuery.parse(request.query);
     return reply.header('Cache-Control', 'private, no-store').send(await read(request));
   });
   app.get('/api/v1/admin/stores/:storeId/qr', trace('download-qr'), async (request, reply) => {
-    z.object({}).strict().parse(request.query);
+    noQuery.parse(request.query);
     const row = await read(request),
       bytes = await QRCode.toBuffer(row.publicUrl, {
         type: 'png',

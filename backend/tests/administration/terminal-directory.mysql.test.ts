@@ -1,3 +1,4 @@
+import { registerRouteValidation } from '../../src/domain/route-validation.js';
 import { randomUUID } from 'node:crypto';
 import mysql from 'mysql2/promise';
 import Fastify, { type FastifyInstance } from 'fastify';
@@ -76,6 +77,7 @@ describe.skipIf(!template)('native terminal directory and current authority', ()
     db = createDatabases(config);
     app = Fastify({ logger: false });
     app.decorateRequest('principal', null);
+    registerRouteValidation(app);
     app.addHook('preHandler', async (request) => {
       request.principal = current;
     });

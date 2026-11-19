@@ -7,6 +7,13 @@ import { authenticated } from '../../auth/routes.js';
 import type { Principal } from '../../domain/access.js';
 import { identifier } from '../../domain/validation.js';
 import { AppError } from '../../domain/errors.js';
+import {
+  noQuery,
+  operatorHeaders,
+  requestHeaders,
+  routeSchema,
+  transportHeaders,
+} from '../../domain/route-validation.js';
 import { closeEntriesSchema } from './domain.js';
 import { financeService, type FinanceService } from './service.js';
 import { cashLedgerService } from './ledger.js';
@@ -31,7 +38,58 @@ const date = z
       return false;
     }
   }, 'Use a valid calendar date.');
-const scope = z.object({ storeId: identifier, date });
+const scope = z.strictObject({ storeId: identifier, date });
+const storeParams = z.strictObject({ storeId: identifier });
+const storeIdsQuery = z
+  .string()
+  .max(20000)
+  .transform((value) => (value ? z.array(identifier).max(500).parse(value.split(',')) : []))
+  .optional();
+const historyQuery = z
+  .object({
+    storeIds: storeIdsQuery,
+    from: date.optional(),
+    to: date.optional(),
+    attempts: z.enum(['all', 'latest']).default('all'),
+    search: z.string().trim().max(100).default(''),
+    page: z.coerce.number().int().min(1).max(1000000).default(1),
+    pageSize: z.coerce.number().int().min(1).max(500).default(25),
+  })
+  .strict();
+const alertBody = z.object({ commandId: z.uuid(), date: date.optional() }).strict();
+const feedQuery = z
+  .object({
+    from: date,
+    to: date,
+    page: z.coerce.number().int().min(1).max(1000000),
+    page_size: z.coerce.number().int().min(-1000000).max(1000000),
+    store_code: z.string().trim().min(1).max(100).optional(),
+  })
+  .strict();
+const ledgerQuery = z
+  .object({
+    storeIds: storeIdsQuery,
+    from: date.optional(),
+    to: date.optional(),
+  })
+  .strict();
+const dayCloseQuery = z.object({ date: date.optional() }).strict();
+const commandParams = z.strictObject({ commandId: z.uuid() });
+const versionsQuery = z
+  .object({
+    before: z.coerce.number().int().min(1).max(65535).optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(30),
+  })
+  .strict();
+const closeBody = z
+  .object({
+    commandId: z.uuid(),
+    expectedVersion: z.number().int().min(0).max(65534),
+    entries: closeEntriesSchema,
+  })
+  .strict();
+/** Service API keys are compared by the guard; absence is answered with 401 there. */
+const apiKeyHeader = z.string().max(4096).optional();
 const trace = (resource: string, action: string) => ({
   trace: { module: 'finance', resource, action },
 });
@@ -59,26 +117,19 @@ export async function registerFinance(
   const history = closeHistoryService(config, db);
   const historyInput = (query: unknown) => {
     const today = Temporal.Now.instant().toZonedDateTimeISO(config.BUSINESS_TIMEZONE).toPlainDate();
-    return z
-      .object({
-        storeIds: z
-          .string()
-          .max(20000)
-          .transform((value) => (value ? z.array(identifier).max(500).parse(value.split(',')) : []))
-          .optional(),
-        from: date.default(today.subtract({ days: 1 }).toString()),
-        to: date.default(today.toString()),
-        attempts: z.enum(['all', 'latest']).default('all'),
-        search: z.string().trim().max(100).default(''),
-        page: z.coerce.number().int().min(1).max(1000000).default(1),
-        pageSize: z.coerce.number().int().min(1).max(500).default(25),
-      })
-      .strict()
-      .parse(query);
+    const input = historyQuery.parse(query);
+    return {
+      ...input,
+      from: input.from ?? today.subtract({ days: 1 }).toString(),
+      to: input.to ?? today.toString(),
+    };
   };
   app.get(
     '/api/v1/reports/day-close-history',
-    { config: trace('day-close-history', 'list') },
+    {
+      config: trace('day-close-history', 'list'),
+      ...routeSchema({ querystring: historyQuery, headers: transportHeaders }),
+    },
     async (request) => history.read(authenticated(request), historyInput(request.query)),
   );
   const feedOptions = options.feedOptions || financeFeedOptions(),
@@ -90,12 +141,14 @@ export async function registerFinance(
     {
       config: { ...trace('pending-close-alert', 'create'), authentication: 'service' },
       preValidation: reportApiKeyGuard(alertOptions.REPORTS_API_KEY),
+      ...routeSchema({
+        querystring: noQuery,
+        body: alertBody,
+        headers: requestHeaders({ apikey: apiKeyHeader }),
+      }),
     },
     async (request) => {
-      const body = z
-        .object({ commandId: z.uuid(), date: date.optional() })
-        .strict()
-        .parse(request.body);
+      const body = alertBody.parse(request.body);
       const result = await alerts.send(body.commandId, body.date);
       request.log.info(
         {
@@ -119,18 +172,13 @@ export async function registerFinance(
         if (!secretMatches(feedOptions.GLASSBOX_FINANCE_FEED_API_KEY, request.headers['x-api-key']))
           throw new AppError(401, 'SERVICE_AUTHENTICATION_REQUIRED', 'Invalid or missing API key');
       },
+      ...routeSchema({
+        querystring: feedQuery,
+        headers: requestHeaders({ 'x-api-key': apiKeyHeader }),
+      }),
     },
     async (request) => {
-      const input = z
-        .object({
-          from: date,
-          to: date,
-          page: z.coerce.number().int().min(1).max(1000000),
-          page_size: z.coerce.number().int().min(-1000000).max(1000000),
-          store_code: z.string().trim().min(1).max(100).optional(),
-        })
-        .strict()
-        .parse(request.query);
+      const input = feedQuery.parse(request.query);
       return feed.orders({
         from: input.from,
         to: input.to,
@@ -143,7 +191,10 @@ export async function registerFinance(
   const ledger = cashLedgerService(config, db, undefined, undefined, undefined, corrections);
   app.get(
     '/api/v1/reports/store-cash-balances/stores',
-    { config: trace('cash-ledger-store', 'list') },
+    {
+      config: trace('cash-ledger-store', 'list'),
+      ...routeSchema({ querystring: noQuery, headers: transportHeaders }),
+    },
     async (request) => {
       const user = authenticated(request);
       if (config.DEMO_MODE) {
@@ -156,48 +207,51 @@ export async function registerFinance(
   );
   app.get(
     '/api/v1/reports/store-cash-balances',
-    { config: trace('cash-ledger', 'read') },
+    {
+      config: trace('cash-ledger', 'read'),
+      ...routeSchema({ querystring: ledgerQuery, headers: transportHeaders }),
+    },
     async (request) => {
       const user = authenticated(request),
-        query = z
-          .object({
-            storeIds: z
-              .string()
-              .max(20000)
-              .transform((value) =>
-                value ? z.array(identifier).max(500).parse(value.split(',')) : [],
-              )
-              .optional(),
-            from: date.optional(),
-            to: date.optional(),
-          })
-          .strict()
-          .parse(request.query);
+        query = ledgerQuery.parse(request.query);
       return ledger.read(user, query.storeIds, query.from, query.to);
     },
   );
   app.get(
     '/api/v1/stores/:storeId/day-closes',
-    { config: trace('day-close', 'read-current') },
+    {
+      config: trace('day-close', 'read-current'),
+      ...routeSchema({
+        params: storeParams,
+        querystring: dayCloseQuery,
+        headers: transportHeaders,
+      }),
+    },
     async (request) => {
       const user = authenticated(request),
-        params = z.object({ storeId: identifier }).parse(request.params),
-        query = z.object({ date: date.optional() }).strict().parse(request.query);
+        params = storeParams.parse(request.params),
+        query = dayCloseQuery.parse(request.query);
       return service.state(user, params.storeId, query.date);
     },
   );
   app.get(
     '/api/v1/finance/day-close-commands/:commandId',
-    { config: trace('day-close-command', 'read') },
+    {
+      config: trace('day-close-command', 'read'),
+      ...routeSchema({ params: commandParams, querystring: noQuery, headers: operatorHeaders }),
+    },
     async (request) => {
       const user = authenticated(request),
-        params = z.object({ commandId: z.uuid() }).parse(request.params);
+        params = commandParams.parse(request.params);
       return service.receipt(user, params.commandId);
     },
   );
   app.get(
     '/api/v1/stores/:storeId/day-closes/:date',
-    { config: trace('day-close', 'read') },
+    {
+      config: trace('day-close', 'read'),
+      ...routeSchema({ params: scope, querystring: noQuery, headers: transportHeaders }),
+    },
     async (request) => {
       const user = authenticated(request),
         params = scope.parse(request.params);
@@ -206,23 +260,28 @@ export async function registerFinance(
   );
   app.get(
     '/api/v1/stores/:storeId/day-closes/:date/versions',
-    { config: trace('day-close-version', 'list') },
+    {
+      config: trace('day-close-version', 'list'),
+      ...routeSchema({ params: scope, querystring: versionsQuery, headers: transportHeaders }),
+    },
     async (request) => {
       const user = authenticated(request),
         params = scope.parse(request.params),
-        query = z
-          .object({
-            before: z.coerce.number().int().min(1).max(65535).optional(),
-            limit: z.coerce.number().int().min(1).max(100).default(30),
-          })
-          .strict()
-          .parse(request.query);
+        query = versionsQuery.parse(request.query);
       return service.versions(user, params.storeId, params.date, query.before, query.limit);
     },
   );
   app.post(
     '/api/v1/stores/:storeId/day-closes/:date/versions',
-    { config: trace('day-close-version', 'create') },
+    {
+      config: trace('day-close-version', 'create'),
+      ...routeSchema({
+        params: scope,
+        querystring: noQuery,
+        body: closeBody,
+        headers: operatorHeaders,
+      }),
+    },
     async (request, reply) => {
       const user = authenticated(request),
         params = scope.parse(request.params);
@@ -232,14 +291,7 @@ export async function registerFinance(
           'OPERATOR_CHANGED',
           'The signed-in operator changed. Sign back in before submitting.',
         );
-      const body = z
-        .object({
-          commandId: z.uuid(),
-          expectedVersion: z.number().int().min(0).max(65534),
-          entries: closeEntriesSchema,
-        })
-        .strict()
-        .parse(request.body);
+      const body = closeBody.parse(request.body);
       const close = await service.close(
         user,
         params.storeId,
@@ -253,11 +305,14 @@ export async function registerFinance(
   );
   app.get(
     '/api/v1/stores/:storeId/day-close-prompt',
-    { config: trace('day-close-prompt', 'read') },
+    {
+      config: trace('day-close-prompt', 'read'),
+      ...routeSchema({ params: storeParams, querystring: noQuery, headers: transportHeaders }),
+    },
     async (request) => {
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       const user = authenticated(request),
-        params = z.object({ storeId: identifier }).parse(request.params);
+        params = storeParams.parse(request.params);
       const prompt = await service.prompt(user, params.storeId);
       return {
         ...prompt,

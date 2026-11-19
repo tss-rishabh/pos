@@ -1,9 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import type { Temporal } from '@js-temporal/polyfill';
-import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import { authenticated } from '../../auth/routes.js';
+import { noQuery, routeSchema, transportHeaders } from '../../domain/route-validation.js';
 import { historyInput, type AdministrationHistoryOptions } from './contracts.js';
 import { administrationHistoryService, type AdministrationHistoryWarehouse } from './service.js';
 
@@ -24,17 +24,28 @@ export function registerAdministrationHistory(
       rateLimit: { max: 60, timeWindow: '1 minute' },
     },
   };
-  app.get('/api/v1/admin/model-history/capabilities', trace, async (request, reply) => {
-    z.object({}).strict().parse(request.query);
-    return reply
-      .header('Cache-Control', 'private, no-store')
-      .send(await service.capabilities(authenticated(request)));
-  });
-  app.post('/api/v1/admin/model-history/search', trace, async (request, reply) => {
-    z.object({}).strict().parse(request.query);
-    return reply
-      .header('Cache-Control', 'private, no-store')
-      .send(await service.search(authenticated(request), historyInput.parse(request.body)));
-  });
+  app.get(
+    '/api/v1/admin/model-history/capabilities',
+    { ...trace, ...routeSchema({ querystring: noQuery, headers: transportHeaders }) },
+    async (request, reply) => {
+      noQuery.parse(request.query);
+      return reply
+        .header('Cache-Control', 'private, no-store')
+        .send(await service.capabilities(authenticated(request)));
+    },
+  );
+  app.post(
+    '/api/v1/admin/model-history/search',
+    {
+      ...trace,
+      ...routeSchema({ querystring: noQuery, body: historyInput, headers: transportHeaders }),
+    },
+    async (request, reply) => {
+      noQuery.parse(request.query);
+      return reply
+        .header('Cache-Control', 'private, no-store')
+        .send(await service.search(authenticated(request), historyInput.parse(request.body)));
+    },
+  );
   return service;
 }

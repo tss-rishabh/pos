@@ -5,6 +5,7 @@ import type { Databases } from '../../../db/pools.js';
 import { authenticated } from '../../../auth/routes.js';
 import { AppError } from '../../../domain/errors.js';
 import { positiveId } from '../contracts.js';
+import { routeSchema, transportHeaders } from '../../../domain/route-validation.js';
 import { orderSearchInput } from './contracts.js';
 import { orderSearchService } from './service.js';
 import { auditCrossStoreLookup } from '../audit.js';
@@ -20,8 +21,9 @@ export async function registerOrderSearch(
   const service = dependencies.service ?? orderSearchService(config, db, dependencies),
     params = z.object({ storeId: positiveId }).strict(),
     empty = z.object({}).strict();
-  const trace = (resource: string) => ({
+  const trace = (resource: string, body?: z.ZodType) => ({
     config: { trace: { module: 'orders', resource, action: 'read' } },
+    ...routeSchema({ params, querystring: empty, body, headers: transportHeaders }),
   });
   async function checked<T>(request: FastifyRequest, work: () => Promise<T>) {
     authenticated(request);
@@ -30,21 +32,25 @@ export async function registerOrderSearch(
       throw new AppError(401, 'SESSION_EXPIRED', 'Sign in again to continue.');
     return result;
   }
-  app.post('/api/v1/stores/:storeId/orders/searches', trace('order-search'), async (request) => {
-    const { storeId } = params.parse(request.params);
-    empty.parse(request.query);
-    const input = orderSearchInput.parse(request.body);
-    const result = await checked(request, () =>
-      service.search(authenticated(request), storeId, input),
-    );
-    // Explicit order IDs reach any store, as the legacy cross-store lookup (S24).
-    if (input.orderIds.length)
-      auditCrossStoreLookup(request, 'order-search', {
-        storeId,
-        orderCount: input.orderIds.length,
-      });
-    return result;
-  });
+  app.post(
+    '/api/v1/stores/:storeId/orders/searches',
+    trace('order-search', orderSearchInput),
+    async (request) => {
+      const { storeId } = params.parse(request.params);
+      empty.parse(request.query);
+      const input = orderSearchInput.parse(request.body);
+      const result = await checked(request, () =>
+        service.search(authenticated(request), storeId, input),
+      );
+      // Explicit order IDs reach any store, as the legacy cross-store lookup (S24).
+      if (input.orderIds.length)
+        auditCrossStoreLookup(request, 'order-search', {
+          storeId,
+          orderCount: input.orderIds.length,
+        });
+      return result;
+    },
+  );
   app.get(
     '/api/v1/stores/:storeId/order-search-options',
     trace('order-search-options'),

@@ -4,6 +4,7 @@ import type { Databases } from '../../../db/pools.js';
 import { authenticated } from '../../../auth/routes.js';
 import { AppError } from '../../../domain/errors.js';
 import { identifier } from '../../../domain/validation.js';
+import { noQuery, operatorHeaders, routeSchema } from '../../../domain/route-validation.js';
 import { shippingLabelService } from './service.js';
 import { shippingLabelCsp, shippingLabelDocument } from './document.js';
 
@@ -23,12 +24,16 @@ export function registerShippingLabels(
         'OPERATOR_CHANGED',
         'The signed-in operator changed. Sign back in before continuing.',
       );
-    z.object({}).strict().parse(request.query);
+    noQuery.parse(request.query);
     return user;
   };
+  const schema = routeSchema({ params, querystring: noQuery, headers: operatorHeaders });
   app.get(
     path,
-    { config: { trace: { module: 'fulfillment', resource: 'shipping-label', action: 'read' } } },
+    {
+      config: { trace: { module: 'fulfillment', resource: 'shipping-label', action: 'read' } },
+      ...schema,
+    },
     async (request, reply) => {
       const user = scope(request),
         value = params.parse(request.params);
@@ -41,7 +46,10 @@ export function registerShippingLabels(
   );
   app.get(
     path + '/preview',
-    { config: { trace: { module: 'fulfillment', resource: 'shipping-label', action: 'preview' } } },
+    {
+      config: { trace: { module: 'fulfillment', resource: 'shipping-label', action: 'preview' } },
+      ...schema,
+    },
     async (request, reply) => {
       const user = scope(request),
         value = params.parse(request.params),

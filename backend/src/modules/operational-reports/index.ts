@@ -6,6 +6,12 @@ import type { Databases } from '../../db/pools.js';
 import { authenticated } from '../../auth/routes.js';
 import { identifier } from '../../domain/validation.js';
 import { AppError } from '../../domain/errors.js';
+import {
+  noQuery,
+  operatorHeaders,
+  routeSchema,
+  transportHeaders,
+} from '../../domain/route-validation.js';
 import { customerFeedbackService } from './feedback.js';
 import { inventoryAssociationService } from './inventory.js';
 import {
@@ -38,6 +44,40 @@ import {
 } from './scheduled-routes.js';
 import type { SlackPoster } from './slack.js';
 import type { JobProducer } from '../../jobs/contract.js';
+const feedbackDateTime = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/)
+  .refine((value) => {
+    try {
+      return Temporal.PlainDateTime.from(value).year >= 1000;
+    } catch {
+      return false;
+    }
+  }, 'Use a valid local date and time.');
+const feedbackSearchBody = z
+  .object({
+    from: feedbackDateTime,
+    to: feedbackDateTime,
+    storeIds: z.array(identifier).max(500).optional(),
+    orderIds: z.array(identifier).max(500).optional(),
+    email: z.preprocess(
+      (value) => (typeof value === 'string' ? value.trim() || undefined : value),
+      z.email().max(254).optional(),
+    ),
+    page: z.number().int().min(1).max(1000000).default(1),
+    pageSize: z.number().int().min(1).max(500).default(25),
+  })
+  .strict();
+const parentAssociationParams = z.strictObject({ storeId: identifier });
+const parentAssociationBody = z
+  .object({
+    after: z.union([z.literal('0'), identifier]).default('0'),
+    limit: z.number().int().min(1).max(2000).default(500),
+  })
+  .strict();
+/** Search routes: query-free POSTs whose body is the report input. */
+const searchSchema = (body: z.ZodType) =>
+  routeSchema({ querystring: noQuery, body, headers: transportHeaders });
 interface RegistrationOptions {
   /** Export routes only enqueue E1-E6; the worker process runs them (`jobs.ts`). */
   jobs: JobProducer;
@@ -68,35 +108,12 @@ export async function registerOperationalReports(
       config: {
         trace: { module: 'operational-reports', resource: 'customer-feedback', action: 'search' },
       },
+      ...searchSchema(feedbackSearchBody),
     },
     async (request, reply) => {
       reply.header('Cache-Control', 'private, no-store');
-      const user = authenticated(request),
-        dateTime = z
-          .string()
-          .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/)
-          .refine((value) => {
-            try {
-              return Temporal.PlainDateTime.from(value).year >= 1000;
-            } catch {
-              return false;
-            }
-          }, 'Use a valid local date and time.');
-      const body = z
-        .object({
-          from: dateTime,
-          to: dateTime,
-          storeIds: z.array(identifier).max(500).optional(),
-          orderIds: z.array(identifier).max(500).optional(),
-          email: z.preprocess(
-            (value) => (typeof value === 'string' ? value.trim() || undefined : value),
-            z.email().max(254).optional(),
-          ),
-          page: z.number().int().min(1).max(1000000).default(1),
-          pageSize: z.number().int().min(1).max(500).default(25),
-        })
-        .strict()
-        .parse(request.body);
+      const user = authenticated(request);
+      const body = feedbackSearchBody.parse(request.body);
       return feedback.search(user, body);
     },
   );
@@ -110,6 +127,7 @@ export async function registerOperationalReports(
           action: 'search',
         },
       },
+      ...searchSchema(acceptanceInputSchema),
     },
     async (request) =>
       acceptance.read(authenticated(request), acceptanceInputSchema.parse(request.body)),
@@ -124,6 +142,7 @@ export async function registerOperationalReports(
           action: 'search',
         },
       },
+      ...searchSchema(salespersonInputSchema),
     },
     async (request) =>
       performance.salespeople(authenticated(request), salespersonInputSchema.parse(request.body)),
@@ -134,6 +153,7 @@ export async function registerOperationalReports(
       config: {
         trace: { module: 'operational-reports', resource: 'cashier-performance', action: 'search' },
       },
+      ...searchSchema(cashierInputSchema),
     },
     async (request) =>
       performance.cashiers(authenticated(request), cashierInputSchema.parse(request.body)),
@@ -148,6 +168,12 @@ export async function registerOperationalReports(
           action: 'ensure',
         },
       },
+      ...routeSchema({
+        params: parentAssociationParams,
+        querystring: noQuery,
+        body: z.union([z.null(), parentAssociationBody]),
+        headers: operatorHeaders,
+      }),
     },
     async (request) => {
       const user = authenticated(request);
@@ -157,14 +183,8 @@ export async function registerOperationalReports(
           'OPERATOR_CHANGED',
           'The signed-in operator changed. Sign back in before continuing.',
         );
-      const params = z.object({ storeId: identifier }).parse(request.params),
-        body = z
-          .object({
-            after: z.union([z.literal('0'), identifier]).default('0'),
-            limit: z.number().int().min(1).max(2000).default(500),
-          })
-          .strict()
-          .parse(request.body ?? {});
+      const params = parentAssociationParams.parse(request.params),
+        body = parentAssociationBody.parse(request.body ?? {});
       return inventory.ensureParents(user, params.storeId, body.after, body.limit);
     },
   );
@@ -196,6 +216,7 @@ export async function registerOperationalReports(
       config: {
         trace: { module: 'operational-reports', resource: 'returned-orders', action: 'search' },
       },
+      ...searchSchema(returnedOrdersInputSchema),
     },
     async (request) =>
       returnedOrders.read(authenticated(request), returnedOrdersInputSchema.parse(request.body)),
@@ -206,6 +227,7 @@ export async function registerOperationalReports(
       config: {
         trace: { module: 'operational-reports', resource: 'order-transactions', action: 'search' },
       },
+      ...searchSchema(orderTransactionsInputSchema),
     },
     async (request) =>
       orderTransactions.read(
@@ -219,6 +241,7 @@ export async function registerOperationalReports(
       config: {
         trace: { module: 'operational-reports', resource: 'hyperlocal-daily', action: 'search' },
       },
+      ...searchSchema(hyperlocalDailyInputSchema),
     },
     async (request) =>
       hyperlocalDaily.read(authenticated(request), hyperlocalDailyInputSchema.parse(request.body)),
@@ -229,6 +252,7 @@ export async function registerOperationalReports(
       config: {
         trace: { module: 'operational-reports', resource: 'flash-sales', action: 'search' },
       },
+      ...searchSchema(flashSalesInputSchema),
     },
     async (request) =>
       flashSales.read(authenticated(request), flashSalesInputSchema.parse(request.body)),

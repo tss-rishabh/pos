@@ -9,6 +9,7 @@ import { boundedJson } from '../../../domain/http-json.js';
 import { identifier } from '../../../domain/validation.js';
 import type { AppCashbackCampaign } from '../../customer-insights/benefits-gateway.js';
 import { customerMembership } from '../../customer-insights/benefits-values.js';
+import { tracedFetch } from '../../../observability/context.js';
 
 /**
  * Legacy "Fetch the User" (`create_order.html:2905-2984`) → `AjaxUserDetailsView`
@@ -98,7 +99,7 @@ const clean = (message: string) =>
 export function checkUserExclusiveAdapter(
   config: Pick<Config, 'TSS_API_BASE_URL' | 'NODE_ENV'>,
   options = customerLookupOptions(),
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = tracedFetch,
 ): CheckUserExclusiveAdapter {
   function target() {
     if (!config.TSS_API_BASE_URL || !options.API_V2_APP_ID || !options.API_V2_APP_KEY)

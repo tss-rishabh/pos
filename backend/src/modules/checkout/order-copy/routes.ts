@@ -5,6 +5,7 @@ import type { Databases } from '../../../db/pools.js';
 import { authenticated } from '../../../auth/routes.js';
 import { identifier } from '../../../domain/validation.js';
 import { AppError } from '../../../domain/errors.js';
+import { noQuery, routeSchema, transportHeaders } from '../../../domain/route-validation.js';
 import type { JobProducer } from '../../../jobs/contract.js';
 import { checkoutSessionStore, type CheckoutSessionStore } from '../session-store.js';
 import { configuredStateStore, type PosStateStore } from '../state-store.js';
@@ -38,7 +39,15 @@ export function registerOrderCopy(
   const scope = z.object({ storeId: identifier, checkoutId: z.uuid() }).strict();
   app.post(
     '/api/v1/stores/:storeId/checkout-sessions/:checkoutId/order-copies',
-    { config: { trace: { module: 'checkout', resource: 'order-copy', action: 'create' } } },
+    {
+      config: { trace: { module: 'checkout', resource: 'order-copy', action: 'create' } },
+      ...routeSchema({
+        params: scope,
+        querystring: noQuery,
+        body: orderCopyInputSchema,
+        headers: transportHeaders,
+      }),
+    },
     async (request) => {
       if (config.DEMO_MODE)
         throw new AppError(

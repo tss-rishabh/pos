@@ -75,6 +75,7 @@ import { operatorAdminProfileInput } from '../../src/modules/administration/oper
 import { goldenStdout } from '../golden/load.js';
 import { memoryEphemeralStore } from '../../src/jobs/ephemeral.js';
 import { useAdministrationEphemeralStore } from '../../src/modules/administration/ephemeral-runtime.js';
+import { registerRouteValidation } from '../../src/domain/route-validation.js';
 
 const template = process.env.ADMINISTRATION_MYSQL_TEST_URL;
 const ephemeral = memoryEphemeralStore();
@@ -310,6 +311,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     applicationConfig = config;
     db = createDatabases(config);
     app = Fastify({ logger: false });
+    registerRouteValidation(app);
     await app.register(cookie);
     app.decorateRequest('principal', null);
     app.addHook('preHandler', async (request) => {

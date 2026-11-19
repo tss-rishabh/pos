@@ -2,6 +2,12 @@ import type { FastifyInstance } from 'fastify';
 import type { Config } from '../../../config.js';
 import type { Databases } from '../../../db/pools.js';
 import { authenticated } from '../../../auth/routes.js';
+import {
+  noBody,
+  noQuery,
+  routeSchema,
+  transportHeaders,
+} from '../../../domain/route-validation.js';
 import type { JobProducer } from '../../../jobs/contract.js';
 import {
   createProductSyncAdapter,
@@ -53,14 +59,37 @@ export function registerPendingOrderCancellations(
     trace = (action: string) => ({
       config: { trace: { module: 'checkout', resource: 'pending-order-cancellation', action } },
     });
-  app.get(base, trace('read'), (request) => {
-    const p = cancellationParamsSchema.parse(request.params);
-    return service.context(authenticated(request), p.storeId, p.orderId);
-  });
-  app.post(base, trace('create'), async (request) => {
-    const p = cancellationParamsSchema.parse(request.params);
-    cancellationInputSchema.parse(request.body ?? {});
-    return service.create(authenticated(request), p.storeId, p.orderId);
-  });
+  app.get(
+    base,
+    {
+      ...trace('read'),
+      ...routeSchema({
+        params: cancellationParamsSchema,
+        querystring: noQuery,
+        headers: transportHeaders,
+      }),
+    },
+    (request) => {
+      const p = cancellationParamsSchema.parse(request.params);
+      return service.context(authenticated(request), p.storeId, p.orderId);
+    },
+  );
+  app.post(
+    base,
+    {
+      ...trace('create'),
+      ...routeSchema({
+        params: cancellationParamsSchema,
+        querystring: noQuery,
+        body: noBody,
+        headers: transportHeaders,
+      }),
+    },
+    async (request) => {
+      const p = cancellationParamsSchema.parse(request.params);
+      cancellationInputSchema.parse(request.body ?? {});
+      return service.create(authenticated(request), p.storeId, p.orderId);
+    },
+  );
   return service;
 }

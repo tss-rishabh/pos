@@ -5,6 +5,7 @@ import type { Databases } from '../../db/pools.js';
 import { identifier } from '../../domain/validation.js';
 import { AppError } from '../../domain/errors.js';
 import { authenticated } from '../../auth/routes.js';
+import { routeSchema, transportHeaders } from '../../domain/route-validation.js';
 import { statusRequestInput } from './domain.js';
 import { wholeOrderStatusService, type WholeOrderStatusService } from './service.js';
 import { readWholeOrderStatusOptions, type WholeOrderStatusOptions } from './options.js';
@@ -24,8 +25,14 @@ export async function registerWholeOrderStatus(
       dependencies.service ?? wholeOrderStatusService(config, db, options, dependencies),
     scope = z.object({ storeId: identifier, orderId: identifier }).strict(),
     empty = z.object({}).strict();
-  const trace = (resource: string, action: string) => ({
+  const trace = (resource: string, action: string, body?: z.ZodType) => ({
     config: { trace: { module: 'whole-order-status', resource, action } },
+    ...routeSchema({
+      params: scope,
+      querystring: empty,
+      ...(body ? { body } : {}),
+      headers: transportHeaders,
+    }),
   });
   async function checked<T>(request: FastifyRequest, run: () => Promise<T>) {
     authenticated(request);
@@ -45,7 +52,7 @@ export async function registerWholeOrderStatus(
   /** Legacy `ajax-update-status-vinc/` (`order/urls.py:80`). */
   app.post(
     '/api/v1/stores/:storeId/orders/:orderId/status-requests',
-    trace('whole-order-status-command', 'create'),
+    trace('whole-order-status-command', 'create', statusRequestInput),
     async (request) => {
       const { storeId, orderId } = scope.parse(request.params),
         body = statusRequestInput.parse(request.body);

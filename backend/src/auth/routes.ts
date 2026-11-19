@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { Config } from '../config.js';
 import type { Principal } from '../domain/access.js';
 import { AppError } from '../domain/errors.js';
+import { noBody, requestHeaders, routeSchema } from '../domain/route-validation.js';
 import { seal, unseal } from './crypto.js';
 import type { IdentityService } from './identity.js';
 import type { LoginCheckIns } from './checkin.js';
@@ -33,13 +34,11 @@ const pendingSchema = z
 const noParams = z.object({}).strict();
 const noQuery = z.object({}).strict();
 /** Only the headers auth routes read; values are bounded and never logged. */
-const authHeaders = z
-  .object({
-    cookie: z.string().max(16384).optional(),
-    origin: z.string().max(2048).optional(),
-    'content-type': z.string().max(256).optional(),
-  })
-  .passthrough();
+const authHeaders = requestHeaders({
+  cookie: z.string().max(16384).optional(),
+  origin: z.string().max(2048).optional(),
+  'content-type': z.string().max(256).optional(),
+});
 const passwordStep = z
   .object({
     // AuthenticationForm: username max_length = pos_user.username (150); password not stripped.
@@ -56,6 +55,17 @@ const passwordStep = z
       });
     if (!input.password)
       context.addIssue({ code: 'custom', path: ['password'], message: 'Enter your password.' });
+  });
+const emptyBody = z.object({}).strict();
+/**
+ * Declared gate for the auth routes. A missing body (`null`) passes the gate so the handler's
+ * `validate` reports the same field issues it always has for an absent body.
+ */
+const authSchema = (body?: z.ZodType) =>
+  routeSchema({
+    querystring: noQuery,
+    headers: authHeaders,
+    ...(body ? { body: body.nullable() } : {}),
   });
 function validate(request: FastifyRequest, body?: z.ZodType) {
   noParams.parse(request.params ?? {});
@@ -120,15 +130,16 @@ export function registerAuth(app: FastifyInstance, options: AuthRouteOptions) {
     request.principal = principal;
     request.sessionExpiresAt = token.expires;
   });
-  const trace = (resource: string, action: string) => ({
+  const trace = (resource: string, action: string, body?: z.ZodType) => ({
     config: { trace: { module: 'identity', resource, action } },
+    ...authSchema(body),
   });
-  app.get('/api/v1/auth/capabilities', async (request) => {
+  app.get('/api/v1/auth/capabilities', authSchema(), async (request) => {
     validate(request);
     return { password: !demoUser, demo: Boolean(demoUser) };
   });
   /** Password step (legacy CustomLoginView.post). */
-  app.post('/api/v1/auth/sessions', async (request, reply) => {
+  app.post('/api/v1/auth/sessions', authSchema(passwordStep), async (request, reply) => {
     const body = validate(request, passwordStep) as z.infer<typeof passwordStep>;
     const previous = request.cookies[pendingCookieName];
     reply.clearCookie(pendingCookieName, pendingCookie);
@@ -174,9 +185,9 @@ export function registerAuth(app: FastifyInstance, options: AuthRouteOptions) {
   /** legacy AjaxSendLoginOtpView. */
   app.post(
     '/api/v1/auth/challenges/current/resends',
-    trace('login-challenge', 'resend'),
+    trace('login-challenge', 'resend', emptyBody),
     async (request) => {
-      validate(request, z.object({}).strict());
+      validate(request, emptyBody);
       const credential = pendingCredential(request);
       const sent = await challenges.resend(credential, (userId) => {
         request.auditUserId = userId;
@@ -187,7 +198,7 @@ export function registerAuth(app: FastifyInstance, options: AuthRouteOptions) {
   /** legacy AjaxMfaLoginView: verify, check in, sign in. */
   app.post(
     '/api/v1/auth/challenges/current/verifications',
-    trace('login-challenge', 'verify'),
+    trace('login-challenge', 'verify', verificationInput),
     async (request, reply) => {
       const input = validate(request, verificationInput) as z.infer<typeof verificationInput>;
       const credential = pendingCredential(request);
@@ -205,19 +216,21 @@ export function registerAuth(app: FastifyInstance, options: AuthRouteOptions) {
       return { user, sessionExpiresAt, checkInStoreId: storeId };
     },
   );
-  app.post('/api/v1/auth/demo-sessions', async (request, reply) => {
+  // These two routes read no body; the clients send none.
+  const bodyless = routeSchema({ querystring: noQuery, body: noBody, headers: authHeaders });
+  app.post('/api/v1/auth/demo-sessions', bodyless, async (request, reply) => {
     validate(request);
     if (!demoUser) throw new AppError(404, 'NOT_FOUND', 'Not found.');
     request.principal = demoUser;
     const sessionExpiresAt = await startSession(request, reply, demoUser);
     return { user: demoUser, sessionExpiresAt };
   });
-  app.get('/api/v1/auth/sessions/current', async (request) => {
+  app.get('/api/v1/auth/sessions/current', authSchema(), async (request) => {
     validate(request);
     return { user: authenticated(request), sessionExpiresAt: request.sessionExpiresAt };
   });
   /** legacy CustomLogoutView. */
-  app.delete('/api/v1/auth/sessions/current', async (request, reply) => {
+  app.delete('/api/v1/auth/sessions/current', bodyless, async (request, reply) => {
     validate(request);
     const token = readSessionToken(request, config);
     if (token) {

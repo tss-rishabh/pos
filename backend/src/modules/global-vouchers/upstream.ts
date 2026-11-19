@@ -1,7 +1,7 @@
 import type { Config } from '../../config.js';
 import { AppError } from '../../domain/errors.js';
 import { boundedJson } from '../../domain/http-json.js';
-import { currentRequestTrace } from '../../observability/context.js';
+import { currentRequestTrace, tracedFetch } from '../../observability/context.js';
 
 /**
  * API-v2 voucher endpoints the legacy POS proxies (order/views.py:4518-4579). Legacy posts the
@@ -38,7 +38,7 @@ export const voucherServiceUnavailable = () =>
 
 export function apiV2VoucherUpstream(
   config: Pick<Config, 'TSS_API_BASE_URL' | 'NODE_ENV'>,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = tracedFetch,
 ): VoucherUpstream {
   return {
     async call(segment, payload, authorization) {

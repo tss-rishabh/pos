@@ -6,6 +6,7 @@ import { readConfig } from '../../src/config.js';
 import type { Databases } from '../../src/db/pools.js';
 import type { Principal } from '../../src/domain/access.js';
 import { AppError } from '../../src/domain/errors.js';
+import { registerRouteValidation } from '../../src/domain/route-validation.js';
 import { registerCheckoutPerformance } from '../../src/modules/checkout-performance/index.js';
 describe('private traced checkout timing HTTP inputs', () => {
   it('rejects absent/stale actors, malformed scope, comments and negative source-report poison before database work', async () => {
@@ -29,6 +30,7 @@ describe('private traced checkout timing HTTP inputs', () => {
       },
       close: async () => {},
     };
+    registerRouteValidation(app);
     app.decorateRequest('principal', null);
     app.addHook('onRequest', async (request) => {
       request.principal = current;

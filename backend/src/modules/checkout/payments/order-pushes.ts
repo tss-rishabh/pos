@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Config } from '../../../config.js';
 import { stringifyNumericJson } from '../../upstream.js';
+import { tracedFetch } from '../../../observability/context.js';
 
 /**
  * First-paid side effects that legacy calls synchronously after the paid write:
@@ -43,7 +44,7 @@ export type OrderPushObserver = (event: {
 export function orderPushes(
   config: Config,
   environment: OrderPushEnvironment,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = tracedFetch,
   observe?: OrderPushObserver,
 ): OrderPushes {
   const safe = (raw: string | undefined) => {

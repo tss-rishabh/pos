@@ -6,11 +6,14 @@ import type { Databases } from '../../db/pools.js';
 import { Country } from '../../db/legacy-schema.js';
 import type { Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
+import { noQuery, routeSchema, transportHeaders } from '../../domain/route-validation.js';
 import { assertCurrentOperatorRole } from './authorization.js';
 
 export const secondaryCountryInput = z
   .object({ search: z.string().max(1000).default('') })
   .strict();
+/** The handler treats a missing body as `{}`. */
+const secondaryCountryBody = z.union([z.null(), secondaryCountryInput]);
 const literalContains = (value: string) => '%' + value.replace(/[\\%_]/g, '\\$&') + '%';
 /** The source sec_status directory is distinct from the normal status=1 directory. */
 export function secondaryCountryService(db: Databases) {
@@ -48,9 +51,14 @@ export function registerSecondaryCountrySearch(app: FastifyInstance, db: Databas
         trace: { module: 'administration', resource: 'secondary-country', action: 'search' },
         rateLimit: { max: 60, timeWindow: '1 minute' },
       },
+      ...routeSchema({
+        querystring: noQuery,
+        body: secondaryCountryBody,
+        headers: transportHeaders,
+      }),
     },
     async (request, reply) => {
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       return reply
         .header('Cache-Control', 'private, no-store')
         .send(await service.search(authenticated(request), request.body ?? {}));

@@ -2,6 +2,7 @@ import type { Config } from '../../config.js';
 import { AppError } from '../../domain/errors.js';
 import { boundedText } from '../../domain/http-json.js';
 import { rendererUrl, type InvoiceDocumentOptions } from './options.js';
+import { tracedFetch } from '../../observability/context.js';
 
 export type WhatsappInvoiceOutcome = 'sent' | 'skipped-unconfigured' | 'failed';
 /** Sandboxable outbound calls of the legacy invoice views. Tests replace `fetcher`. */
@@ -25,7 +26,7 @@ const failed = () =>
 export function invoiceAdapter(
   config: Pick<Config, 'NODE_ENV'>,
   options: InvoiceDocumentOptions,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = tracedFetch,
 ): InvoiceAdapter {
   async function html(url: URL, headers: Record<string, string> = {}) {
     let response: Response;

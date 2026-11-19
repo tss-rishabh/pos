@@ -11,6 +11,7 @@ import { connectRedis, type RedisCommands } from './redis.js';
 import { createJobHandlerRegistry } from './registry.js';
 import type { JobLogger } from './runtime.js';
 import { jobWorker } from './worker.js';
+import { applicationLogger } from '../observability/logger.js';
 
 /**
  * `npm run worker:jobs` — the single job worker (phase-c-legacy-jobs.md §4.5), replacing
@@ -33,14 +34,10 @@ class PrivateWorkerLogController extends LogController {
   }
 }
 const runId = randomUUID();
+// Job handler logs carry the originating request's trace (restored by the worker from the job
+// record); worker lifecycle lines fall back to this run's ID.
 const runtime = Fastify({
-  logger: {
-    base: null,
-    serializers: {
-      err: () => ({ type: 'InternalError', message: 'Worker operation failed', stack: '' }),
-    },
-    mixin: () => ({ requestId: runId, userId: null }),
-  },
+  logger: applicationLogger({}, { requestId: runId, module: 'jobs', resource: 'worker' }),
   logController: new PrivateWorkerLogController(),
 });
 const log: JobLogger = (level, event, message) => runtime.log[level]({ ...event }, message);

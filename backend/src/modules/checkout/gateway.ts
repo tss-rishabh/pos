@@ -4,6 +4,7 @@ import { AppError } from '../../domain/errors.js';
 import { boundedJson } from '../../domain/http-json.js';
 import type { Payload } from './payloads.js';
 import { stringifyNumericJson } from '../upstream.js';
+import { tracedFetch } from '../../observability/context.js';
 
 /**
  * Checkout integration settings. Legacy calls unpatched API-v2, so no upstream contract
@@ -75,7 +76,7 @@ export interface CheckoutGateway {
 export function checkoutGateway(
   config: Config,
   environment: CheckoutEnvironment,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = tracedFetch,
 ): CheckoutGateway {
   function target(url: string | undefined) {
     if (!url)

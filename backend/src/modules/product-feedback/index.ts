@@ -3,7 +3,8 @@ import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import { authenticated } from '../../auth/routes.js';
-import { productFeedbackScope } from './contracts.js';
+import { noQuery, routeSchema, transportHeaders } from '../../domain/route-validation.js';
+import { feedbackPage, feedbackSubmission, productFeedbackScope } from './contracts.js';
 import { productFeedbackService } from './service.js';
 import type { OrderRedis } from '../fulfillment/order-redis.js';
 
@@ -16,6 +17,7 @@ export function registerProductFeedback(
   const service = productFeedbackService(config, db, redis);
   const path =
     '/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customers/:customerId/orders/:orderId/product-feedback';
+  const submissionScope = productFeedbackScope.extend({ operationId: z.uuid() }).strict();
   app.get(
     path,
     {
@@ -23,6 +25,12 @@ export function registerProductFeedback(
         trace: { module: 'product-feedback', resource: 'product-feedback', action: 'read' },
         rateLimit: { max: 60, timeWindow: '1 minute' },
       },
+      // The service parses the query with the same `feedbackPage`.
+      ...routeSchema({
+        params: productFeedbackScope,
+        querystring: feedbackPage,
+        headers: transportHeaders,
+      }),
     },
     async (request, reply) =>
       reply
@@ -42,9 +50,16 @@ export function registerProductFeedback(
         trace: { module: 'product-feedback', resource: 'product-feedback', action: 'create' },
         rateLimit: { max: 20, timeWindow: '1 minute' },
       },
+      // The service parses the body with the same `feedbackSubmission`.
+      ...routeSchema({
+        params: productFeedbackScope,
+        querystring: noQuery,
+        body: feedbackSubmission,
+        headers: transportHeaders,
+      }),
     },
     async (request, reply) => {
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       return reply
         .header('Cache-Control', 'private, no-store')
         .send(
@@ -67,13 +82,15 @@ export function registerProductFeedback(
         },
         rateLimit: { max: 60, timeWindow: '1 minute' },
       },
+      ...routeSchema({
+        params: submissionScope,
+        querystring: noQuery,
+        headers: transportHeaders,
+      }),
     },
     async (request, reply) => {
-      z.object({}).strict().parse(request.query);
-      const { operationId, ...scope } = productFeedbackScope
-        .extend({ operationId: z.uuid() })
-        .strict()
-        .parse(request.params);
+      noQuery.parse(request.query);
+      const { operationId, ...scope } = submissionScope.parse(request.params);
       return reply
         .header('Cache-Control', 'private, no-store')
         .send(await service.receipt(authenticated(request), scope, operationId));

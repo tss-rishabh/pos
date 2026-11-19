@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { Databases } from '../../db/pools.js';
 import { HasProduct, Store } from '../../db/legacy-schema.js';
 import { boundedJson } from '../../domain/http-json.js';
-import { currentRequestTrace } from '../../observability/context.js';
+import { currentRequestTrace, tracedFetch } from '../../observability/context.js';
 import { syncRepoStatusApi, type CallStatusApi } from '../legacy-order-status/transport.js';
 import type { FulfillmentOptions } from './options.js';
 import { slackText } from './slack-text.js';
@@ -80,7 +80,7 @@ export function fulfillmentEffects(
   options: FulfillmentOptions,
   dependencies: FulfillmentEffectsDependencies = {},
 ) {
-  const fetcher = dependencies.fetch ?? fetch,
+  const fetcher = dependencies.fetch ?? tracedFetch,
     log = dependencies.log ?? (() => {}),
     maxInFlight = dependencies.maxInFlight ?? 16,
     inFlight = new Set<Promise<void>>();

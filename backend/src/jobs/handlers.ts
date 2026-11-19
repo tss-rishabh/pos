@@ -14,6 +14,7 @@ import {
 import { registerJobHandlers as registerLegacyOrderStatusJobs } from '../modules/legacy-order-status/jobs.js';
 import { createProductSyncAdapter } from '../modules/administration/product-sync.js';
 import { readAdministrationWorkerOptions } from '../modules/administration/worker-options.js';
+import { tracedFetch } from '../observability/context.js';
 
 type LogEvent = Parameters<JobLogger>[1];
 /** Keeps only scalar event fields: job logs carry ids and codes, never objects. */
@@ -69,7 +70,7 @@ const legacyFulfillment: JobModuleRegistration = (registry, runtime) => {
     redis = nodeOrderRedis(config),
     syncProducts = config.DEMO_MODE
       ? undefined
-      : createProductSyncAdapter(config, readAdministrationWorkerOptions(), fetch, {
+      : createProductSyncAdapter(config, readAdministrationWorkerOptions(), tracedFetch, {
           requireReplaySafe: false,
         });
   const deps = legacyFulfillmentDependencies(config, db, {

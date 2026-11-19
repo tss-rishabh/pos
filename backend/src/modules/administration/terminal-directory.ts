@@ -5,6 +5,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Databases } from '../../db/pools.js';
 import { PosMachine, PosPaytmMachine, PosUser, Store, UserStore } from '../../db/legacy-schema.js';
 import { authenticated } from '../../auth/routes.js';
+import { noQuery, routeSchema, transportHeaders } from '../../domain/route-validation.js';
 import { identifier } from '../../domain/validation.js';
 import { AppError } from '../../domain/errors.js';
 import { assertCurrentOperatorRole, assertCurrentStoreAccess } from './authorization.js';
@@ -35,11 +36,16 @@ export function registerTerminalDirectory(app: FastifyInstance, db: Databases) {
       config: {
         trace: { module: 'administration', resource: 'payment-terminal', action: 'search' },
       },
+      ...routeSchema({
+        querystring: noQuery,
+        body: terminalDirectoryInput,
+        headers: transportHeaders,
+      }),
     },
     async (request, reply) => {
       const user = authenticated(request),
         input = terminalDirectoryInput.parse(request.body);
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       const result = await db.get('writer').transaction(async (tx) => {
         const role = await assertCurrentOperatorRole(tx, user.id, [1, 2, 3]);
         const [actor] = await tx
