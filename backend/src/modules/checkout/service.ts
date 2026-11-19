@@ -47,6 +47,8 @@ import {
 import type { DiscountApprovals } from './discounts/contracts.js';
 import type { CustomerRegistrations, RegistrationDetails } from './customers/contracts.js';
 import { discountMetadataSchema } from './discounts/policy.js';
+import type { PaymentInput } from './payments/contracts.js';
+import { validatePaymentSplit } from './payments/repository.js';
 import {
   assertGiftCardValues,
   giftCardOperations,
@@ -83,6 +85,16 @@ export interface CheckoutServiceOptions {
    * operator-driven confirmation reconciliation; it never re-sends pos/order or the confirmation.
    */
   verifyCreatedOrder?(state: CheckoutState, orderId: string): Promise<void>;
+  /**
+   * Legacy normal path (`create_order.html:6177-7239`): the operator confirms the payment form, then
+   * `ajax-order` creates the order and `ajax-transaction-upload` starts that payment.
+   */
+  startPayment?(
+    user: Principal,
+    storeId: string,
+    orderId: string,
+    input: PaymentInput,
+  ): Promise<unknown>;
   /** `has_products.salesperson_id` per line, right after pos/order (order/views.py:2779-2795). */
   recordLineSalespersons?(state: CheckoutState, orderId: string): Promise<void>;
   registrations?: CustomerRegistrations;
@@ -1870,91 +1882,142 @@ export function checkoutService(
         },
       );
     },
-    async submit(user: Principal, storeId: string, id: string, input: MutationInput) {
-      return mutate(user, storeId, id, input, 'order.create', {}, async (state) => {
-        // Legacy order flow: the page first runs ajax-validate-process-order (validatecheckout +
-        // processorder, our quote), then AjaxOrderView (order/views.py:2686-2840).
-        if (state.phase !== 'quoted' || !state.quote)
-          throw new AppError(
-            409,
-            'CHECKOUT_QUOTE_REQUIRED',
-            'Review an authoritative quote before creating the order.',
+    async submit(
+      user: Principal,
+      storeId: string,
+      id: string,
+      input: MutationInput,
+      payment: PaymentInput | null = null,
+    ) {
+      return mutate(
+        user,
+        storeId,
+        id,
+        input,
+        'order.create',
+        payment ? { payment } : {},
+        async (state) => {
+          // Legacy order flow: the page first runs ajax-validate-process-order (validatecheckout +
+          // processorder, our quote), then AjaxOrderView (order/views.py:2686-2840).
+          if (state.phase !== 'quoted' || !state.quote)
+            throw new AppError(
+              409,
+              'CHECKOUT_QUOTE_REQUIRED',
+              'Review an authoritative quote before creating the order.',
+            );
+          if (!options.finalizeOrder)
+            throw new AppError(
+              503,
+              'ORDER_FINALIZER_UNAVAILABLE',
+              'Order finalization is not configured.',
+            );
+          assertOrderReady(state);
+          const payable = quotePayable(state.quote);
+          if (payment) {
+            if (!options.startPayment)
+              throw new AppError(
+                503,
+                'PAYMENT_UNAVAILABLE',
+                'Counter payments are not configured.',
+              );
+            // The legacy form is validated before `ajax-order` (create_order.html:5820-5870).
+            validatePaymentSplit(payment, payable);
+          }
+          // Without `payment` (offline sync, recovery) the order is created and paid separately;
+          // the counter UI always confirms the payment form first.
+          const auth = await token(state),
+            c = context(state);
+          // get_user_cart (2731) supplies the gift-card IDs for gc_data (2733-2747).
+          const cart = await readCart(state, auth);
+          const approval = options.discounts
+            ? await options.discounts.authorize(user, state)
+            : null;
+          const payload = orderPayload(
+            c,
+            state.counterId,
+            state.operatorCustomerId,
+            state.salespersonId,
+            quoteTotal(state.quote),
+            orderGiftCardData(state, cart),
           );
-        if (!options.finalizeOrder)
-          throw new AppError(
-            503,
-            'ORDER_FINALIZER_UNAVAILABLE',
-            'Order finalization is not configured.',
-          );
-        assertOrderReady(state);
-        const auth = await token(state),
-          c = context(state);
-        // get_user_cart (2731) supplies the gift-card IDs for gc_data (2733-2747).
-        const cart = await readCart(state, auth);
-        const approval = options.discounts ? await options.discounts.authorize(user, state) : null;
-        const payload = orderPayload(
-          c,
-          state.counterId,
-          state.operatorCustomerId,
-          state.salespersonId,
-          quoteTotal(state.quote),
-          orderGiftCardData(state, cart),
-        );
-        const created = z
-          .object({
-            order: z.union([
-              z.string().regex(/^[1-9]\d{0,19}$/),
-              z.number().int().positive().safe(),
-            ]),
-            method: z.unknown(),
-            isValid: z.unknown(),
-            name: z.unknown(),
-          })
-          .passthrough()
-          .refine((value) => ['method', 'isValid', 'name'].every((key) => key in value))
-          .safeParse(await gateway.api('pos/order', payload, auth));
-        if (!created.success)
-          // Legacy: a 200 without these keys raises KeyError (unhandled 500). The order may exist.
-          throw new CheckoutGatewayError(
-            'CHECKOUT_OUTCOME_UNCERTAIN',
-            'The checkout service did not return the created order. Review recent orders before retrying.',
-            true,
-          );
-        const orderId = String(created.data.order),
-          confirmation = confirmationPayload(
-            created.data.order,
-            created.data.method,
-            created.data.isValid,
-            created.data.name,
-            c.storeId,
-          );
-        const checkpoint: CheckoutState = {
-          ...state,
-          orderId,
-          orderSubmissionOperationId: input.operationId,
-          phase: 'order-created',
-          paymentConfirmation: confirmation,
-          confirmationPhase: 'not-dispatched',
-        };
-        // A process crash after this point retains the created order identity. It
-        // never reissues pos/order or silently treats an unconfirmed call as paid.
-        await repository.checkpoint(checkpoint, input.operationId);
-        if (approval) await options.discounts!.record(checkpoint, orderId, approval);
-        await options.recordLineSalespersons?.(checkpoint, orderId);
-        const dispatching: CheckoutState = { ...checkpoint, confirmationPhase: 'dispatching' };
-        await repository.checkpoint(dispatching, input.operationId);
-        try {
-          await gateway.confirm(confirmation, auth);
-        } catch (error) {
-          // Legacy generates the invoice number before checking the confirmation (2799-2809).
-          if (error instanceof CheckoutGatewayError && !error.uncertain)
-            await options.finalizeOrder(dispatching, orderId, { confirmed: false });
-          throw error;
-        }
-        const acknowledged: CheckoutState = { ...dispatching, confirmationPhase: 'acknowledged' };
-        await repository.checkpoint(acknowledged, input.operationId);
-        return completeOrder(acknowledged, orderId);
-      });
+          const created = z
+            .object({
+              order: z.union([
+                z.string().regex(/^[1-9]\d{0,19}$/),
+                z.number().int().positive().safe(),
+              ]),
+              method: z.unknown(),
+              isValid: z.unknown(),
+              name: z.unknown(),
+            })
+            .passthrough()
+            .refine((value) => ['method', 'isValid', 'name'].every((key) => key in value))
+            .safeParse(await gateway.api('pos/order', payload, auth));
+          if (!created.success)
+            // Legacy: a 200 without these keys raises KeyError (unhandled 500). The order may exist.
+            throw new CheckoutGatewayError(
+              'CHECKOUT_OUTCOME_UNCERTAIN',
+              'The checkout service did not return the created order. Review recent orders before retrying.',
+              true,
+            );
+          const orderId = String(created.data.order),
+            confirmation = confirmationPayload(
+              created.data.order,
+              created.data.method,
+              created.data.isValid,
+              created.data.name,
+              c.storeId,
+            );
+          const checkpoint: CheckoutState = {
+            ...state,
+            orderId,
+            orderSubmissionOperationId: input.operationId,
+            phase: 'order-created',
+            paymentConfirmation: confirmation,
+            confirmationPhase: 'not-dispatched',
+          };
+          // A process crash after this point retains the created order identity. It
+          // never reissues pos/order or silently treats an unconfirmed call as paid.
+          await repository.checkpoint(checkpoint, input.operationId);
+          if (approval) await options.discounts!.record(checkpoint, orderId, approval);
+          await options.recordLineSalespersons?.(checkpoint, orderId);
+          const dispatching: CheckoutState = { ...checkpoint, confirmationPhase: 'dispatching' };
+          await repository.checkpoint(dispatching, input.operationId);
+          try {
+            await gateway.confirm(confirmation, auth);
+          } catch (error) {
+            // Legacy generates the invoice number before checking the confirmation (2799-2809).
+            if (error instanceof CheckoutGatewayError && !error.uncertain)
+              await options.finalizeOrder(dispatching, orderId, { confirmed: false });
+            throw error;
+          }
+          const acknowledged: CheckoutState = { ...dispatching, confirmationPhase: 'acknowledged' };
+          await repository.checkpoint(acknowledged, input.operationId);
+          const completed = await completeOrder(acknowledged, orderId);
+          if (!payment) return completed;
+          // The order exists now; a payment rejection must not fail the order operation. The
+          // operator sees it and continues on the order's payment panel, as legacy shows the toast.
+          try {
+            const started = await options.startPayment!(user, storeId, orderId, payment);
+            return { ...completed, result: { ...completed.result, payment: started } };
+          } catch (error) {
+            return {
+              ...completed,
+              result: {
+                ...completed.result,
+                paymentError:
+                  error instanceof AppError
+                    ? { code: error.code, message: error.message, status: error.status }
+                    : {
+                        code: 'PAYMENT_OUTCOME_UNCERTAIN',
+                        message: 'The payment outcome needs review. Check it on the order.',
+                        status: 502,
+                      },
+              },
+            };
+          }
+        },
+      );
     },
     finalize(user: Principal, storeId: string, id: string, input: MutationInput) {
       return mutate(user, storeId, id, input, 'order.finalize', {}, async (state) => {

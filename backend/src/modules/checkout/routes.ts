@@ -34,6 +34,8 @@ import {
 } from './finalizer.js';
 import { returnReadService } from './returns.js';
 import { registerPayments } from './payments/routes.js';
+import { paymentInputSchema } from './payments/contracts.js';
+import { AppError } from '../../domain/errors.js';
 import type { PaymentGateway } from './payments/contracts.js';
 import { registerReturns } from './return-workflow/routes.js';
 import type { ReturnGateway } from './return-workflow/contracts.js';
@@ -102,6 +104,7 @@ export function registerCheckout(
   overrides: CheckoutRegistrationOptions = {},
 ) {
   const environment = overrides.environment || checkoutEnvironment();
+  const late: { payments?: ReturnType<typeof registerPayments> } = {};
   const stateStore = overrides.stateStore || configuredStateStore(config),
     sessions = overrides.sessions || checkoutSessionStore(stateStore),
     shared = { stateStore, sessions, jobs: overrides.jobs };
@@ -135,6 +138,11 @@ export function registerCheckout(
     finalizeOrder:
       overrides.finalizeOrder || orderFinalizer(db, config, 'ordinary', overrides.jobs),
     recordLineSalespersons: orderLineSalespersons(db),
+    startPayment: (user, storeId, orderId, input) => {
+      if (!late.payments)
+        throw new AppError(503, 'PAYMENT_UNAVAILABLE', 'Counter payments are not configured.');
+      return late.payments.start(user, storeId, orderId, input);
+    },
     prepaidSettlement: overrides.prepaidSettlement || prepaidSettlementReader(db),
     verifyCreatedOrder: overrides.verifyCreatedOrder || createdOrderVerifier(db),
     discounts:
@@ -149,6 +157,21 @@ export function registerCheckout(
   });
   const returns = returnReadService(db, gateway, assertCheckIn);
   const flags = overrides.checkoutFlags || checkoutFlagsReader(db, config);
+  /** Legacy payment form options for the sale's counter, before the order exists. */
+  app.get(session + '/payment-options', trace('payment-option', 'list'), async (request) => {
+    const user = authenticated(request),
+      p = sessionScope.parse(request.params);
+    z.object({})
+      .strict()
+      .parse(request.query ?? {});
+    const state = await service.read(user, p.storeId, p.checkoutId);
+    if (!late.payments)
+      throw new AppError(503, 'PAYMENT_UNAVAILABLE', 'Counter payments are not configured.');
+    return {
+      counterId: state.counterId,
+      options: await late.payments.counterOptions(user, p.storeId, state.counterId),
+    };
+  });
   function response(result: MutationReply) {
     return { ...result, state: publicState(result.state, config.CASHBACK_CREDIT_MESSAGE) };
   }
@@ -643,8 +666,17 @@ export function registerCheckout(
     async (request, reply) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema.strict().parse(request.body);
-      const result = await service.submit(user, p.storeId, p.checkoutId, body);
+        body = mutationSchema
+          .extend({ payment: paymentInputSchema.optional() })
+          .strict()
+          .parse(request.body);
+      const result = await service.submit(
+        user,
+        p.storeId,
+        p.checkoutId,
+        { operationId: body.operationId, expectedVersion: body.expectedVersion },
+        body.payment ?? null,
+      );
       return reply.code(result.status === 'succeeded' ? 201 : 202).send(response(result));
     },
   );
@@ -715,7 +747,7 @@ export function registerCheckout(
       return returns.refund(user, p.storeId, p.orderId, p.lineId);
     },
   );
-  registerPayments(app, config, db, {
+  late.payments = registerPayments(app, config, db, {
     ...shared,
     gateway: overrides.paymentGateway,
     assertCheckIn: overrides.assertCheckIn

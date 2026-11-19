@@ -153,6 +153,9 @@ export function paymentService(
     options(user: Principal, storeId: string, orderId: string) {
       return repository.options(user, storeId, orderId);
     },
+    counterOptions(user: Principal, storeId: string, counterId: string) {
+      return repository.counterOptions(user, storeId, counterId);
+    },
     /** Lost-response recovery for one start request (no provider call). */
     async get(user: Principal, storeId: string, orderId: string, attemptId: string) {
       const record = await readJson(

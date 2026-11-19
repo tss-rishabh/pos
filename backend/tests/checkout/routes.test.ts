@@ -68,11 +68,11 @@ describe('validated checkout HTTP boundaries', () => {
   });
   it('records explicit resource trace metadata for every checkout and payment route', () => {
     const routes = resourceRoutes(app);
-    expect(routes).toHaveLength(80);
+    expect(routes).toHaveLength(81);
     expect(
       routes.every((route) => route.module === 'checkout' && route.authentication === 'session'),
     ).toBe(true);
-    expect(new Set(routes.map((route) => `${route.method} ${route.path}`)).size).toBe(80);
+    expect(new Set(routes.map((route) => `${route.method} ${route.path}`)).size).toBe(81);
     const returnWindow = '/api/v1/stores/:storeId/orders/:orderId/line-items/:lineId/return-window';
     expect(routes.filter((route) => route.resource === 'return-window-extension')).toEqual([
       {

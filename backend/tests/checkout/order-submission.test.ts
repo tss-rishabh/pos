@@ -59,11 +59,16 @@ describe('pos/order against unpatched API-v2', () => {
     const repository = new MemoryCheckoutRepository();
     const finalized: { orderId: string; confirmed: boolean }[] = [];
     const salespersons: string[] = [];
+    const payments: { orderId: string; channel: string }[] = [];
     const service = checkoutService(repository, gateway, environment, {
       migrationV2: true,
       assertCheckIn: async () => {},
       recordLineSalespersons: async (_state, orderId) => {
         salespersons.push(orderId);
+      },
+      startPayment: async (_user, _store, orderId, input) => {
+        payments.push({ orderId, channel: input.channel });
+        return { orderId, status: 'paid' };
       },
       finalizeOrder: async (_state, orderId, outcome = { confirmed: true }) => {
         finalized.push({ orderId, confirmed: outcome.confirmed });
@@ -76,14 +81,37 @@ describe('pos/order against unpatched API-v2', () => {
       operationId: crypto.randomUUID(),
       expectedVersion: 0,
     });
-    const done = await service.submit(operator, '1', created.id, {
+    const confirmedPayment = {
       operationId: crypto.randomUUID(),
-      expectedVersion: 1,
-    });
+      channel: 'cash' as const,
+      cashAmount: '499.00',
+      onlineAmount: '0.00',
+      cashReceived: '500.00',
+      message: '#Cash Received:500',
+    };
+    // Legacy validates the confirmed payment form before ajax-order; a wrong total never orders.
+    await expect(
+      service.submit(
+        operator,
+        '1',
+        created.id,
+        { operationId: crypto.randomUUID(), expectedVersion: 1 },
+        { ...confirmedPayment, cashAmount: '400.00' },
+      ),
+    ).rejects.toMatchObject({ code: 'PAYMENT_TOTAL_MISMATCH' });
+    expect(api.requests.some((request) => request.path === '/api/v2/pos/order')).toBe(false);
+    const done = await service.submit(
+      operator,
+      '1',
+      created.id,
+      { operationId: crypto.randomUUID(), expectedVersion: 1 },
+      confirmedPayment,
+    );
     expect(done.status).toBe('succeeded');
     if (done.status !== 'succeeded') throw new Error('expected success');
     expect(done.result).toMatchObject({ orderId: '7001', paymentStatus: 'pending' });
     expect(salespersons).toEqual(['7001']);
+    expect(payments).toEqual([{ orderId: '7001', channel: 'cash' }]);
     expect(finalized).toEqual([{ orderId: '7001', confirmed: true }]);
 
     const order = api.requests.find((request) => request.path === '/api/v2/pos/order')!;
