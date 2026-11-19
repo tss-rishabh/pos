@@ -22,7 +22,6 @@ import {
 import { administrationService } from '../../../src/modules/administration/service.js';
 import { catalogService } from '../../../src/modules/catalog.js';
 import { catalogMaintenanceService } from '../../../src/modules/catalog-details/maintenance-service.js';
-import { memoryEphemeralStore } from '../../../src/jobs/ephemeral.js';
 import { barcodeFixture } from '../../../tools/administration/barcodes/fixture.js';
 import { goldenSpawnResult } from '../../golden/load.js';
 import { fixturePlaceholders } from '../../golden/fixture-placeholders.js';

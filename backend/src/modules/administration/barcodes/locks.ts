@@ -1,9 +1,6 @@
 import { setTimeout as sleep } from 'node:timers/promises';
-import { eq } from 'drizzle-orm';
 import { AppError } from '../../../domain/errors.js';
 import { withEphemeralLock, type EphemeralStore } from '../../../jobs/ephemeral.js';
-import type { AdministrationTransaction } from '../checkins.js';
-import { catalogMaintenanceLocks } from '../../catalog-details/maintenance-schema.js';
 
 /** Ledger `pos_rewrite_catalog_locks` -> `pos:lock:catalog:{name}` (SET NX PX, token release). */
 export const barcodeMutationLockKey = 'pos:lock:catalog:barcode-mutations';
@@ -31,22 +28,4 @@ export async function withBarcodeMutationLock<T>(
       );
     await sleep(25);
   }
-}
-
-/**
- * @deprecated Table lock kept only for `catalog-details/maintenance-service.ts` until its owner
- * moves to `withBarcodeMutationLock`. Barcode assignment no longer takes it.
- */
-export async function lockBarcodeMutation(transaction: AdministrationTransaction): Promise<void> {
-  const id = 'barcode-mutations';
-  await transaction
-    .insert(catalogMaintenanceLocks)
-    .values({ id })
-    .onDuplicateKeyUpdate({ set: { id } });
-  await transaction
-    .select({ id: catalogMaintenanceLocks.id })
-    .from(catalogMaintenanceLocks)
-    .where(eq(catalogMaintenanceLocks.id, id))
-    .limit(1)
-    .for('update');
 }
