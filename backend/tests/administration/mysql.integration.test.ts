@@ -46,22 +46,11 @@ import { profileMediaCleanup } from '../../src/auth/profile-media-worker.js';
 import { profileUploads } from '../../src/auth/profile-media-schema.js';
 import type { Principal } from '../../src/domain/access.js';
 import { registerAdministration } from '../../src/modules/administration/index.js';
-import {
-  enqueueInventorySynchronization,
-  enqueueSystemInventorySynchronization,
-  type InventorySynchronizationContext,
-} from '../../src/modules/administration/inventory.js';
 import { catalogService } from '../../src/modules/catalog.js';
 import {
   legacyFixtureRecord,
   legacyFixtureTableSql,
 } from '../../tools/administration/mysql-fixture.js';
-import {
-  administrationWorker,
-  retryInventorySynchronization,
-  type AdministrationWorkerEvent,
-} from '../../src/modules/administration/worker.js';
-import { readAdministrationWorkerOptions } from '../../src/modules/administration/worker-options.js';
 import type {
   DocumentationMediaStore,
   ReservedMedia,
@@ -72,27 +61,17 @@ import {
   type MediaWorkerEvent,
 } from '../../src/modules/administration/media-worker.js';
 import { readDocumentationMediaOptions } from '../../src/modules/administration/media-storage.js';
-import { settingsOutbox } from '../../src/modules/administration/settings-outbox.js';
 import { settingsService } from '../../src/modules/administration/settings.js';
-import { readSettingsWorkerOptions } from '../../src/modules/administration/settings-options.js';
-import {
-  settingsWorker,
-  type SettingsWorkerEvent,
-} from '../../src/modules/administration/settings-worker.js';
+import { readSettingsOptions } from '../../src/modules/administration/settings-options.js';
+import { memoryEphemeralStore } from '../../src/jobs/ephemeral.js';
+import { recordingJobProducer } from '../../src/jobs/module-runtime.js';
 import type {
   SettingsEffect,
   SettingsEffectDelivery,
 } from '../../src/modules/administration/settings-domain.js';
 import { createSettingsDelivery } from '../../src/modules/administration/settings-adapters.js';
-import { inventoryImportService } from '../../src/modules/administration/imports.js';
 import { inventoryService } from '../../src/modules/administration/inventory.js';
 import { assertCurrentStoreAccess } from '../../src/modules/administration/authorization.js';
-import { stockCsv, stockImportHeaders } from '../../src/modules/administration/import-domain.js';
-import type { StockProcedureInput } from '../../src/modules/administration/stock-procedure.js';
-import {
-  inventoryImportHistory,
-  readImportHistoryOptions,
-} from '../../src/modules/administration/import-history.js';
 import { operatorMfaService } from '../../src/modules/administration/mfa.js';
 import { operatorMfaEnrollments } from '../../src/modules/administration/mfa-schema.js';
 import {
@@ -202,15 +181,16 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
   let deliveryFailure = false;
   let settingsAvailable = true;
   const settingsFailures = new Set<SettingsEffect['kind']>();
-  const settingsDeliveries: { id: string; effect: SettingsEffect }[] = [];
+  const settingsDeliveries: { effect: SettingsEffect }[] = [];
   const settingsDelivery: SettingsEffectDelivery = {
     supports: () => settingsAvailable,
-    async deliver(id, effect, signal) {
+    async deliver(effect, signal) {
       signal?.throwIfAborted();
-      settingsDeliveries.push({ id, effect });
+      settingsDeliveries.push({ effect });
       if (settingsFailures.has(effect.kind)) throw new Error('private-canary@example.test');
     },
   };
+  const moduleRuntime = { jobs: recordingJobProducer(), ephemeral: memoryEphemeralStore() };
   let mediaVerificationFailure = false,
     mediaDeletionFailure = false;
   const mediaDeletes: string[] = [],
@@ -300,7 +280,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     },
     close() {},
   };
-  const deliveries: { id: string; products: string[]; context: InventorySynchronizationContext }[] =
+  const deliveries: { products: string[]; context: { operatorId: string; storeId?: string } }[] =
     [];
   const describeTable = (table: MySqlTable) => getTableConfig(table);
   async function seed(
@@ -366,9 +346,6 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       'migrations/0006_operator_auth_epochs.sql',
       'src/modules/administration/migration.sql',
       'src/modules/administration/media-migration.sql',
-      'src/modules/administration/settings-migration.sql',
-      'src/modules/administration/import-migration.sql',
-      'src/modules/administration/parent-store-imports/migration.sql',
       'src/modules/administration/mfa-migration.sql',
       'src/modules/administration/store-image-migration.sql',
       'src/modules/administration/access-migration.sql',
@@ -411,13 +388,13 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       storeImageStore,
       operatorImageStore,
       slackOAuth: slackProvider,
-      syncProducts: async (id, products, context) => {
-        deliveries.push({ id, products, context });
-        if (deliveryFailure) throw new Error('Fixture dependency outage');
+      productSync: async (products, context) => {
+        deliveries.push({ products: [...products], context });
+        return !deliveryFailure;
       },
       procedureVerified: false,
       settingsDelivery,
-      ecommerceSyncVerified: true,
+      moduleRuntime,
     });
     await app.ready();
   });
@@ -441,16 +418,10 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     for (const table of [...tables].reverse())
       await connection.query('DELETE FROM ' + mysql.escapeId(describeTable(table).name));
     await connection.query('DELETE FROM pos_rewrite_operator_checkins');
-    await connection.query('DELETE FROM pos_rewrite_administration_outbox');
     for (const table of [
       'pos_rewrite_documentation_assets',
       'pos_rewrite_documentation_revisions',
       'pos_rewrite_documentation_mutations',
-      'pos_rewrite_settings_effects',
-      'pos_rewrite_settings_mutations',
-      'pos_rewrite_ecommerce_changes',
-      'pos_rewrite_inventory_import_rows',
-      'pos_rewrite_inventory_imports',
       'pos_rewrite_operator_mfa_enrollments',
       'pos_rewrite_operator_mfa_mutations',
       'pos_rewrite_sessions',
@@ -1084,80 +1055,6 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       (await app.inject({ method: 'PUT', url: '/api/v1/admin/stores/1', payload })).statusCode,
     ).toBe(403);
   });
-  it.each(['return', 'legacy-rto', 'legacy-delivery'] as const)(
-    'queues one %s synchronization event, preserves attempts and traces delivery without PII',
-    async (reason) => {
-      const event = {
-        id: 'financial-return-fixture',
-        storeId: '1',
-        productIds: ['1002', '1000', '1002'],
-        operatorId: '4',
-        reason,
-        requestId: 'fixture-request-id',
-      };
-      await db.get('writer').transaction(async (transaction) => {
-        await enqueueInventorySynchronization(transaction, event);
-        await enqueueInventorySynchronization(transaction, event);
-      });
-      await expect(
-        db
-          .get('writer')
-          .transaction((transaction) =>
-            enqueueInventorySynchronization(transaction, { ...event, storeId: '2' }),
-          ),
-      ).rejects.toThrow('belongs to another operation');
-      deliveryFailure = true;
-      expect(await services.inventory.dispatchPending()).toBe(0);
-      const [pending] = await connection.query<mysql.RowDataPacket[]>(
-        "SELECT attempts,delivered_at,JSON_UNQUOTE(JSON_EXTRACT(payload,'$.reason')) AS reason FROM pos_rewrite_administration_outbox WHERE id=?",
-        [event.id],
-      );
-      expect(pending.map((row) => [row.attempts, row.delivered_at, row.reason])).toEqual([
-        [1, null, reason],
-      ]);
-      deliveryFailure = false;
-      expect(await services.inventory.dispatchPending()).toBe(1);
-      expect(deliveries).toEqual(
-        [1, 2].map(() => ({
-          id: event.id,
-          products: ['1000', '1002'],
-          context: { operatorId: '4', storeId: '1', requestId: event.requestId },
-        })),
-      );
-    },
-  );
-  it('preserves the trusted service system actor without allowing normal enqueue impersonation', async () => {
-    const event = {
-      id: randomUUID(),
-      storeId: '1',
-      productIds: ['1000'],
-      operatorId: '0',
-      reason: 'legacy-delivery' as const,
-      requestId: 'system-request-fixture',
-    };
-    await expect(
-      db
-        .get('writer')
-        .transaction((transaction) => enqueueInventorySynchronization(transaction, event)),
-    ).rejects.toThrow();
-    const { operatorId: _operator, ...systemEvent } = event;
-    await db
-      .get('writer')
-      .transaction((transaction) =>
-        enqueueSystemInventorySynchronization(transaction, systemEvent),
-      );
-    const [rows] = await connection.query<mysql.RowDataPacket[]>(
-      "SELECT JSON_UNQUOTE(JSON_EXTRACT(payload,'$.actorId')) AS actor,JSON_UNQUOTE(JSON_EXTRACT(payload,'$.reason')) AS reason FROM pos_rewrite_administration_outbox WHERE id=?",
-      [event.id],
-    );
-    expect(rows).toMatchObject([{ actor: '0', reason: 'legacy-delivery' }]);
-    expect(await services.inventory.dispatchPending()).toBe(1);
-    expect(deliveries[0]!.context).toEqual({
-      operatorId: '0',
-      storeId: '1',
-      requestId: event.requestId,
-    });
-  });
   it('persists and clears a validated check-in, rejecting cross-store and expired proofs', async () => {
     actor = { ...actor, id: '4', role: 4, storeIds: ['1', '2'] };
     const response = await app.inject({
@@ -1484,549 +1381,6 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       (await app.inject(`/api/v1/admin/stores/2/payment-terminals/paytm/${id}`)).statusCode,
     ).toBe(404);
   });
-  it('prevents overlapping worker batches and emits resource/request/operator trace identifiers', async () => {
-    await db.get('writer').transaction((transaction) =>
-      enqueueInventorySynchronization(transaction, {
-        id: 'worker-fixture',
-        storeId: '1',
-        productIds: ['1001'],
-        operatorId: '4',
-        reason: 'return',
-        requestId: 'fixture-request-id',
-      }),
-    );
-    const options = readAdministrationWorkerOptions({
-      ADMINISTRATION_WORKER_ENABLED: 'true',
-      PRODUCT_SYNC_BASE_URL: 'https://sync.example.test/',
-      PRODUCT_SYNC_URI: 'sync/products',
-      PRODUCT_SYNC_REPLAY_SAFE: 'true',
-    });
-    const events: AdministrationWorkerEvent[] = [];
-    let calls = 0,
-      release: () => void = () => {};
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const fetcher: typeof fetch = async () => {
-      calls++;
-      await gate;
-      return new Response(null, { status: 200 });
-    };
-    const worker = administrationWorker(
-      applicationConfig,
-      db,
-      options,
-      (_level, event) => events.push(event),
-      fetcher,
-    );
-    const pending = worker.runOnce();
-    await expect.poll(() => calls).toBe(1);
-    expect(worker.runOnce()).toBe(pending);
-    release();
-    await pending;
-    await worker.stop();
-    expect(calls).toBe(1);
-    expect(events).toContainEqual(
-      expect.objectContaining({
-        module: 'administration',
-        resource: 'inventory-synchronization',
-        eventId: 'administration.inventory-synchronization.acknowledged',
-        eventInstanceId: expect.any(String),
-        requestId: 'fixture-request-id',
-        userId: '4',
-        effectId: 'worker-fixture',
-        storeId: '1',
-      }),
-    );
-  });
-  it('alerts on exhausted synchronization and supports explicit replay-safe recovery', async () => {
-    const id = 'exhausted-fixture';
-    await db.get('writer').transaction((transaction) =>
-      enqueueInventorySynchronization(transaction, {
-        id,
-        storeId: '1',
-        productIds: ['1001'],
-        operatorId: '4',
-        reason: 'return',
-        requestId: 'fixture-request-id',
-      }),
-    );
-    await connection.query('UPDATE pos_rewrite_administration_outbox SET attempts=10 WHERE id=?', [
-      id,
-    ]);
-    const options = readAdministrationWorkerOptions({
-      ADMINISTRATION_WORKER_ENABLED: 'true',
-      PRODUCT_SYNC_BASE_URL: 'https://sync.example.test/',
-      PRODUCT_SYNC_URI: 'sync/products',
-      PRODUCT_SYNC_REPLAY_SAFE: 'true',
-    });
-    const events: AdministrationWorkerEvent[] = [];
-    let calls = 0;
-    const worker = administrationWorker(
-      applicationConfig,
-      db,
-      options,
-      (_level, event) => events.push(event),
-      async () => {
-        calls++;
-        return new Response(null, { status: 200 });
-      },
-    );
-    await worker.runOnce();
-    expect(calls).toBe(0);
-    expect(events).toContainEqual(
-      expect.objectContaining({
-        eventId: 'administration.inventory-synchronization.retry-exhausted',
-        userId: '4',
-        requestId: 'fixture-request-id',
-        effectId: id,
-        errorCode: 'PRODUCT_SYNC_RETRY_EXHAUSTED',
-      }),
-    );
-    await retryInventorySynchronization(db, id);
-    await worker.runOnce();
-    expect(calls).toBe(1);
-    await expect(retryInventorySynchronization(db, id)).rejects.toThrow('already complete');
-    await worker.stop();
-  });
-  it('aborts in-flight delivery on shutdown without logging upstream errors or losing retry state', async () => {
-    const id = 'shutdown-fixture';
-    await db.get('writer').transaction((transaction) =>
-      enqueueInventorySynchronization(transaction, {
-        id,
-        storeId: '1',
-        productIds: ['1001'],
-        operatorId: '4',
-        reason: 'return',
-        requestId: 'fixture-request-id',
-      }),
-    );
-    const options = readAdministrationWorkerOptions({
-      ADMINISTRATION_WORKER_ENABLED: 'true',
-      PRODUCT_SYNC_BASE_URL: 'https://sync.example.test/',
-      PRODUCT_SYNC_URI: 'sync/products',
-      PRODUCT_SYNC_REPLAY_SAFE: 'true',
-    });
-    const events: AdministrationWorkerEvent[] = [];
-    let calls = 0;
-    const fetcher: typeof fetch = async (_input, init) =>
-      new Promise<Response>((_resolve, reject) => {
-        calls++;
-        if (init?.signal?.aborted) reject(new Error('private-canary@example.test'));
-        else
-          init?.signal?.addEventListener(
-            'abort',
-            () => reject(new Error('private-canary@example.test')),
-            { once: true },
-          );
-      });
-    const worker = administrationWorker(
-      applicationConfig,
-      db,
-      options,
-      (_level, event) => events.push(event),
-      fetcher,
-    );
-    const pending = worker.runOnce();
-    await expect.poll(() => calls).toBe(1);
-    await worker.stop();
-    await pending;
-    await worker.runOnce();
-    expect(calls).toBe(1);
-    expect(JSON.stringify(events)).not.toContain('private-canary');
-    const [rows] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT attempts,delivered_at FROM pos_rewrite_administration_outbox WHERE id=?',
-      [id],
-    );
-    expect(rows.map((row) => [row.attempts, row.delivered_at])).toEqual([[1, null]]);
-  });
-  it('previews CSV rows in batches without mutation and keeps stock-procedure submission gated', async () => {
-    await seed(Product, { id: 1000, product: 'Fixture product', prod_type: 1, parent_prod_id: 0 });
-    await seed(ProductStore, {
-      product_id: 1000,
-      store_id: 1,
-      stock: 4,
-      is_avail: true,
-      is_del: false,
-    });
-    const input = {
-      id: randomUUID(),
-      name: 'Fixture.csv',
-      csv: stockCsv([
-        stockImportHeaders,
-        ['1000', '1', '1', '2', '', ''],
-        ['1000', '1', '1', '8', '', ''],
-        ['invalid', '1', '', '', '', ''],
-      ]),
-    };
-    const preview = await app.inject({
-      method: 'POST',
-      url: '/api/v1/admin/inventory-imports/preview',
-      payload: input,
-    });
-    expect(preview.statusCode).toBe(200);
-    expect(preview.json()).toMatchObject({
-      totalRows: 3,
-      validRows: 1,
-      invalidRows: 2,
-      requiresStockProcedure: true,
-      canSubmit: false,
-    });
-    expect(
-      (await app.inject({ method: 'POST', url: '/api/v1/admin/inventory-imports', payload: input }))
-        .statusCode,
-    ).toBe(503);
-    const [jobs] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT COUNT(*) AS count FROM pos_rewrite_inventory_imports',
-    );
-    expect(String(jobs[0]?.count)).toBe('0');
-    const [stocks] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT stock FROM product_store WHERE product_id=1000 AND store_id=1',
-    );
-    expect(stocks[0]?.stock).toBe(4);
-  });
-  it('queues and replays visibility-only imports with atomic child/parent changes and durable synchronization', async () => {
-    await seed(Product, { id: 1000, product: 'Fixture parent', prod_type: 3, parent_prod_id: 0 });
-    await seed(Product, { id: 1001, product: 'Fixture child', prod_type: 1, parent_prod_id: 1000 });
-    for (const product_id of [1000, 1001])
-      await seed(ProductStore, {
-        product_id,
-        store_id: 1,
-        stock: product_id === 1000 ? 0 : 5,
-        is_avail: true,
-        is_del: false,
-      });
-    const input = {
-      id: randomUUID(),
-      name: 'Visibility.csv',
-      csv: stockCsv([stockImportHeaders, ['1001', '1', '', '', '0', '1']]),
-    };
-    for (let attempt = 0; attempt < 2; attempt++)
-      expect(
-        (
-          await app.inject({
-            method: 'POST',
-            url: '/api/v1/admin/inventory-imports',
-            payload: input,
-          })
-        ).statusCode,
-      ).toBe(201);
-    expect((await services.imports.dispatchNext())?.status).toBe('row-succeeded');
-    expect(await services.imports.dispatchNext()).toBeNull();
-    const [values] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT product_id,stock,is_avail,is_del FROM product_store WHERE store_id=1 ORDER BY product_id',
-    );
-    expect(
-      values.map((row) => [String(row.product_id), row.stock, row.is_avail, row.is_del]),
-    ).toEqual([
-      ['1000', 0, 0, 1],
-      ['1001', 5, 0, 1],
-    ]);
-    const detail = await app.inject(`/api/v1/admin/inventory-imports/${input.id}`);
-    expect(detail.json()).toMatchObject({
-      state: 'COMPLETED',
-      processedRows: 1,
-      successfulRows: 1,
-      failedRows: 0,
-    });
-    const [effects] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT COUNT(*) AS count FROM pos_rewrite_administration_outbox',
-    );
-    expect(String(effects[0]?.count)).toBe('1');
-    await services.inventory.dispatchPending();
-    expect(deliveries[0]?.products).toEqual(['1000', '1001']);
-    actor = { ...actor, id: '2', role: 2, storeIds: ['1'] };
-    expect((await app.inject(`/api/v1/admin/inventory-imports/${input.id}`)).statusCode).toBe(404);
-  });
-  it('moves held stock with conservation, source audit comments and global-live sibling restoration', async () => {
-    for (const [id, parent, deleted, type] of [
-      [1000, 0, 0, 3],
-      [1001, 1000, 0, 1],
-      [1002, 1000, 0, 1],
-      [1003, 1000, 1, 1],
-      [1004, 1000, 1, 1],
-    ])
-      await seed(Product, {
-        id: id!,
-        product: `Fixture product ${id}`,
-        parent_prod_id: parent!,
-        prod_type: type!,
-        is_del: deleted!,
-      });
-    await seed(ProductStore, {
-      product_id: 1000,
-      store_id: 1,
-      stock: 0,
-      is_avail: false,
-      is_del: true,
-    });
-    await seed(ProductStore, {
-      product_id: 1001,
-      store_id: 1,
-      stock: 10,
-      is_avail: true,
-      is_del: false,
-    });
-    await seed(ProductStore, {
-      product_id: 1002,
-      store_id: 1,
-      stock: 5,
-      is_avail: false,
-      is_del: true,
-    });
-    await seed(ProductStore, {
-      product_id: 1003,
-      store_id: 2,
-      stock: 2,
-      is_avail: true,
-      is_del: false,
-    });
-    const calls: StockProcedureInput[] = [];
-    const imports = inventoryImportService(applicationConfig, db, {
-      procedureVerified: true,
-      syncProducts: async () => {},
-      stockProcedure: async (_transaction, input) => {
-        calls.push(input);
-      },
-    });
-    const input = {
-      id: randomUUID(),
-      name: 'Hold-and-release.csv',
-      csv: stockCsv([
-        stockImportHeaders,
-        ['1001', '1', '1', '3', '', ''],
-        ['1001', '1', '0', '2', '', ''],
-      ]),
-    };
-    await imports.create(actor, input);
-    await Promise.all([imports.dispatchNext(), imports.dispatchNext()]);
-    await imports.dispatchNext();
-    expect(calls.map((call) => [call.stock, call.comment])).toEqual([
-      [7, 'Product inventory added into hold stock.'],
-      [9, 'Product inventory added from admin panel from Hold Stock'],
-    ]);
-    const [stock] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT stock FROM product_store WHERE product_id=1001 AND store_id=1',
-    );
-    const [held] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT stock FROM hold_stock_store WHERE product_id=1001 AND store_id=1',
-    );
-    expect([stock[0]?.stock, held[0]?.stock]).toEqual([9, 1]);
-    expect(Number(stock[0]?.stock) + Number(held[0]?.stock)).toBe(10);
-    const [family] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT product_id,stock,is_avail,is_del FROM product_store WHERE store_id=1 ORDER BY product_id',
-    );
-    expect(
-      family.map((row) => [String(row.product_id), row.stock, row.is_avail, row.is_del]),
-    ).toEqual([
-      ['1000', 0, 1, 0],
-      ['1001', 9, 1, 0],
-      ['1002', 5, 1, 0],
-      ['1003', 0, 1, 0],
-    ]);
-    const [logs] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT stock_before,stock_after,comment FROM pos_hold_stock_logs ORDER BY id',
-    );
-    expect(logs.map((row) => [row.stock_before, row.stock_after, row.comment])).toEqual([
-      ['0', '3', 'Hold Stock inventory added into Hold Stock from admin panel .'],
-      ['3', '1', 'Hold Stock inventory reduced to add into Product inventory.'],
-    ]);
-    expect(await imports.dispatchNext()).toBeNull();
-  });
-  it('rolls back an entire row on stock procedure failure and resumes without duplicated stock', async () => {
-    await seed(Product, { id: 1000, product: 'Fixture product', prod_type: 1, parent_prod_id: 0 });
-    await seed(ProductStore, {
-      product_id: 1000,
-      store_id: 1,
-      stock: 5,
-      is_avail: true,
-      is_del: false,
-    });
-    let unavailable = true;
-    const imports = inventoryImportService(applicationConfig, db, {
-      procedureVerified: true,
-      syncProducts: async () => {},
-      stockProcedure: async () => {
-        if (unavailable) throw new Error('private-canary@example.test');
-      },
-    });
-    const input = {
-      id: randomUUID(),
-      name: 'Rollback.csv',
-      csv: stockCsv([stockImportHeaders, ['1000', '1', '1', '2', '0', '1']]),
-    };
-    await imports.create(actor, input);
-    expect(await imports.dispatchNext()).toMatchObject({
-      status: 'blocked',
-      errorCode: 'INVENTORY_IMPORT_STORAGE_UNAVAILABLE',
-    });
-    const [stock] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT stock,is_avail,is_del FROM product_store WHERE product_id=1000 AND store_id=1',
-    );
-    expect(stock.map((row) => [row.stock, row.is_avail, row.is_del])).toEqual([[5, 1, 0]]);
-    const [held] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT COUNT(*) AS count FROM hold_stock_store',
-    );
-    expect(String(held[0]?.count)).toBe('0');
-    expect(JSON.stringify(await imports.detail(actor, input.id))).not.toContain('private-canary');
-    unavailable = false;
-    await imports.control(actor, input.id, 'resume');
-    expect((await imports.dispatchNext())?.status).toBe('row-succeeded');
-    const [after] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT stock FROM product_store WHERE product_id=1000 AND store_id=1',
-    );
-    expect(after[0]?.stock).toBe(3);
-  });
-  it('records failed rows safely, cancels remaining rows, and rechecks writer-current assignments', async () => {
-    await seed(Product, { id: 1000, product: 'Fixture product', prod_type: 1, parent_prod_id: 0 });
-    await seed(ProductStore, {
-      product_id: 1000,
-      store_id: 1,
-      stock: 5,
-      is_avail: true,
-      is_del: false,
-    });
-    actor = { ...actor, id: '3', role: 3, storeIds: ['1'] };
-    const input = {
-      id: randomUUID(),
-      name: 'Scope.csv',
-      csv: stockCsv([
-        stockImportHeaders,
-        ['=HYPERLINK("fixture")', '1', '', '', '', ''],
-        ['1000', '1', '', '', '0', '1'],
-        ['1000', '1', '', '', '1', '0'],
-      ]),
-    };
-    expect(
-      (await app.inject({ method: 'POST', url: '/api/v1/admin/inventory-imports', payload: input }))
-        .statusCode,
-    ).toBe(201);
-    await connection.query('DELETE FROM user_stores WHERE django_user_id=3 AND store_id=1');
-    expect(await services.imports.dispatchNext()).toMatchObject({
-      status: 'row-failed',
-      errorCode: 'STORE_ACCESS_DENIED',
-    });
-    const failed = await app.inject(`/api/v1/admin/inventory-imports/${input.id}/failures.csv`);
-    expect(failed.statusCode).toBe(200);
-    expect(failed.body).toContain("'=HYPERLINK");
-    expect(failed.body).toContain('Not a valid store for requested user.');
-    expect(
-      (
-        await app.inject({
-          method: 'POST',
-          url: `/api/v1/admin/inventory-imports/${input.id}/cancel`,
-          payload: {},
-        })
-      ).statusCode,
-    ).toBe(200);
-    const rows = (await app.inject(`/api/v1/admin/inventory-imports/${input.id}/rows`)).json<{
-      data: { state: string }[];
-    }>().data;
-    expect(rows.map((row) => row.state)).toEqual(['FAILED', 'FAILED', 'CANCELLED']);
-    const [stock] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT stock,is_avail,is_del FROM product_store WHERE product_id=1000 AND store_id=1',
-    );
-    expect(stock.map((row) => [row.stock, row.is_avail, row.is_del])).toEqual([[5, 1, 0]]);
-  });
-  it('routes completed CSV record data older than one day only to BigQuery after current writer authorization', async () => {
-    await seed(Product, { id: 1000, product: 'Fixture product', prod_type: 1, parent_prod_id: 0 });
-    await seed(ProductStore, {
-      product_id: 1000,
-      store_id: 1,
-      stock: 5,
-      is_avail: true,
-      is_del: false,
-    });
-    const input = {
-      id: randomUUID(),
-      name: 'Archived.csv',
-      csv: stockCsv([stockImportHeaders, ['1000', '1', '', '', '1', '0']]),
-    };
-    await services.imports.create(actor, input);
-    await services.imports.dispatchNext();
-    await connection.query(
-      "UPDATE pos_rewrite_inventory_imports SET created_at='2000-01-01 00:00:00.000',updated_at='2000-01-01 00:00:01.000' WHERE id=?",
-      [input.id],
-    );
-    const [records] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT sequence,checksum FROM pos_rewrite_inventory_imports WHERE id=?',
-      [input.id],
-    );
-    await connection.query('DELETE FROM pos_rewrite_inventory_import_rows WHERE import_id=?', [
-      input.id,
-    ]);
-    const config = { ...applicationConfig, BIGQUERY_PROJECT_ID: 'fixture-project' };
-    let queries = 0;
-    const history = inventoryImportHistory(
-      config,
-      readImportHistoryOptions({
-        BQ_INVENTORY_IMPORTS_VIEW: 'fixture-project.pos_rewrite.inventory_imports',
-        BQ_INVENTORY_IMPORT_ROWS_VIEW: 'fixture-project.pos_rewrite.inventory_import_rows',
-      }),
-      {
-        async queryReport(query) {
-          queries++;
-          return query.includes('record_stats')
-            ? [
-                {
-                  id: input.id,
-                  sequence: String(records[0]?.sequence),
-                  actorId: '1',
-                  checksum: records[0]?.checksum,
-                  name: 'Archived.csv',
-                  state: 'COMPLETED',
-                  totalRows: '1',
-                  processedRows: '1',
-                  successfulRows: '1',
-                  failedRows: '0',
-                  errorCode: null,
-                  createdAt: '2000-01-01T00:00:00.000Z',
-                  updatedAt: '2000-01-01T00:00:01.000Z',
-                  recordCount: '1',
-                  distinctRecords: '1',
-                  minimumRecord: '2',
-                  maximumRecord: '2',
-                  succeededCount: '1',
-                  failedCount: '0',
-                  cancelledCount: '0',
-                  unexpectedCount: '0',
-                },
-              ]
-            : [
-                {
-                  importId: input.id,
-                  actorId: '1',
-                  checksum: records[0]?.checksum,
-                  updatedAt: '2000-01-01T00:00:01.000Z',
-                  rowNumber: '2',
-                  cells: JSON.stringify(['1000', '1', '', '', '1', '0']),
-                  command: JSON.stringify({
-                    productId: '1000',
-                    storeId: '1',
-                    movement: 'none',
-                    quantity: 0,
-                    available: true,
-                    archived: false,
-                  }),
-                  state: 'SUCCEEDED',
-                  errorCode: null,
-                  message: 'Historical fixture row.',
-                },
-              ];
-        },
-      },
-    );
-    const imports = inventoryImportService(config, db, { importHistory: history });
-    const rows = await imports.rows(actor, input.id, { after: 0, limit: 50, state: 'all' });
-    expect(rows.data).toHaveLength(1);
-    expect(rows.data[0]?.message).toBe('Historical fixture row.');
-    expect(queries).toBe(2);
-    actor = { ...actor, id: '2', role: 1, storeIds: ['1'] };
-    await expect(
-      imports.rows(actor, input.id, { after: 0, limit: 50, state: 'all' }),
-    ).rejects.toMatchObject({ code: 'INVENTORY_IMPORT_NOT_FOUND' });
-    expect(queries).toBe(2);
-  });
   it('edits and moves delivery timings with store isolation, stale-input protection and durable notices', async () => {
     const created = await app.inject({
       method: 'POST',
@@ -2097,12 +1451,12 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     expect(
       (await app.inject('/api/v1/admin/stores/1/delivery-slots')).json<{ data: unknown[] }>().data,
     ).toHaveLength(0);
-    const [effects] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT kind,payload FROM pos_rewrite_settings_effects ORDER BY sequence',
-    );
-    expect(effects).toHaveLength(2);
-    expect(effects.map((row) => row.kind)).toEqual(['slot.timing.notice', 'slot.timing.notice']);
-    expect(JSON.stringify(effects)).not.toContain('fixture@example.test');
+    // Effects run inline after commit (`core/views.py:1817`); a replayed operation sends none.
+    expect(settingsDeliveries.map((row) => row.effect.kind)).toEqual([
+      'slot.timing.notice',
+      'slot.timing.notice',
+    ]);
+    expect(JSON.stringify(settingsDeliveries)).not.toContain('fixture@example.test');
   });
   it('updates one or all slot availability atomically and refuses stale collections and current role revocations', async () => {
     for (const weekday of ['MON', 'TUE'])
@@ -2227,75 +1581,25 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       'SELECT platform,value FROM tss_settings WHERE id>=100 ORDER BY id',
     );
     expect(values.map((row) => row.value)).toEqual(['0', '0', String(source[0])]);
-    const [effects] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT kind FROM pos_rewrite_settings_effects ORDER BY sequence',
-    );
-    expect(effects.map((row) => row.kind)).toEqual([
+    expect(settingsDeliveries.map((row) => row.effect.kind)).toEqual([
       'setting.cache',
       'setting.cache',
       'buffer.notice',
     ]);
+    // Legacy runs the cache SET and Slack notice inline; an unavailable effect is logged only.
     settingsAvailable = false;
-    expect(
-      (await app.inject({ method: 'PUT', url, payload: { ...body, operationId: randomUUID() } }))
-        .statusCode,
-    ).toBe(503);
-  });
-  it('orders cache effects across retries while allowing unrelated resources to progress', async () => {
-    await seed(TssSetting, { id: 100, platform: 'HYPERLOCAL_STOCK_THRESHOLD', value: '2' });
-    await seed(TssSetting, { id: 101, platform: 'ORDER_CREATION_BUFFER_TIME_IN_SEC', value: '60' });
-    for (const value of [3, 4]) {
-      const setting = (await app.inject('/api/v1/admin/general-settings'))
-        .json<{ data: { name: string; version: string }[] }>()
-        .data.find((row) => row.name === 'HYPERLOCAL_STOCK_THRESHOLD')!;
-      expect(
-        (
-          await app.inject({
-            method: 'PUT',
-            url: '/api/v1/admin/general-settings/delivery-stock-threshold',
-            payload: { operationId: randomUUID(), expectedVersion: setting.version, value },
-          })
-        ).statusCode,
-      ).toBe(200);
-    }
-    const buffer = (await app.inject('/api/v1/admin/general-settings'))
+    const latest = (await app.inject('/api/v1/admin/general-settings'))
       .json<{ data: { name: string; version: string }[] }>()
-      .data.find((row) => row.name === 'ORDER_CREATION_BUFFER_TIME_IN_SEC')!;
-    await app.inject({
-      method: 'PUT',
-      url: '/api/v1/admin/general-settings/order-creation-buffer',
-      payload: { operationId: randomUUID(), expectedVersion: buffer.version, value: '01:30' },
-    });
-    let fail = true;
-    const delivery: SettingsEffectDelivery = {
-      supports: () => true,
-      async deliver(id, effect) {
-        settingsDeliveries.push({ id, effect });
-        if (fail && effect.kind === 'setting.cache' && effect.key === 'HYPERLOCAL_STOCK_THRESHOLD')
-          throw new Error('private-canary@example.test');
-      },
-    };
-    const outbox = settingsOutbox(db, delivery),
-      first = await outbox.dispatchNext();
-    expect(first?.status).toBe('failed');
-    expect((await outbox.dispatchNext(undefined, [first!.id]))?.status).toBe('delivered');
-    expect((await outbox.dispatchNext(undefined, [first!.id]))?.status).toBe('delivered');
-    expect(await outbox.dispatchNext(undefined, [first!.id])).toBeNull();
-    fail = false;
-    await Promise.all([outbox.dispatchNext(), outbox.dispatchNext()]);
-    await outbox.dispatchNext();
-    const acknowledged = settingsDeliveries
-      .filter(
-        ({ effect }) =>
-          effect.kind === 'setting.cache' && effect.key === 'HYPERLOCAL_STOCK_THRESHOLD',
-      )
-      .map(({ effect }) => (effect.kind === 'setting.cache' ? effect.value : 0));
-    expect(acknowledged).toEqual([3, 3, 4]);
-    const [rows] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT attempts,delivered_at FROM pos_rewrite_settings_effects ORDER BY sequence',
-    );
-    expect(rows.every((row) => row.delivered_at !== null)).toBe(true);
-    expect(rows[0]?.attempts).toBe(2);
+      .data.find((row) => row.name === 'HYPERLOCAL_STOCK_THRESHOLD')!;
+    expect(
+      (
+        await app.inject({
+          method: 'PUT',
+          url,
+          payload: { operationId: randomUUID(), expectedVersion: latest.version, value: 5 },
+        })
+      ).statusCode,
+    ).toBe(200);
   });
   it('delivers common-channel timing notices with source text and sanitizes failed HTTP effects', async () => {
     await app.inject({
@@ -2306,17 +1610,12 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     const slot = (await app.inject('/api/v1/admin/stores/1/delivery-slots')).json<{
       data: { id: string; version: string }[];
     }>().data[0]!;
-    await app.inject({
-      method: 'PATCH',
-      url: `/api/v1/admin/stores/1/delivery-slots/${slot.id}/availability`,
-      payload: { operationId: randomUUID(), expectedVersion: slot.version, active: false },
-    });
     let status = 503;
     const requests: { redirect: RequestRedirect | undefined; body: unknown }[] = [];
     const delivery = createSettingsDelivery(
       applicationConfig,
       db,
-      readSettingsWorkerOptions({ SLACK_URL: 'https://hooks.slack.com/services/fixture/private' }),
+      readSettingsOptions({ SLACK_URL: 'https://hooks.slack.com/services/fixture/private' }),
       {
         fetcher: async (_url, init) => {
           requests.push({
@@ -2327,12 +1626,34 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
         },
       },
     );
-    const outbox = settingsOutbox(db, delivery);
-    const failure = await outbox.dispatchNext();
-    expect(failure).toMatchObject({ status: 'failed', errorCode: 'SETTINGS_NOTICE_UNAVAILABLE' });
-    expect(JSON.stringify(failure)).not.toContain('private-canary');
+    const logged: unknown[] = [];
+    const inline = settingsService(applicationConfig, db, {
+      settingsDelivery: delivery,
+      moduleRuntime,
+      log: (_level, event) => logged.push(event),
+    });
+    await inline.setDeliveryAvailability(actor, '1', slot.id, {
+      operationId: randomUUID(),
+      expectedVersion: slot.version,
+      active: false,
+    });
+    expect(logged).toEqual([
+      expect.objectContaining({
+        eventId: 'administration.settings-effect.failed',
+        errorCode: 'SETTINGS_NOTICE_UNAVAILABLE',
+      }),
+    ]);
+    expect(JSON.stringify(logged)).not.toContain('private-canary');
     status = 200;
-    expect((await outbox.dispatchNext())?.status).toBe('delivered');
+    const reopened = (await app.inject('/api/v1/admin/stores/1/delivery-slots')).json<{
+      data: { id: string; version: string }[];
+    }>().data[0]!;
+    await inline.setDeliveryAvailability(actor, '1', slot.id, {
+      operationId: randomUUID(),
+      expectedVersion: reopened.version,
+      active: false,
+    });
+    expect(logged).toHaveLength(1);
     expect(requests).toHaveLength(2);
     expect(requests[0]?.redirect).toBe('error');
     expect(requests[0]?.body).toEqual({
@@ -2343,58 +1664,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     expect(Object.keys(requests[0]!.body as Record<string, unknown>)).toEqual(['text']);
     await delivery.close?.();
   });
-  it('aborts a single in-flight settings batch on shutdown without logging payloads', async () => {
-    await seed(TssSetting, { id: 100, platform: 'HYPERLOCAL_STOCK_THRESHOLD', value: '2' });
-    const setting = (await app.inject('/api/v1/admin/general-settings'))
-      .json<{ data: { name: string; version: string }[] }>()
-      .data.find((row) => row.name === 'HYPERLOCAL_STOCK_THRESHOLD')!;
-    await app.inject({
-      method: 'PUT',
-      url: '/api/v1/admin/general-settings/delivery-stock-threshold',
-      payload: { operationId: randomUUID(), expectedVersion: setting.version, value: 3 },
-    });
-    let started!: () => void,
-      calls = 0;
-    const ready = new Promise<void>((resolve) => {
-      started = resolve;
-    });
-    const delivery: SettingsEffectDelivery = {
-      supports: () => true,
-      async deliver(_id, _effect, signal) {
-        calls++;
-        started();
-        await new Promise<void>((_resolve, reject) => {
-          if (signal?.aborted) reject(new Error('private-canary@example.test'));
-          else
-            signal?.addEventListener(
-              'abort',
-              () => reject(new Error('private-canary@example.test')),
-              { once: true },
-            );
-        });
-      },
-    };
-    const events: SettingsWorkerEvent[] = [];
-    const worker = settingsWorker(
-      db,
-      delivery,
-      readSettingsWorkerOptions({ SETTINGS_WORKER_ENABLED: 'true' }),
-      (_level, event) => events.push(event),
-    );
-    const pending = worker.runOnce();
-    await ready;
-    expect(worker.runOnce()).toBe(pending);
-    await worker.stop();
-    await pending;
-    await worker.runOnce();
-    expect(calls).toBe(1);
-    expect(JSON.stringify(events)).not.toContain('private-canary');
-    const [rows] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT attempts,delivered_at FROM pos_rewrite_settings_effects',
-    );
-    expect(rows.map((row) => [row.attempts, row.delivered_at])).toEqual([[1, null]]);
-  });
-  it('persists ecommerce cooldown, queues source effects and keeps unverified synchronization closed', async () => {
+  it('holds the legacy ecommerce cooldown key, sends source notices and queues the inventory sync job', async () => {
     const url = '/api/v1/admin/stores/1/ecommerce-settings';
     const current = (await app.inject(url)).json<{ version: string }>();
     const body = {
@@ -2407,6 +1677,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     await expect(closed.updateEcommerce(actor, '1', body)).rejects.toMatchObject({
       code: 'DEPENDENCY_UNAVAILABLE',
     });
+    moduleRuntime.jobs.enqueued.length = 0;
     expect((await app.inject({ method: 'PUT', url, payload: body })).statusCode).toBe(200);
     expect((await app.inject({ method: 'PUT', url, payload: body })).statusCode).toBe(200);
     const updated = (await app.inject(url)).json<{
@@ -2431,55 +1702,22 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
         })
       ).statusCode,
     ).toBe(409);
-    const [rows] = await connection.query<mysql.RowDataPacket[]>(
-      'SELECT kind FROM pos_rewrite_settings_effects ORDER BY sequence',
-    );
-    expect(rows.map((row) => row.kind)).toEqual([
+    expect(settingsDeliveries.map((row) => row.effect.kind)).toEqual([
       'ecommerce.threshold.notice',
       'ecommerce.availability.notice',
-      'ecommerce.inventory.sync',
     ]);
+    expect(
+      moduleRuntime.jobs.enqueued.map(({ name, args, options }) => ({ name, args, options })),
+    ).toEqual([
+      {
+        name: 'core.tasks.sync_ecom_inventory',
+        args: { store_id: '1' },
+        options: { queue: 'core' },
+      },
+    ]);
+    expect(await moduleRuntime.ephemeral.ttl('ecom_delivery_1')).toBeGreaterThan(0);
     actor = { ...actor, id: '2', role: 2, storeIds: ['1'] };
     expect((await app.inject(url)).statusCode).toBe(403);
-  });
-  it('surfaces exhausted settings deliveries after restart and requeues only pending effects', async () => {
-    await seed(TssSetting, { id: 100, platform: 'HYPERLOCAL_STOCK_THRESHOLD', value: '2' });
-    const setting = (await app.inject('/api/v1/admin/general-settings'))
-      .json<{ data: { name: string; version: string }[] }>()
-      .data.find((row) => row.name === 'HYPERLOCAL_STOCK_THRESHOLD')!;
-    await app.inject({
-      method: 'PUT',
-      url: '/api/v1/admin/general-settings/delivery-stock-threshold',
-      payload: { operationId: randomUUID(), expectedVersion: setting.version, value: 3 },
-    });
-    await connection.query('UPDATE pos_rewrite_settings_effects SET attempts=9');
-    settingsFailures.add('setting.cache');
-    const events: SettingsWorkerEvent[] = [],
-      options = readSettingsWorkerOptions({ SETTINGS_WORKER_ENABLED: 'true' });
-    const worker = settingsWorker(db, settingsDelivery, options, (_level, event) =>
-      events.push(event),
-    );
-    await worker.runOnce();
-    await worker.stop();
-    expect(
-      events.some((event) => event.eventId === 'administration.settings-delivery.blocked'),
-    ).toBe(true);
-    expect(JSON.stringify(events)).not.toContain('private-canary');
-    const restarted = settingsWorker(db, settingsDelivery, options, (_level, event) =>
-      events.push(event),
-    );
-    await restarted.runOnce();
-    expect(
-      events.filter((event) => event.eventId === 'administration.settings-delivery.blocked'),
-    ).toHaveLength(2);
-    const id = settingsDeliveries[0]!.id;
-    await settingsOutbox(db, settingsDelivery).retry(id);
-    settingsFailures.clear();
-    await restarted.runOnce();
-    await restarted.stop();
-    await expect(settingsOutbox(db, settingsDelivery).retry(id)).rejects.toMatchObject({
-      code: 'SETTINGS_EFFECT_NOT_PENDING',
-    });
   });
   it('creates and updates guides with sanitized rich text, stable ordering and optimistic replay protection', async () => {
     const body = {

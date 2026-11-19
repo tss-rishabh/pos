@@ -2,7 +2,6 @@ import { readStoreDefaultOperatorOptions } from './store-default-operators.js';
 import { administrationCollectionPageQuery } from './collection-page.js';
 import type { FastifyInstance } from 'fastify';
 import { registerAdministrationStoreDetails } from './store-detail-routes.js';
-import { Readable } from 'node:stream';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
@@ -55,15 +54,7 @@ import {
   mfaVerificationInput,
 } from './mfa.js';
 import { inventoryImportService, type InventoryImportOptions } from './imports.js';
-import {
-  importIdInput,
-  importHistoryInput,
-  importListInput,
-  importRowListInput,
-  stockCsv,
-  stockImportInput,
-  stockTemplateRows,
-} from './import-domain.js';
+import { csvUploadInput, templateInput, uploadIdInput, uploadListInput } from './import-domain.js';
 import {
   allDeliveryAvailabilityInput,
   deliveryAvailabilityInput,
@@ -192,7 +183,10 @@ export function registerAdministration(
         );
     },
   );
-  const settings = settingsService(config, db, options);
+  const settings = settingsService(config, db, {
+    ...options,
+    log: options.log ?? ((level, event, message) => app.log[level](event, message)),
+  });
   const mfa = operatorMfaService(config, db);
   const storeImages = storeImageService(config, db, options.storeImageStore);
   registerStoreImages(app, storeImages);
@@ -283,98 +277,43 @@ export function registerAdministration(
   app.get(
     '/api/v1/admin/inventory-imports/capabilities',
     trace('inventory-import', 'capabilities'),
-    async (request) => imports.capabilities(authenticated(request)),
+    async (request) => {
+      z.object({}).strict().parse(request.query);
+      return imports.capabilities(authenticated(request));
+    },
   );
   app.get(
     '/api/v1/admin/inventory-imports/template',
     trace('inventory-import', 'download-template'),
     async (request, reply) => {
-      imports.capabilities(authenticated(request));
+      const { type } = templateInput.parse(request.query);
+      const file = imports.template(authenticated(request), type);
       return reply
         .type('text/csv; charset=utf-8')
-        .header('Content-Disposition', 'attachment; filename="ProductStock-template.csv"')
+        .header('Content-Disposition', `attachment; filename="${file.filename}"`)
         .header('Cache-Control', 'no-store')
-        .send(stockCsv(stockTemplateRows));
+        .send(file.content);
     },
-  );
-  app.post(
-    '/api/v1/admin/inventory-imports/preview',
-    trace('inventory-import', 'preview'),
-    async (request) =>
-      imports.preview(authenticated(request), stockImportInput.parse(request.body)),
   );
   app.post(
     '/api/v1/admin/inventory-imports',
     trace('inventory-import', 'create'),
-    async (request, reply) =>
-      reply
+    async (request, reply) => {
+      z.object({}).strict().parse(request.query);
+      return reply
         .code(201)
-        .send(await imports.create(authenticated(request), stockImportInput.parse(request.body))),
+        .send(await imports.upload(authenticated(request), csvUploadInput.parse(request.body)));
+    },
   );
   app.get('/api/v1/admin/inventory-imports', trace('inventory-import', 'list'), async (request) =>
-    imports.list(authenticated(request), importListInput.parse(request.query)),
+    imports.list(authenticated(request), uploadListInput.parse(request.query)),
   );
   app.get(
-    '/api/v1/admin/inventory-imports/history',
-    trace('inventory-import', 'history'),
-    async (request) =>
-      imports.history(authenticated(request), importHistoryInput.parse(request.query)),
-  );
-  app.get(
-    '/api/v1/admin/inventory-imports/:importId',
+    '/api/v1/admin/inventory-imports/:uploadId',
     trace('inventory-import', 'read'),
-    async (request) =>
-      imports.detail(authenticated(request), importIdInput.parse(request.params).importId),
-  );
-  app.get(
-    '/api/v1/admin/inventory-imports/:importId/rows',
-    trace('inventory-import', 'list-rows'),
-    async (request) =>
-      imports.rows(
-        authenticated(request),
-        importIdInput.parse(request.params).importId,
-        importRowListInput.parse(request.query),
-      ),
-  );
-  app.get(
-    '/api/v1/admin/inventory-imports/:importId/failures.csv',
-    trace('inventory-import', 'download-failures'),
-    async (request, reply) => {
-      const { importId } = importIdInput.parse(request.params);
-      const content = await imports.failedCsv(authenticated(request), importId);
-      return reply
-        .type('text/csv; charset=utf-8')
-        .header(
-          'Content-Disposition',
-          `attachment; filename="InventoryImport-${importId}-failed.csv"`,
-        )
-        .header('Cache-Control', 'no-store')
-        .header('X-Content-Type-Options', 'nosniff')
-        .send(Readable.from(content));
-    },
-  );
-  app.post(
-    '/api/v1/admin/inventory-imports/:importId/resume',
-    trace('inventory-import', 'resume'),
     async (request) => {
-      z.object({}).strict().parse(request.body);
-      return imports.control(
-        authenticated(request),
-        importIdInput.parse(request.params).importId,
-        'resume',
-      );
-    },
-  );
-  app.post(
-    '/api/v1/admin/inventory-imports/:importId/cancel',
-    trace('inventory-import', 'cancel'),
-    async (request) => {
-      z.object({}).strict().parse(request.body);
-      return imports.control(
-        authenticated(request),
-        importIdInput.parse(request.params).importId,
-        'cancel',
-      );
+      z.object({}).strict().parse(request.query);
+      return imports.detail(authenticated(request), uploadIdInput.parse(request.params).uploadId);
     },
   );
   app.get('/api/v1/admin/stores', trace('store', 'list'), async (request) =>
@@ -753,7 +692,6 @@ export function registerAdministration(
         params.productId,
         body.stock,
         body.expectedStock,
-        request.id,
       );
     },
   );
@@ -770,7 +708,6 @@ export function registerAdministration(
         body.kind,
         body.checked,
         body.parentProductId,
-        request.id,
       );
     },
   );
