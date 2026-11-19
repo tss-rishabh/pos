@@ -182,7 +182,7 @@ describe.skipIf(!template)(
       await app.ready();
     });
     beforeEach(async () => {
-      for (const table of ['pos_to_app_logs', 'pos_rewrite_operator_checkins'])
+      for (const table of ['pos_to_app_logs'])
         await connection.query('DELETE FROM ' + mysql.escapeId(table));
       for (const table of [UserStore, StoreCounter, Store, PosUser])
         await connection.query('DELETE FROM ' + mysql.escapeId(getTableConfig(table).name));

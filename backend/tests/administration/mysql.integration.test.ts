@@ -57,7 +57,6 @@ import type {
 } from '../../src/modules/administration/media-storage.js';
 import { settingsService } from '../../src/modules/administration/settings.js';
 import { readSettingsOptions } from '../../src/modules/administration/settings-options.js';
-import { memoryEphemeralStore } from '../../src/jobs/ephemeral.js';
 import { recordingJobProducer } from '../../src/jobs/module-runtime.js';
 import type {
   SettingsEffect,

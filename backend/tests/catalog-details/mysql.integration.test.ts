@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import mysql from 'mysql2/promise';
 import { Temporal } from '@js-temporal/polyfill';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -21,6 +20,7 @@ import {
   inventoryMatrixService,
   inventoryMatrixInput,
 } from '../../src/modules/catalog-details/matrix.js';
+import { clearCheckIn, seedCheckIn } from '../helpers/check-ins.js';
 import { goldenStdout } from '../golden/load.js';
 
 const integration = process.env.MYSQL_INTEGRATION_URL;
@@ -162,12 +162,6 @@ describe.skipIf(!integration)(
         'pos_user',
         'user_stores',
       ]);
-      const migration = readFileSync('src/modules/administration/migration.sql', 'utf8');
-      const checkin = /CREATE TABLE IF NOT EXISTS pos_rewrite_operator_checkins[\s\S]*?;/i.exec(
-        migration,
-      )?.[0];
-      if (!checkin) throw new Error('Canonical check-in migration unavailable.');
-      await connection.query(checkin);
       for (const [id, name, type, active] of [
         [1, 'Alpha', 'STORE', 1],
         [2, 'Beta', 'STORE', 1],
@@ -199,9 +193,8 @@ describe.skipIf(!integration)(
         user_type: 2,
       });
       await fixture.insert('user_stores', { django_user_id: 2, store_id: 1 });
-      await connection.query(
-        "INSERT INTO pos_rewrite_operator_checkins(operator_id,store_id,counter_id,checked_in_at,expires_at) VALUES ('1',2,NULL,'2026-11-16 00:00:00','2099-12-31 23:59:59'),('2',1,NULL,'2026-11-16 00:00:00','2099-12-31 23:59:59')",
-      );
+      await seedCheckIn('1', '2');
+      await seedCheckIn('2', '1');
       for (const [id, type] of [
         [1, 'Simple'],
         [3, 'Configurable'],
@@ -652,7 +645,7 @@ describe.skipIf(!integration)(
       const scoped = await catalog.detail(franchise, '10');
       expect(scoped.stores.map((row) => row.id)).toEqual(['1']);
       expect(scoped.stock.every((row) => row.storeId === '1')).toBe(true);
-      await native().query("DELETE FROM pos_rewrite_operator_checkins WHERE operator_id='2'");
+      await clearCheckIn('2');
       const empty = await catalog.detail(franchise, '10');
       expect(empty.checkInRequired).toBe(true);
       expect(empty.stock).toEqual([]);

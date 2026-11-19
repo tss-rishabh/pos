@@ -189,7 +189,7 @@ export function checkInService(
       .limit(1)
       .for('share');
     if (!store)
-      throw new AppError(403, 'CHECK_IN_STORE_DENIED', 'You are not assigned to this store');
+      throw new AppError(403, 'STORE_ACCESS_DENIED', 'You are not assigned to this store');
     return store.name;
   }
   async function currentCounter(userId: string) {
@@ -274,14 +274,14 @@ export function checkInService(
       try {
         requireStore(user, storeId);
       } catch {
-        throw new AppError(403, 'CHECK_IN_STORE_DENIED', 'You are not assigned to this store');
+        throw new AppError(403, 'STORE_ACCESS_DENIED', 'You are not assigned to this store');
       }
       const validate = async (current: AdministrationTransaction) => {
         try {
           await currentStoreAccess(user.id, storeId, current, 'share');
         } catch (error) {
           if (error instanceof AppError && error.code === 'STORE_ACCESS_DENIED')
-            throw new AppError(403, 'CHECK_IN_STORE_DENIED', 'You are not assigned to this store');
+            throw new AppError(403, 'STORE_ACCESS_DENIED', 'You are not assigned to this store');
           throw error;
         }
         const storeName = await checkInTarget(storeId, current);

@@ -200,10 +200,15 @@ as documented in `backend/parity/checkout.md` and the module's environment schem
 Uncertain external financial outcomes require reconciliation; process restarts
 must not repeat them blindly.
 
-Run inventory synchronization with `npm run worker:administration` only after
-its endpoint and replay safety are verified. The worker defaults to disabled.
-Its exact flags, bounded retries and explicit recovery command are documented
-in `backend/parity/administration-worker.md`. Stock-changing paths additionally require either a verified transaction-safe
+Run the background job worker with `npm run worker:jobs` (`backend/src/jobs`,
+`backend/parity/w8-report.md`). It replaces the legacy Celery worker and consumes the
+legacy queues `core`, `store`, `order`, `order_create`, `export_queue`, `report_queue` and
+`sales_queue` from `REDIS_URL` (`maxmemory-policy noeviction`), with `JOBS_CONCURRENCY`
+(default 2). Jobs are at-most-once and never retried automatically. `--list-orphans`,
+`--list-failed` and `--requeue <jobId>` let an operator inspect and re-run one job on purpose.
+It runs CSV inventory imports, the e-commerce inventory sync, report exports and gift-card
+batch generation. Product sync and settings effects run inline in the API after commit, as
+legacy does. Stock-changing paths additionally require either a verified transaction-safe
 writer routine or the explicitly selected source-pinned ORM contract in
 `backend/parity/stock-projection.md`. The self-committing SQL backup is not a
 valid caller-owned transaction implementation.
@@ -212,27 +217,11 @@ Trusted durable actor0 stock jobs additionally require the separate
 `POS_SYSTEM_STOCK_PROJECTION_CONTRACT` documented in that stock contract.
 Operational requests cannot opt into this capability through request JSON.
 
-Gift-card batch file generation/delivery runs separately with
-`npm run worker:gift-card-batches`. Enable the API and worker only after the
-private S3 bucket, keyring, original card-code salt and Netcore delivery contract
-are configured and verified. Files/passwords/codes/PINs are never logged; the
-worker has no voucher-funding authority. Historical batch views and accepted
-search UDFs require explicit BigQuery bindings. Review
-`backend/parity/administration-gift-card-batches.md` for private retrieval,
-uncertain delivery, original CSV parity and supported AES archive acceptance.
-
 The fulfillment plugin starts its bounded outbox/expiry loop only with
 `FULFILLMENT_WORKER_ENABLED=true`; tests/demo keep it off. Configure the distinct
 pre-order concurrency service and POS notification Redis, webhooks and mail/Slack
 adapters as described in `backend/parity/fulfillment.md`. Finance history and
 pending-close alert contracts are in `backend/parity/finance.md`.
-
-Run timing/settings effect delivery separately with `npm run worker:settings`
-and `SETTINGS_WORKER_ENABLED=true`. Configure its distinct `COMMON_REDIS_URL`
-and approved settings Slack webhook (`SLACK_URL`). Stock-related e-commerce
-changes stay disabled until their writer-side synchronization contract is
-verified. The settings migration follows the administration/media migrations;
-the general migration runner includes all three.
 
 Monitor outbox lag/exhaustion, uncertain financial operations, expired commands,
 database pool saturation, report bytes billed and readiness failures. Configure

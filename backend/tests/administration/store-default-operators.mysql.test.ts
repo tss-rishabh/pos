@@ -13,16 +13,16 @@ import { barcodeFixture } from '../../tools/administration/barcodes/fixture.js';
 const template = process.env.STORE_DEFAULT_OPERATORS_MYSQL_URL;
 const origin = 'http://127.0.0.1:4410';
 const payload = {
-  name: 'Synthetic configured store',
-  shortName: 'Configured',
-  locationCode: 'NEW',
+  store_name: 'Synthetic configured store',
+  short_name: 'Configured',
+  location_code: 'NEW',
   type: 'STORE',
   category: 'IN_HOUSE',
   latitude: '19.0760',
   longitude: '72.8777',
   address: 'Synthetic store address',
-  cityId: 1111,
-  countryId: 99,
+  city_id: '1111',
+  country_id: '99',
   phone: '9876543298',
 };
 
