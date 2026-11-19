@@ -229,7 +229,6 @@ process.stdout.write(
     missingSourceTables: Object.values(sourceSchemas).filter((value) => !value.rawTablePresent)
       .length,
     normalizedInputs: Object.keys(configInputs).length,
-    rewriteMigrations: rewriteMigrations.length,
     cloudWrites: 0,
   }) + '\n',
 );
