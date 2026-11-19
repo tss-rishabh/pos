@@ -5,6 +5,7 @@ import {
   recordPerformancePhase,
 } from '../../offline/performance/storage';
 import { confirmedPaymentSchema } from './receipts';
+import { paymentOptionsSchema } from './payments/client';
 import { checkoutClearanceSchema } from '../../api/checkout-clearance';
 import { copyBindingSchema } from '../order-copy/client';
 
@@ -234,6 +235,13 @@ export const reconcileCustomerVerification = (checkout: Checkout, operationId: s
     { operationId, expectedVersion: checkout.version },
     replySchema,
     checkoutOperator(checkout),
+  );
+/** Payment form options for the sale's counter before the order exists (legacy normal path). */
+export const readCheckoutPaymentOptions = async (checkout: Checkout) =>
+  request(
+    `${checkoutPath(checkout)}/payment-options`,
+    { operatorId: checkoutOperator(checkout) },
+    paymentOptionsSchema.omit({ payable: true }),
   );
 export const readDiscountApproval = (checkout: Checkout) =>
   request(

@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { useCallback, useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { X, Check, RefreshCw } from 'lucide-react';
 import type { LocalDraft } from '../../offline/database';
@@ -11,6 +12,7 @@ import {
   lookupCustomers,
   mutateCheckout,
   readCheckout,
+  readCheckoutPaymentOptions,
   readOperation,
   reconcileCustomerVerification,
   recoveryFor,
@@ -112,6 +114,7 @@ export function CheckoutReview({
     [giftCode, setGiftCode] = useState(''),
     [giftPin, setGiftPin] = useState(''),
     [giftPinRequested, setGiftPinRequested] = useState(false),
+    [paymentFormOpen, setPaymentFormOpen] = useState(false),
     [flags, setFlags] = useState<CheckoutFlags | null>(null),
     [discount, setDiscount] = useState(''),
     [discountKind, setDiscountKind] = useState<'pg' | 'store'>('store'),
@@ -1588,31 +1591,69 @@ export function CheckoutReview({
                   act={act}
                   onReady={approvalReady}
                 />
-                <button
-                  className="button primary full"
-                  data-cashier-action="proceed"
-                  aria-keyshortcuts="P"
-                  disabled={
-                    disabled ||
-                    !editable ||
-                    approvalState?.version !== checkout.version ||
-                    !approvalState.ready
-                  }
-                  onClick={() =>
-                    void act(async () => {
-                      const result = await mutate('order-submissions', 'POST');
-                      const orderId = result.state?.orderId;
-                      if (orderId) {
-                        setNotice(
-                          `Order ${orderId} created. ${result.result?.paymentStatus === 'paid' ? 'Payment is confirmed.' : 'Payment is pending.'}`,
-                        );
+                {paymentFormOpen && total !== null && !/^0+(?:\.0+)?$/.test(total) ? (
+                  <PaymentPanel
+                    ownerId={draft.ownerId}
+                    draftId={draft.id}
+                    storeId={draft.storeId}
+                    orderId=""
+                    online={online}
+                    preOrder={{
+                      payable: total,
+                      loadOptions: async () => ({
+                        ...(await readCheckoutPaymentOptions(checkout)),
+                        payable: total,
+                      }),
+                      submit: async (payment) => {
+                        // Legacy: confirm the payment form, then ajax-order, then the upload.
+                        const result = await mutate('order-submissions', 'POST', { payment });
+                        setPaymentFormOpen(false);
+                        const orderId = result.state?.orderId;
+                        if (!orderId) return;
                         onOrderCreated?.(orderId);
+                        const failure = z
+                          .object({ message: z.string() })
+                          .safeParse(result.result?.paymentError);
+                        if (failure.success)
+                          setProblem(
+                            `Order ${orderId} created. ${failure.data.message} Continue with the payment below.`,
+                          );
+                        else setNotice('Order Created!');
+                      },
+                    }}
+                  />
+                ) : (
+                  <button
+                    className="button primary full"
+                    data-cashier-action="proceed"
+                    aria-keyshortcuts="P"
+                    disabled={
+                      disabled ||
+                      !editable ||
+                      approvalState?.version !== checkout.version ||
+                      !approvalState.ready
+                    }
+                    onClick={() => {
+                      // A positive payable opens the payment form first; the order is created only
+                      // when the operator confirms it (create_order.html:6177-7239). Zero payable is
+                      // the legacy Order Confirmation path.
+                      if (total !== null && !/^0+(?:\.0+)?$/.test(total)) {
+                        setPaymentFormOpen(true);
+                        return;
                       }
-                    })
-                  }
-                >
-                  Create order
-                </button>
+                      void act(async () => {
+                        const result = await mutate('order-submissions', 'POST');
+                        const orderId = result.state?.orderId;
+                        if (orderId) {
+                          setNotice('Order Created!');
+                          onOrderCreated?.(orderId);
+                        }
+                      });
+                    }}
+                  >
+                    Proceed For Payment
+                  </button>
+                )}
               </>
             )}
             {checkout.phase === 'submitted' && (
