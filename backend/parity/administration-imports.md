@@ -1,27 +1,71 @@
-# Inventory CSV imports and historical reads
+# Inventory CSV imports (jobs C1/C2)
 
-The active source feature is `ProductsStockBulkUploadView` with `ProductStockParseCSV`. Its six columns and downloadable instruction/example records are source-extracted and checked. Product-store association uploads and upload-log page routes are commented out in the source URL configuration and are not counted as active migrated routes.
+Source: `backend-pos-web@78d5b63`. Upload views `ProductsStoreBulkUploadView` / `ProductsStockBulkUploadView`
+(`core/views.py:122-142,374-397`), tasks `core.tasks.parse_csv_product_store` / `parse_csv_product_stock`
+(`core/tasks.py:28-48`), bodies `ProductStoreParseCSV` / `ProductStockParseCSV` (`helpers/task_helpers.py:64-350`).
+The product-store upload URL is commented out in the source (`core/urls.py:11`); its task is live code.
 
-Apply `import-migration.sql` after administration, media and settings migrations. It creates only rewrite-owned import metadata/records and a registry row. `registerAdministration` returns `imports`; its traced `/api/v1/admin/inventory-imports` resources provide capabilities, template, preview, queue/list/detail/records, failed CSV, resume/cancel and historical search. The existing `worker:administration` runner processes bounded import records before dispatching durable product-sync effects. It therefore requires the fourth migration. No additional unsupervised process is spawned.
+## Upload (`POST /api/v1/admin/inventory-imports`)
 
-Input is strict UTF-8 CSV, at most 256 KiB and 5000 records, with exactly the six unique template columns. Column order, quoting and numeric formatting are preserved through header-based parsing; UTF-8 BOM is supported. Fields are bounded to 128 characters. Positive decimal identifiers remain strings, including values beyond JavaScript's safe integer range. Hold flags are 0/1, movements require positive bounded quantities, and blank visibility/delete fields retain current values. Extra columns, incomplete movement pairs and negative/zero movement quantities are rejected explicitly rather than accepted ambiguously.
+Body `{type: PRODUCT_STOCK_CSV|PRODUCT_STORE_CSV, name, csv}` (zod; `name` must end in `.csv`, CSV at most
+256 KiB). Steps, as the source view: store the file under `uploads/csv/Csv-%Y_%m_%d-%H-%M-%S.csv` (business
+time zone; django-storages `_xxxxxxx` suffix on a name clash) through `import-storage.ts` (S3 `PutObject`
+with `If-None-Match: *`); insert `pos_csv_upload` (`upload_type`, `uploaded_by`, `filename`,
+`is_imported=0`, timestamps); set the Redis cursor; enqueue the task on queue `core` with
+`{upload_id, user_id, role_id}` after the insert. Response 201 `{id, message}`.
 
-Preview uses batched primary-reader lookups, does not mutate state and shows current validation results. Each record is checked again when processed. Job UUID plus content checksum/name/actor provide safe submission replay. At most five unfinished jobs per actor can be queued. Current writer role, organization type and store assignment are rechecked before applying each record. Store/product/stock locks and a savepoint keep a record atomic; known row failures are recorded without affecting other records. Infrastructure, schema or dependency failures block the job with a static code. Cancellation stops pending records and keeps already-applied changes. Resume preserves the original actor and rechecks their current authority.
+| Case                        | Legacy                                                                                       | Rewrite                                                      |
+| --------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| accepted                    | flash "Csv Uploaded successfully. Data may take some time to reflect."                       | 201, same message                                            |
+| bad file/extension          | flash "Invalid / Blank parameters passed in field." / form error "Only CSV file is accepted" | 400 (zod) "Only CSV file is accepted"                        |
+| no storage or job queue     | 500                                                                                          | 503 `DEPENDENCY_UNAVAILABLE`                                 |
+| not roles 1-3 / user_type 2 | page allowed                                                                                 | 403 `ROLE_ACCESS_DENIED` / `INVENTORY_ADMINISTRATION_DENIED` |
 
-Visibility-only imports work with configured replay-safe product synchronization. Hold/unhold additionally require the verified transaction-safe stock procedure; default deployment remains closed until the actual writer body is established. Single edits and imports share `stock-procedure.ts`. The fake procedure used by isolated tests proves owned stock/hold conservation, savepoint rollback, audit comments and caller arguments; it is not proof of the deployed procedure's inventory/global/audit side effects.
+`GET /api/v1/admin/inventory-imports/template?type=` returns the source download rows with `csv.writer`
+quoting, file name `ProductStock-<ts>.csv` / `ProductStore-<ts>.csv`. `GET /api/v1/admin/inventory-imports`
+(`type`, `before`, `limit`) and `GET .../:uploadId` read `pos_csv_upload` (the source upload-log datatable is
+commented out, `core/urls.py:48-51`); role 1 sees every upload, other roles only their own; detail parses
+`failed_data`. `GET .../capabilities` stays for the catalog product screen.
 
-For a variant release, global-live siblings follow source `Helpers.live_variant_ids`: non-archived children plus archived children with positive, non-deleted stock at any store, with the selected child and parent included. Existing sibling quantities are retained. Explicit CSV visibility/delete flags apply to the selected product and parent. Missing store-product associations preserve the source no-op behavior and receive a preview notice. Product synchronization is enqueued in the same transaction with a deterministic per-record effect ID.
+## Job handlers (`import-job.ts`, registered in `jobs.ts`)
 
-Two legacy defects are deliberately corrected: `IsHold=0` previously entered the first hold branch, making unhold unreachable; and insufficient hold quantity could still change listing flags after recording an error. The rewrite performs actual unhold and rolls back the entire failed record. These corrections, input limits and the new REST/worklist UI are not byte-for-byte legacy HTTP parity claims.
+Reproduced exactly: active-store and `user_stores` lists read once at start; `role_id != 1` store check;
+`csv.DictReader` over UTF-8 lines (BOM kept in the first header, lone `\r` raises mid-iteration); Python
+`int()` parsing and messages; `failed_data` written with `json.dumps` defaults (`", "`, `": "`,
+`ensure_ascii`); source messages ("Not a valid store.", "Not a parent product.", "Not a valid store for
+requested user.", "Required parameters are missing.", "Error while traversing csv data." with
+`other_error`, "Stock is not available to hold."); `message` "Product Store/Stock Data Updated
+Successfully."; `is_imported=1`; then one `sync_pos_product` POST with the source `product_id_list`
+(duplicates kept). Stock procedure: `GenericHelper.sync_pos_inventory` calls (`tss.pos_stock_syncer` via
+`stock-procedure.ts`, or the configured transaction-scoped projection) once per existing association; the
+first failure stops the calls and is logged, as the source `try` around the loop.
 
-Raw CSV, names, file names, quantities, exceptions and provider responses are never logged. Events contain module/resource/event/import/record/request/user/store identifiers and static codes. Failed downloads quote fields and neutralize spreadsheet formulas. Browser downloads use authenticated same-origin requests and blob URLs; no external desktop navigation is needed. Source instruction/example records must be removed or edited before submission.
+Source quirks kept on purpose:
 
-## Completed history
+- `IsHold=0` with a quantity also holds (the unhold `elif`, `:265-292`, is unreachable). Previous rewrite
+  corrected this; that correction is removed. See NEEDS USER DECISION in the W8b report.
+- A hold failure does not stop the record: listing flags are still updated, and the product is not synced.
+- A later exception re-appends the same failure dict, so it appears twice in `failed_data`.
+- Writes before an exception inside a record stay (e.g. flags, then the missing product's
+  `'NoneType' object has no attribute 'parent_prod_id'`).
+- Product-store inserts are collected and inserted together at the end; a repeated active record hits the
+  production `uq_product_store` key, so the task ends with the upload unimported (source `bulk_create`).
+- A missing required header (or a BOM before `SkuId`) ends the task before any record (`row_dict` is
+  unbound in the source), leaving the upload unimported. A malformed line ends it after earlier records.
 
-Recent/unfinished work is operational state on the primary reader. Finished record data older than 24 hours goes exclusively through `import-history.ts` and the shared bounded `warehouseService.queryReport` runner. The UI exposes completed-history dates and record/failure downloads. Configure `BQ_INVENTORY_IMPORTS_VIEW` and `BQ_INVENTORY_IMPORT_ROWS_VIEW` with the normalized contract in `administration-import-history-contract.json`, plus the root BigQuery project/location/billing settings. Unconfigured or inconsistent storage fails closed; no historical MySQL record fallback exists.
+Rewrite-only additions: each record runs in one writer transaction (savepoint around each procedure call);
+the Redis cursor `pos:import_progress:{uploadId}` (JSON `{record, failed, productIds, inserts}`, EX 7 days)
+advances after each committed record; a run whose cursor is missing closes the upload with
+`is_imported=1` and message "Import was interrupted and has not been resumed. Please upload the remaining
+records again." instead of re-applying holds (ledger risk note). `pos:lock:import:{uploadId}` (15 min,
+refreshed per record) prevents two runs of one upload. Non-Python errors are recorded as
+"Unexpected error while processing the record." (no raw SQL text).
 
-Compact writer metadata is retained for current role/type/owner authorization and the immutable checksum/updated-at anchor. BigQuery metadata must match it exactly. Record count, distinct/dense record numbers and succeeded/failed/cancelled totals must match before data is returned. Bound parameters carry identities, snapshot keys, dates, states and cursors; fully qualified view identifiers are validated separately. Timestamps use explicit UTC millisecond formatting and IDs/sequences remain strings. Failed downloads validate the complete bounded result before streaming it.
+Removed (no legacy home): `pos_rewrite_inventory_imports`, `_rows`, `pos_rewrite_parent_store_import_audits`,
+preview, row listing, failures CSV, resume/cancel, BLOCKED/CANCELLED states, checksum replay, per-actor
+queue limit, BigQuery completed history (`BQ_INVENTORY_IMPORTS_VIEW`, `BQ_INVENTORY_IMPORT_ROWS_VIEW`,
+`BQ_PARENT_STORE_IMPORTS_VIEW`, `BQ_PARENT_STORE_IMPORT_ROWS_VIEW` are unused) and `worker:administration`.
 
-Historical lists are capped to 366-day ranges with stable numeric sequence cursors. Views must expose only immutable completed/cancelled snapshots; publish metadata and records coherently, retain required snapshot versions and apply the documented partition/clustering strategy. Real view mapping, ingestion freshness, billing plans and permissions require validation before release. The adapter/reducer and UI are implemented and tested with injected results; no live BigQuery certification is claimed. See official [parameterized query documentation](https://docs.cloud.google.com/bigquery/docs/parameterized-queries) and [format elements](https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/format-elements).
-
-During cutover, reconcile legacy pending `pos_csv_upload` jobs and quiesce old CSV writers before activating the new queue. Existing Python tasks do not maintain rewrite job/effect state. No legacy job has been silently reprocessed or changed by this work.
+Tests: `tests/administration/import-domain.test.ts` (goldens + CPython-derived vectors),
+`tests/administration/inventory-jobs.mysql.test.ts` (`INVENTORY_JOBS_MYSQL_TEST_URL` or
+`ADMINISTRATION_MYSQL_TEST_URL`, loopback MySQL; fake storage/procedure/sync, memory Redis).

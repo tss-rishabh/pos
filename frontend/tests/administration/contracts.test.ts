@@ -6,7 +6,7 @@ import {
   terminalSchema,
 } from '../../src/pages/administration/api';
 import { terminalDetailSchema } from '../../src/pages/administration/terminals';
-import { downloadImportCsv, importJobSchema } from '../../src/pages/administration/import-api';
+import { uploadDetailSchema } from '../../src/pages/administration/import-api';
 import {
   bufferDuration,
   ecommerceSettingSchema,
@@ -131,28 +131,29 @@ describe('administration wire and attachment boundaries', () => {
         .success,
     ).toBe(false);
   });
-  it('keeps inventory import identities exact, excludes private metadata and rejects external CSV downloads', async () => {
-    const job = importJobSchema.parse({
-      id: '6f1d1352-b22a-4b74-af09-a936b52cef73',
-      actorId: '9007199254740993',
-      name: 'Fixture.csv',
-      state: 'COMPLETED',
-      totalRows: 1,
-      processedRows: 1,
-      successfulRows: 1,
-      failedRows: 0,
-      errorCode: null,
-      createdAt: '2026-11-16 00:00:00.000',
-      updatedAt: '2026-11-16 00:00:01.000',
-      checksum: 'private-canary',
-      requestId: 'private-request',
+  it('keeps CSV upload identities exact and the source failed_data shape', () => {
+    const upload = uploadDetailSchema.parse({
+      id: '9007199254740993',
+      uploadType: 'PRODUCT_STOCK_CSV',
+      uploadedBy: '9007199254740995',
+      message: 'Product Stock Data Updated Successfully.',
+      isImported: true,
+      createdAt: '2026-11-16 00:00:00',
+      updatedAt: '2026-11-16 00:00:01',
+      filename: 'uploads/csv/private.csv',
+      failedData: [
+        {
+          data: { SkuId: 'x', StoreId: null },
+          message: 'Error while traversing csv data.',
+          other_error: "invalid literal for int() with base 10: 'x'",
+        },
+      ],
     });
-    expect(job.actorId).toBe('9007199254740993');
-    expect(job).not.toHaveProperty('checksum');
-    expect(job).not.toHaveProperty('requestId');
-    await expect(
-      downloadImportCsv('https://example.invalid/export.csv', 'Fixture.csv', '1'),
-    ).rejects.toThrow('Choose an import download.');
+    expect(upload.id).toBe('9007199254740993');
+    expect(upload).not.toHaveProperty('filename');
+    expect(
+      uploadDetailSchema.safeParse({ ...upload, uploadType: 'OFFLINE_ORDER_PUNCH_IN_CSV' }).success,
+    ).toBe(false);
   });
   it('preserves duration hours beyond one day and validates ecommerce state before caching', () => {
     expect(bufferDuration('260100')).toBe('72:15');

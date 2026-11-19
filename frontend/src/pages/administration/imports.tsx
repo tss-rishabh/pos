@@ -1,408 +1,145 @@
-import type { z } from 'zod';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Principal } from '../../api/types';
 import { params, request } from '../../api/client';
 import { Empty, ErrorState, Loading } from '../../components/common';
-import { mutateAdministration, pageSchema } from './api';
-import { AdministrationEditor } from './editor';
 import {
-  downloadImportCsv,
-  importCapabilitiesSchema,
-  importJobSchema,
-  importPreviewSchema,
-  importRowSchema,
-  stockImportHeaders,
-  type ImportJob,
-  type ImportPreview,
-  type ImportRow,
-  parentImportSchemas,
+  downloadTemplate,
+  uploadDetailSchema,
+  uploadPageSchema,
+  uploadResultSchema,
+  type UploadType,
 } from './import-api';
 
-interface ImportWorkspaceProfile {
-  base: string;
-  key: string;
-  title: string;
-  instructions: string;
-  fileLabel: string;
-  templateLabel: string;
-  templateName: string;
-  headers: readonly string[];
-  preview: z.ZodType<ImportPreview>;
-  row: z.ZodType<ImportRow>;
-  parent: boolean;
-}
-const stockProfile: ImportWorkspaceProfile = {
-  base: '/api/v1/admin/inventory-imports',
-  key: 'inventory-import',
-  title: 'Inventory CSV imports',
-  instructions:
-    'Use SKU and store IDs. Leave movement fields empty to change listing status only. Use IsHold 1 to hold stock or 0 to release it. Remove the instruction and example records before uploading.',
-  fileLabel: 'Choose inventory CSV',
-  templateLabel: 'Download stock template',
-  templateName: 'ProductStock-template.csv',
-  headers: stockImportHeaders,
-  preview: importPreviewSchema,
-  row: importRowSchema,
-  parent: false,
+const base = '/api/v1/admin/inventory-imports';
+const maximumBytes = 256 * 1024;
+const profiles: Record<
+  UploadType,
+  { title: string; instructions: string; fileLabel: string; templateLabel: string }
+> = {
+  PRODUCT_STOCK_CSV: {
+    title: 'Inventory CSV imports',
+    instructions:
+      'Columns SkuId, StoreId, IsHold, Hold/UnholdQty, IsAvailable, IsDelete. A Hold/UnholdQty with any IsHold value moves that quantity from saleable stock into hold stock. Leave both empty to change listing flags only. Remove the instruction and example rows before uploading.',
+    fileLabel: 'Choose inventory CSV',
+    templateLabel: 'Download stock template',
+  },
+  PRODUCT_STORE_CSV: {
+    title: 'Parent/store assignments',
+    instructions:
+      'Columns SkuId, StoreId, IsActive. Use parent product IDs only. IsActive 1 recreates the parent and its live variant assignments with zero stock; IsActive 0 removes them. Remove the instruction and example rows before uploading.',
+    fileLabel: 'Choose parent/store CSV',
+    templateLabel: 'Download parent/store template',
+  },
 };
-const parentProfile: ImportWorkspaceProfile = {
-  base: '/api/v1/admin/parent-store-imports',
-  key: 'parent-store-import',
-  title: 'Parent/store assignments',
-  instructions:
-    'Use parent product IDs only. IsActive 1 recreates the parent and its live variant assignments with zero stock and active listing flags. IsActive 0 removes these assignments. Both actions reset existing saleable stock to zero; held stock stays recorded separately. Remove the instruction and example records before uploading. Repeated parent/store pairs require separate imports.',
-  fileLabel: 'Choose parent/store CSV',
-  templateLabel: 'Download parent/store template',
-  templateName: 'ProductStore-template.csv',
-  headers: ['SkuId', 'StoreId', 'IsActive'],
-  preview: parentImportSchemas.preview,
-  row: parentImportSchemas.row,
-  parent: true,
-};
-function ImportProgress({
-  user,
-  importId,
-  onChange,
-  profile,
-}: {
-  profile: ImportWorkspaceProfile;
-  user: Principal;
-  importId: string;
-  onChange: () => Promise<void>;
-}) {
-  const { base } = profile;
-  const [after, setAfter] = useState('0'),
-    [state, setState] = useState('all'),
-    [history, setHistory] = useState<string[]>([]),
-    [busy, setBusy] = useState(false),
-    [cancelling, setCancelling] = useState(false),
-    [error, setError] = useState<unknown>(null);
+const statusText = (imported: boolean) => (imported ? 'Imported' : 'Processing');
+
+function UploadDetailView({ user, uploadId }: { user: Principal; uploadId: string }) {
   const detail = useQuery({
-    queryKey: [user.id, 'administration', profile.key, importId],
+    queryKey: [user.id, 'administration', 'csv-upload', uploadId],
     queryFn: ({ signal }) =>
-      request(`${base}/${importId}`, { operatorId: user.id, signal }, importJobSchema),
-    refetchInterval: (query) =>
-      ['QUEUED', 'RUNNING'].includes(query.state.data?.state || '') ? 2000 : false,
+      request(`${base}/${uploadId}`, { operatorId: user.id, signal }, uploadDetailSchema),
+    refetchInterval: (query) => (query.state.data && !query.state.data.isImported ? 3000 : false),
   });
-  const rows = useQuery({
-    queryKey: [user.id, 'administration', `${profile.key}-rows`, importId, after, state],
-    queryFn: ({ signal }) =>
-      request(
-        `${base}/${importId}/rows?${params({ after, state, limit: '50' })}`,
-        { operatorId: user.id, signal },
-        pageSchema(profile.row),
-      ),
-    refetchInterval:
-      detail.data && ['QUEUED', 'RUNNING'].includes(detail.data.state) ? 2000 : false,
-  });
-  async function control(action: 'resume' | 'cancel') {
-    setBusy(true);
-    try {
-      await mutateAdministration(`${base}/${importId}/${action}`, 'POST', {}, user.id);
-      setError(null);
-      await onChange();
-    } catch (failure) {
-      setError(failure);
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function download() {
-    setBusy(true);
-    try {
-      await downloadImportCsv(
-        `${base}/${importId}/failures.csv`,
-        `InventoryImport-${importId}-failed.csv`,
-        user.id,
-      );
-      setError(null);
-    } catch (failure) {
-      setError(failure);
-    } finally {
-      setBusy(false);
-    }
-  }
+  if (detail.isPending) return <Loading />;
+  if (detail.isError) return <ErrorState error={detail.error} />;
+  const value = detail.data,
+    failed = value.failedData ?? [],
+    columns = [...new Set(failed.flatMap((entry) => Object.keys(entry.data)))];
   return (
     <section className="surface administration-section-gap">
-      {detail.isPending ? (
-        <Loading />
-      ) : detail.isError ? (
-        <ErrorState error={detail.error} />
-      ) : (
-        <>
-          <div className="administration-heading">
-            <div>
-              <h3>{detail.data.name}</h3>
-              <p>
-                {detail.data.state} · {detail.data.processedRows}/{detail.data.totalRows} processed
-                · {detail.data.successfulRows} succeeded · {detail.data.failedRows} failed
-              </p>
-            </div>
-            <div className="administration-actions">
-              {detail.data.failedRows > 0 && (
-                <button
-                  className="button secondary"
-                  disabled={busy}
-                  onClick={() => void download()}
-                >
-                  Download failed records
-                </button>
-              )}
-              {detail.data.state === 'BLOCKED' && (
-                <button
-                  className="button primary"
-                  disabled={busy}
-                  onClick={() => void control('resume')}
-                >
-                  Resume import
-                </button>
-              )}
-              {!['COMPLETED', 'CANCELLED'].includes(detail.data.state) && (
-                <button
-                  className="button secondary"
-                  disabled={busy}
-                  onClick={() => setCancelling(true)}
-                >
-                  Cancel pending records
-                </button>
-              )}
-            </div>
-          </div>
-          {detail.data.state === 'BLOCKED' && (
-            <p className="administration-notice">
-              Processing needs attention before it can continue. Resolve the reported dependency or
-              account access, then resume.
-            </p>
-          )}
-          {error !== null && <ErrorState error={error} />}
-          <div className="administration-heading">
-            <label>
-              Record status{' '}
-              <select
-                aria-label="Import record status"
-                value={state}
-                onChange={(event) => {
-                  setState(event.target.value);
-                  setAfter('0');
-                  setHistory([]);
-                }}
-              >
-                {['all', 'PENDING', 'SUCCEEDED', 'FAILED', 'CANCELLED'].map((value) => (
-                  <option key={value} value={value}>
-                    {value === 'all' ? 'All records' : value}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          {rows.isPending ? (
-            <Loading />
-          ) : rows.isError ? (
-            <ErrorState error={rows.error} />
-          ) : (
-            <>
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Record</th>
-                      {profile.headers.map((name) => (
-                        <th key={name}>{name}</th>
-                      ))}
-                      <th>Status</th>
-                      <th>Message</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.data.data.map((row) => (
-                      <tr key={row.rowNumber}>
-                        <td>{row.rowNumber}</td>
-                        {row.cells.map((value, index) => (
-                          <td key={index}>{value || '—'}</td>
-                        ))}
-                        <td>{row.state}</td>
-                        <td>{row.message || '—'}</td>
-                      </tr>
+      <h3>Upload {value.id}</h3>
+      <p>
+        {statusText(value.isImported)}
+        {value.message ? ` · ${value.message}` : ''}
+      </p>
+      {value.isImported &&
+        (failed.length ? (
+          <div className="table-wrap">
+            <table>
+              <caption>Failed records</caption>
+              <thead>
+                <tr>
+                  {columns.map((column) => (
+                    <th key={column}>{column}</th>
+                  ))}
+                  <th>Message</th>
+                  <th>Error</th>
+                </tr>
+              </thead>
+              <tbody>
+                {failed.map((entry, index) => (
+                  <tr key={index}>
+                    {columns.map((column) => (
+                      <td key={column}>{entry.data[column] ?? ''}</td>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="administration-heading">
-                <button
-                  className="button secondary"
-                  disabled={!history.length}
-                  onClick={() => {
-                    setAfter(history.at(-1)!);
-                    setHistory(history.slice(0, -1));
-                  }}
-                >
-                  Previous records
-                </button>
-                <button
-                  className="button secondary"
-                  disabled={!rows.data.nextCursor}
-                  onClick={() => {
-                    setHistory([...history, after]);
-                    setAfter(rows.data.nextCursor!);
-                  }}
-                >
-                  Next records
-                </button>
-              </div>
-            </>
-          )}
-          {cancelling && (
-            <AdministrationEditor
-              title="Cancel remaining import records?"
-              fields={[]}
-              initialValues={{}}
-              description="Already applied records stay in effect. Remaining records will be cancelled."
-              submitLabel="Cancel remaining records"
-              onClose={() => setCancelling(false)}
-              onSave={async () => {
-                await mutateAdministration(`${base}/${importId}/cancel`, 'POST', {}, user.id);
-                await onChange();
-              }}
-            />
-          )}
-        </>
-      )}
+                    <td>{entry.message}</td>
+                    <td>{entry.other_error ?? ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p>No failed records.</p>
+        ))}
     </section>
   );
 }
-export function InventoryImportAdministration({ user }: { user: Principal }) {
-  return <ImportWorkspace key={user.id} user={user} profile={stockProfile} />;
-}
-export function ParentStoreImportAdministration({ user }: { user: Principal }) {
-  return <ImportWorkspace key={user.id} user={user} profile={parentProfile} />;
-}
-function ImportWorkspace({ user, profile }: { user: Principal; profile: ImportWorkspaceProfile }) {
-  const { base } = profile;
-  const allowed = profile.parent || user.userType === 1;
-  const client = useQueryClient(),
-    previewAbort = useRef<AbortController | null>(null);
-  const [draft, setDraft] = useState<{ id: string; name: string; csv: string } | null>(null),
-    [preview, setPreview] = useState<ImportPreview | null>(null),
-    [selected, setSelected] = useState<string | null>(null),
+
+function CsvUploadAdministration({ user, type }: { user: Principal; type: UploadType }) {
+  const profile = profiles[type],
+    client = useQueryClient();
+  const [file, setFile] = useState<{ name: string; csv: string } | null>(null),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState<unknown>(null),
     [message, setMessage] = useState(''),
-    [unknownCreate, setUnknownCreate] = useState(false);
-  const [historyMode, setHistoryMode] = useState(false),
-    [from, setFrom] = useState(() =>
-      new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10),
-    ),
-    [to, setTo] = useState(() => new Date(Date.now() - 86400000).toISOString().slice(0, 10));
-  useEffect(() => () => previewAbort.current?.abort(), []);
-  const capabilities = useQuery({
-    enabled: allowed,
-    queryKey: [user.id, 'administration', `${profile.key}-capabilities`],
-    queryFn: ({ signal }) =>
-      request(`${base}/capabilities`, { operatorId: user.id, signal }, importCapabilitiesSchema),
-  });
-  const jobs = useInfiniteQuery({
-    enabled: allowed && !historyMode,
-    queryKey: [user.id, 'administration', `${profile.key}s`],
-    initialPageParam: '0',
+    [error, setError] = useState<unknown>(null),
+    [selected, setSelected] = useState<string | null>(null),
+    [inputKey, setInputKey] = useState(0);
+  const history = useInfiniteQuery({
+    queryKey: [user.id, 'administration', 'csv-uploads', type],
+    initialPageParam: '',
     queryFn: ({ pageParam, signal }) =>
       request(
-        `${base}?${params({ after: pageParam, limit: '30' })}`,
+        `${base}?${params({ type, limit: '30', ...(pageParam ? { before: pageParam } : {}) })}`,
         { operatorId: user.id, signal },
-        pageSchema(importJobSchema),
+        uploadPageSchema,
       ),
-    getNextPageParam: (page) => page.nextCursor || undefined,
-    refetchInterval: (query) =>
-      query.state.data?.pages.some((page) =>
-        page.data.some((job) => ['QUEUED', 'RUNNING'].includes(job.state)),
-      )
-        ? 3000
-        : false,
+    getNextPageParam: (page) => page.nextBefore ?? undefined,
   });
-  const historicalJobs = useInfiniteQuery({
-    enabled: allowed && historyMode && !!capabilities.data?.historyEnabled,
-    queryKey: [user.id, 'administration', `${profile.key}-history`, from, to],
-    initialPageParam: '0',
-    queryFn: ({ pageParam, signal }) =>
-      request(
-        `${base}/history?${params({ after: pageParam, limit: '30', from, to })}`,
-        { operatorId: user.id, signal },
-        pageSchema(importJobSchema),
-      ),
-    getNextPageParam: (page) => page.nextCursor || undefined,
-  });
-  const collection = historyMode ? historicalJobs : jobs;
-  const changed = () => client.invalidateQueries({ queryKey: [user.id] });
-  async function choose(file: File | undefined) {
-    previewAbort.current?.abort();
-    const controller = new AbortController();
-    previewAbort.current = controller;
-    setDraft(null);
-    setPreview(null);
-    setError(null);
+  async function choose(selectedFile: File | undefined) {
     setMessage('');
-    setUnknownCreate(false);
+    setError(null);
+    setFile(null);
+    if (!selectedFile) return;
+    if (!selectedFile.name.endsWith('.csv'))
+      return setError(new Error('Only CSV file is accepted'));
+    if (selectedFile.size > maximumBytes)
+      return setError(new Error('Choose a CSV file up to 256 KiB.'));
+    setFile({ name: selectedFile.name, csv: await selectedFile.text() });
+  }
+  async function upload() {
     if (!file) return;
     setBusy(true);
     try {
-      if (!/\.csv$/i.test(file.name) || file.size > (capabilities.data?.maximumBytes || 262144))
-        throw new Error('Choose a CSV file up to 256 KiB.');
-      const csv = new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer());
-      controller.signal.throwIfAborted();
-      const input = { id: crypto.randomUUID(), name: file.name, csv };
       const result = await request(
-        `${base}/preview`,
-        {
-          operatorId: user.id,
-          method: 'POST',
-          body: JSON.stringify(input),
-          signal: controller.signal,
-        },
-        profile.preview,
-      );
-      if (previewAbort.current !== controller) return;
-      setDraft(input);
-      setPreview(result);
-    } catch (failure) {
-      if (!controller.signal.aborted) setError(failure);
-    } finally {
-      if (previewAbort.current === controller) setBusy(false);
-    }
-  }
-  function adopted(job: ImportJob) {
-    setSelected(job.id);
-    setDraft(null);
-    setPreview(null);
-    setUnknownCreate(false);
-    setError(null);
-    setMessage('Import queued. Each record is checked again before applying.');
-  }
-  async function reconcile() {
-    if (!draft) return;
-    setBusy(true);
-    try {
-      const job = await request(`${base}/${draft.id}`, { operatorId: user.id }, importJobSchema);
-      adopted(job);
-      await changed();
-    } catch (failure) {
-      setError(failure);
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function submit() {
-    if (!draft || !preview?.canSubmit) return;
-    setBusy(true);
-    try {
-      const job = await request(
         base,
-        { operatorId: user.id, method: 'POST', body: JSON.stringify(draft) },
-        importJobSchema,
+        {
+          method: 'POST',
+          operatorId: user.id,
+          body: JSON.stringify({ type, name: file.name, csv: file.csv }),
+        },
+        uploadResultSchema,
       );
-      adopted(job);
-      await changed();
+      setMessage(result.message);
+      setError(null);
+      setFile(null);
+      setInputKey((key) => key + 1);
+      setSelected(result.id);
+      await client.invalidateQueries({
+        queryKey: [user.id, 'administration', 'csv-uploads', type],
+      });
     } catch (failure) {
-      setUnknownCreate(true);
       setError(failure);
     } finally {
       setBusy(false);
@@ -411,7 +148,7 @@ function ImportWorkspace({ user, profile }: { user: Principal; profile: ImportWo
   async function template() {
     setBusy(true);
     try {
-      await downloadImportCsv(`${base}/template`, profile.templateName, user.id);
+      await downloadTemplate(type, user.id);
       setError(null);
     } catch (failure) {
       setError(failure);
@@ -419,8 +156,7 @@ function ImportWorkspace({ user, profile }: { user: Principal; profile: ImportWo
       setBusy(false);
     }
   }
-  const records: ImportJob[] = collection.data?.pages.flatMap((page) => page.data) || [];
-  if (!allowed) return <Empty title="Inventory imports require an in-house administrator" />;
+  const rows = history.data?.pages.flatMap((page) => page.data) ?? [];
   return (
     <>
       <div className="administration-heading">
@@ -429,239 +165,84 @@ function ImportWorkspace({ user, profile }: { user: Principal; profile: ImportWo
           {profile.templateLabel}
         </button>
       </div>
-      <p>{profile.instructions}</p>
-      {capabilities.isPending ? (
-        <Loading />
-      ) : capabilities.isError ? (
-        <ErrorState error={capabilities.error} />
-      ) : (
-        <>
-          {!capabilities.data.stockEnabled && (
-            <p className="administration-notice">
-              {profile.parent
-                ? 'Parent/store imports require the verified atomic inventory projection and product synchronization to be configured.'
-                : 'Holding and releasing stock are currently unavailable. Listing-status imports can still run when enabled.'}
-            </p>
-          )}
-          {profile.parent && capabilities.data.stores && (
-            <details className="surface administration-section-gap">
-              <summary>Permitted store IDs ({capabilities.data.stores.length})</summary>
-              {capabilities.data.stores.length ? (
-                <ul>
-                  {capabilities.data.stores.map((store) => (
-                    <li key={store.id}>
-                      {store.id} · {store.name}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p>No active stores are assigned to this operator.</p>
-              )}
-            </details>
-          )}
-          <section className="surface">
-            <label>
-              {profile.fileLabel}{' '}
-              <input
-                aria-label={profile.fileLabel}
-                type="file"
-                accept=".csv,text/csv"
-                disabled={busy}
-                onChange={(event) => void choose(event.target.files?.[0])}
-              />
-            </label>
-            {busy && <p role="status">Processing…</p>}
-            {preview && (
-              <>
-                <p>
-                  {draft?.name} · {preview.totalRows} records · {preview.validRows} currently valid
-                  · {preview.invalidRows} with errors
-                </p>
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Record</th>
-                        <th>SKU</th>
-                        <th>Store</th>
-                        <th>{profile.parent ? 'Action' : 'Movement'}</th>
-                        <th>{profile.parent ? 'Affected assignments' : 'Quantity'}</th>
-                        <th>Validation</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {preview.rows.map((row) => (
-                        <tr key={row.rowNumber}>
-                          <td>{row.rowNumber}</td>
-                          <td>{row.cells[0]}</td>
-                          <td>{row.cells[1]}</td>
-                          <td>
-                            {row.command
-                              ? 'active' in row.command
-                                ? row.command.active
-                                  ? 'Reset and assign'
-                                  : 'Reset and remove'
-                                : row.command.movement
-                              : '—'}
-                          </td>
-                          <td>
-                            {profile.parent
-                              ? (row.familySize ?? '—')
-                              : row.command && 'quantity' in row.command
-                                ? row.command.quantity || '—'
-                                : '—'}
-                          </td>
-                          <td>{row.errorCode ? row.message : row.message || 'Ready'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {preview.remainingRows > 0 && <p>Showing the first 100 records.</p>}
-                {preview.invalidRows > 0 && (
-                  <p>Failed records are recorded separately; other records continue processing.</p>
-                )}
-                <button
-                  className="button primary"
-                  disabled={busy || !preview.canSubmit}
-                  onClick={() => void submit()}
-                >
-                  Queue import
-                </button>
-                {unknownCreate && (
-                  <p className="administration-notice">
-                    The queue response was not confirmed. Check the original import before retrying.{' '}
-                    <button
-                      className="button secondary"
-                      disabled={busy}
-                      onClick={() => void reconcile()}
-                    >
-                      Check original import
-                    </button>
-                  </p>
-                )}
-                {!preview.canSubmit && (
-                  <p className="administration-notice">
-                    This file requires an import capability that is currently unavailable.
-                  </p>
-                )}
-              </>
-            )}
-          </section>
-        </>
-      )}
-      {error !== null && <ErrorState error={error} />}
+      <section className="surface">
+        <p>{profile.instructions}</p>
+        <label>
+          {profile.fileLabel}
+          <input
+            key={inputKey}
+            type="file"
+            accept=".csv,text/csv"
+            disabled={busy}
+            onChange={(event) => void choose(event.target.files?.[0])}
+          />
+        </label>
+        <button className="button primary" disabled={busy || !file} onClick={() => void upload()}>
+          Upload CSV
+        </button>
+      </section>
       {message && (
         <div role="status" className="administration-status">
           {message}
         </div>
       )}
-      <div className="administration-heading administration-section-gap">
-        <h2>{historyMode ? 'Completed import history' : 'Recent imports'}</h2>
-        <div className="administration-filters">
-          <select
-            aria-label="Import history scope"
-            value={historyMode ? 'historical' : 'current'}
-            onChange={(event) => {
-              setHistoryMode(event.target.value === 'historical');
-              setSelected(null);
-            }}
-          >
-            <option value="current">Last 24 hours and unfinished</option>
-            <option value="historical" disabled={!capabilities.data?.historyEnabled}>
-              Completed history
-            </option>
-          </select>
-          {historyMode && (
-            <>
-              <label>
-                From{' '}
-                <input
-                  aria-label="Import history from"
-                  type="date"
-                  value={from}
-                  onChange={(event) => {
-                    setFrom(event.target.value);
-                    setSelected(null);
-                  }}
-                />
-              </label>
-              <label>
-                To{' '}
-                <input
-                  aria-label="Import history to"
-                  type="date"
-                  value={to}
-                  onChange={(event) => {
-                    setTo(event.target.value);
-                    setSelected(null);
-                  }}
-                />
-              </label>
-            </>
-          )}
-        </div>
-      </div>
-      {!capabilities.isPending && !capabilities.data?.historyEnabled && (
-        <p className="administration-notice">Completed history is currently unavailable.</p>
-      )}
+      {error !== null && <ErrorState error={error} />}
+      {selected && <UploadDetailView key={selected} user={user} uploadId={selected} />}
+      <h3 className="administration-section-gap">Upload history</h3>
       <section className="surface">
-        {collection.isPending ? (
+        {history.isPending ? (
           <Loading />
-        ) : collection.isError ? (
-          <ErrorState error={collection.error} />
+        ) : history.isError ? (
+          <ErrorState error={history.error} />
+        ) : !rows.length ? (
+          <Empty title="No uploads yet" />
         ) : (
-          <>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>File</th>
-                    <th>Status</th>
-                    <th>Processed</th>
-                    <th>Succeeded</th>
-                    <th>Failed</th>
-                    <th>Actions</th>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Uploaded by</th>
+                  <th>Uploaded at</th>
+                  <th>Status</th>
+                  <th>Message</th>
+                  <th>
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.id}>
+                    <td>{row.id}</td>
+                    <td>{row.uploaderName || row.uploadedBy || ''}</td>
+                    <td>{row.createdAt ?? ''}</td>
+                    <td>{statusText(row.isImported)}</td>
+                    <td>{row.message ?? ''}</td>
+                    <td>
+                      <button className="button secondary" onClick={() => setSelected(row.id)}>
+                        View records
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {records.map((job) => (
-                    <tr key={job.id}>
-                      <td>{job.name}</td>
-                      <td>{job.state}</td>
-                      <td>
-                        {job.processedRows}/{job.totalRows}
-                      </td>
-                      <td>{job.successfulRows}</td>
-                      <td>{job.failedRows}</td>
-                      <td>
-                        <button className="button secondary" onClick={() => setSelected(job.id)}>
-                          View records
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {!records.length && <Empty title="No inventory imports yet" />}
-            {collection.hasNextPage && (
-              <button className="button secondary" onClick={() => void collection.fetchNextPage()}>
-                Load more imports
-              </button>
-            )}
-          </>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {history.hasNextPage && (
+          <button className="button secondary" onClick={() => void history.fetchNextPage()}>
+            Load more
+          </button>
         )}
       </section>
-      {selected && (
-        <ImportProgress
-          key={selected}
-          user={user}
-          importId={selected}
-          onChange={changed}
-          profile={profile}
-        />
-      )}
     </>
   );
+}
+
+export function InventoryImportAdministration({ user }: { user: Principal }) {
+  return <CsvUploadAdministration user={user} type="PRODUCT_STOCK_CSV" />;
+}
+export function ParentStoreImportAdministration({ user }: { user: Principal }) {
+  return <CsvUploadAdministration user={user} type="PRODUCT_STORE_CSV" />;
 }

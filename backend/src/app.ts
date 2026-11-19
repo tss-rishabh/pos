@@ -24,15 +24,14 @@ import { registerDeviceHandoffs } from './auth/device-handoff-routes.js';
 import { registerOperatorBinding } from './auth/operator-binding.js';
 import { registerProfileMedia } from './auth/profile-media-routes.js';
 import { checkInService } from './modules/administration/checkins.js';
-import { createProductSyncAdapter } from './modules/administration/product-sync.js';
+import {
+  createProductSyncAdapter,
+  productSynchronizer,
+} from './modules/administration/product-sync.js';
 import { readAdministrationWorkerOptions } from './modules/administration/worker-options.js';
 import { createSettingsDelivery } from './modules/administration/settings-adapters.js';
-import { readSettingsWorkerOptions } from './modules/administration/settings-options.js';
-import {
-  ecommerceInventorySynchronization,
-  readEcommerceSynchronizationOptions,
-  registerEcommerceInventorySynchronization,
-} from './modules/administration/ecommerce-sync/index.js';
+import { readSettingsOptions } from './modules/administration/settings-options.js';
+import { createCsvUploadStorage } from './modules/administration/import-storage.js';
 import {
   createDocumentationMediaStore,
   createScopedMediaStore,
@@ -44,10 +43,6 @@ import { registerAdministration } from './modules/administration/index.js';
 import { registerBarcodeAssignments } from './modules/administration/barcodes/index.js';
 import { registerSecondaryCountrySearch } from './modules/administration/country-search.js';
 import { registerOperatorModelAccounts } from './modules/administration/model-accounts/index.js';
-import {
-  registerParentStoreImports,
-  readParentStoreImportOptions,
-} from './modules/administration/parent-store-imports/index.js';
 import { registerApplicationLinks } from './modules/application-links/index.js';
 import { registerMotivationalQuotes } from './modules/motivational-quotes/index.js';
 import { registerDashboard } from './modules/dashboard/index.js';
@@ -306,9 +301,14 @@ export async function buildApp(
       ? redisDeviceHandoffStore(config, handoffOptions.POS_DEVICE_HANDOFF_REDIS_URL)
       : undefined;
   registerDeviceHandoffs(app, deviceHandoffService(config, db, handoffOptions, handoffStore));
-  const productSync = config.DEMO_MODE
-    ? undefined
-    : createProductSyncAdapter(config, readAdministrationWorkerOptions());
+  const productSync = productSynchronizer(
+    config.DEMO_MODE
+      ? undefined
+      : createProductSyncAdapter(config, readAdministrationWorkerOptions(), fetch, {
+          requireReplaySafe: false,
+        }),
+    (level, event, message) => app.log[level](event, message),
+  );
   const stockProjection = configuredStockProjection(config);
   const mediaStore = config.DEMO_MODE
     ? undefined
@@ -316,16 +316,9 @@ export async function buildApp(
   const storeImageStore = config.DEMO_MODE
     ? undefined
     : createStoreImageStore(config, readPrivateS3Options());
-  const settingsOptions = config.DEMO_MODE ? undefined : readSettingsWorkerOptions();
-  const ecommerceSync = ecommerceInventorySynchronization(
-    config,
-    db,
-    readEcommerceSynchronizationOptions(),
-  );
+  const settingsOptions = config.DEMO_MODE ? undefined : readSettingsOptions();
   const settingsDelivery = settingsOptions
-    ? createSettingsDelivery(config, db, settingsOptions, {
-        synchronizeEcommerce: ecommerceSync.ready ? ecommerceSync.synchronizeEcommerce : undefined,
-      })
+    ? createSettingsDelivery(config, db, settingsOptions)
     : undefined;
   app.addHook('onClose', async () => {
     profileStore?.close();
@@ -337,15 +330,15 @@ export async function buildApp(
   registerAdministration(app, config, db, {
     ...(stockProjection ? { procedureVerified: true, stockProcedure: stockProjection } : {}),
     slackOAuth: createSlackOAuthProvider(config, readSlackOAuthOptions()),
-    syncProducts: productSync || undefined,
+    productSync,
+    moduleRuntime,
+    csvStorage: createCsvUploadStorage(config, readPrivateS3Options()),
     mediaStore,
     storeImageStore,
     operatorImageStore: profileStore,
     settingsDelivery,
-    ecommerceSyncVerified: ecommerceSync.ready,
     ecommerceCooldownSeconds: settingsOptions?.ECOM_DELIVERY_CHANGES_TIME,
   });
-  registerEcommerceInventorySynchronization(app, ecommerceSync);
   const customerOtpOptions = readCustomerOtpOptions(),
     customerOtp = customerOtpService(
       config,
@@ -353,15 +346,9 @@ export async function buildApp(
       customerOtpOptions,
       createCustomerOtpDelivery(config, customerOtpOptions),
     );
-  registerBarcodeAssignments(app, config, db);
+  registerBarcodeAssignments(app, config, db, moduleRuntime.ephemeral);
   registerOperatorModelAccounts(app, config, db);
   registerSecondaryCountrySearch(app, db);
-  registerParentStoreImports(app, config, db, {
-    stockProcedure: stockProjection,
-    procedureVerified: Boolean(stockProjection),
-    syncProducts: productSync || undefined,
-    historyOptions: readParentStoreImportOptions(),
-  });
   const wholeOrderOptions = readWholeOrderStatusOptions(config.DEMO_MODE ? {} : process.env);
   const checkout = await registerCheckout(app, config, db, {
     environment: checkoutRuntime,

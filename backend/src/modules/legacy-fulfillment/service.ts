@@ -21,7 +21,7 @@ import { identifier } from '../../domain/validation.js';
 import { assertCurrentStoreAccess } from '../administration/authorization.js';
 import { checkInService, type AdministrationTransaction } from '../administration/checkins.js';
 import { enqueueInventorySynchronization } from '../administration/inventory-synchronization.js';
-import { administrationOutbox, operatorCheckIns } from '../administration/schema.js';
+import { operatorCheckIns } from '../administration/schema.js';
 import type { StockProcedure } from '../administration/stock-procedure.js';
 import {
   legacyActionSchema,
@@ -139,15 +139,9 @@ export function legacyFulfillmentService(
     receipt: LegacyReceipt,
   ): Promise<LegacyReceipt> {
     if (!receipt.syncEventId) return receipt;
-    const [event] = await tx
-      .select({ deliveredAt: administrationOutbox.deliveredAt })
-      .from(administrationOutbox)
-      .where(eq(administrationOutbox.id, receipt.syncEventId))
-      .limit(1);
-    return {
-      ...receipt,
-      integrationState: !event ? 'unconfirmed' : event.deliveredAt ? 'delivered' : 'pending',
-    };
+    // W8b: the administration outbox is removed (no delivery record to read).
+    void tx;
+    return { ...receipt, integrationState: 'unconfirmed' };
   }
   async function saveAudit(
     tx: AdministrationTransaction,

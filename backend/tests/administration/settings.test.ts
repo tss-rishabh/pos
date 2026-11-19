@@ -12,7 +12,7 @@ import {
   createSettingsDelivery,
   settingsNotice,
 } from '../../src/modules/administration/settings-adapters.js';
-import { readSettingsWorkerOptions } from '../../src/modules/administration/settings-options.js';
+import { readSettingsOptions } from '../../src/modules/administration/settings-options.js';
 import { goldenStdout } from '../golden/load.js';
 
 const oracle = <T>(operation: string, cases: unknown[]): T[] =>
@@ -90,7 +90,7 @@ describe('delivery settings source contracts', () => {
     });
     const db = createDatabases(config),
       calls: [string, string][] = [];
-    const delivery = createSettingsDelivery(config, db, readSettingsWorkerOptions({}), {
+    const delivery = createSettingsDelivery(config, db, readSettingsOptions({}), {
       cache: {
         async set(key, value) {
           calls.push([key, value]);
@@ -98,7 +98,7 @@ describe('delivery settings source contracts', () => {
         async close() {},
       },
     });
-    await delivery.deliver(randomUUID(), {
+    await delivery.deliver({
       kind: 'setting.cache',
       key: 'HYPERLOCAL_STOCK_THRESHOLD',
       value: 0,
@@ -112,7 +112,7 @@ describe('delivery settings source contracts', () => {
       createSettingsDelivery(
         config,
         db,
-        readSettingsWorkerOptions({ SLACK_URL: 'https://internal.example.test/services/private' }),
+        readSettingsOptions({ SLACK_URL: 'https://internal.example.test/services/private' }),
       ),
     ).toThrow();
     const production = { ...config, NODE_ENV: 'production' as const };
@@ -120,13 +120,13 @@ describe('delivery settings source contracts', () => {
       createSettingsDelivery(
         production,
         db,
-        readSettingsWorkerOptions({ COMMON_REDIS_URL: 'redis://127.0.0.1:6379' }),
+        readSettingsOptions({ COMMON_REDIS_URL: 'redis://127.0.0.1:6379' }),
       ),
     ).toThrow();
     const demo = createSettingsDelivery(
       { ...config, DEMO_MODE: true },
       db,
-      readSettingsWorkerOptions({
+      readSettingsOptions({
         COMMON_REDIS_URL: 'rediss://internal.example.test',
         SLACK_URL: 'https://hooks.slack.com/services/fixture',
       }),

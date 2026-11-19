@@ -10,7 +10,11 @@ import {
   barcodeAssignmentService,
   registerBarcodeAssignments,
 } from '../../../src/modules/administration/barcodes/index.js';
-import { lockBarcodeMutation } from '../../../src/modules/administration/barcodes/locks.js';
+import {
+  barcodeMutationLockKey,
+  withBarcodeMutationLock,
+} from '../../../src/modules/administration/barcodes/locks.js';
+import { memoryEphemeralStore } from '../../../src/jobs/ephemeral.js';
 import {
   registerSecondaryCountrySearch,
   secondaryCountryService,
@@ -58,17 +62,22 @@ describe.skipIf(!connection)(
   'atomic barcode/country contracts on isolated physical-schema MySQL',
   () => {
     let fixture: Awaited<ReturnType<typeof barcodeFixture>>,
-      service: ReturnType<typeof barcodeAssignmentService>;
+      service: ReturnType<typeof barcodeAssignmentService>,
+      ephemeral: ReturnType<typeof memoryEphemeralStore>;
     beforeAll(async () => {
       fixture = await barcodeFixture(connection!);
-      service = barcodeAssignmentService(fixture.config, fixture.db, () => now);
     }, 20000);
     afterAll(async () => {
       await fixture?.close();
     });
     beforeEach(async () => {
       await fixture.reset();
+      ephemeral = memoryEphemeralStore();
+      service = barcodeAssignmentService(fixture.config, fixture.db, ephemeral, () => now);
     });
+    async function receipts() {
+      return String((await ephemeral.scanKeys('pos:idem:barcode:*')).length);
+    }
     async function oracle(input: {
       barcodes?: { productId: string; barcode: string; operatorId?: string }[];
       countries?: (string | null)[];
@@ -84,10 +93,7 @@ describe.skipIf(!connection)(
         throw new Error('Barcode/country source oracle failed: ' + result.stdout.slice(0, 300));
       return oracleSchema.parse(JSON.parse(result.stdout) as unknown);
     }
-    async function count(
-      table:
-        'products_gs1' | 'pos_special_permission_activity_log' | 'pos_rewrite_barcode_assignments',
-    ) {
+    async function count(table: 'products_gs1' | 'pos_special_permission_activity_log') {
       const [rows] = await fixture.admin.query<RowDataPacket[]>(
         'SELECT COUNT(*) AS count FROM ' + table,
       );
@@ -114,7 +120,7 @@ describe.skipIf(!connection)(
         'SELECT platform,comment,recipient,CAST(pos_user_id AS CHAR) AS pos_user_id FROM pos_special_permission_activity_log ORDER BY id',
       );
       expect(rows.map((row) => ({ ...row }))).toEqual(source.audits);
-      expect(await count('pos_rewrite_barcode_assignments')).toBe('5');
+      expect(await receipts()).toBe('5');
     }, 30000);
     it('deduplicates twenty concurrent original-UUID submissions and does not duplicate barcode/activity on GET recovery', async () => {
       const input = { operationId: randomUUID(), productId: '11', barcode: '9999999999999' },
@@ -125,7 +131,7 @@ describe.skipIf(!connection)(
       expect(await service.get(user, input.operationId)).toEqual(results[0]);
       expect(await count('products_gs1')).toBe('1');
       expect(await count('pos_special_permission_activity_log')).toBe('1');
-      expect(await count('pos_rewrite_barcode_assignments')).toBe('1');
+      expect(await receipts()).toBe('1');
     });
     it('serializes distinct-product claims for the same GTIN and persists the losing source conflict exactly once', async () => {
       const results = await Promise.all([
@@ -138,7 +144,7 @@ describe.skipIf(!connection)(
       expect(results.map((result) => result.code).sort()).toEqual(['ASSIGNED', 'GTIN_ASSIGNED']);
       expect(await count('products_gs1')).toBe('1');
       expect(await count('pos_special_permission_activity_log')).toBe('1');
-      expect(await count('pos_rewrite_barcode_assignments')).toBe('2');
+      expect(await receipts()).toBe('2');
     });
     it('serializes same-product claims with different GTINs without inventing legacy UNIQUE constraints', async () => {
       const results = await Promise.all([
@@ -154,7 +160,7 @@ describe.skipIf(!connection)(
       ]);
       expect(await count('products_gs1')).toBe('1');
     });
-    it('shares the exact catalog mutation mutex and waits without partially creating a barcode or audit', async () => {
+    it('waits on the Redis barcode mutation lease without partially creating a barcode or audit', async () => {
       let acquired!: () => void,
         release!: () => void,
         finished = false;
@@ -164,8 +170,8 @@ describe.skipIf(!connection)(
         wait = new Promise<void>((resolve) => {
           release = resolve;
         });
-      const blocker = fixture.db.get('writer').transaction(async (tx) => {
-        await lockBarcodeMutation(tx);
+      const blocker = withBarcodeMutationLock(ephemeral, async () => {
+        expect(await ephemeral.get(barcodeMutationLockKey)).not.toBeNull();
         acquired();
         await wait;
       });
@@ -189,8 +195,8 @@ describe.skipIf(!connection)(
     });
     // W8d: troubleshooting now runs synchronously under the Redis lock
     // pos:lock:catalog:barcode-mutations and rewrites duplicates to <gtin>0123 unconditionally, as
-    // legacy core/views.py:3016-3020 does. The concurrent race returns once barcode assignment
-    // takes the same Redis lock (W8b); until then the sequential outcome is asserted.
+    // legacy core/views.py:3016-3020 does. Barcode assignment (W8b) takes the same Redis lock;
+    // the sequential outcome is asserted.
     it('refuses a new assignment of the temporary GTIN written by product troubleshooting', async () => {
       await fixture.seed('products_gs1', { id: '101', product_id: '11', gtin: '123' });
       await fixture.seed('products_gs1', { id: '102', product_id: '12', gtin: '123' });
@@ -219,20 +225,17 @@ describe.skipIf(!connection)(
       expect(sends).toBe(1);
     });
 
-    it('rolls the complete barcode/activity/receipt transaction back if mandatory activity insertion fails', async () => {
+    it('keeps the barcode when the activity insert fails, as the source logger swallows its error', async () => {
       await fixture.admin.query(
         "CREATE TRIGGER reject_barcode_audit BEFORE INSERT ON pos_special_permission_activity_log FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Synthetic audit failure'",
       );
       const input = { operationId: randomUUID(), productId: '11', barcode: '449' };
-      await expect(service.assign(user, input)).rejects.toThrow();
-      for (const table of [
-        'products_gs1',
-        'pos_special_permission_activity_log',
-        'pos_rewrite_barcode_assignments',
-      ] as const)
-        expect(await count(table)).toBe('0');
+      const result = await service.assign(user, input);
+      expect(result).toMatchObject({ status: 'success', auditId: null });
+      expect(await count('products_gs1')).toBe('1');
+      expect(await count('pos_special_permission_activity_log')).toBe('0');
       await fixture.admin.query('DROP TRIGGER reject_barcode_audit');
-      expect((await service.assign(user, input)).status).toBe('success');
+      expect(await service.assign(user, input)).toEqual(result);
     });
     it('keeps rejected receipts immutable and rejects UUID reuse with different canonical input or another actor', async () => {
       const input = { operationId: randomUUID(), productId: '999', barcode: '451' },
@@ -258,7 +261,6 @@ describe.skipIf(!connection)(
       await service.assign(user, input);
       for (const [id, status] of [
         ['900004', 403],
-        ['900005', 403],
         ['900006', 401],
       ] as const) {
         const principal = { ...user, id };
@@ -267,7 +269,12 @@ describe.skipIf(!connection)(
         ).rejects.toMatchObject({ status });
         await expect(service.get(principal, input.operationId)).rejects.toMatchObject({ status });
       }
-      await fixture.admin.query('UPDATE pos_user SET user_type=2 WHERE id=900001');
+      // Source `advance_permisson("[1,2,3]")` admits franchise (user_type 2) roles 1-3 too.
+      expect(
+        (await service.assign({ ...user, id: '900005' }, { ...input, operationId: randomUUID() }))
+          .code,
+      ).toBe('PRODUCT_HAS_BARCODE');
+      await fixture.admin.query('UPDATE pos_user SET role=4 WHERE id=900001');
       await expect(service.get(user, input.operationId)).rejects.toMatchObject({ status: 403 });
       expect(await count('products_gs1')).toBe('1');
     });
@@ -429,7 +436,7 @@ describe.skipIf(!connection)(
             },
           });
       });
-      registerBarcodeAssignments(app, fixture.config, fixture.db);
+      registerBarcodeAssignments(app, fixture.config, fixture.db, ephemeral);
       registerSecondaryCountrySearch(app, fixture.db);
       try {
         const input = { operationId: randomUUID(), productId: '11', barcode: '459' },

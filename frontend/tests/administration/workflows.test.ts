@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Guide } from '../../src/pages/administration/documentation-api';
 import type { DeliverySlot, GeneralSetting } from '../../src/pages/administration/settings-api';
-import type { ImportJob } from '../../src/pages/administration/import-api';
+import type { UploadDetail, UploadSummary } from '../../src/pages/administration/import-api';
 
 describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
   'administration browser workflows with isolated API fixtures',
@@ -165,22 +165,19 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         mfaConfigured: false,
         mfaVersion: 'f'.repeat(64),
         mfaEnrollmentId: '',
-        imports: [] as ImportJob[],
-        historicalImport: {
-          id: 'a1cf5e92-703f-4abf-a82d-95c585772d87',
-          actorId: '1',
-          name: 'Historical fixture.csv',
-          state: 'COMPLETED',
-          totalRows: 1,
-          processedRows: 1,
-          successfulRows: 0,
-          failedRows: 1,
-          errorCode: null,
-          createdAt: '2000-01-01 00:00:00.000',
-          updatedAt: '2000-01-01 00:00:01.000',
-        } as ImportJob,
-        historyParams: [] as { from: string | null; to: string | null }[],
-        previewImportId: '',
+        imports: [
+          {
+            id: '41',
+            uploadType: 'PRODUCT_STOCK_CSV',
+            uploadedBy: '1',
+            uploaderName: 'Fixture administrator',
+            message: 'Product Stock Data Updated Successfully.',
+            isImported: true,
+            createdAt: '2000-01-01 00:00:00',
+            updatedAt: '2000-01-01 00:00:01',
+          },
+        ] as UploadSummary[],
+        importUploads: [] as { type: string; name: string; csv: string }[],
         guides: [initialGuide],
         guideUploads: [] as { id: string; name: string; checksum: string; contentType: string }[],
         s3Posts: 0,
@@ -913,49 +910,25 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
                 input.mode === 'replace' ? 'Authenticator replaced.' : 'Authenticator disabled.',
             });
           }
-          if (path === '/api/v1/admin/inventory-imports/preview' && method === 'POST') {
-            const input = z.object({ id: z.uuid(), name: z.string(), csv: z.string() }).parse(body);
-            state.previewImportId = input.id;
-            return json({
-              totalRows: 1,
-              validRows: 1,
-              invalidRows: 0,
-              remainingRows: 0,
-              requiresStockProcedure: false,
-              canSubmit: true,
-              rows: [
-                {
-                  rowNumber: 2,
-                  cells: ['1000', '1', '', '', '0', '1'],
-                  command: {
-                    productId: '1000',
-                    storeId: '1',
-                    movement: 'none',
-                    quantity: 0,
-                    available: false,
-                    archived: true,
-                  },
-                  errorCode: null,
-                  message: null,
-                  saleableStock: 5,
-                  heldStock: 0,
-                },
-              ],
-            });
-          }
           if (path === '/api/v1/admin/inventory-imports' && method === 'POST') {
-            const input = z.object({ id: z.uuid(), name: z.string(), csv: z.string() }).parse(body);
-            const job: ImportJob = {
-              ...state.historicalImport,
-              id: input.id,
-              name: input.name,
-              createdAt: '2026-11-16 00:00:00.000',
-              updatedAt: '2026-11-16 00:00:01.000',
-              successfulRows: 1,
-              failedRows: 0,
-            };
-            state.imports.unshift(job);
-            return json(job, 201);
+            const input = z
+              .object({ type: z.literal('PRODUCT_STOCK_CSV'), name: z.string(), csv: z.string() })
+              .strict()
+              .parse(body);
+            state.importUploads.push(input);
+            state.imports.unshift({
+              ...state.imports[0]!,
+              id: String(42 + state.importUploads.length),
+              message: null,
+              isImported: false,
+            });
+            return json(
+              {
+                id: state.imports[0]!.id,
+                message: 'Csv Uploaded successfully. Data may take some time to reflect.',
+              },
+              201,
+            );
           }
           if (path === '/api/v1/admin/documentation/uploads' && method === 'POST') {
             const upload = z
@@ -1257,54 +1230,30 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
             stockEnabled: false,
             historyEnabled: true,
           });
-        if (path === '/api/v1/admin/inventory-imports/history') {
-          state.historyParams.push({
-            from: url.searchParams.get('from'),
-            to: url.searchParams.get('to'),
-          });
-          return json({ reader: 'bigquery', data: [state.historicalImport], nextCursor: null });
-        }
         if (path === '/api/v1/admin/inventory-imports')
-          return json({ data: state.imports, nextCursor: null });
-        if (/^\/api\/v1\/admin\/inventory-imports\/[0-9a-f-]{36}\/failures\.csv$/.test(path))
-          return route.fulfill({
-            status: 200,
-            contentType: 'text/csv; charset=utf-8',
-            body: 'SkuId,StoreId,IsHold,Hold/UnholdQty,IsAvailable,IsDelete,Message\r\n1000,1,,,,,Fixture failure\r\n',
-          });
-        if (/^\/api\/v1\/admin\/inventory-imports\/[0-9a-f-]{36}\/rows$/.test(path)) {
-          const id = path.split('/').at(-2)!;
+          return json({ data: state.imports, nextBefore: null });
+        if (/^\/api\/v1\/admin\/inventory-imports\/\d+$/.test(path)) {
+          const upload = state.imports.find((row) => row.id === path.split('/').at(-1))!;
           return json({
-            data: [
-              {
-                importId: id,
-                rowNumber: 2,
-                cells: ['1000', '1', '', '', '0', '1'],
-                command: {
-                  productId: '1000',
-                  storeId: '1',
-                  movement: 'none',
-                  quantity: 0,
-                  available: false,
-                  archived: true,
-                },
-                state: id === state.historicalImport.id ? 'FAILED' : 'SUCCEEDED',
-                errorCode: id === state.historicalImport.id ? 'INVENTORY_CSV_ROW_INVALID' : null,
-                message:
-                  id === state.historicalImport.id
-                    ? 'Error while traversing csv data.'
-                    : 'Product stock row processed.',
-              },
-            ],
-            nextCursor: null,
-          });
+            ...upload,
+            failedData: upload.isImported
+              ? [
+                  {
+                    data: {
+                      SkuId: 'x',
+                      StoreId: '1',
+                      IsHold: '',
+                      'Hold/UnholdQty': '',
+                      IsAvailable: '',
+                      IsDelete: '',
+                    },
+                    message: 'Error while traversing csv data.',
+                    other_error: "invalid literal for int() with base 10: 'x'",
+                  },
+                ]
+              : null,
+          } satisfies UploadDetail);
         }
-        if (/^\/api\/v1\/admin\/inventory-imports\/[0-9a-f-]{36}$/.test(path))
-          return json(
-            [...state.imports, state.historicalImport].find(
-              (job) => job.id === path.split('/').at(-1),
-            ),
-          );
         if (path === '/api/v1/admin/documentation/media-capabilities')
           return json({
             enabled: true,
@@ -1701,7 +1650,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         await page.close();
       }
     }, 20000);
-    it('previews and queues a visibility CSV, then opens dated completed history and downloads failed records', async () => {
+    it('uploads an inventory CSV as the source view and shows failed records from history', async () => {
       const page = await browser.newPage();
       try {
         const state = await fixture(page);
@@ -1713,36 +1662,24 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
             'SkuId,StoreId,IsHold,Hold/UnholdQty,IsAvailable,IsDelete\r\n1000,1,,,0,1\r\n',
           ),
         });
+        await page.getByRole('button', { name: 'Upload CSV', exact: true }).click();
         await browserExpect(
-          page.getByRole('button', { name: 'Queue import', exact: true }),
-        ).toBeEnabled();
-        await page.getByRole('button', { name: 'Queue import', exact: true }).click();
-        await browserExpect(
-          page.getByRole('heading', { name: 'Visibility.csv', exact: true }),
+          page.getByText('Csv Uploaded successfully. Data may take some time to reflect.', {
+            exact: true,
+          }),
         ).toBeVisible();
-        expect(
-          state.mutations.find((mutation) => mutation.path === '/api/v1/admin/inventory-imports')
-            ?.body,
-        ).toMatchObject({ id: state.previewImportId, name: 'Visibility.csv' });
-        await page.getByLabel('Import history scope', { exact: true }).selectOption('historical');
-        await page.getByLabel('Import history from', { exact: true }).fill('2000-01-01');
-        await page.getByLabel('Import history to', { exact: true }).fill('2000-01-02');
-        const row = page.getByRole('row').filter({ hasText: 'Historical fixture.csv' });
+        expect(state.importUploads).toEqual([
+          {
+            type: 'PRODUCT_STOCK_CSV',
+            name: 'Visibility.csv',
+            csv: 'SkuId,StoreId,IsHold,Hold/UnholdQty,IsAvailable,IsDelete\r\n1000,1,,,0,1\r\n',
+          },
+        ]);
+        const row = page.getByRole('row').filter({ hasText: 'Product Stock Data Updated' });
         await row.getByRole('button', { name: 'View records', exact: true }).click();
-        await browserExpect(
-          page.getByRole('heading', { name: 'Historical fixture.csv', exact: true }),
-        ).toBeVisible();
         await browserExpect(
           page.getByText('Error while traversing csv data.', { exact: true }),
         ).toBeVisible();
-        expect(state.historyParams).toContainEqual({ from: '2000-01-01', to: '2000-01-02' });
-        const pending = page.waitForEvent('download');
-        await page.getByRole('button', { name: 'Download failed records', exact: true }).click();
-        const download = await pending;
-        expect(download.suggestedFilename()).toBe(
-          `InventoryImport-${state.historicalImport.id}-failed.csv`,
-        );
-        await download.delete();
         expect(page.url()).toContain('/__administration-test__');
       } finally {
         await page.close();

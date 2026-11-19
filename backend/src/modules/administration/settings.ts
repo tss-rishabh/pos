@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { Temporal } from '@js-temporal/polyfill';
 import { and, asc, eq, inArray, ne } from 'drizzle-orm';
 import type { z } from 'zod';
@@ -8,10 +7,11 @@ import { PosHyperlocalSlot, Store, TssSetting } from '../../db/legacy-schema.js'
 import { retryTransaction } from '../../db/retry.js';
 import { requireRole, requireStore, type Principal } from '../../domain/access.js';
 import { AppError, unavailable } from '../../domain/errors.js';
+import type { EphemeralStore } from '../../jobs/ephemeral.js';
+import type { JobLogger } from '../../jobs/runtime.js';
 import { currentRequestTrace } from '../../observability/context.js';
 import { assertCurrentOperatorRole, assertCurrentStoreAccess } from './authorization.js';
 import type { AdministrationTransaction } from './checkins.js';
-import { lockAdministrationRegistry } from './locks.js';
 import { utcMediaTimestamp } from './media-domain.js';
 import {
   bufferSeconds,
@@ -25,12 +25,28 @@ import {
   type thresholdInput,
   type SettingKey,
   type SettingsEffect,
-  type SettingsEffectKind,
   type SettingsEffectPayload,
   type SettingsMutationResult,
   type SettingsOptions,
 } from './settings-domain.js';
-import { ecommerceChanges, settingsEffects, settingsMutations } from './settings-schema.js';
+
+/** Ledger: `pos:idem:settings:{operationId}` -> {actorId, hash, state, result}, EX 86400. */
+export const settingsOperationKey = (operationId: string) => `pos:idem:settings:${operationId}`;
+/** Legacy cooldown key (`core/views.py:2108-2112`), on the POS Redis (`redis_instance`). */
+export const ecommerceCooldownKey = (storeId: string) => `ecom_delivery_${storeId}`;
+const operationTtlSeconds = 86_400;
+interface StoredOperation {
+  actorId: string;
+  hash: string;
+  state: 'pending' | 'done';
+  result?: SettingsMutationResult;
+}
+/** Changes committed by a settings transaction and the effects legacy runs inline after them. */
+interface Mutation {
+  result: SettingsMutationResult;
+  effects: SettingsEffectPayload[];
+  after?: () => Promise<void>;
+}
 
 const conflict = () =>
   new AppError(409, 'SETTINGS_CONFLICT', 'Settings changed. Refresh before saving.');
@@ -45,10 +61,43 @@ export function settingsService(config: Config, db: Databases, options: Settings
   const cooldown = options.ecommerceCooldownSeconds ?? 180;
   if (!Number.isSafeInteger(cooldown) || cooldown < 1 || cooldown > 3600)
     throw new AppError(503, 'ECOMMERCE_CONFIGURATION_INVALID', 'Choose a valid settings cooldown.');
-  const requireEffects = (...kinds: SettingsEffectKind[]) => {
-    if (kinds.some((kind) => !options.settingsDelivery?.supports(kind)))
-      return unavailable('Delivery settings effects');
-  };
+  const log: JobLogger = options.log ?? (() => {});
+  const ephemeral = (): EphemeralStore =>
+    options.moduleRuntime?.ephemeral ?? unavailable('Settings operation state');
+  /** Legacy runs these inline after the update; a failure is logged, never raised. */
+  async function deliverEffects(user: Principal, effects: SettingsEffectPayload[]) {
+    const requestId = currentRequestTrace()?.requestId ?? null;
+    for (const payload of effects) {
+      const effect = {
+        ...payload,
+        actorId: user.id,
+        requestId,
+        occurredAt: utcMediaTimestamp(),
+      } as SettingsEffect;
+      const event = {
+        module: 'administration',
+        resource: 'settings-effect',
+        kind: effect.kind,
+        requestId,
+        userId: user.id,
+      };
+      try {
+        if (!options.settingsDelivery?.supports(effect.kind))
+          throw new AppError(503, 'SETTINGS_EFFECT_UNCONFIGURED', 'Settings effect unavailable.');
+        await options.settingsDelivery.deliver(effect);
+      } catch (error) {
+        log(
+          'warn',
+          {
+            ...event,
+            eventId: 'administration.settings-effect.failed',
+            errorCode: error instanceof AppError ? error.code : 'SETTINGS_EFFECT_FAILED',
+          },
+          'Settings effect was not delivered',
+        );
+      }
+    }
+  }
   async function stores(transaction: AdministrationTransaction, user: Principal, ids: string[]) {
     for (const id of [...new Set(ids)].sort((a, b) => (BigInt(a) < BigInt(b) ? -1 : 1))) {
       await assertCurrentStoreAccess(transaction, user.id, id, [1, 2, 3]);
@@ -73,62 +122,55 @@ export function settingsService(config: Config, db: Databases, options: Settings
     operationId: string,
     context: unknown,
     authorize: (transaction: AdministrationTransaction) => Promise<void>,
-    mutate: (transaction: AdministrationTransaction) => Promise<SettingsMutationResult>,
+    mutate: (transaction: AdministrationTransaction) => Promise<Mutation>,
   ) {
     requireRole(user, [1, 2, 3]);
-    const hash = settingVersion(context);
-    return retryTransaction(() =>
-      db.get('writer').transaction(async (transaction) => {
-        await lockAdministrationRegistry(transaction, 'settings');
-        await authorize(transaction);
-        const [previous] = await transaction
-          .select()
-          .from(settingsMutations)
-          .where(eq(settingsMutations.id, operationId))
-          .limit(1);
-        if (previous) {
-          if (previous.actorId !== user.id || previous.hash !== hash)
-            throw new AppError(
-              409,
-              'SETTINGS_OPERATION_REUSED',
-              'Choose a new settings operation.',
-            );
-          return previous.result;
-        }
-        const result = await mutate(transaction);
-        await transaction.insert(settingsMutations).values({
-          id: operationId,
-          actorId: user.id,
-          hash,
-          result,
-          createdAt: utcMediaTimestamp(),
-        });
-        return result;
-      }),
+    const hash = settingVersion(context),
+      store = ephemeral(),
+      key = settingsOperationKey(operationId);
+    const reserved = await store.set(
+      key,
+      JSON.stringify({ actorId: user.id, hash, state: 'pending' } satisfies StoredOperation),
+      { NX: true, EX: operationTtlSeconds },
     );
-  }
-  async function enqueue(
-    transaction: AdministrationTransaction,
-    user: Principal,
-    partitionKey: string,
-    payload: SettingsEffectPayload,
-  ) {
-    const effect = {
-      ...payload,
-      actorId: user.id,
-      requestId: currentRequestTrace()?.requestId || null,
-      occurredAt: utcMediaTimestamp(),
-    } as SettingsEffect;
-    const id = randomUUID();
-    await transaction.insert(settingsEffects).values({
-      id,
-      partitionKey,
-      kind: effect.kind,
-      payload: effect,
-      attempts: 0,
-      createdAt: effect.occurredAt,
-    });
-    return id;
+    if (!reserved) {
+      const raw = await store.get(key),
+        previous = raw === null ? null : (JSON.parse(raw) as StoredOperation);
+      if (!previous || previous.actorId !== user.id || previous.hash !== hash)
+        throw new AppError(409, 'SETTINGS_OPERATION_REUSED', 'Choose a new settings operation.');
+      if (previous.state !== 'done' || !previous.result)
+        throw new AppError(
+          409,
+          'SETTINGS_OPERATION_IN_PROGRESS',
+          'This settings change is still being saved.',
+        );
+      return previous.result;
+    }
+    let mutation: Mutation;
+    try {
+      mutation = await retryTransaction(() =>
+        db.get('writer').transaction(async (transaction) => {
+          await authorize(transaction);
+          return mutate(transaction);
+        }),
+      );
+    } catch (error) {
+      await store.del(key);
+      throw error;
+    }
+    await store.set(
+      key,
+      JSON.stringify({
+        actorId: user.id,
+        hash,
+        state: 'done',
+        result: mutation.result,
+      } satisfies StoredOperation),
+      { EX: operationTtlSeconds },
+    );
+    await deliverEffects(user, mutation.effects);
+    await mutation.after?.();
+    return mutation.result;
   }
   async function currentSlot(transaction: AdministrationTransaction, storeId: string, id: string) {
     const [slot] = await transaction
@@ -150,7 +192,7 @@ export function settingsService(config: Config, db: Databases, options: Settings
     slots: Slot[],
     active: boolean,
     all: boolean,
-  ): Promise<SettingsMutationResult> {
+  ): Promise<Mutation> {
     if (!slots.length)
       throw new AppError(404, 'DELIVERY_SLOT_NOT_FOUND', 'Delivery timings were not found.');
     await transaction
@@ -162,13 +204,17 @@ export function settingsService(config: Config, db: Databases, options: Settings
           slots.map((slot) => slot.id),
         ),
       );
-    await enqueue(transaction, user, `store:${storeId}`, {
-      kind: 'slot.availability.notice',
-      storeId,
-      weekday: all ? null : slots[0]!.weekday,
-      active,
-    });
-    return { status: 'success', message: 'Updated', effectsQueued: true };
+    return {
+      result: { status: 'success', message: 'Updated' },
+      effects: [
+        {
+          kind: 'slot.availability.notice',
+          storeId,
+          weekday: all ? null : slots[0]!.weekday,
+          active,
+        },
+      ],
+    };
   }
   function settingsProjection(rows: (typeof TssSetting.$inferSelect)[], key: SettingKey) {
     const selected = rows.filter((row) => row.platform === key);
@@ -177,11 +223,7 @@ export function settingsService(config: Config, db: Databases, options: Settings
       value: selected[0]?.value || '0',
       version: settingVersion(selected.map((row) => [String(row.id), row.value])),
       configured: selected.length > 0,
-      editable:
-        selected.length > 0 &&
-        !!options.settingsDelivery?.supports('setting.cache') &&
-        (key !== 'ORDER_CREATION_BUFFER_TIME_IN_SEC' ||
-          !!options.settingsDelivery?.supports('buffer.notice')),
+      editable: selected.length > 0,
     };
   }
   async function updateGeneral(
@@ -190,10 +232,6 @@ export function settingsService(config: Config, db: Databases, options: Settings
     input: z.infer<typeof thresholdInput> | z.infer<typeof orderBufferInput>,
   ) {
     requireRole(user, [1, 2, 3]);
-    requireEffects(
-      'setting.cache',
-      ...(key === 'ORDER_CREATION_BUFFER_TIME_IN_SEC' ? ['buffer.notice' as const] : []),
-    );
     const value = typeof input.value === 'number' ? input.value : bufferSeconds(input.value);
     return run(
       user,
@@ -218,13 +256,10 @@ export function settingsService(config: Config, db: Databases, options: Settings
           .update(TssSetting)
           .set({ value: String(value) })
           .where(eq(TssSetting.platform, key));
-        await enqueue(transaction, user, `setting:${key}`, { kind: 'setting.cache', key, value });
+        const effects: SettingsEffectPayload[] = [{ kind: 'setting.cache', key, value }];
         if (key === 'ORDER_CREATION_BUFFER_TIME_IN_SEC')
-          await enqueue(transaction, user, `setting:${key}`, {
-            kind: 'buffer.notice',
-            value: String(input.value),
-          });
-        return { status: 'success', message: 'Data Successfully Updated', effectsQueued: true };
+          effects.push({ kind: 'buffer.notice', value: String(input.value) });
+        return { result: { status: 'success', message: 'Data Successfully Updated' }, effects };
       },
     );
   }
@@ -270,8 +305,8 @@ export function settingsService(config: Config, db: Databases, options: Settings
         start: slot.start_timeslot,
         end: slot.end_timeslot,
         version: deliverySlotVersion(slot),
-        editable: !!options.settingsDelivery?.supports('slot.timing.notice'),
-        availabilityEditable: !!options.settingsDelivery?.supports('slot.availability.notice'),
+        editable: true,
+        availabilityEditable: true,
       }));
     },
     async updateDeliverySlot(
@@ -281,7 +316,6 @@ export function settingsService(config: Config, db: Databases, options: Settings
       input: z.infer<typeof deliverySlotUpdateInput>,
     ) {
       requireStore(user, storeId);
-      requireEffects('slot.timing.notice');
       const destination = input.destinationStoreId || storeId;
       requireStore(user, destination);
       return run(
@@ -319,17 +353,17 @@ export function settingsService(config: Config, db: Databases, options: Settings
               updated_at: localNow(),
             })
             .where(eq(PosHyperlocalSlot.id, slot.id));
-          await enqueue(transaction, user, `store:${destination}`, {
-            kind: 'slot.timing.notice',
-            storeId: destination,
-            weekday: input.weekday,
-            previous: slotRange(slot.start_timeslot, slot.end_timeslot),
-            current: slotRange(input.start, input.end),
-          });
           return {
-            status: 'success',
-            message: 'Delivery Time Slot has been updated!',
-            effectsQueued: true,
+            result: { status: 'success', message: 'Delivery Time Slot has been updated!' },
+            effects: [
+              {
+                kind: 'slot.timing.notice',
+                storeId: destination,
+                weekday: input.weekday,
+                previous: slotRange(slot.start_timeslot, slot.end_timeslot),
+                current: slotRange(input.start, input.end),
+              },
+            ],
           };
         },
       );
@@ -341,7 +375,6 @@ export function settingsService(config: Config, db: Databases, options: Settings
       input: z.infer<typeof deliveryAvailabilityInput>,
     ) {
       requireStore(user, storeId);
-      requireEffects('slot.availability.notice');
       return run(
         user,
         input.operationId,
@@ -360,7 +393,6 @@ export function settingsService(config: Config, db: Databases, options: Settings
       input: z.infer<typeof allDeliveryAvailabilityInput>,
     ) {
       requireStore(user, storeId);
-      requireEffects('slot.availability.notice');
       return run(
         user,
         input.operationId,
@@ -409,125 +441,132 @@ export function settingsService(config: Config, db: Databases, options: Settings
         )
         .limit(1);
       if (!store) throw new AppError(404, 'STORE_NOT_FOUND', 'An active store was not found.');
-      const [change] = await db
-        .get('primary')
-        .select()
-        .from(ecommerceChanges)
-        .where(eq(ecommerceChanges.storeId, store.id))
-        .limit(1);
+      const remaining = options.moduleRuntime
+        ? await options.moduleRuntime.ephemeral.ttl(ecommerceCooldownKey(storeId))
+        : -2;
       return {
         ...store,
         id: String(store.id),
         active: store.active === 1,
         version: settingVersion([store.threshold, store.active]),
-        lockedUntil: change?.lockedUntil
-          ? Temporal.PlainDateTime.from(change.lockedUntil.replace(' ', 'T'))
-              .toZonedDateTime('UTC')
-              .toInstant()
-              .toString()
-          : null,
-        editable:
-          !!options.ecommerceSyncVerified &&
-          [
-            'ecommerce.threshold.notice',
-            'ecommerce.availability.notice',
-            'ecommerce.inventory.sync',
-          ].every((kind) => options.settingsDelivery?.supports(kind as SettingsEffectKind)),
+        lockedUntil:
+          remaining > 0 ? Temporal.Now.instant().add({ seconds: remaining }).toString() : null,
+        editable: !!options.moduleRuntime,
       };
     },
+    /** `AjaxEcomSettingUpdate.post` (`core/views.py:2094-2167`). */
     async updateEcommerce(user: Principal, storeId: string, input: z.infer<typeof ecommerceInput>) {
       requireRole(user, [1]);
-      if (!options.ecommerceSyncVerified)
-        return unavailable('Verified e-commerce inventory synchronization');
-      requireEffects(
-        'ecommerce.threshold.notice',
-        'ecommerce.availability.notice',
-        'ecommerce.inventory.sync',
-      );
-      return run(
-        user,
-        input.operationId,
-        { storeId, input },
-        async (transaction) => {
-          await assertCurrentStoreAccess(transaction, user.id, storeId, [1]);
-        },
-        async (transaction) => {
-          const [store] = await transaction
-            .select()
-            .from(Store)
-            .where(
-              and(
-                eq(Store.id, BigInt(storeId)),
-                eq(Store.is_active, true),
-                eq(Store.type, 'STORE'),
-              ),
+      const runtime = options.moduleRuntime ?? unavailable('Job queue');
+      const cooldownKey = ecommerceCooldownKey(storeId);
+      let claimed = false;
+      try {
+        return await run(
+          user,
+          input.operationId,
+          { storeId, input },
+          async (transaction) => {
+            await assertCurrentStoreAccess(transaction, user.id, storeId, [1]);
+            // Source refuses while `ecom_delivery_{store}` exists, else sets it for
+            // ECOM_DELIVERY_CHANGES_TIME; SET NX closes its EXISTS-then-SET race.
+            if (!claimed) {
+              claimed = await runtime.ephemeral.set(cooldownKey, '1', { NX: true, EX: cooldown });
+              if (!claimed)
+                throw new AppError(
+                  409,
+                  'ECOMMERCE_CHANGE_COOLDOWN',
+                  'You cannot perform the action at this time, Please try again after sometime',
+                );
+            }
+          },
+          async (transaction) => {
+            const [store] = await transaction
+              .select()
+              .from(Store)
+              .where(
+                and(
+                  eq(Store.id, BigInt(storeId)),
+                  eq(Store.is_active, true),
+                  eq(Store.type, 'STORE'),
+                ),
+              )
+              .limit(1)
+              .for('update');
+            if (!store)
+              throw new AppError(404, 'STORE_NOT_FOUND', 'An active store was not found.');
+            if (
+              settingVersion([store.ecom_threshold, store.ecom_delivery]) !== input.expectedVersion
             )
-            .limit(1)
-            .for('update');
-          if (!store) throw new AppError(404, 'STORE_NOT_FOUND', 'An active store was not found.');
-          if (settingVersion([store.ecom_threshold, store.ecom_delivery]) !== input.expectedVersion)
-            throw conflict();
-          const now = utcMediaTimestamp();
-          const [change] = await transaction
-            .select()
-            .from(ecommerceChanges)
-            .where(eq(ecommerceChanges.storeId, store.id))
-            .limit(1)
-            .for('update');
-          if (change && change.lockedUntil > now)
-            throw new AppError(
-              409,
-              'ECOMMERCE_CHANGE_COOLDOWN',
-              'You cannot perform the action at this time, Please try again after sometime',
-            );
-          const thresholdChanged = store.ecom_threshold !== input.threshold;
-          const availabilityChanged = store.ecom_delivery !== (input.active ? 1 : 0);
-          if (!thresholdChanged && !availabilityChanged)
+              throw conflict();
+            const thresholdChanged = store.ecom_threshold !== input.threshold;
+            const availabilityChanged = store.ecom_delivery !== (input.active ? 1 : 0);
+            const base = { storeId, operationId: input.operationId, actorId: user.id };
+            if (!thresholdChanged && !availabilityChanged)
+              return {
+                result: { status: 'success', message: 'No changes detected', ...base },
+                effects: [],
+                // Source deletes the cooldown key when nothing changed (`core/views.py:2132`).
+                after: async () => {
+                  await runtime.ephemeral.del(cooldownKey);
+                },
+              };
+            await transaction
+              .update(Store)
+              .set({ ecom_threshold: input.threshold, ecom_delivery: input.active ? 1 : 0 })
+              .where(eq(Store.id, store.id));
+            const effects: SettingsEffectPayload[] = [];
+            if (thresholdChanged)
+              effects.push({
+                kind: 'ecommerce.threshold.notice',
+                storeId,
+                previous: store.ecom_threshold,
+                current: input.threshold,
+              });
+            if (availabilityChanged)
+              effects.push({
+                kind: 'ecommerce.availability.notice',
+                storeId,
+                active: input.active,
+              });
             return {
-              status: 'success',
-              message: 'No changes detected',
-              effectsQueued: false,
-              storeId,
-              operationId: input.operationId,
-              actorId: user.id,
+              result: {
+                status: 'success',
+                message: 'Ecom Setting Updated! Please wait, It will take time to reflect',
+                ...base,
+              },
+              effects,
+              // Source `run_sync`: `tasks.sync_ecom_inventory.delay(store_id)` (`core/views.py:2166-2167`).
+              after: async () => {
+                try {
+                  await runtime.jobs.enqueue(
+                    'core.tasks.sync_ecom_inventory',
+                    { store_id: storeId },
+                    { queue: 'core' },
+                  );
+                } catch (error) {
+                  log(
+                    'error',
+                    {
+                      module: 'administration',
+                      resource: 'ecommerce-inventory-sync',
+                      eventId: 'administration.ecommerce-inventory-sync.enqueue-failed',
+                      requestId: currentRequestTrace()?.requestId ?? null,
+                      userId: user.id,
+                      storeId,
+                      errorCode: error instanceof AppError ? error.code : 'JOB_QUEUE_UNAVAILABLE',
+                    },
+                    'Ecommerce inventory sync was not queued',
+                  );
+                }
+              },
             };
-          await transaction
-            .update(Store)
-            .set({ ecom_threshold: input.threshold, ecom_delivery: input.active ? 1 : 0 })
-            .where(eq(Store.id, store.id));
-          const lockedUntil = utcMediaTimestamp(Temporal.Now.instant().add({ seconds: cooldown }));
-          await transaction
-            .insert(ecommerceChanges)
-            .values({ storeId: store.id, lockedUntil })
-            .onDuplicateKeyUpdate({ set: { lockedUntil } });
-          if (thresholdChanged)
-            await enqueue(transaction, user, `store:${storeId}`, {
-              kind: 'ecommerce.threshold.notice',
-              storeId,
-              previous: store.ecom_threshold,
-              current: input.threshold,
-            });
-          if (availabilityChanged)
-            await enqueue(transaction, user, `store:${storeId}`, {
-              kind: 'ecommerce.availability.notice',
-              storeId,
-              active: input.active,
-            });
-          const ecommerceSyncId = await enqueue(transaction, user, `store:${storeId}`, {
-            kind: 'ecommerce.inventory.sync',
-            storeId,
-          });
-          return {
-            status: 'success',
-            message: 'Ecom Setting Updated! Please wait, It will take time to reflect',
-            effectsQueued: true,
-            storeId,
-            ecommerceSyncId,
-            operationId: input.operationId,
-            actorId: user.id,
-          };
-        },
-      );
+          },
+        );
+      } catch (error) {
+        // Rewrite-only refusals (conflict, missing store) must not hold the legacy cooldown.
+        if (claimed) await runtime.ephemeral.del(cooldownKey);
+        throw error;
+      }
     },
   };
 }
