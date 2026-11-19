@@ -2,12 +2,12 @@
   "schemaVersion": 1,
   "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
   "oracle": "tools/catalog-details/detail-oracle.py",
-  "runtime": "CPython 3.10.22",
-  "capturedAt": "2026-11-18T19:07:36Z",
+  "runtime": "CPython 3.10.22 (uv venv: django 4.2.5, pymysql 1.1.1)",
+  "capturedAt": "2026-11-19T11:21:48Z",
   "test": "tests/catalog-details/mysql.integration.test.ts",
   "invocations": [
     {
-      "inputSha256": "250225fd8f6320fc9342d900ac6cf32b92eae9223dd40acb4c38f8c94c32c4c5",
+      "inputSha256": "ac7b5d7974ca3475997ece2d05e6e63cfe12ca91d747f771514712dffed990be",
       "args": ["tools/catalog-details/detail-oracle.py"],
       "status": 0,
       "output": {
