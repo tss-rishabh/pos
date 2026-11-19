@@ -1,6 +1,7 @@
 import {
   and,
   asc,
+  count,
   desc,
   eq,
   exists,
@@ -137,10 +138,10 @@ export function inventoryMatrixService(db: Databases) {
         await db
           .get('primary')
           .select({
-            unfiltered: sql<string>`count(*)`,
+            unfiltered: count(),
             filtered: match
               ? sql<string>`coalesce(sum(case when ${match} then 1 else 0 end),0)`
-              : sql<string>`count(*)`,
+              : count(),
           })
           .from(Product)
           .where(matrixEligible),

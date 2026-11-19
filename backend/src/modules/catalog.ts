@@ -119,12 +119,28 @@ export function catalogService(databases: Databases) {
           images: Product.images_new,
           parentImages: parent.images_new,
           stock: ProductStore.stock,
-          barcode: sql<
-            string | null
-          >`(select ${ProductBarcode.gtin} from ${ProductBarcode} where ${ProductBarcode.product}=${Product.id} order by ${ProductBarcode.id} asc limit 1)`,
-          exclusive: sql<
-            string | null
-          >`(select ${PriceList.price} from ${PriceList} where ${PriceList.product_id}=case when ${Product.parent_prod_id}=0 then ${Product.id} else ${Product.parent_prod_id} end and ${PriceList.pricelist_id}=2 order by ${PriceList.product_id} asc limit 1)`,
+          barcode: sql<string | null>`${databases
+            .get('primary')
+            .select({ gtin: ProductBarcode.gtin })
+            .from(ProductBarcode)
+            .where(eq(ProductBarcode.product, Product.id))
+            .orderBy(asc(ProductBarcode.id))
+            .limit(1)}`,
+          exclusive: sql<string | null>`${databases
+            .get('primary')
+            .select({ price: PriceList.price })
+            .from(PriceList)
+            .where(
+              and(
+                eq(
+                  PriceList.product_id,
+                  sql`case when ${Product.parent_prod_id}=0 then ${Product.id} else ${Product.parent_prod_id} end`,
+                ),
+                eq(PriceList.pricelist_id, 2),
+              ),
+            )
+            .orderBy(asc(PriceList.product_id))
+            .limit(1)}`,
         })
         .from(Product, { forceIndex: 'PRIMARY' })
         .innerJoin(

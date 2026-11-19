@@ -1,5 +1,5 @@
 import { Temporal } from '@js-temporal/polyfill';
-import { and, asc, desc, eq, gte, inArray, like, lte, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, like, lte, or, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
@@ -148,10 +148,10 @@ type AuditSource = ReturnType<typeof inventoryAuditSource>;
 function auditCount(reader: ReturnType<Databases['get']>, source: AuditSource, match?: SQL) {
   let query = reader
     .select({
-      unfiltered_count: sql<string>`count(*)`,
+      unfiltered_count: count(),
       filtered_count: match
         ? sql<string>`coalesce(sum(case when ${match} then 1 else 0 end),0)`
-        : sql<string>`count(*)`,
+        : count(),
     })
     .from(source.log.table)
     .innerJoin(Product, source.joins.product)

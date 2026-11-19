@@ -1,6 +1,7 @@
 import {
   and,
   asc,
+  count,
   desc,
   eq,
   exists,
@@ -89,10 +90,10 @@ function correlatedPriceChoices() {
 export function catalogCountFields(input: ProductSearchInput) {
   const search = sourceProductSearch(input.search);
   return {
-    unfiltered_count: sql<string>`count(*)`,
+    unfiltered_count: count(),
     filtered_count: search
       ? sql<string>`coalesce(sum(case when ${search} then 1 else 0 end),0)`
-      : sql<string>`count(*)`,
+      : count(),
   };
 }
 export function catalogConflictCondition(input: ProductSearchInput) {
