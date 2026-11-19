@@ -164,13 +164,30 @@ export function catalogService(databases: Databases) {
         or(ne(Product.parent_prod_id, 0n), ne(Product.prod_type, 3n)),
         gt(Product.id, BigInt(after)),
       );
+      const matches = search
+        ? or(
+            like(Product.product, pattern),
+            like(sql`cast(${Product.id} as char)`, pattern),
+            exists(
+              reader
+                .select({ id: ProductBarcode.id })
+                .from(ProductBarcode)
+                .where(
+                  and(eq(ProductBarcode.product, Product.id), like(ProductBarcode.gtin, pattern)),
+                ),
+            ),
+          )
+        : undefined;
+      // W16 round 3: the access path follows the request, so no request costs more than the
+      // legacy `AjaxOrderProductsListView` page plus its `count()` over the same join
+      // (`core/datatables/store_products_datatable.py:217-258`). See parity/w16-report.md.
       let rows;
-      if (exactBarcode === undefined) {
-        // Page and picker: `products` PRIMARY in id order, then this store's row by
-        // `uq_product_store (product_id, store_id)` as a point read per product. The ORDER BY is
-        // served by the index (no filesort), so LIMIT stops the scan early; stores hold most of
-        // the catalog (~319k of 362k products on production). AjaxOrderProductsListView
-        // (`core/datatables/store_products_datatable.py:217-247`) walks the same join by id.
+      if (includeOutOfStock && exactBarcode === undefined) {
+        // Picker with out-of-stock rows: the store holds ~88% of the catalog, so `products`
+        // PRIMARY in id order with one `uq_product_store (product_id, store_id)` point read per
+        // product stops after about LIMIT products; the ORDER BY needs no filesort. A search is
+        // evaluated on `products` before the point read, so a search with no match reads the
+        // catalog once (legacy reads the store's ~319k rows twice, for the page and the count).
         rows = await reader
           .select(columns('/*+ JOIN_ORDER(products, product_store) */'))
           .from(Product, { forceIndex: 'PRIMARY' })
@@ -180,51 +197,46 @@ export function catalogService(databases: Databases) {
             { forceIndex: 'uq_product_store' },
           )
           .leftJoin(parent, eq(parent.id, Product.parent_prod_id))
-          .where(
-            and(
-              common,
-              eligible(parent),
-              search
-                ? or(
-                    like(Product.product, pattern),
-                    like(sql`cast(${Product.id} as char)`, pattern),
-                    exists(
-                      reader
-                        .select({ id: ProductBarcode.id })
-                        .from(ProductBarcode)
-                        .where(
-                          and(
-                            eq(ProductBarcode.product, Product.id),
-                            like(ProductBarcode.gtin, pattern),
-                          ),
-                        ),
-                    ),
-                  )
-                : undefined,
-            ),
-          )
+          .where(and(common, eligible(parent), matches))
           .orderBy(asc(Product.id))
           .limit(limit + 1);
       } else {
-        // Exact GTIN (W16): a point lookup on `products_gs1.gtin` (legacy
-        // `ProductBarcode.objects.filter(gtin=barcode)`, `order/views.py:1720`), then the product
-        // and its `uq_product_store` row. GROUP BY keeps one row per product (EXISTS semantics).
-        // The parent-eligibility branch is OR-ed with `stock > 0`, which the in-stock lookup
+        // In-stock page, and exact GTIN: choose the page of ids first in a derived table, then
+        // read the columns for those rows only, in the same statement.
+        // - In stock: the store's in-stock rows through `idx_store_id_stock_is_avail_is_del`
+        //   (store_id, stock > 0), as legacy's own plan for this request. In-stock rows are a
+        //   small, recent part of the catalog, so an id-ordered walk of `products` would probe
+        //   `uq_product_store` for every older product first (~288k probes on the fixture).
+        // - Exact GTIN: a point lookup on `products_gs1.gtin` (legacy
+        //   `ProductBarcode.objects.filter(gtin=barcode)`, `order/views.py:1720`), then the
+        //   product and its `uq_product_store` row; GROUP BY keeps EXISTS semantics.
+        // The parent-eligibility branch is OR-ed with `stock > 0`, which an in-stock page
         // already requires, so it only joins the parent when out-of-stock rows are included.
-        const candidates = reader
-          .select({
-            id: sql<bigint>`/*+ JOIN_ORDER(products_gs1, products, product_store) */ ${Product.id}`.as(
-              'page_id',
-            ),
-          })
-          .from(ProductBarcode, { forceIndex: 'gtin' })
-          .innerJoin(Product, eq(Product.id, ProductBarcode.product))
-          .innerJoin(
-            ProductStore,
-            and(eq(ProductStore.product, Product.id), eq(ProductStore.store, store)),
-            { forceIndex: 'uq_product_store' },
-          )
-          .$dynamic();
+        const candidates =
+          exactBarcode !== undefined
+            ? reader
+                .select({
+                  id: sql<bigint>`/*+ JOIN_ORDER(products_gs1, products, product_store) */ ${Product.id}`.as(
+                    'page_id',
+                  ),
+                })
+                .from(ProductBarcode, { forceIndex: 'gtin' })
+                .innerJoin(Product, eq(Product.id, ProductBarcode.product))
+                .innerJoin(
+                  ProductStore,
+                  and(eq(ProductStore.product, Product.id), eq(ProductStore.store, store)),
+                  { forceIndex: 'uq_product_store' },
+                )
+                .$dynamic()
+            : reader
+                .select({
+                  id: sql<bigint>`/*+ JOIN_ORDER(product_store, products) */ ${Product.id}`.as(
+                    'page_id',
+                  ),
+                })
+                .from(ProductStore, { forceIndex: 'idx_store_id_stock_is_avail_is_del' })
+                .innerJoin(Product, eq(Product.id, ProductStore.product))
+                .$dynamic();
         const page = (
           includeOutOfStock
             ? candidates.leftJoin(
@@ -235,12 +247,12 @@ export function catalogService(databases: Databases) {
         )
           .where(
             and(
-              eq(ProductBarcode.gtin, BigInt(exactBarcode)),
+              exactBarcode !== undefined ? eq(ProductBarcode.gtin, BigInt(exactBarcode)) : matches,
               common,
               includeOutOfStock ? eligible(eligibilityParent) : undefined,
             ),
           )
-          .groupBy(Product.id)
+          .groupBy(...(exactBarcode !== undefined ? [Product.id] : []))
           .orderBy(asc(Product.id))
           .limit(limit + 1)
           .as('catalog_page');

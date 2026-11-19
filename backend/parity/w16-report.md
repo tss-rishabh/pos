@@ -1,9 +1,127 @@
 # W16: query performance and locking reads
 
 Branch `w16/query-perf`. Round 1 started from integration head `3a3e0ab5` and was merged as
-`2712b3ef`. Round 2 is this follow-up, after the production rerun
-`evidence/live-readonly-2026-11-19-r2.json`. Every check below ran on a loopback MySQL 8.4.11
-server. Nothing was run against production.
+`2712b3ef`. Round 2 followed the production rerun `evidence/live-readonly-2026-11-19-r2.json`
+and was merged as `1af57584`. Round 3 followed the next production rerun, which the primary agent
+ran and reported. Every check below ran on a loopback MySQL 8.4.11 server. Nothing was run
+against production.
+
+## Round 3: `catalog-product-barcode` timed out on production
+
+The production rerun used `refuse` mode. 15 of 16 paths passed. `catalog-product-barcode` failed
+with `ER_QUERY_TIMEOUT`: one statement hit `MAX_EXECUTION_TIME=10000`. That path had 3 bounded
+plans, each a `products` range estimated at 181,046 rows.
+
+### 1. Naming the failed statement in the evidence
+
+The evidence now names each failed statement without any value. Every statement that fails, by
+plan-gate rejection or server error, is recorded in the guard as `failedStatements` with:
+- `fingerprint`: the first 16 hex digits of the SHA-256 of the template;
+- `code`;
+- `template`: the SQL rebuilt from the guard's tokens. Every string, number and variable becomes
+  `?`, and comments and hints are dropped;
+- `plan`: the gate's EXPLAIN view of the statement (tables, access types, keys, row estimates,
+  driving and outermost flags, and the outermost sort/temporary flag).
+
+A path that does not pass carries these in its result.
+
+`assertAggregateOnly` accepts a `template` only at `paths[i].failedStatements[j].template`, and
+only when `isValueFreeTemplate` holds. That check requires:
+- no quote characters;
+- a restricted character set;
+- at most 8000 characters;
+- re-tokenising returns the template unchanged, so no literal can survive.
+
+The code is in `tools/live-readonly/fingerprint.ts`. The unit tests are in
+`tests/live-readonly/fingerprint.test.ts`: 5 tests, including a template leak that is rejected.
+
+On loopback, with `POS_PROD_RO_PLAN_ROW_LIMIT=50000`, the in-stock page is rejected and its
+template, fingerprint and plan appear in the printed summary.
+
+### 2. Reproduction
+
+`tests/live-readonly/volume-fixture.ts` now lays the catalog out by age, as a real catalog is:
+- 360k products, with interleaved ids: each parent is followed by its 5 variants;
+- 30% of the older half is deleted, and 2% of the newer half;
+- 4 stores, each holding 90% of the catalog (about 324k rows per store);
+- 2.4% `is_avail = 0` and 1.9% `is_del`;
+- stock only in the newest 20% of ids: 60% of those are in stock, against 1 in 20,000 older ones.
+  That gives about 36k in-stock rows for store 1;
+- about 180k GS1 rows.
+
+**The cause is round 2's in-stock page.** Page 1 walks `products` by id and probes
+`uq_product_store` for every older product before it finds in-stock ones:
+**288,058 `Handler_read_key` (index lookups) for one 21-row page**, taking 796 ms on loopback with
+the 1.3M-row index fully cached. Production's index has 27.6M rows and is not fully cached, which
+is consistent with 10 s. Wall time could not be reproduced: the macOS file cache keeps a 5 MB
+buffer pool fast. The work count is the reproduction.
+
+The other shapes are cheap:
+- the picker with out-of-stock rows: 93 index lookups;
+- the inventory list: 46 index lookups;
+- the next in-stock page: 26 index lookups.
+
+### 3. Legacy for the same requests, and the fix
+
+Legacy is `AjaxOrderProductsListView` (`core/datatables/store_products_datatable.py:186-293`). It
+runs `count()` and then a page sliced with `ORDER BY id`. Both use the same filters, including
+`store_sellable_q` (`helpers/helpers.py:120-122`) and, when searching, the
+`pb_product__gtin__icontains` join.
+
+The SQL Django generates for it was run on the same fixture: `Handler_read_key`, with the
+optimizer's own plan. Each legacy cell is the page plus the count.
+
+| request (store 1, page of 20) | legacy (page + `count()`) | round 2 | round 3 (now) |
+|---|---|---|---|
+| in stock, no search | `product_store` range `idx_store_id_stock_is_avail_is_del` + filesort: 102,036 + 102,036 (~180 ms each) | PK walk: **288,058** (796 ms) | derived in-stock page via the same index: **69,054** (145 ms) |
+| in stock, search with no match | the same range + gs1 join: 136,512 × 2 (~245 ms each) | PK walk, gs1 EXISTS per product | **103,429** (168 ms) |
+| including out of stock, no search | `product_store` ref `store_id` + filesort: 476,064 × 2 | 93 | **93** (PK walk, unchanged) |
+| including out of stock, search with no match | ref `store_id` + gs1 join + filesort: 680,769 × 2 (~1.4 s each) | 300,003 | **300,003** (772 ms): PK walk, gs1 EXISTS per product, no `product_store` read for products that do not match |
+
+**The fix is in `catalog.ts`.** The access path now follows the request:
+- **Including out of stock (no barcode):** the PK walk. The store is dense, so it stops after
+  about LIMIT products.
+- **In stock (no barcode):** the derived page through `idx_store_id_stock_is_avail_is_del`
+  (`store_id`, `stock > 0`). This is legacy's own plan for this request, without legacy's second
+  pass for `count()`.
+- **Exact barcode:** the `gtin` point lookup, unchanged.
+
+**Result:** every row of the table now costs less than legacy for the same request.
+
+**Proof that output is identical:** `tests/catalog/products-plan-orm.mysql.test.ts`, whose oracle
+is the pre-W16 statement, passes 3/3 for both in-stock and out-of-stock modes, searches, cursors
+and barcodes.
+
+**Inventory.** The inventory list is unchanged since round 2. All its loopback shapes are cheap:
+- `all`: 46 index lookups;
+- archived only (`active=false`): 1,243;
+- a search with no match: 1 index lookup and a 360k-row PK read, with no `product_store` probes.
+
+**The suite's search cases.** The catalog path now also sends the search patterns the counter page
+sends:
+- a name fragment, a digit fragment and a no-match term, in stock. These are bounded by the
+  store's in-stock rows;
+- a no-match search including out of stock. This walks the whole catalog, which is strictly less
+  work than legacy's two passes over about 319k store rows.
+
+That last case is marked as a known legacy-equivalent cost: an `ER_QUERY_TIMEOUT` there is
+recorded as the check `search:oos-no-match:legacy-equivalent-timeout` instead of failing the path.
+On loopback it completes, and the check `search:oos-no-match` is recorded.
+
+### Loopback results (round 3)
+
+Live suite:
+- **Realistic volume fixture:** 96 tests; 16/16 paths, 0 locks, 0 rejections and 3 bounded plans.
+  The bounded plans are the out-of-stock picker, the inventory list and the no-match search
+  including out of stock.
+- **Plain fixture:** 16/16 paths.
+
+Tests:
+- **Unit tests:** 79 across the guard, the plan gate and fingerprints.
+- **Full `vitest`:**
+  - without database gates: 745 passed;
+  - with MySQL gates: 1027 passed and 9 failed. The same 9 fail at head `1af57584`: collections
+    ×7, administration barcode `exclusivePrice`, customer-history Latin1 and global-vouchers.
 
 ## Production facts that decided the plans
 
@@ -43,6 +161,9 @@ On that fixture, at merge head `2712b3ef` with `refuse`, 3 paths skip:
 ## Queries (current state)
 
 ### 1. Counter product page and picker (`src/modules/catalog.ts` `products`, no barcode)
+
+*Round 3:* this now applies only to the picker including out-of-stock rows. The in-stock page
+uses the derived in-stock page described in "Round 3" above.
 
 This is the pre-W16 statement, unchanged:
 `products FORCE INDEX (PRIMARY)` range `id > after` in id order, then `product_store` eq_ref
@@ -246,9 +367,12 @@ No per-row database round trips were found.
 
 - **The production plans are unverified until the primary agent re-runs the suite.** Expected
   result:
-  - catalog, checkout and inventory pass through `planBounded` (`products` range ~181k);
-  - the exact barcode is a point lookup.
-- **A search with no match walks the full catalog.** That is about 0.3–0.4 s on loopback for 362k
-  products. It equals legacy's `count()` cost.
+  - the in-stock catalog page uses a `product_store` range under 100k, with a filesort over that
+    range;
+  - the out-of-stock picker, the inventory list and the no-match out-of-stock search pass as
+    `planBounded`;
+  - if the out-of-stock no-match search times out, it is recorded as a legacy-equivalent cost.
+- **A search with no match that includes out-of-stock rows walks the full catalog.** That is
+  about 0.8 s on loopback, and less work than legacy's two passes over the store.
 - **An index on `(store_id, product_id)` would bound both cases**, but the schema is frozen. A DBA
   would have to approve that index.
