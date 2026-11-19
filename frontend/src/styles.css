@@ -33,10 +33,7 @@
 body {
   margin: 0;
 }
-button,
-input,
-select,
-textarea {
+:where(button, input, select, textarea) {
   font: inherit;
 }
 button,
