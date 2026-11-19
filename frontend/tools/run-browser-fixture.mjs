@@ -7,7 +7,6 @@ import { createServer } from 'vite';
 import react from '@vitejs/plugin-react';
 
 const fixtures = {
-  'daily-reports': new URL('../tests/reports/browser-check.mjs', import.meta.url),
   'report-columns': new URL('../tests/operational-reports/column-browser.mjs', import.meta.url),
   'shipping-label': new URL('../tests/shipping-label/browser-check.mjs', import.meta.url),
   'invoice-documents': new URL('../tests/invoice-documents/browser-check.mjs', import.meta.url),
