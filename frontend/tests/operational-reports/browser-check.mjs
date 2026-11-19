@@ -3,7 +3,7 @@ import { chromium, expect } from '@playwright/test';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { randomUUID } from 'node:crypto';
+import { z } from 'zod';
 const base = new URL(process.env.POS_REPORT_BROWSER_BASE_URL || 'http://127.0.0.1:4490');
 if (!['127.0.0.1', 'localhost'].includes(base.hostname))
   throw new Error('Browser fixture requires a local app.');
@@ -22,82 +22,51 @@ const user = {
     city: 'Fixture City',
     active: true,
   },
-  archiveId = randomUUID(),
+  archiveId = '1',
   jobs = [],
+  queued = [],
   requests = [],
   unexpected = [],
   pageErrors = [];
 const archived = {
   id: archiveId,
-  origin: 'current',
-  kind: 'cash-balance',
+  kind: 'CASH_BALANCE',
   reportName: 'Archived fixture report',
   note: 'Archive fixture note',
-  from: '2026-11-01',
-  to: '2026-11-02',
+  period: '2026-11-01 - 2026-11-02',
   status: 'COMPLETED',
+  exportStatus: 'Completed',
   message: 'Report file is ready.',
   requestedBy: '10',
   requestedByName: 'Fixture Operator',
   requestedAt: new Date(Date.now() - 48 * 3600000).toISOString(),
   completedAt: new Date(Date.now() - 48 * 3600000 + 60000).toISOString(),
   format: 'CSV',
-  byteCount: 120,
+  sizeKb: 1,
   rowCount: 2,
   canDownload: true,
 };
 const archiveRows = Array.from({ length: 537 }, (_, index) =>
-    index === 0
-      ? archived
-      : {
-          ...archived,
-          id: `10000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
-          reportName:
-            index === 1 ? '\u200b=SUM(1,2)' : `Fixture archive ${String(index).padStart(3, '0')}`,
-          canDownload: false,
-        },
-  ),
-  legacyArchived = {
-    ...archived,
-    id: '42',
-    origin: 'legacy',
-    reportName: 'Legacy fixture report',
-    period: '',
-    note: null,
-    from: null,
-    to: null,
-    canDownload: false,
-  };
-const closeFields = [
-  ['store_name', 'Store'],
-  ['close_date', 'Date'],
-  ['version', 'Attempt'],
-  ['status', 'Status'],
-  ['stale_reason', 'Invalidated by'],
-  ['cash_system', 'Cash (system)'],
-  ['cash_refund_system', 'Cash refund'],
-  ['cash_actual', 'Cash (actual)'],
-  ['cash_manual_punched', 'Cash manual punched'],
-  ['cash_manual_created', 'Cash manual created'],
-  ['cash_difference', 'Cash difference'],
-  ['cash_result', 'Cash result'],
-  ['cash_reason', 'Cash reason'],
-  ['cash_comment', 'Cash comment'],
-  ['card_system', 'Online (system)'],
-  ['card_actual', 'Online (actual)'],
-  ['card_manual_punched', 'Online manual punched'],
-  ['card_manual_created', 'Online manual created'],
-  ['card_difference', 'Online difference'],
-  ['card_result', 'Online result'],
-  ['card_reason', 'Online reason'],
-  ['card_comment', 'Online comment'],
-  ['district_system', 'District'],
-  ['banking_amount', 'Banking'],
-  ['closed_by', 'Closed by'],
-  ['closed_at', 'Closed at'],
-  ['closed_late', 'Closed late'],
-  ['last_verified_at', 'Last verified'],
-];
+  index === 0
+    ? archived
+    : {
+        ...archived,
+        id: String(index + 1),
+        reportName:
+          index === 1 ? '\u200b=SUM(1,2)' : `Fixture archive ${String(index).padStart(3, '0')}`,
+        sizeKb: 0,
+        canDownload: false,
+      },
+);
+const listInput = z
+  .object({
+    search: z.string().optional(),
+    sort: z.enum(['id', 'report_name']),
+    direction: z.enum(['asc', 'desc']),
+    page: z.number(),
+    pageSize: z.number(),
+  })
+  .strict();
 const closeRows = Array.from({ length: 23 }, (_, index) => ({
   id: String(index + 1),
   store_id: '1',
@@ -130,12 +99,6 @@ const closeRows = Array.from({ length: 23 }, (_, index) => ({
   closed_late: 'No',
   last_verified_at: null,
 }));
-const safeCsvCell = (value) => {
-  let text = value === null ? '' : String(value);
-  if (/^[\p{C}\p{Z}\s]*[=+\-@\t\r]/u.test(text) && !/^[-+]?\d+(?:\.\d+)?$/.test(text))
-    text = "'" + text;
-  return '"' + text.replaceAll('"', '""') + '"';
-};
 const ledgerTo = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Kolkata',
     year: 'numeric',
@@ -201,16 +164,9 @@ try {
         data: ledgerRows,
       });
     if (path === '/api/v1/report-exports/search') {
-      const input = request.postDataJSON();
-      expect(['current', 'legacy']).toContain(input.origin);
+      const input = listInput.parse(request.postDataJSON());
       expect([10, 25, 50, 100, 500]).toContain(input.pageSize);
-      const source =
-          input.origin === 'legacy'
-            ? [legacyArchived]
-            : input.period === 'archive'
-              ? archiveRows
-              : jobs,
-        matching = source.filter(
+      const matching = [...jobs, ...archiveRows].filter(
           (row) =>
             !input.search || row.reportName.toLowerCase().includes(input.search.toLowerCase()),
         ),
@@ -230,50 +186,48 @@ try {
         totalPages: Math.ceil(closeRows.length / pageSize),
       });
     }
-    if (path === '/api/v1/reports/day-close-history/export')
-      return route.fulfill({
-        contentType: 'text/csv; charset=utf-8',
-        body:
-          '\uFEFF' +
-          [
-            closeFields.map(([, label]) => label),
-            ...closeRows.map((row) => closeFields.map(([key]) => row[key])),
-          ]
-            .map((row) => row.map(safeCsvCell).join(','))
-            .join('\r\n'),
-      });
     if (path === '/api/v1/report-exports' && method === 'POST') {
-      const body = request.postDataJSON();
+      const body = z
+        .object({ input: z.object({ kind: z.string() }).passthrough() })
+        .strict()
+        .parse(request.postDataJSON());
       expect(request.headers()['x-operator-id']).toBe(user.id);
+      for (const field of ['search', 'sort', 'direction', 'columns'])
+        expect(body.input).not.toHaveProperty(field);
       if (body.input.kind === 'cash-balance') {
         expect(body.input.label).toBe('Fixture ledger export');
         expect(body.input.note).toBe('Fixture ledger full export note');
         expect(body.input.from).toBe(ledgerFrom);
         expect(body.input.to).toBe(ledgerTo);
-      } else {
-        expect(body.input.kind).toBe('day-close-history');
+      } else if (body.input.kind === 'day-close-history' && body.input.label) {
         expect(body.input.label).toBe('Fixture queued export');
         expect(body.input.note).toBe('Fixture export note');
-      }
+        // The worker creates the report_exports row later; simulate that for the next refresh.
+        jobs.unshift({
+          ...archived,
+          id: '9001',
+          kind: 'DAY_CLOSE',
+          reportName: body.input.label,
+          note: body.input.note,
+          period: `${body.input.from} - ${body.input.to}`,
+          status: 'QUEUED',
+          exportStatus: 'Processing',
+          message: 'Waiting to prepare the report.',
+          requestedAt: new Date().toISOString(),
+          completedAt: null,
+          sizeKb: 0,
+          rowCount: 0,
+          canDownload: false,
+        });
+      } else expect(body.input).toMatchObject({ kind: 'day-close-history', attempts: 'all' });
       expect(body.input.storeIds).toEqual(['1']);
-      const job = {
-        ...archived,
-        id: randomUUID(),
-        kind: body.input.kind,
-        from: body.input.from,
-        to: body.input.to,
-        reportName: body.input.label,
-        note: body.input.note,
-        status: 'QUEUED',
-        message: 'Waiting to prepare the report.',
-        requestedAt: new Date().toISOString(),
-        completedAt: null,
-        byteCount: null,
-        rowCount: null,
-        canDownload: false,
-      };
-      jobs.unshift(job);
-      return json(job, 202);
+      queued.push(body.input);
+      return json({
+        message:
+          body.input.kind === 'cash-balance'
+            ? 'Cash balance is being exported to CSV. The file will be available in the Export tab shortly. Click here to open the Export tab.'
+            : 'Close history is being exported to CSV. The file will be available in the Export tab shortly. Click here to open the Export tab.',
+      });
     }
     if (path === `/api/v1/report-exports/${archiveId}/file`)
       return route.fulfill({
@@ -288,86 +242,71 @@ try {
   await page.goto(new URL('/reports/exports', base).href);
   await expect(page.getByRole('heading', { name: /^Report exports/ })).toBeVisible();
   await page.getByRole('listbox', { name: /^Stores/ }).selectOption('1');
-  await page.getByLabel('Export name', { exact: true }).fill('Fixture queued export');
-  await page.getByLabel('Notes', { exact: true }).fill('Fixture export note');
+  await page
+    .getByRole('textbox', { name: 'Report name', exact: true })
+    .fill('Fixture queued export');
+  await page.getByLabel('Report message', { exact: true }).fill('Fixture export note');
   await page.getByRole('button', { name: 'Request export', exact: true }).click();
-  await expect(page.getByRole('cell', { name: /^Fixture queued export/ })).toBeVisible();
-  await expect(page.getByRole('cell', { name: /QUEUED/ })).toBeVisible();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Close history is being exported to CSV.' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await expect(
+    page.getByRole('cell', { name: 'Fixture queued export', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('cell', { name: /^Processing/ })).toBeVisible();
   const history = page.locator('form.export-history-filters');
-  await history.getByRole('combobox', { name: /^Activity/ }).selectOption('archive');
-  await history
-    .getByLabel('Completed or failed from', { exact: true })
-    .fill(new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10));
-  await history.getByLabel('To', { exact: true }).fill(
-    new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Kolkata',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date()),
-  );
   await history.getByLabel('Search', { exact: true }).fill('Archived fixture');
   await history.getByRole('combobox', { name: /^Sort/ }).selectOption('report_name');
   await history.getByRole('button', { name: 'Apply', exact: true }).click();
-  await expect(page.getByRole('cell', { name: /^Archived fixture report/ })).toBeVisible();
+  await expect(
+    page.getByRole('cell', { name: 'Archived fixture report', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('cell', { name: '1 KB', exact: true })).toBeVisible();
   await expect(page.getByText('Fixture Operator', { exact: true }).last()).toBeVisible();
   const downloadEvent = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Download Archived fixture report', exact: true }).click();
+  await page.getByRole('button', { name: `Download export ${archiveId}`, exact: true }).click();
   const download = await downloadEvent;
-  expect(download.suggestedFilename()).toBe('cash-balance-2026-11-01-2026-11-02.csv');
+  expect(download.suggestedFilename()).toBe(`report-${archiveId}.csv`);
   await download.delete();
   await history.getByLabel('Search', { exact: true }).fill('');
   await history.getByRole('button', { name: 'Apply', exact: true }).click();
-  await expect(page.locator('tbody tr')).toHaveCount(10);
+  await expect(page.locator('.report-export-table tbody tr')).toHaveCount(10);
   await page.getByLabel('Export history rows per page', { exact: true }).selectOption('500');
-  await expect(page.locator('tbody tr')).toHaveCount(500);
-  await page.locator('summary').filter({ hasText: 'Metadata columns' }).click();
+  await expect(page.locator('.report-export-table tbody tr')).toHaveCount(500);
+  await page
+    .locator('summary')
+    .filter({ hasText: /^Columns/ })
+    .click();
   await page.getByRole('checkbox', { name: 'Message', exact: true }).uncheck();
-  await expect(page.locator('thead th')).toHaveCount(12);
+  await expect(page.locator('.report-export-table thead th')).toHaveCount(12);
   await expect(page.getByRole('columnheader', { name: 'File', exact: true })).toBeVisible();
   const beforeMetadataCsv = requests.length,
     metadataDownloadEvent = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Download visible metadata CSV', exact: true }).click();
+  await page.getByRole('button', { name: 'CSV', exact: true }).click();
   const metadataDownload = await metadataDownloadEvent,
     metadataText = await readFile(await metadataDownload.path(), 'utf8');
   expect(metadataText.split('\r\n')).toHaveLength(501);
   expect(metadataText.split('\r\n')[0]).not.toContain('"Message"');
   expect(metadataText.split('\r\n')[0]).not.toContain('"File"');
   expect(metadataText).toContain("'\u200b=SUM(1,2)");
+  expect(metadataText).toContain(`"'-"`);
   expect(requests).toHaveLength(beforeMetadataCsv);
   await metadataDownload.delete();
   for (const checkbox of await page.getByRole('checkbox').all()) await checkbox.uncheck();
-  await expect(page.locator('thead th')).toHaveCount(1);
-  await expect(
-    page.getByRole('button', { name: 'Download visible metadata CSV', exact: true }),
-  ).toBeDisabled();
-  await expect(
-    page.getByRole('button', { name: 'Download Archived fixture report', exact: true }),
-  ).toBeEnabled();
-  await page.getByRole('button', { name: 'Show all metadata columns', exact: true }).click();
-  await expect(page.locator('thead th')).toHaveCount(13);
+  await expect(page.locator('.report-export-table thead th')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'CSV', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Show all columns', exact: true }).click();
+  await expect(page.locator('.report-export-table thead th')).toHaveCount(13);
   await page.getByRole('button', { name: 'Next', exact: true }).click();
-  await expect(page.locator('tbody tr')).toHaveCount(37);
+  await expect(page.locator('.report-export-table tbody tr')).toHaveCount(38);
   await page.getByLabel('Export history rows per page', { exact: true }).selectOption('10');
-  await expect(page.locator('tbody tr')).toHaveCount(10);
-  await page.getByRole('combobox', { name: 'History', exact: true }).selectOption('legacy');
-  await expect(
-    page.getByRole('cell', { name: 'Legacy fixture report', exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: 'Download Legacy fixture report', exact: true }),
-  ).toBeDisabled();
-  const legacyDownloadEvent = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Download visible metadata CSV', exact: true }).click();
-  const legacyDownload = await legacyDownloadEvent,
-    legacyText = await readFile(await legacyDownload.path(), 'utf8');
-  expect(legacyText.split('\r\n')[1].split(',')[3]).toBe('""');
-  expect(legacyText).not.toContain('Legacy report');
-  await legacyDownload.delete();
-  await page.getByRole('combobox', { name: 'History', exact: true }).selectOption('current');
+  await expect(page.locator('.report-export-table tbody tr')).toHaveCount(10);
   await history.getByLabel('Search', { exact: true }).fill('Archived fixture');
   await history.getByRole('button', { name: 'Apply', exact: true }).click();
-  await expect(page.getByRole('cell', { name: /^Archived fixture report/ })).toBeVisible();
+  await expect(
+    page.getByRole('cell', { name: 'Archived fixture report', exact: true }),
+  ).toBeVisible();
   expect(unexpected).toEqual([]);
   expect(pageErrors).toEqual([]);
   const evidence = new URL(
@@ -384,18 +323,18 @@ try {
   await page.locator('form.ledger-filters').getByLabel(/^From/).fill(ledgerFrom);
   await page.locator('form.ledger-filters').getByLabel(/^To/).fill(ledgerTo);
   await page.getByRole('button', { name: 'View ledger', exact: true }).click();
-  await expect(page.locator('tbody tr')).toHaveCount(31);
+  await expect(page.locator('.finance-history tbody tr')).toHaveCount(31);
   const ledgerSize = page.getByRole('combobox', { name: /^Rows/ });
   expect(await ledgerSize.locator('option').allTextContents()).toEqual(['31', '62', '100', '500']);
   for (const size of ['62', '100', '500']) {
     await ledgerSize.selectOption(size);
-    await expect(page.locator('tbody tr')).toHaveCount(60);
+    await expect(page.locator('.finance-history tbody tr')).toHaveCount(60);
   }
   await ledgerSize.selectOption('31');
   await page.getByRole('button', { name: 'Next', exact: true }).click();
-  await expect(page.locator('tbody tr')).toHaveCount(29);
+  await expect(page.locator('.finance-history tbody tr')).toHaveCount(29);
   await page.getByLabel('Search ledger', { exact: true }).fill('Needle');
-  await expect(page.locator('tbody tr')).toHaveCount(1);
+  await expect(page.locator('.finance-history tbody tr')).toHaveCount(1);
   const filteredDownloadEvent = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download filtered CSV', exact: true }).click();
   const filteredDownload = await filteredDownloadEvent,
@@ -409,7 +348,9 @@ try {
   await page.getByLabel('Report name', { exact: true }).fill('Fixture ledger export');
   await page.getByLabel('Report notes', { exact: true }).fill('Fixture ledger full export note');
   await page.getByRole('button', { name: 'Request export', exact: true }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Export requested.' })).toBeVisible();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Cash balance is being exported to CSV.' }),
+  ).toBeVisible();
   expect(unexpected).toEqual([]);
   expect(pageErrors).toEqual([]);
   await page.screenshot({
@@ -417,8 +358,10 @@ try {
     fullPage: true,
   });
   await page.goto(new URL('/reports/day-close-history', base).href);
-  await expect(page.getByRole('heading', { name: 'Day-close history.', exact: true })).toBeVisible();
-  await expect(page.locator('tbody tr')).toHaveCount(10);
+  await expect(
+    page.getByRole('heading', { name: 'Day-close history.', exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('.finance-history tbody tr')).toHaveCount(10);
   const closeSize = page.getByRole('combobox', { name: /^Rows/ });
   expect(await closeSize.locator('option').allTextContents()).toEqual([
     '10',
@@ -428,12 +371,12 @@ try {
     '500',
   ]);
   await closeSize.selectOption('500');
-  await expect(page.locator('tbody tr')).toHaveCount(23);
+  await expect(page.locator('.finance-history tbody tr')).toHaveCount(23);
   await closeSize.selectOption('10');
-  await expect(page.locator('tbody tr')).toHaveCount(10);
+  await expect(page.locator('.finance-history tbody tr')).toHaveCount(10);
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
-  await expect(page.locator('tbody tr')).toHaveCount(3);
+  await expect(page.locator('.finance-history tbody tr')).toHaveCount(3);
   const beforeClosePage = requests.length,
     closePageEvent = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download current page CSV', exact: true }).click();
@@ -444,13 +387,13 @@ try {
   expect(closePageText).toContain("'\u200b=SUM(1,2)");
   expect(requests).toHaveLength(beforeClosePage);
   await closePage.delete();
-  const closeFullEvent = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Export filtered CSV', exact: true }).click();
-  const closeFull = await closeFullEvent,
-    closeFullText = await readFile(await closeFull.path(), 'utf8');
-  expect(closeFullText.split('\r\n')).toHaveLength(24);
-  expect(closeFullText.split('\r\n')[0].split(',')).toHaveLength(28);
-  await closeFull.delete();
+  await page.getByText('Export all matching records', { exact: true }).click();
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Close history is being exported to CSV.' }),
+  ).toBeVisible();
+  expect(queued.at(-1)).toMatchObject({ kind: 'day-close-history', attempts: 'all' });
+  expect(queued.at(-1)).not.toHaveProperty('label');
   const blockedDownloads = [];
   page.on('download', (file) => blockedDownloads.push(file));
   await page.evaluate(async () => {
@@ -467,28 +410,28 @@ try {
   expect(unexpected).toEqual([]);
   expect(pageErrors).toEqual([]);
   const result = {
-    scenario: 'queued-export-archive-and-cash-ledger',
+    scenario: 'legacy-export-log-and-cash-ledger',
     browser: browser.version(),
     checks: [
       'operator-header',
-      'named-export',
-      'queued-status',
-      'archive-period',
+      'named-export-input-only',
+      'legacy-queued-message',
+      'worker-created-row-after-refresh',
       'private-search',
       'sort',
       'actor-label',
-      'authenticated-download',
+      'legacy-kb-size',
+      'authenticated-numeric-download',
       'ledger-pagination',
       'ledger-smart-search',
       'ledger-filtered-csv',
-      'ledger-named-full-export',
+      'ledger-named-queued-export',
       'metadata-source-columns-and-500row-paging',
       'visible-loaded-page-metadata-csv-and-formula-safety',
       'metadata-hidden-columns-retain-file-action',
-      'legacy-empty-period-and-protected-file-action',
       'cash-source31-62-100-500-menu',
       'close-source10-25-50-100-500-menu',
-      'close-page-csv-distinct-from-complete-filtered-file',
+      'close-page-csv-and-queued-history-export',
       'loaded-csv-refuses-changed-actor',
       'no-page-errors',
     ],

@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
 import {
   GetObjectCommand,
@@ -16,38 +16,19 @@ import {
   readPrivateS3Options,
   assertPrivateBucket,
 } from '../administration/private-s3-client.js';
-import type { ClosedExportFile } from './export-artifact.js';
-import {
-  reportFileContentType,
-  reportFileExtension,
-  type ReportFileFormat,
-} from './export-format.js';
 
 const prefix = z
   .string()
   .regex(/^[A-Za-z0-9][A-Za-z0-9/_-]{0,299}$/)
   .transform((value) => value.replace(/\/+$/, ''));
-const boolean = z.preprocess(
-  (value) =>
-    value === undefined ? false : value === 'true' ? true : value === 'false' ? false : value,
-  z.boolean(),
-);
 export function reportExportOptions(env: NodeJS.ProcessEnv = process.env) {
   return {
     ...readPrivateS3Options(env),
     ...z
       .object({
-        S3_REPORT_EXPORT_FOLDER_PATH: prefix.default('uploads/reports/pos-rewrite'),
-        S3_LEGACY_REPORT_EXPORT_FOLDER_PATH: prefix.default('uploads/reports'),
+        /** Legacy `create_and_upload_csv` folder: `uploads/reports/{report_type}/orders_{uuid}.csv`. */
+        S3_REPORT_EXPORT_FOLDER_PATH: prefix.default('uploads/reports'),
         REPORT_EXPORT_MAX_BYTES: z.coerce.number().int().min(1024).max(268435456).default(67108864),
-        REPORT_EXPORT_WORKER_ENABLED: boolean,
-        REPORT_EXPORT_WORKER_INTERVAL_MS: z.coerce
-          .number()
-          .int()
-          .min(1000)
-          .max(60000)
-          .default(3000),
-        REPORT_EXPORT_MAX_PENDING_PER_USER: z.coerce.number().int().min(1).max(10).default(3),
       })
       .parse(env),
   };
@@ -60,19 +41,13 @@ export interface ExportObjectInfo {
   contentType?: string;
 }
 export interface ReportExportStore {
-  keyFor(jobId: string, format?: ReportFileFormat): string;
-  put(jobId: string, bytes: Buffer, checksum: string): Promise<void>;
-  putArtifact?(
-    jobId: string,
-    file: ClosedExportFile,
-    format: ReportFileFormat,
-    signal?: AbortSignal,
-  ): Promise<void>;
-  head(key: string, legacy?: boolean): Promise<ExportObjectInfo | null>;
+  /** `{prefix}/{folder}/orders_{uuid hex}.csv`, as `Helpers.create_and_upload_csv` (helpers/helpers.py:2152-2153). */
+  keyFor(folder: string): string;
+  put(key: string, bytes: Buffer, checksum: string): Promise<void>;
+  head(key: string): Promise<ExportObjectInfo | null>;
   stream(
     key: string,
     expected?: { size: number; checksum: string },
-    legacy?: boolean,
     signal?: AbortSignal,
   ): Promise<{ body: Readable; size: number; contentType?: string }>;
   close(): void;
@@ -97,10 +72,8 @@ export function createReportExportStore(
     bucket = options.AWS_STORAGE_BUCKET_NAME,
     owner = options.AWS_S3_EXPECTED_BUCKET_OWNER;
   let privateReady: Promise<void> | undefined;
-  const scoped = (key: string, legacy = false) => {
-    const base = legacy
-      ? options.S3_LEGACY_REPORT_EXPORT_FOLDER_PATH
-      : options.S3_REPORT_EXPORT_FOLDER_PATH;
+  const scoped = (key: string) => {
+    const base = options.S3_REPORT_EXPORT_FOLDER_PATH;
     if (
       !key.startsWith(base + '/') ||
       /[\p{C}\\]/u.test(key) ||
@@ -113,9 +86,11 @@ export function createReportExportStore(
         'This file is outside the approved report location.',
       );
   };
-  const keyFor = (jobId: string, format: ReportFileFormat = 'CSV') => {
-    z.uuid().parse(jobId);
-    return `${options.S3_REPORT_EXPORT_FOLDER_PATH}/${jobId}.${reportFileExtension(format)}`;
+  const keyFor = (folder: string) => {
+    z.string()
+      .regex(/^[a-z_]{1,32}$/)
+      .parse(folder);
+    return `${options.S3_REPORT_EXPORT_FOLDER_PATH}/${folder}/orders_${randomUUID().replaceAll('-', '')}.csv`;
   };
   const ensurePrivate = async () => {
     privateReady ??= assertPrivateBucket(client, bucket, AbortSignal.timeout(7000), owner).catch(
@@ -130,8 +105,8 @@ export function createReportExportStore(
       if (privateReady === active) privateReady = undefined;
     }
   };
-  async function head(key: string, legacy = false): Promise<ExportObjectInfo | null> {
-    scoped(key, legacy);
+  async function head(key: string): Promise<ExportObjectInfo | null> {
+    scoped(key);
     await ensurePrivate();
     try {
       const value = await client.send(
@@ -160,8 +135,7 @@ export function createReportExportStore(
   return {
     keyFor,
     head,
-    async put(jobId, bytes, checksum) {
-      const key = keyFor(jobId);
+    async put(key, bytes, checksum) {
       scoped(key);
       if (
         bytes.length > options.REPORT_EXPORT_MAX_BYTES ||
@@ -199,59 +173,8 @@ export function createReportExportStore(
         throw unavailable();
       }
     },
-    async putArtifact(jobId, file, format, signal) {
-      const key = keyFor(jobId, format);
-      scoped(key);
-      if (
-        !Number.isSafeInteger(file.byteCount) ||
-        file.byteCount <= 0 ||
-        file.byteCount > options.REPORT_EXPORT_MAX_BYTES ||
-        !/^[a-f0-9]{64}$/.test(file.checksum)
-      )
-        throw new AppError(
-          422,
-          'EXPORT_ARTIFACT_INVALID',
-          'This export failed file integrity validation.',
-        );
-      await ensurePrivate();
-      const bounded = signal
-        ? AbortSignal.any([signal, AbortSignal.timeout(60000)])
-        : AbortSignal.timeout(60000);
-      const source = await file.open(bounded);
-      try {
-        await client.send(
-          new PutObjectCommand({
-            Bucket: bucket,
-            Key: key,
-            Body: source,
-            ContentLength: file.byteCount,
-            ContentType: reportFileContentType(format),
-            ChecksumSHA256: Buffer.from(file.checksum, 'hex').toString('base64'),
-            Metadata: { sha256: file.checksum },
-            IfNoneMatch: '*',
-            ServerSideEncryption: options.AWS_S3_KMS_KEY_ID ? 'aws:kms' : 'AES256',
-            ...(options.AWS_S3_KMS_KEY_ID ? { SSEKMSKeyId: options.AWS_S3_KMS_KEY_ID } : {}),
-            ExpectedBucketOwner: owner,
-          }),
-          { abortSignal: bounded },
-        );
-      } catch (error) {
-        if (error instanceof S3ServiceException && error.$metadata.httpStatusCode === 412) {
-          const existing = await head(key);
-          if (
-            existing?.checksum === file.checksum &&
-            existing.size === file.byteCount &&
-            (!existing.contentType || existing.contentType === reportFileContentType(format))
-          )
-            return;
-        }
-        throw unavailable();
-      } finally {
-        source.destroy();
-      }
-    },
-    async stream(key, expected, legacy = false, signal) {
-      const info = await head(key, legacy);
+    async stream(key, expected, signal) {
+      const info = await head(key);
       if (!info) throw new AppError(404, 'EXPORT_FILE_NOT_FOUND', 'Report file not found.');
       if (expected && (info.size !== expected.size || info.checksum !== expected.checksum))
         throw new AppError(

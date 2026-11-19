@@ -1,124 +1,118 @@
 import { z } from 'zod';
-import { ApiError, captureOperatorScope, request } from '../../api/client';
+import { request } from '../../api/client';
+
+/** One `report_exports` row as listed by the legacy export log (export_datatable.py). */
 export const exportRowSchema = z.object({
-  id: z.string(),
-  origin: z.enum(['current', 'legacy']),
+  id: z.string().regex(/^[1-9]\d*$/),
   kind: z.string(),
   reportName: z.string(),
-  from: z.string().nullable(),
-  to: z.string().nullable(),
-  status: z.enum(['QUEUED', 'BUILDING', 'STORING', 'COMPLETED', 'FAILED']),
+  note: z.string(),
+  period: z.string().nullable(),
+  status: z.enum(['QUEUED', 'COMPLETED', 'FAILED']),
+  exportStatus: z.string().nullable(),
   message: z.string(),
   requestedBy: z.string(),
-  requestedByName: z.string().optional(),
+  requestedByName: z.string(),
   requestedAt: z.string().nullable(),
   completedAt: z.string().nullable(),
   format: z.string(),
-  byteCount: z.number().nullable(),
-  rowCount: z.number().nullable(),
+  sizeKb: z.number(),
+  rowCount: z.number(),
   canDownload: z.boolean(),
-  note: z.string().nullable().optional(),
-  period: z.string().nullable().optional(),
 });
+export type ReportExportRow = z.infer<typeof exportRowSchema>;
+
+/** The six legacy export actions (E1-E6). */
+export const reportExportKinds = [
+  'returned-orders',
+  'order-transactions',
+  'hyperlocal-daily',
+  'cash-balance',
+  'flash-sales',
+  'day-close-history',
+] as const;
+export type ReportExportKind = (typeof reportExportKinds)[number];
 export interface ReportExportFilters {
-  kind:
-    | 'day-close-history'
-    | 'cash-balance'
-    | 'returned-orders'
-    | 'order-transactions'
-    | 'hyperlocal-daily'
-    | 'flash-sales'
-    | 'salesperson-performance'
-    | 'cashier-performance'
-    | 'hyperlocal-acceptance'
-    | 'current-inventory-workbook';
+  kind: ReportExportKind;
   from: string;
   to: string;
-  storeIds: string[];
-  attempts: 'all' | 'latest';
-  search: string;
+  storeIds: readonly string[];
+  /** Legacy "report name". */
+  label?: string;
+  /** Legacy "report message". */
+  note?: string;
   source?: 'store' | 'online';
   dateType?: 'order_date' | 'return_date';
-  label?: string;
-  note?: string;
-  sort?: string;
-  direction?: 'asc' | 'desc';
-  columns?: readonly string[];
+  attempts?: 'all' | 'latest';
 }
-export const timestampExport = (kind: ReportExportFilters['kind']) =>
-  [
-    'returned-orders',
-    'order-transactions',
-    'hyperlocal-daily',
-    'salesperson-performance',
-    'cashier-performance',
-    'hyperlocal-acceptance',
-  ].includes(kind);
-export const screenColumnExport = (kind: ReportExportFilters['kind']) =>
-  [
-    'returned-orders',
-    'order-transactions',
-    'flash-sales',
-    'salesperson-performance',
-    'cashier-performance',
-    'hyperlocal-acceptance',
-  ].includes(kind);
-type CommandStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
-const commandSchema = z
-  .object({ commandId: z.uuid(), hash: z.string().regex(/^[a-f0-9]{64}$/) })
-  .strict();
-/** Retain an immutable command after transport failures without saving report search text. */
-export async function queueReportExport(
-  ownerId: string,
-  filters: ReportExportFilters,
-  storage: CommandStorage = localStorage,
-  send?: (commandId: string, input: unknown) => Promise<z.infer<typeof exportRowSchema>>,
-) {
-  const common = {
-      kind: filters.kind,
-      from:
-        timestampExport(filters.kind) && filters.from.length === 16
-          ? filters.from + ':00'
-          : filters.from,
-      to:
-        timestampExport(filters.kind) && filters.to.length === 16 ? filters.to + ':00' : filters.to,
-      storeIds:
-        filters.kind === 'current-inventory-workbook'
-          ? [...filters.storeIds]
-          : [...new Set(filters.storeIds)].sort((a, b) =>
-              BigInt(a) < BigInt(b) ? -1 : BigInt(a) > BigInt(b) ? 1 : 0,
-            ),
-      ...(filters.label?.trim() ? { label: filters.label.trim() } : {}),
-      ...(filters.note?.trim() ? { note: filters.note.trim() } : {}),
-      ...(screenColumnExport(filters.kind)
-        ? {
-            ...(filters.sort === undefined ? {} : { sort: filters.sort }),
-            ...(filters.direction === undefined ? {} : { direction: filters.direction }),
-            ...(filters.columns === undefined ? {} : { columns: [...filters.columns] }),
-          }
-        : {}),
-    },
-    input =
-      filters.kind === 'current-inventory-workbook'
-        ? {
-            kind: filters.kind,
-            storeIds: common.storeIds,
-            ...(common.label ? { label: common.label } : {}),
-            ...(common.note ? { note: common.note } : {}),
-          }
-        : filters.kind === 'day-close-history'
-          ? { ...common, attempts: filters.attempts, search: filters.search.trim() }
-          : filters.kind === 'returned-orders'
-            ? { ...common, search: filters.search.trim() }
-            : filters.kind === 'order-transactions'
-              ? {
-                  ...common,
-                  source: filters.source || 'store',
-                  dateType: filters.dateType || 'order_date',
-                }
-              : common;
-  return dispatchExportInput(ownerId, input, storage, send);
+/** Returned orders, order transactions and hyperlocal daily filter on local date-times. */
+export const timestampExport = (kind: ReportExportKind) =>
+  kind === 'returned-orders' || kind === 'order-transactions' || kind === 'hyperlocal-daily';
+
+const localDateTime = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/),
+  localDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  storeIds = z.array(z.string().regex(/^[1-9]\d*$/)).max(500),
+  labels = { label: z.string().max(255).optional(), note: z.string().max(255).optional() },
+  timestampRange = { from: localDateTime, to: localDateTime, storeIds, ...labels },
+  dateRange = { from: localDate, to: localDate, storeIds, ...labels };
+export const exportInputSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('returned-orders'), ...timestampRange }).strict(),
+  z
+    .object({
+      kind: z.literal('order-transactions'),
+      ...timestampRange,
+      source: z.enum(['store', 'online']),
+      dateType: z.enum(['order_date', 'return_date']),
+    })
+    .strict(),
+  z.object({ kind: z.literal('hyperlocal-daily'), ...timestampRange }).strict(),
+  z.object({ kind: z.literal('cash-balance'), ...dateRange }).strict(),
+  z.object({ kind: z.literal('flash-sales'), ...dateRange }).strict(),
+  z
+    .object({
+      kind: z.literal('day-close-history'),
+      ...dateRange,
+      attempts: z.enum(['all', 'latest']),
+    })
+    .strict(),
+]);
+export type ReportExportInput = z.infer<typeof exportInputSchema>;
+const queuedSchema = z.object({ message: z.string() });
+
+/** Build the strict legacy export input carrying only the filters its task receives. */
+export function reportExportInput(filters: ReportExportFilters): ReportExportInput {
+  const label = filters.label?.trim(),
+    note = filters.note?.trim(),
+    common = {
+      from: filters.from,
+      to: filters.to,
+      storeIds: [...new Set(filters.storeIds)],
+      ...(label ? { label } : {}),
+      ...(note ? { note } : {}),
+    };
+  return exportInputSchema.parse(
+    filters.kind === 'order-transactions'
+      ? {
+          kind: filters.kind,
+          ...common,
+          source: filters.source || 'store',
+          dateType: filters.dateType || 'order_date',
+        }
+      : filters.kind === 'day-close-history'
+        ? { kind: filters.kind, ...common, attempts: filters.attempts || 'all' }
+        : { kind: filters.kind, ...common },
+  );
 }
+/** Legacy `handle_export`: queue the export task and return its message; the file appears later. */
+export async function queueReportExport(ownerId: string, filters: ReportExportFilters) {
+  const input = reportExportInput(filters);
+  return request(
+    '/api/v1/report-exports',
+    { method: 'POST', operatorId: ownerId, body: JSON.stringify({ input }) },
+    queuedSchema,
+  );
+}
+
 export interface AdministrationCollectionExportFilters {
   kind?: 'administration-list';
   resource: 'stores' | 'operators' | 'salespeople' | 'counters' | 'storage' | 'documentation';
@@ -131,64 +125,10 @@ export interface AdministrationCollectionExportFilters {
   label?: string;
   note?: string;
 }
-/** Current collections have no fabricated report date or warehouse routing. */
-export async function queueAdministrationCollectionExport(
-  ownerId: string,
-  filters: AdministrationCollectionExportFilters,
-  storage: CommandStorage = localStorage,
-  send?: (commandId: string, input: unknown) => Promise<z.infer<typeof exportRowSchema>>,
-) {
-  const input = {
-    kind: 'administration-list',
-    resource: filters.resource,
-    storeIds: [...filters.storeIds],
-    search: filters.search.trim(),
-    active: filters.active,
-    sort: filters.sort,
-    direction: filters.direction,
-    columns: [...filters.columns],
-    ...(filters.label?.trim() ? { label: filters.label.trim() } : {}),
-    ...(filters.note?.trim() ? { note: filters.note.trim() } : {}),
-  };
-  return dispatchExportInput(ownerId, input, storage, send);
-}
-async function dispatchExportInput(
-  ownerId: string,
-  input: unknown,
-  storage: CommandStorage,
-  send:
-    ((commandId: string, input: unknown) => Promise<z.infer<typeof exportRowSchema>>) | undefined,
-) {
-  const actorSignal = send ? undefined : captureOperatorScope(ownerId);
-  const hash = Array.from(
-      new Uint8Array(
-        await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(input))),
-      ),
-      (byte) => byte.toString(16).padStart(2, '0'),
-    ).join(''),
-    key = `pos-report-export-command:${ownerId}:${hash}`,
-    raw = storage.getItem(key),
-    prior = raw ? commandSchema.parse(JSON.parse(raw) as unknown) : null,
-    command = prior || { commandId: crypto.randomUUID(), hash };
-  actorSignal?.throwIfAborted();
-  storage.setItem(key, JSON.stringify(command));
-  try {
-    const result = send
-      ? await send(command.commandId, input)
-      : await request(
-          '/api/v1/report-exports',
-          {
-            method: 'POST',
-            operatorId: ownerId,
-            body: JSON.stringify({ commandId: command.commandId, input }),
-          },
-          exportRowSchema,
-        );
-    storage.removeItem(key);
-    return result;
-  } catch (error) {
-    if (error instanceof ApiError && [400, 401, 403, 404, 409, 422, 429].includes(error.status))
-      storage.removeItem(key);
-    throw error;
-  }
+/** The administration list export was a rewrite-only feature and has been removed. */
+export function queueAdministrationCollectionExport(
+  _ownerId: string,
+  _filters: AdministrationCollectionExportFilters,
+): Promise<ReportExportRow> {
+  return Promise.reject(new Error('Administration list exports are not available.'));
 }

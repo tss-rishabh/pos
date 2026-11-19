@@ -429,10 +429,8 @@ describe.skipIf(!connection)('operational reports on isolated local MySQL', () =
       from: input.from,
       to: input.to,
       storeIds: input.storeIds,
-      search: '',
     });
     expect(artifact.rowCount).toBe(2);
-    if (artifact.format !== 'CSV') throw new Error('Return export must be CSV.');
     expect(artifact.bytes.toString('utf8')).toBe(
       returnedOrdersCsv((await service.read(user, input, true)).data),
     );

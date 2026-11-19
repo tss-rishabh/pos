@@ -1,10 +1,13 @@
-// Actual report components and backend builder; HTTP/warehouse/storage are local fixtures.
+// Actual report components and backend screen services; HTTP/warehouse are local fixtures.
+// Checks the legacy DataTables "CSV" (visible columns of the loaded page, client-side) and the
+// queued server "Export" (E1/E2/E4 only; performance and acceptance screens have no export).
 import { chromium, expect } from '@playwright/test';
 import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { z } from 'zod';
 import { Temporal } from '../../../backend/node_modules/@js-temporal/polyfill/dist/index.esm.js';
 import { readConfig } from '../../../backend/src/config.ts';
-import { normalizedExportInput } from '../../../backend/src/modules/operational-reports/export-domain.ts';
-import { reportExportBuilder } from '../../../backend/src/modules/operational-reports/export-service.ts';
+import { exportInputSchema } from '../../../backend/src/modules/operational-reports/export-domain.ts';
 import { orderReportHeaders } from '../../../backend/src/modules/operational-reports/order-report-columns.ts';
 import {
   performanceOptions,
@@ -204,13 +207,6 @@ const user = {
       };
     },
   },
-  builder = reportExportBuilder(config, primary, {
-    performance,
-    acceptance,
-    returnedOrders,
-    flashSales,
-    orderTransactions,
-  }),
   macChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   browser = await chromium.launch({
     headless: true,
@@ -221,12 +217,20 @@ const user = {
         : {}),
   });
 const requests = [],
-  jobs = new Map(),
   errors = [],
   unexpected = [];
-let loseReply = false;
+const queuedMessage =
+  'Records are being exported to CSV. The file will be available in the Export tab shortly. Click here to open the Export tab.';
+async function loadedCsv(page) {
+  const event = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'CSV', exact: true }).click();
+  const file = await event,
+    text = await readFile(await file.path(), 'utf8');
+  await file.delete();
+  return text.replace(/^﻿/, '').split('\r\n');
+}
 try {
-  const context = await browser.newContext(),
+  const context = await browser.newContext({ acceptDownloads: true }),
     page = await context.newPage();
   page.on('pageerror', (error) => errors.push(error.message));
   await page.route('**/*', async (route) => {
@@ -246,33 +250,9 @@ try {
     if (url.pathname.endsWith('/store-cash-balances/stores'))
       return route.fulfill({ json: { data: [{ id: '1', name: 'Fixture store' }] } });
     if (url.pathname === '/api/v1/report-exports') {
-      const body = request.postDataJSON(),
-        input = normalizedExportInput(body.input);
+      const body = z.object({ input: exportInputSchema }).strict().parse(request.postDataJSON());
       requests.push(body);
-      if (!jobs.has(body.commandId)) jobs.set(body.commandId, await builder(user, input));
-      if (loseReply) {
-        loseReply = false;
-        return route.abort('failed');
-      }
-      return route.fulfill({
-        json: {
-          id: body.commandId,
-          origin: 'current',
-          kind: input.kind,
-          reportName: input.kind,
-          from: input.from,
-          to: input.to,
-          status: 'COMPLETED',
-          message: 'Ready',
-          requestedBy: '10',
-          requestedAt: '2026-11-16T08:00:00Z',
-          completedAt: '2026-11-16T08:00:00Z',
-          format: 'CSV',
-          byteCount: jobs.get(body.commandId).bytes.length,
-          rowCount: jobs.get(body.commandId).rowCount,
-          canDownload: true,
-        },
-      });
+      return route.fulfill({ json: { message: queuedMessage } });
     }
     const input = request.postDataJSON();
     const result = url.pathname.includes('order-transactions')
@@ -292,12 +272,12 @@ try {
     unexpected.push(url.pathname);
     return route.abort();
   });
-  for (const [path, hidden, sort, direction, expected] of [
-    ['salesperson', 'Store', 'total_sales', 'asc', 'Staff 00'],
-    ['cashier', 'Products sold', 'cashier_name', 'desc', 'Staff 00'],
-    ['acceptance', 'Staff', 'order_id', 'asc', '160'],
-    ['returns', 'Comment', 'order_id', 'asc', '160'],
-    ['flash', 'Cash', 'store_date', 'desc', 'Store 00'],
+  for (const [path, hidden, sort, direction, kind] of [
+    ['salesperson', 'Store', 'total_sales', 'asc', null],
+    ['cashier', 'Products sold', 'cashier_name', 'desc', null],
+    ['acceptance', 'Staff', 'order_id', 'asc', null],
+    ['returns', 'Comment', 'order_id', 'asc', 'returned-orders'],
+    ['flash', 'Cash', 'store_date', 'desc', 'flash-sales'],
   ]) {
     await page.goto(new URL('/column-fixture/' + path, base).href);
     await page
@@ -317,86 +297,63 @@ try {
     await page.getByRole('button', { name: 'Next', exact: true }).click();
     await page.getByRole('button', { name: 'Next', exact: true }).click();
     await expect(page.locator('tbody tr')).toHaveCount(11);
-    const count = requests.length;
-    if (path === 'salesperson') loseReply = true;
-    await page.getByRole('button', { name: 'Export visible columns CSV', exact: true }).click();
-    if (path === 'salesperson') {
-      await expect(page.getByText(/Could not connect to the store service/)).toBeVisible();
-      await page.getByRole('button', { name: 'Export visible columns CSV', exact: true }).click();
-      await expect.poll(() => requests.length).toBe(count + 2);
-      expect(requests[count].commandId).toBe(requests[count + 1].commandId);
-    }
-    await expect(page.getByRole('status').filter({ hasText: 'Export requested.' })).toBeVisible();
-    const command = requests.at(-1),
-      artifact = jobs.get(command.commandId),
-      csv = artifact.bytes.toString();
-    expect(artifact.rowCount).toBe(61);
-    expect(csv.split('\r\n')).toHaveLength(62);
-    expect(csv).toContain(expected);
-    expect(command.input.sort).toBe(sort);
-    expect(command.input.direction).toBe(direction);
-    expect(command.input.columns).toHaveLength(originalColumns - 1);
-    if (path === 'salesperson') expect(csv).not.toContain('Fixture store');
-    if (path === 'returns') expect(csv).not.toContain('private fixture note');
-    if (path === 'flash') expect(csv).toContain('"Total District Amount (da)"');
-    if (path === 'returns' || path === 'flash') {
-      await page.getByRole('button', { name: 'Export complete CSV', exact: true }).click();
-      await expect.poll(() => requests.at(-1)?.commandId).not.toBe(command.commandId);
-      const full = requests.at(-1),
-        artifact = jobs.get(full.commandId),
-        lines = artifact.bytes.toString().split('\r\n');
-      expect(full.input).not.toHaveProperty('columns');
-      expect(full.input).not.toHaveProperty('sort');
-      expect(full.input).not.toHaveProperty('direction');
-      expect(artifact.rowCount).toBe(61);
-      expect(lines).toHaveLength(62);
-      if (path === 'flash') {
-        expect(lines[0].split(',')).toHaveLength(22);
-        expect(lines[0]).toContain('"district_transation_amt"');
-        expect(lines[1].split(',')[14]).toBe('""');
-      } else expect(lines[0].split(',')).toHaveLength(12);
-    }
+    const count = requests.length,
+      lines = await loadedCsv(page);
+    // Loaded page only: header plus the 11 rows on page 3, without the hidden column.
+    expect(lines).toHaveLength(12);
+    expect(lines[0].split(',')).toHaveLength(originalColumns - 1);
+    expect(lines[0]).not.toContain(`"${hidden}"`);
+    expect(requests).toHaveLength(count);
+    if (path === 'returns') expect(lines.join('\n')).not.toContain('private fixture note');
+    const shown = await page.locator('tbody tr').first().locator('td').allTextContents();
+    expect(lines[1]).toBe(
+      shown.map((text) => '"' + (text === '—' ? '' : text).replaceAll('"', '""') + '"').join(','),
+    );
+    if (kind) {
+      await page.getByText('Export all matching records', { exact: true }).click();
+      await page.getByLabel('Report name', { exact: true }).fill('Fixture export');
+      await page.getByRole('button', { name: 'Export', exact: true }).click();
+      await expect(page.getByRole('status').filter({ hasText: queuedMessage })).toBeVisible();
+      const body = requests.at(-1);
+      expect(body.input.kind).toBe(kind);
+      expect(body.input.label).toBe('Fixture export');
+      expect(body.input.storeIds).toEqual(['1']);
+      for (const field of ['columns', 'sort', 'direction', 'search', 'note'])
+        expect(body.input).not.toHaveProperty(field);
+    } else
+      await expect(page.getByText('Export all matching records', { exact: true })).toHaveCount(0);
     await page.getByRole('button', { name: 'Show all columns', exact: true }).click();
     await expect(page.locator('thead th')).toHaveCount(originalColumns);
     for (const checkbox of await page.getByRole('checkbox').all()) await checkbox.uncheck();
-    await expect(
-      page.getByRole('button', { name: 'Export visible columns CSV', exact: true }),
-    ).toBeDisabled();
-    if (path === 'returns' || path === 'flash')
-      await expect(
-        page.getByRole('button', { name: 'Export complete CSV', exact: true }),
-      ).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'CSV', exact: true })).toBeDisabled();
   }
   await page.goto(new URL('/column-fixture/transactions', base).href);
   await expect(page.locator('tbody tr')).toHaveCount(25);
-  await page.getByRole('button', { name: 'Export visible columns CSV', exact: true }).click();
-  await expect.poll(() => requests.at(-1)?.input.kind).toBe('order-transactions');
-  const selectedRequest = requests.at(-1),
-    selectedArtifact = jobs.get(selectedRequest.commandId);
-  expect(selectedRequest.input.sort).toBe('transaction_date');
-  expect(selectedRequest.input.direction).toBe('desc');
-  expect(selectedRequest.input.columns).toHaveLength(15);
-  expect(selectedArtifact.rowCount).toBe(61);
-  expect(selectedArtifact.bytes.toString().split('\r\n')[0].split(',')).toHaveLength(15);
-  expect(selectedArtifact.bytes.toString()).not.toContain('"CustomerID"');
-  await page.getByRole('button', { name: 'Export complete CSV', exact: true }).click();
-  await expect.poll(() => requests.at(-1)?.commandId).not.toBe(selectedRequest.commandId);
-  const completeRequest = requests.at(-1),
-    completeArtifact = jobs.get(completeRequest.commandId);
-  expect(completeRequest.input).not.toHaveProperty('columns');
-  expect(completeRequest.input).not.toHaveProperty('sort');
-  expect(completeArtifact.rowCount).toBe(61);
-  expect(completeArtifact.bytes.toString().split('\r\n')[0].split(',')).toHaveLength(75);
-  expect(completeArtifact.bytes.toString()).toContain('"CustomerID"');
+  const transactionLines = await loadedCsv(page);
+  expect(transactionLines).toHaveLength(26);
+  expect(transactionLines[0].split(',')).toHaveLength(15);
+  expect(transactionLines[0]).not.toContain('"CustomerID"');
+  await page.getByText('Export all matching records', { exact: true }).click();
+  await page.getByLabel('Report message', { exact: true }).fill('Fixture message');
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: queuedMessage })).toBeVisible();
+  const transactionRequest = requests.at(-1);
+  expect(transactionRequest.input).toMatchObject({
+    kind: 'order-transactions',
+    source: 'store',
+    dateType: 'order_date',
+    note: 'Fixture message',
+  });
+  expect(transactionRequest.input).not.toHaveProperty('columns');
   expect(errors).toEqual([]);
   expect(unexpected).toEqual([]);
   process.stdout.write(
     JSON.stringify({
-      scope: 'actual-components-and-backend-builder',
+      scope: 'actual-components-and-backend-screen-services',
       workflows: 6,
-      rowsPerExport: 61,
-      lostReplySameCommand: true,
-      fullAndSelectedVariants: ['returned-orders', 'flash-sales', 'order-transactions'],
+      loadedPageCsv: true,
+      queuedExports: ['returned-orders', 'flash-sales', 'order-transactions'],
+      csvOnly: ['salesperson-performance', 'cashier-performance', 'hyperlocal-acceptance'],
       sourceQueries: 'synthetic warehouse; native source checks separate',
       realServices: false,
     }) + '\n',

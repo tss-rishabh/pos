@@ -44,7 +44,6 @@ export function SalespersonPerformancePage({
       rowSchema={salespersonSchema}
       columns={salespersonColumns}
       defaultSort="total_sales"
-      exportKind="salesperson-performance"
     />
   );
 }
@@ -59,7 +58,6 @@ export function CashierPerformancePage({ user, storeId }: { user: Principal; sto
       rowSchema={cashierSchema}
       columns={cashierColumns}
       defaultSort="rating"
-      exportKind="cashier-performance"
     />
   );
 }

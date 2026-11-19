@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { S3Client, S3ServiceException } from '@aws-sdk/client-s3';
 import { describe, expect, it } from 'vitest';
@@ -40,7 +40,6 @@ describe('private immutable report files without network calls', () => {
   it('uses conditional encrypted PUTs, scoped opaque keys and checksum verification after a lost response', async () => {
     const bytes = Buffer.from('"Store","Amount"\r\n"Fixture","-5.00"'),
       checksum = createHash('sha256').update(bytes).digest('hex'),
-      id = randomUUID(),
       calls: { command: string; input: Record<string, unknown> }[] = [];
     const client = clientFixture(async (command, input) => {
       calls.push({ command, input });
@@ -66,7 +65,9 @@ describe('private immutable report files without network calls', () => {
       options(),
       client,
     )!;
-    await store.put(id, bytes, checksum);
+    const key = store.keyFor('returns');
+    expect(key).toMatch(/^uploads\/reports\/returns\/orders_[a-f0-9]{32}\.csv$/);
+    await store.put(key, bytes, checksum);
     expect(calls.map((call) => call.command)).toEqual([
       'GetPublicAccessBlockCommand',
       'PutObjectCommand',
@@ -78,10 +79,10 @@ describe('private immutable report files without network calls', () => {
       ServerSideEncryption: 'AES256',
       ExpectedBucketOwner: '123456789012',
       Metadata: { sha256: checksum },
-      Key: `uploads/reports/pos-rewrite/${id}.csv`,
+      Key: key,
     });
     expect(calls[1]?.input).not.toHaveProperty('ACL');
-    const file = await store.stream(store.keyFor(id), { size: bytes.length, checksum }),
+    const file = await store.stream(key, { size: bytes.length, checksum }),
       chunks: Buffer[] = [];
     for await (const chunk of file.body as AsyncIterable<Buffer>) chunks.push(chunk);
     expect(Buffer.concat(chunks)).toEqual(bytes);
@@ -111,10 +112,10 @@ describe('private immutable report files without network calls', () => {
         options(),
         client,
       )!,
-      key = store.keyFor(randomUUID());
+      key = store.keyFor('orders');
     await expect(store.head(key)).rejects.toMatchObject({ code: 'REPORT_STORAGE_UNAVAILABLE' });
     publicBucket = false;
-    await expect(store.head('uploads/reports/pos-rewrite/../private.csv')).rejects.toMatchObject({
+    await expect(store.head('uploads/reports/orders/../../private.csv')).rejects.toMatchObject({
       code: 'EXPORT_FILE_SCOPE_DENIED',
     });
     await expect(store.head('uploads/customer.csv')).rejects.toMatchObject({
@@ -152,7 +153,7 @@ describe('private immutable report files without network calls', () => {
         options(),
         client,
       )!,
-      key = store.keyFor(randomUUID()),
+      key = store.keyFor('day_close'),
       consume = async () => {
         const file = await store.stream(key, { size: 5, checksum });
         for await (const chunk of file.body as AsyncIterable<unknown>) void chunk;
@@ -175,5 +176,12 @@ describe('private immutable report files without network calls', () => {
     expect(() =>
       reportExportOptions({ S3_REPORT_EXPORT_FOLDER_PATH: 'uploads/../private' }),
     ).toThrow();
+    const store = createReportExportStore(
+      { NODE_ENV: 'test', DEMO_MODE: false },
+      options(),
+      clientFixture(async () => ({})),
+    )!;
+    expect(() => store.keyFor('../customers')).toThrow();
+    store.close();
   });
 });

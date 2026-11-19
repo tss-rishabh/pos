@@ -1,3 +1,4 @@
+import { memoryEphemeralStore } from '../../src/jobs/ephemeral.js';
 import Fastify from 'fastify';
 import type { Databases } from '../../src/db/pools.js';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -49,6 +50,7 @@ describe('reconciliation service authentication', () => {
         .send({ code: error instanceof AppError ? error.code : 'INVALID_REQUEST' }),
     );
     await registerFinance(app, config, db, {
+      ephemeral: memoryEphemeralStore(),
       feedOptions: financeFeedOptions({ GLASSBOX_FINANCE_FEED_API_KEY: key }),
       feed: {
         orders: async () => {
@@ -75,7 +77,8 @@ describe('reconciliation service authentication', () => {
     for (const headers of [
       {},
       { cookie: 'fixture-session' },
-      { cookie: 'fixture-session', 'x-api-key': 'wrong' },
+      { cookie: 'fixture-session', apikey: 'wrong' },
+      { 'x-api-key': key },
     ]) {
       const response = await app.inject({
         method: 'POST',

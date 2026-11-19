@@ -1,190 +1,156 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiError, setRequestOperator } from '../../src/api/client';
 import {
-  queueReportExport,
+  exportInputSchema,
   queueAdministrationCollectionExport,
+  queueReportExport,
+  reportExportInput,
   type ReportExportFilters,
 } from '../../src/pages/operational-reports/export-commands';
-const filters: ReportExportFilters = {
-    kind: 'day-close-history',
-    from: '2026-11-16',
-    to: '2026-11-16',
-    storeIds: ['1', '2'],
-    attempts: 'all',
-    search: 'private customer remark',
-  },
-  result = {
-    id: 'fixture-job',
-    origin: 'current' as const,
-    kind: 'day-close-history',
-    reportName: 'Day-close history',
-    from: '2026-11-16',
-    to: '2026-11-16',
-    status: 'QUEUED' as const,
-    message: 'Waiting to prepare the report.',
-    requestedBy: '10',
-    requestedAt: '2026-11-16T12:00:00Z',
-    completedAt: null,
-    format: 'CSV',
-    byteCount: null,
-    rowCount: null,
-    canDownload: false,
-  };
-function fixtureStorage() {
-  const entries = new Map<string, string>();
-  return {
-    entries,
-    getItem: (key: string) => entries.get(key) || null,
-    setItem: (key: string, value: string) => {
-      entries.set(key, value);
-    },
-    removeItem: (key: string) => {
-      entries.delete(key);
-    },
-  };
+
+const queued =
+  'Close history is being exported to CSV. The file will be available in the Export tab shortly. Click here to open the Export tab.';
+const dayClose: ReportExportFilters = {
+  kind: 'day-close-history',
+  from: '2026-11-16',
+  to: '2026-11-16',
+  storeIds: ['2', '1', '2'],
+  attempts: 'latest',
+  label: '  Weekly close  ',
+  note: '',
+};
+function stubFetch(body: unknown, status = 200) {
+  const fetch = vi.fn(
+    async (_path: string, _options: RequestInit) =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+  );
+  vi.stubGlobal('fetch', fetch);
+  return fetch;
 }
-describe('report export request recovery', () => {
-  it('uses the same durable journal for date-free current collection exports without storing filters', async () => {
-    const storage = fixtureStorage(),
-      commands: string[] = [],
-      collection = {
-        resource: 'operators' as const,
-        storeIds: [],
-        search: 'private fixture email',
-        active: 'all' as const,
-        sort: 'name',
-        direction: 'asc' as const,
-        columns: ['name', 'role'],
-      };
-    await expect(
-      queueAdministrationCollectionExport('10', collection, storage, async (command, input) => {
-        commands.push(command);
-        expect(input).toEqual({ kind: 'administration-list', ...collection });
-        expect(input).not.toHaveProperty('from');
-        expect(input).not.toHaveProperty('to');
-        throw new Error('Lost reply');
-      }),
-    ).rejects.toThrow();
-    expect(JSON.stringify([...storage.entries])).not.toContain(collection.search);
-    await queueAdministrationCollectionExport('10', collection, storage, async (command) => {
-      commands.push(command);
-      return result;
-    });
-    expect(commands[0]).toBe(commands[1]);
-    expect(storage.entries.size).toBe(0);
+describe('legacy report export requests (E1-E6)', () => {
+  beforeEach(() => setRequestOperator('10'));
+  afterEach(() => {
+    setRequestOperator(null);
+    vi.unstubAllGlobals();
   });
-  it('retains exact sorted visible-column command retries, with a separate digest for changed columns', async () => {
-    const storage = fixtureStorage(),
-      commands: string[] = [],
-      value: ReportExportFilters = {
-        ...filters,
-        kind: 'salesperson-performance',
-        from: '2026-11-16T00:00',
-        to: '2026-11-16T23:59',
-        sort: 'rating',
-        direction: 'asc',
-        columns: ['salesperson_name', 'rating'],
-      };
-    const fail = async (command: string, input: unknown) => {
-      commands.push(command);
-      expect(input).toEqual({
-        kind: value.kind,
-        from: '2026-11-16T00:00:00',
-        to: '2026-11-16T23:59:00',
-        storeIds: ['1', '2'],
-        sort: 'rating',
-        direction: 'asc',
-        columns: value.columns,
+  it('posts only { input } with the operator header and returns the legacy message', async () => {
+    const fetch = stubFetch({ message: queued });
+    await expect(queueReportExport('10', dayClose)).resolves.toEqual({ message: queued });
+    expect(fetch).toHaveBeenCalledOnce();
+    const [path, options] = fetch.mock.calls[0]!;
+    expect(path).toBe('/api/v1/report-exports');
+    expect(options.method).toBe('POST');
+    expect(new Headers(options.headers).get('X-Operator-ID')).toBe('10');
+    expect(JSON.parse(String(options.body))).toEqual({
+      input: {
+        kind: 'day-close-history',
+        from: '2026-11-16',
+        to: '2026-11-16',
+        storeIds: ['2', '1'],
+        label: 'Weekly close',
+        attempts: 'latest',
+      },
+    });
+  });
+  it('carries each kind only the filters its legacy task receives', () => {
+    const range = { from: '2026-11-16T00:00', to: '2026-11-16T23:59:59', storeIds: ['1'] };
+    expect(
+      reportExportInput({
+        ...range,
+        kind: 'order-transactions',
+        source: 'online',
+        dateType: 'return_date',
+        attempts: 'all',
+        note: 'For audit',
+      }),
+    ).toEqual({
+      ...range,
+      kind: 'order-transactions',
+      source: 'online',
+      dateType: 'return_date',
+      note: 'For audit',
+    });
+    expect(reportExportInput({ ...range, kind: 'order-transactions' })).toMatchObject({
+      source: 'store',
+      dateType: 'order_date',
+    });
+    for (const kind of ['returned-orders', 'hyperlocal-daily'] as const)
+      expect(reportExportInput({ ...range, kind, source: 'online', attempts: 'latest' })).toEqual({
+        ...range,
+        kind,
       });
-      throw new Error('Lost response');
-    };
-    await expect(queueReportExport('10', value, storage, fail)).rejects.toThrow();
-    await expect(queueReportExport('10', value, storage, fail)).rejects.toThrow();
-    expect(commands[0]).toBe(commands[1]);
-    await queueReportExport('10', { ...value, columns: ['rating'] }, storage, async (command) => {
-      expect(command).not.toBe(commands[0]);
-      return result;
-    });
-    expect(storage.entries.size).toBe(1);
-    expect(JSON.stringify([...storage.entries])).not.toContain(value.search);
-    expect(JSON.stringify([...storage.entries])).not.toContain('salesperson_name');
+    for (const kind of ['cash-balance', 'flash-sales'] as const)
+      expect(
+        reportExportInput({ kind, from: '2026-11-01', to: '2026-11-02', storeIds: [] }),
+      ).toEqual({ kind, from: '2026-11-01', to: '2026-11-02', storeIds: [] });
+    expect(
+      reportExportInput({
+        kind: 'day-close-history',
+        from: '2026-11-01',
+        to: '2026-11-02',
+        storeIds: [],
+      }),
+    ).toMatchObject({ attempts: 'all' });
   });
-  it('canonicalizes local timestamps and retains source/date-basis metadata for order exports', async () => {
-    const storage = fixtureStorage(),
-      commands: string[] = [],
-      value = {
-        ...filters,
-        kind: 'order-transactions' as const,
-        source: 'online' as const,
-        dateType: 'return_date' as const,
-        from: '2026-11-16T00:00',
-        to: '2026-11-16T23:59:59',
-      };
-    await expect(
-      queueReportExport('10', value, storage, async (command, input) => {
-        commands.push(command);
-        expect(input).toMatchObject({
-          source: 'online',
-          dateType: 'return_date',
+  it('rejects removed kinds, server column variants and malformed dates before sending', async () => {
+    const fetch = stubFetch({ message: queued });
+    for (const kind of [
+      'salesperson-performance',
+      'cashier-performance',
+      'hyperlocal-acceptance',
+      'current-inventory-workbook',
+      'administration-list',
+    ])
+      expect(
+        exportInputSchema.safeParse({ kind, from: '2026-11-16', to: '2026-11-16', storeIds: [] })
+          .success,
+      ).toBe(false);
+    for (const extra of [
+      { search: 'x' },
+      { sort: 'id' },
+      { direction: 'asc' },
+      { columns: ['id'] },
+    ])
+      expect(
+        exportInputSchema.safeParse({
+          kind: 'returned-orders',
           from: '2026-11-16T00:00:00',
-        });
-        expect(input).not.toHaveProperty('search');
-        throw new Error('Transport interrupted');
-      }),
-    ).rejects.toThrow();
-    await queueReportExport(
-      '10',
-      { ...value, from: '2026-11-16T00:00:00' },
-      storage,
-      async (command) => {
-        commands.push(command);
-        return result;
-      },
-    );
-    expect(commands[0]).toBe(commands[1]);
-    expect(storage.entries.size).toBe(0);
-  });
-  it('preserves a command across transport failures and canonicalizes store selections without storing search text', async () => {
-    const storage = fixtureStorage(),
-      commands: string[] = [];
+          to: '2026-11-16T23:59:59',
+          storeIds: ['1'],
+          ...extra,
+        }).success,
+      ).toBe(false);
     await expect(
-      queueReportExport('10', filters, storage, async (command) => {
-        commands.push(command);
-        throw new Error('Transport interrupted');
-      }),
-    ).rejects.toThrow('Transport interrupted');
-    expect(JSON.stringify([...storage.entries])).not.toContain(filters.search);
-    await queueReportExport(
-      '10',
-      { ...filters, storeIds: ['2', '1', '1'] },
-      storage,
-      async (command, input) => {
-        commands.push(command);
-        expect(input).toMatchObject({ storeIds: ['1', '2'], search: filters.search });
-        return result;
-      },
-    );
-    expect(commands[0]).toBe(commands[1]);
-    expect(storage.entries.size).toBe(0);
+      queueReportExport('10', { ...dayClose, kind: 'returned-orders' }),
+    ).rejects.toThrow();
+    await expect(
+      queueReportExport('10', { ...dayClose, label: 'x'.repeat(256) }),
+    ).rejects.toThrow();
+    expect(fetch).not.toHaveBeenCalled();
   });
-  it('isolates operator retries and omits history-only filters from cash balance exports', async () => {
-    const storage = fixtureStorage(),
-      commands: string[] = [];
-    for (const owner of ['10', '11'])
-      await expect(
-        queueReportExport(
-          owner,
-          { ...filters, kind: 'cash-balance' },
-          storage,
-          async (command, input) => {
-            commands.push(command);
-            expect(input).not.toHaveProperty('search');
-            expect(input).not.toHaveProperty('attempts');
-            throw new Error('Transport interrupted');
-          },
-        ),
-      ).rejects.toThrow();
-    expect(commands[0]).not.toBe(commands[1]);
-    expect(storage.entries.size).toBe(2);
-    expect(JSON.stringify([...storage.entries])).not.toContain(filters.search);
+  it('surfaces API refusals and refuses a changed operator without a request', async () => {
+    stubFetch({ error: { code: 'VALIDATION_ERROR', message: 'Select a valid range.' } }, 400);
+    await expect(queueReportExport('10', dayClose)).rejects.toBeInstanceOf(ApiError);
+    const fetch = stubFetch({ message: queued });
+    await expect(queueReportExport('11', dayClose)).rejects.toMatchObject({ name: 'AbortError' });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  it('refuses the removed administration list export without calling the API', async () => {
+    const fetch = stubFetch({ message: queued });
+    await expect(
+      queueAdministrationCollectionExport('10', {
+        resource: 'operators',
+        storeIds: [],
+        search: '',
+        active: 'all',
+        sort: 'name',
+        direction: 'asc',
+        columns: ['name'],
+      }),
+    ).rejects.toThrow('Administration list exports are not available.');
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

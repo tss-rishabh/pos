@@ -10,8 +10,11 @@ import { downloadReportFile } from '../finance/download';
 import {
   exportRowSchema,
   queueReportExport,
+  reportExportKinds,
   timestampExport,
   type ReportExportFilters,
+  type ReportExportKind,
+  type ReportExportRow,
 } from './export-commands';
 import './style.css';
 import {
@@ -33,43 +36,56 @@ const businessToday = () =>
     month: '2-digit',
     day: '2-digit',
   }).format(new Date());
+const sortSchema = z.enum([
+  'id',
+  'report_name',
+  'report_type',
+  'time_period',
+  'export_status',
+  'message',
+  'export_requested_by',
+  'export_requested_at',
+  'export_completed_at',
+  'export_format',
+  'export_size',
+  'export_rows_count',
+  'created_at',
+]);
+const sortLabels: Record<z.infer<typeof sortSchema>, string> = {
+  id: 'ID',
+  report_name: 'Report name',
+  report_type: 'Report type',
+  time_period: 'Time period',
+  export_status: 'Status',
+  message: 'Message',
+  export_requested_by: 'Requested by',
+  export_requested_at: 'Requested at',
+  export_completed_at: 'Completed at',
+  export_format: 'Format',
+  export_size: 'Size',
+  export_rows_count: 'Rows',
+  created_at: 'Created at',
+};
 interface HistoryFilters {
-  period: 'recent' | 'archive';
-  from: string;
-  to: string;
   search: string;
-  sort:
-    | 'id'
-    | 'kind'
-    | 'period'
-    | 'message'
-    | 'format'
-    | 'requested_at'
-    | 'completed_at'
-    | 'report_name'
-    | 'status'
-    | 'requested_by'
-    | 'row_count'
-    | 'byte_count';
+  sort: z.infer<typeof sortSchema>;
   direction: 'asc' | 'desc';
 }
-function initialHistory(): HistoryFilters {
-  const to = businessToday(),
-    start = new Date(to + 'T00:00:00Z');
-  start.setUTCDate(start.getUTCDate() - 30);
-  return {
-    period: 'recent',
-    from: start.toISOString().slice(0, 10),
-    to,
-    search: '',
-    sort: 'requested_at',
-    direction: 'desc',
-  };
-}
+const initialHistory: HistoryFilters = { search: '', sort: 'id', direction: 'desc' };
+const kindLabels: Record<ReportExportKind, string> = {
+  'day-close-history': 'Day-close history',
+  'cash-balance': 'Store cash balances',
+  'returned-orders': 'Returned orders',
+  'order-transactions': 'Order transactions',
+  'hyperlocal-daily': 'Hyperlocal daily report',
+  'flash-sales': 'Flash sales',
+};
+/** Kinds whose legacy task requires an explicit store selection. */
+const selectedStoresRequired = (kind: ReportExportKind) =>
+  kind === 'returned-orders' || kind === 'order-transactions' || kind === 'flash-sales';
 export function ReportExportsPage({ user, storeId }: { user: Principal; storeId: string }) {
   const online = useOnline(),
     client = useQueryClient(),
-    [origin, setOrigin] = useState<'current' | 'legacy'>('current'),
     [page, setPage] = useState(1),
     [pageSize, setPageSize] = useState(10),
     [hiddenColumns, setHiddenColumns] = useState<readonly ExportMetadataColumn[]>([]),
@@ -82,7 +98,6 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
       to: businessToday(),
       storeIds: storeId ? [storeId] : [],
       attempts: 'all',
-      search: '',
     }));
   const stores = useQuery({
     queryKey: [user.id, 'finance-cash-ledger-stores'],
@@ -94,23 +109,24 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
       ),
   });
   const exports = useQuery({
-    queryKey: [user.id, 'report-exports', origin, submittedHistory, page, pageSize],
+    queryKey: [user.id, 'report-exports', submittedHistory, page, pageSize],
     queryFn: ({ signal }) =>
       request(
         '/api/v1/report-exports/search',
         {
           method: 'POST',
-          body: JSON.stringify({ origin, ...submittedHistory, page, pageSize }),
+          body: JSON.stringify({
+            ...(submittedHistory.search.trim() ? { search: submittedHistory.search.trim() } : {}),
+            sort: submittedHistory.sort,
+            direction: submittedHistory.direction,
+            page,
+            pageSize,
+          }),
           signal: AbortSignal.any([signal, AbortSignal.timeout(45000)]),
         },
         resultSchema,
       ),
     retry: false,
-    refetchInterval: (query) =>
-      online &&
-      query.state.data?.data.some((job) => ['QUEUED', 'BUILDING', 'STORING'].includes(job.status))
-        ? 5000
-        : false,
   });
   const metadataCsv = useMutation({
     mutationFn: async () => {
@@ -123,41 +139,29 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
       const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })),
         link = document.createElement('a');
       link.href = url;
-      link.download = `export-history-${origin}.csv`;
+      link.download = `export-logs-page-${page}.csv`;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     },
   });
   const create = useMutation({
       mutationFn: () => queueReportExport(user.id, filters),
-      onSuccess: async () => {
-        setOrigin('current');
-        setPage(1);
-        setHistoryFilters((current) => ({ ...current, period: 'recent', search: '' }));
-        setSubmittedHistory((current) => ({ ...current, period: 'recent', search: '' }));
-        await client.invalidateQueries({ queryKey: [user.id, 'report-exports'] });
-      },
+      onSuccess: () => client.invalidateQueries({ queryKey: [user.id, 'report-exports'] }),
     }),
     download = useMutation({
-      mutationFn: (job: z.infer<typeof exportRowSchema>) =>
-        downloadReportFile(
-          job.origin === 'legacy'
-            ? `/api/v1/report-exports/legacy/${job.id}/file`
-            : `/api/v1/report-exports/${job.id}/file`,
-          job.origin === 'legacy'
-            ? `legacy-report-${job.id}.${job.format.toUpperCase() === 'XLSX' ? 'xlsx' : 'csv'}`
-            : job.kind === 'current-inventory-workbook'
-              ? `inventory-${job.id}.xlsx`
-              : job.kind === 'administration-list'
-                ? `administration-${job.id}.csv`
-                : `${job.kind}-${job.from}-${job.to}.csv`,
+      mutationFn: (job: ReportExportRow) => {
+        const xlsx = job.format.toUpperCase() === 'XLSX';
+        return downloadReportFile(
+          `/api/v1/report-exports/${job.id}/file`,
+          `report-${job.id}.${xlsx ? 'xlsx' : 'csv'}`,
           user.id,
-          job.format.toUpperCase() === 'XLSX' ? 'XLSX' : 'CSV',
-        ),
+          xlsx ? 'XLSX' : 'CSV',
+        );
+      },
     });
   const update = <K extends keyof ReportExportFilters>(key: K, value: ReportExportFilters[K]) =>
     setFilters((current) => ({ ...current, [key]: value }));
-  const selectKind = (kind: ReportExportFilters['kind']) =>
+  const selectKind = (kind: ReportExportKind) =>
     setFilters((current) => ({
       ...current,
       kind,
@@ -199,46 +203,20 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
             disabled={create.isPending}
             onChange={(event) =>
               selectKind(
-                event.target.value === 'cash-balance'
-                  ? 'cash-balance'
-                  : event.target.value === 'returned-orders'
-                    ? 'returned-orders'
-                    : event.target.value === 'order-transactions'
-                      ? 'order-transactions'
-                      : event.target.value === 'hyperlocal-daily'
-                        ? 'hyperlocal-daily'
-                        : event.target.value === 'current-inventory-workbook'
-                          ? 'current-inventory-workbook'
-                          : event.target.value === 'flash-sales'
-                            ? 'flash-sales'
-                            : event.target.value === 'salesperson-performance'
-                              ? 'salesperson-performance'
-                              : event.target.value === 'cashier-performance'
-                                ? 'cashier-performance'
-                                : event.target.value === 'hyperlocal-acceptance'
-                                  ? 'hyperlocal-acceptance'
-                                  : 'day-close-history',
+                reportExportKinds.find((kind) => kind === event.target.value) ||
+                  'day-close-history',
               )
             }
           >
-            <option value="day-close-history">Day-close history</option>
-            <option value="cash-balance">Store cash balances</option>
-            <option value="returned-orders">Returned orders</option>
-            <option value="order-transactions">Order transactions</option>
-            <option value="hyperlocal-daily">Hyperlocal daily report</option>
-            {user.role === 1 && (
-              <>
-                <option value="salesperson-performance">Salesperson performance</option>
-                <option value="cashier-performance">Staff performance</option>
-                <option value="hyperlocal-acceptance">Hyperlocal acceptance</option>
-              </>
-            )}
-            <option value="flash-sales">Flash sales</option>
-            <option value="current-inventory-workbook">Current inventory workbook (XLSX)</option>
+            {reportExportKinds.map((kind) => (
+              <option key={kind} value={kind}>
+                {kindLabels[kind]}
+              </option>
+            ))}
           </select>
         </label>
         <label>
-          Export name
+          Report name
           <input
             value={filters.label || ''}
             maxLength={255}
@@ -248,7 +226,7 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
           />
         </label>
         <label>
-          Notes
+          Report message
           <input
             value={filters.note || ''}
             maxLength={255}
@@ -257,56 +235,41 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
             placeholder="Optional"
           />
         </label>
-        {filters.kind !== 'current-inventory-workbook' && (
-          <>
-            <label>
-              From
-              <input
-                type={timestampExport(filters.kind) ? 'datetime-local' : 'date'}
-                step="1"
-                required
-                value={filters.from}
-                disabled={create.isPending}
-                onChange={(event) => update('from', event.target.value)}
-              />
-            </label>
-            <label>
-              To
-              <input
-                type={timestampExport(filters.kind) ? 'datetime-local' : 'date'}
-                step="1"
-                required
-                value={filters.to}
-                min={filters.from}
-                disabled={create.isPending}
-                onChange={(event) => update('to', event.target.value)}
-              />
-            </label>
-          </>
-        )}
+        <label>
+          From
+          <input
+            type={timestampExport(filters.kind) ? 'datetime-local' : 'date'}
+            step="1"
+            required
+            value={filters.from}
+            disabled={create.isPending}
+            onChange={(event) => update('from', event.target.value)}
+          />
+        </label>
+        <label>
+          To
+          <input
+            type={timestampExport(filters.kind) ? 'datetime-local' : 'date'}
+            step="1"
+            required
+            value={filters.to}
+            min={filters.from}
+            disabled={create.isPending}
+            onChange={(event) => update('to', event.target.value)}
+          />
+        </label>
         <label>
           Stores
           <select
             aria-label="Stores"
             multiple
-            required={filters.kind === 'current-inventory-workbook'}
-            value={filters.storeIds}
+            required={selectedStoresRequired(filters.kind)}
+            value={[...filters.storeIds]}
             disabled={create.isPending}
             onChange={(event) =>
               update(
                 'storeIds',
-                filters.kind === 'current-inventory-workbook'
-                  ? [
-                      ...filters.storeIds.filter((id) =>
-                        Array.from(event.target.selectedOptions).some(
-                          (option) => option.value === id,
-                        ),
-                      ),
-                      ...Array.from(event.target.selectedOptions, (option) => option.value).filter(
-                        (id) => !filters.storeIds.includes(id),
-                      ),
-                    ]
-                  : Array.from(event.target.selectedOptions, (option) => option.value),
+                Array.from(event.target.selectedOptions, (option) => option.value),
               )
             }
           >
@@ -314,8 +277,7 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
               .filter(
                 (store) =>
                   user.userType !== 2 ||
-                  (!timestampExport(filters.kind) &&
-                    filters.kind !== 'current-inventory-workbook') ||
+                  !timestampExport(filters.kind) ||
                   user.storeIds.includes(store.id),
               )
               .map((store) => (
@@ -325,51 +287,11 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
               ))}
           </select>
           <small>
-            {filters.kind === 'current-inventory-workbook'
-              ? 'Select stores. Each selected store has its own sheet, in the order below.'
-              : timestampExport(filters.kind)
-                ? 'Choose the stores to include.'
-                : 'Clear the selection for all permitted stores.'}
+            {selectedStoresRequired(filters.kind)
+              ? 'Choose the stores to include.'
+              : 'Clear the selection for all permitted stores.'}
           </small>
         </label>
-        {filters.kind === 'current-inventory-workbook' && (
-          <div className="muted">
-            <p>Current inventory snapshot. No date range is needed.</p>
-            <ol aria-label="Workbook sheet order">
-              {filters.storeIds.map((id, index) => (
-                <li key={id}>
-                  {stores.data?.data.find((store) => store.id === id)?.name || id}{' '}
-                  <button
-                    type="button"
-                    className="button secondary"
-                    aria-label={`Move store ${id} up`}
-                    disabled={index === 0 || create.isPending}
-                    onClick={() => {
-                      const ids = [...filters.storeIds];
-                      [ids[index - 1], ids[index]] = [ids[index]!, ids[index - 1]!];
-                      update('storeIds', ids);
-                    }}
-                  >
-                    Up
-                  </button>{' '}
-                  <button
-                    type="button"
-                    className="button secondary"
-                    aria-label={`Move store ${id} down`}
-                    disabled={index === filters.storeIds.length - 1 || create.isPending}
-                    onClick={() => {
-                      const ids = [...filters.storeIds];
-                      [ids[index + 1], ids[index]] = [ids[index]!, ids[index + 1]!];
-                      update('storeIds', ids);
-                    }}
-                  >
-                    Down
-                  </button>
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
         {filters.kind === 'order-transactions' && (
           <>
             <label>
@@ -404,45 +326,87 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
           </>
         )}
         {filters.kind === 'day-close-history' && (
-          <>
-            <label>
-              Attempts
-              <select
-                value={filters.attempts}
-                disabled={create.isPending}
-                onChange={(event) =>
-                  update('attempts', event.target.value === 'latest' ? 'latest' : 'all')
-                }
-              >
-                <option value="all">All attempts</option>
-                <option value="latest">Latest per store and day</option>
-              </select>
-            </label>
-            <label>
-              Search
-              <input
-                value={filters.search}
-                maxLength={100}
-                disabled={create.isPending}
-                onChange={(event) => update('search', event.target.value)}
-              />
-            </label>
-          </>
-        )}
-        {filters.kind === 'returned-orders' && (
           <label>
-            Search
-            <input
-              value={filters.search}
-              maxLength={100}
+            Attempts
+            <select
+              value={filters.attempts || 'all'}
               disabled={create.isPending}
-              onChange={(event) => update('search', event.target.value)}
-            />
+              onChange={(event) =>
+                update('attempts', event.target.value === 'latest' ? 'latest' : 'all')
+              }
+            >
+              <option value="all">All attempts</option>
+              <option value="latest">Latest per store and day</option>
+            </select>
           </label>
         )}
         <button className="button primary" disabled={!online || create.isPending}>
           <Plus size={16} />
           {create.isPending ? 'Requesting…' : 'Request export'}
+        </button>
+      </form>
+      {!online && <p role="status">Connect to request or download report files.</p>}
+      {stores.isError && <ErrorState error={stores.error} />}
+      {create.isError && <ErrorState error={create.error} />}
+      {create.isSuccess && (
+        <p className="operational-report-success" role="status">
+          {create.data.message}
+        </p>
+      )}
+      <form
+        className="surface export-history-filters"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setSubmittedHistory(historyFilters);
+          setPage(1);
+        }}
+      >
+        <label>
+          Search
+          <input
+            value={historyFilters.search}
+            maxLength={100}
+            onChange={(event) =>
+              setHistoryFilters((current) => ({ ...current, search: event.target.value }))
+            }
+          />
+        </label>
+        <label>
+          Sort
+          <select
+            value={historyFilters.sort}
+            onChange={(event) =>
+              setHistoryFilters((current) => ({
+                ...current,
+                sort: sortSchema.parse(event.target.value),
+              }))
+            }
+          >
+            {sortSchema.options.map((value) => (
+              <option key={value} value={value}>
+                {sortLabels[value]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Direction
+          <select
+            value={historyFilters.direction}
+            onChange={(event) =>
+              setHistoryFilters((current) => ({
+                ...current,
+                direction: event.target.value === 'asc' ? 'asc' : 'desc',
+              }))
+            }
+          >
+            <option value="desc">Descending</option>
+            <option value="asc">Ascending</option>
+          </select>
+        </label>
+        <button className="button secondary" disabled={!online || exports.isFetching}>
+          <Search size={16} />
+          Apply
         </button>
       </form>
       <div className="export-history-controls">
@@ -468,11 +432,11 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
           disabled={!exports.data?.data.length || !visibleColumns.length || metadataCsv.isPending}
           onClick={() => metadataCsv.mutate()}
         >
-          Download visible metadata CSV
+          CSV
         </button>
         <details>
           <summary>
-            Metadata columns ({visibleColumns.length} of {exportMetadataColumns.length})
+            Columns ({visibleColumns.length} of {exportMetadataColumns.length})
           </summary>
           {exportMetadataColumns.map(([key, label]) => (
             <label key={key}>
@@ -491,174 +455,13 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
             </label>
           ))}
           <button className="button secondary" type="button" onClick={() => setHiddenColumns([])}>
-            Show all metadata columns
+            Show all columns
           </button>
         </details>
-      </div>
-      {metadataCsv.isError && <ErrorState error={metadataCsv.error} />}
-      {!online && <p role="status">Connect to request or download report files.</p>}
-      {stores.isError && <ErrorState error={stores.error} />}
-      {create.isError && <ErrorState error={create.error} />}
-      {create.isSuccess && (
-        <p className="operational-report-success" role="status">
-          Export requested. Its status appears below.
-        </p>
-      )}
-      {download.isError && <ErrorState error={download.error} />}
-      <div className="export-history-controls">
-        <label>
-          History
-          <select
-            aria-label="History"
-            value={origin}
-            onChange={(event) => {
-              setOrigin(event.target.value === 'legacy' ? 'legacy' : 'current');
-              setPage(1);
-            }}
-          >
-            <option value="current">Current exports</option>
-            <option value="legacy">Legacy exports</option>
-          </select>
-        </label>
         <span className="muted">{exports.data?.total || 0} export(s)</span>
       </div>
-      <form
-        className="surface export-history-filters"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setSubmittedHistory(historyFilters);
-          setPage(1);
-        }}
-      >
-        <label>
-          Activity
-          <select
-            value={historyFilters.period}
-            onChange={(event) =>
-              setHistoryFilters((current) => ({
-                ...current,
-                period: event.target.value === 'archive' ? 'archive' : 'recent',
-              }))
-            }
-          >
-            <option value="recent">Recent and pending</option>
-            <option value="archive">Archive</option>
-          </select>
-        </label>
-        {historyFilters.period === 'archive' && (
-          <>
-            <label>
-              Completed or failed from
-              <input
-                type="date"
-                required
-                value={historyFilters.from}
-                onChange={(event) =>
-                  setHistoryFilters((current) => ({ ...current, from: event.target.value }))
-                }
-              />
-            </label>
-            <label>
-              To
-              <input
-                type="date"
-                required
-                value={historyFilters.to}
-                min={historyFilters.from}
-                onChange={(event) =>
-                  setHistoryFilters((current) => ({ ...current, to: event.target.value }))
-                }
-              />
-            </label>
-          </>
-        )}
-        <label>
-          Search
-          <input
-            value={historyFilters.search}
-            maxLength={100}
-            onChange={(event) =>
-              setHistoryFilters((current) => ({ ...current, search: event.target.value }))
-            }
-          />
-        </label>
-        <label>
-          Sort
-          <select
-            value={historyFilters.sort}
-            onChange={(event) =>
-              setHistoryFilters((current) => ({
-                ...current,
-                sort: z
-                  .enum([
-                    'id',
-                    'kind',
-                    'period',
-                    'message',
-                    'format',
-                    'requested_at',
-                    'completed_at',
-                    'report_name',
-                    'status',
-                    'requested_by',
-                    'row_count',
-                    'byte_count',
-                  ])
-                  .parse(event.target.value),
-              }))
-            }
-          >
-            {[
-              ['id', 'ID'],
-              ['kind', 'Type'],
-              ['period', 'Period'],
-              ['message', 'Message'],
-              ['format', 'Format'],
-              ['requested_at', 'Requested'],
-              ['completed_at', 'Completed'],
-              ['report_name', 'Report name'],
-              ['status', 'Status'],
-              ['requested_by', 'Requested by'],
-              ['row_count', 'Rows'],
-              ['byte_count', 'Size'],
-            ].map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Direction
-          <select
-            value={historyFilters.direction}
-            onChange={(event) =>
-              setHistoryFilters((current) => ({
-                ...current,
-                direction: event.target.value === 'asc' ? 'asc' : 'desc',
-              }))
-            }
-          >
-            <option value="desc">Descending</option>
-            <option value="asc">Ascending</option>
-          </select>
-        </label>
-        <button className="button secondary" disabled={!online || exports.isFetching}>
-          <Search size={16} />
-          Apply
-        </button>
-      </form>
-      <p className="muted">
-        {submittedHistory.period === 'recent'
-          ? 'Recent activity includes pending work and exports completed or failed within 24 hours.'
-          : 'Archive shows completed and failed exports older than 24 hours in the selected range.'}
-      </p>
-      {origin === 'legacy' && (user.role !== 1 || user.userType !== 1) && (
-        <p className="muted">
-          Legacy files require an internal super administrator because their original store and
-          privacy permissions were not recorded.
-        </p>
-      )}
+      {metadataCsv.isError && <ErrorState error={metadataCsv.error} />}
+      {download.isError && <ErrorState error={download.error} />}
       {exports.isPending ? (
         <Loading />
       ) : exports.isError ? (
@@ -679,11 +482,11 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
               </thead>
               <tbody>
                 {exports.data.data.map((job) => (
-                  <tr key={`${job.origin}:${job.id}`}>
+                  <tr key={job.id}>
                     {visibleColumns.map(([key]) => (
                       <td key={key}>
                         {exportMetadataValue(job, key) ?? '—'}
-                        {key === 'reportName' && job.note && <small>{job.note}</small>}
+                        {key === 'status' && <small>{job.message}</small>}
                       </td>
                     ))}
                     <td>
@@ -691,7 +494,7 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
                         className="button secondary"
                         disabled={!online || !job.canDownload || download.isPending}
                         onClick={() => download.mutate(job)}
-                        aria-label={`Download ${job.reportName}`}
+                        aria-label={`Download export ${job.id}`}
                       >
                         <ArrowDownToLine size={16} />
                         Download

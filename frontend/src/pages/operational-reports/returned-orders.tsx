@@ -45,7 +45,6 @@ export function ReturnedOrdersPage({ user, storeId }: { user: Principal; storeId
       searchable
       requiresSelectedStores
       exportKind="returned-orders"
-      fullExport
     />
   );
 }

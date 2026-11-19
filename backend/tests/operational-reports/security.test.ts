@@ -5,6 +5,7 @@ import type { Databases } from '../../src/db/pools.js';
 import type { Principal } from '../../src/domain/access.js';
 import { AppError } from '../../src/domain/errors.js';
 import { registerOperationalReports } from '../../src/modules/operational-reports/index.js';
+import { recordingJobProducer } from '../../src/jobs/module-runtime.js';
 const config = readConfig({
     NODE_ENV: 'test',
     DEMO_MODE: 'true',
@@ -44,7 +45,7 @@ describe('operational report request boundaries', () => {
         .code(error instanceof AppError ? error.status : 400)
         .send({ code: error instanceof AppError ? error.code : 'INVALID_REQUEST' }),
     );
-    await registerOperationalReports(app, config, db);
+    await registerOperationalReports(app, config, db, { jobs: recordingJobProducer() });
     const orderInput = { from: '2026-11-16T00:00:00', to: '2026-11-16T23:59:59', storeIds: ['1'] };
     for (const input of [
       { ...orderInput, userType: 1 },
@@ -130,7 +131,7 @@ describe('operational report request boundaries', () => {
       ).statusCode,
     ).toBe(409);
     expect(
-      (await app.inject({ method: 'GET', url: '/api/v1/report-exports/invalid-uuid' })).statusCode,
+      (await app.inject({ method: 'GET', url: '/api/v1/report-exports/invalid/file' })).statusCode,
     ).toBe(401);
     const body = { from: '2026-11-16T00:00:00', to: '2026-11-16T23:59:59', storeIds: ['1'] };
     for (const payload of [

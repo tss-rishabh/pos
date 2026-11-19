@@ -245,3 +245,23 @@
   align-items: center;
   gap: 0.4rem;
 }
+.queued-export-request {
+  margin-bottom: 1rem;
+  padding: 1rem;
+}
+.queued-export-request summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.queued-export-request form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: end;
+  margin-top: 1rem;
+}
+.queued-export-request label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}

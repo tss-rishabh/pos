@@ -393,10 +393,11 @@ export async function buildApp(
   registerInvoiceDocuments(app, config, db);
   registerCustomerContacts(app, config, db, readCustomerContactOptions());
   await registerFinance(app, config, db, {
+    ephemeral: moduleRuntime.ephemeral,
     paymentCorrections,
     ...(config.DEMO_MODE ? { demoStores: services.catalog.stores } : {}),
   });
-  await registerOperationalReports(app, config, db);
+  await registerOperationalReports(app, config, db, { jobs: moduleRuntime.jobs });
   await registerCatalogDetails(app, config, db);
   registerSpecialPermissionHistory(app, config, db, readSpecialPermissionHistoryOptions());
   registerApplicationLinks(app, config, db);
