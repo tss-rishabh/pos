@@ -310,18 +310,6 @@ export const mutateCheckout = async (
   signal.throwIfAborted();
   return reply;
 };
-export const lookupCustomers = (
-  storeId: string,
-  counterId: string,
-  query: string,
-  operatorId: string,
-) =>
-  post(
-    `/api/v1/stores/${encodeURIComponent(storeId)}/customer-lookups`,
-    { query, counterId },
-    z.object({ data: z.array(customerSchema) }),
-    operatorId,
-  );
 export function authoritativeTotal(checkout: Checkout): string | null {
   const meta = checkout.quote?.meta;
   if (typeof meta !== 'object' || meta === null || !('items' in meta) || !Array.isArray(meta.items))
