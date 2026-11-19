@@ -292,10 +292,6 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       await connection.query(legacyFixtureTableSql(table));
     }
     await connection.query(
-      'ALTER TABLE product_store ADD UNIQUE KEY uq_product_store(product_id,store_id)',
-    );
-    await connection.query('ALTER TABLE deliverable_pincodes ADD KEY pincode(pincode)');
-    await connection.query(
       'ALTER TABLE pos_user MODIFY last_login DATETIME(6) NULL, MODIFY date_joined DATETIME(6) NOT NULL',
     );
     url.pathname = '/' + schemaName;

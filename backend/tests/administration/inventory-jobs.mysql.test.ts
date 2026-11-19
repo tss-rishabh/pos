@@ -186,10 +186,6 @@ describe.skipIf(!template)('inventory CSV and ecommerce jobs on isolated MySQL',
     await connection.query(`CREATE DATABASE ${mysql.escapeId(schema)}`);
     await connection.changeUser({ database: schema });
     for (const table of tables) await connection.query(legacyFixtureTableSql(table));
-    // Production DDL (`tests/golden/schema/production-schema.json`).
-    await connection.query(
-      'ALTER TABLE product_store ADD UNIQUE KEY uq_product_store(product_id,store_id)',
-    );
     db = createDatabases(config());
   });
   afterAll(async () => {
