@@ -20,6 +20,7 @@ import { productImage } from '../catalog.js';
 import { fulfillmentOrderFacts, type ExpressStatus } from './domain.js';
 import { lineSelection, linesToDto } from './service.js';
 import type { CheckInReader } from './checkin.js';
+import type { OrderRedis } from './order-redis.js';
 
 export const monitorTabs = {
   rejected: ['REJECTED', 'TIMED_OUT'],
@@ -179,6 +180,59 @@ function assemble(
     ];
   });
 }
+/** Legacy `Helpers.mask_name` (`helpers/helpers.py:2030-2034`), by code point as Python. */
+export function maskName(name: string) {
+  const chars = Array.from(name);
+  if (chars.length < 3) return '***';
+  return chars[0] + '*'.repeat(chars.length - 2) + chars.at(-1)!;
+}
+/**
+ * S24: customer names only for the operator's assigned or checked-in stores; role 1 sees every
+ * store, as the legacy all-stores role (`users/views.py:135-140`). Other stores get the legacy
+ * masked form.
+ */
+export interface MonitoringViewer {
+  role: number;
+  storeIds: readonly string[];
+  checkedInStore: string | null;
+}
+export function namesVisible(viewer: MonitoringViewer, storeId: string) {
+  return (
+    viewer.role === 1 || viewer.storeIds.includes(storeId) || viewer.checkedInStore === storeId
+  );
+}
+/**
+ * Legacy `request.session['hla_store_ids']` (`order/views.py:5409-5466`): the dashboard's
+ * store selection, kept per login session. `pos:hla_store_ids:{sessionId}` → JSON array of
+ * store ids, PX = the session's remaining lifetime.
+ */
+export const hlaStoreIdsKey = (sessionId: string) => `pos:hla_store_ids:${sessionId}`;
+export function monitoringSelection(redis: OrderRedis) {
+  return {
+    async read(sessionId: string | null): Promise<string[]> {
+      if (!sessionId) return [];
+      const raw = await redis.get(hlaStoreIdsKey(sessionId));
+      if (raw === null) return [];
+      try {
+        const parsed = z
+          .array(z.string().regex(/^\d{1,10}$/))
+          .max(5000)
+          .safeParse(JSON.parse(raw));
+        return parsed.success ? parsed.data : [];
+      } catch {
+        return [];
+      }
+    },
+    async save(sessionId: string | null, expiresAt: number | null, storeIds: readonly string[]) {
+      if (!sessionId) return;
+      const ttl = (expiresAt ?? 0) - Date.now();
+      if (ttl <= 0) return;
+      await redis.set(hlaStoreIdsKey(sessionId), JSON.stringify([...new Set(storeIds)]), {
+        PX: ttl,
+      });
+    },
+  };
+}
 export function fulfillmentMonitoring(
   config: Config,
   databases: Databases,
@@ -213,7 +267,7 @@ export function fulfillmentMonitoring(
       };
     },
     /** Legacy `hl_all_stores.get_tab_counts` + `get_orders` on the read replica. */
-    async read(input: MonitoringInput) {
+    async read(input: MonitoringInput, viewer: MonitoringViewer) {
       let from = input.from,
         to = input.to;
       if (from && to && Temporal.PlainDate.compare(from, to) > 0) [from, to] = [to, from];
@@ -339,7 +393,11 @@ export function fulfillmentMonitoring(
       }
       return {
         tabCounts: monitorCounts(counts),
-        data: assemble(pairs, lines, packed, clock(), config.BUSINESS_TIMEZONE),
+        data: assemble(pairs, lines, packed, clock(), config.BUSINESS_TIMEZONE).map((order) =>
+          namesVisible(viewer, order.storeId)
+            ? order
+            : { ...order, customerName: maskName(order.customerName) },
+        ),
         page,
         totalPages,
         total,
