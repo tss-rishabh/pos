@@ -26,6 +26,7 @@ const money = (value: bigint) => `${value / 100n}.${String(value % 100n).padStar
 export function FastCashCheckout({
   checkout,
   ownerId,
+  available = true,
   disabled,
   mutate,
   act,
@@ -35,6 +36,8 @@ export function FastCashCheckout({
 }: {
   checkout: Checkout;
   ownerId: string;
+  /** The sale is open for review; the trigger shows only then, an open dialog stays. */
+  available?: boolean;
   disabled: boolean;
   mutate: (
     path: string,
@@ -120,16 +123,18 @@ export function FastCashCheckout({
 
   return (
     <>
-      <button
-        type="button"
-        className="button secondary full"
-        data-cashier-action="fast-cash"
-        aria-keyshortcuts="F"
-        disabled={disabled || !hasLines || dialog !== null}
-        onClick={() => void act(open)}
-      >
-        Fast Cash
-      </button>
+      {(available || dialog !== null) && (
+        <button
+          type="button"
+          className="button secondary full"
+          data-cashier-action="fast-cash"
+          aria-keyshortcuts="F"
+          disabled={disabled || !hasLines || dialog !== null}
+          onClick={() => void act(open)}
+        >
+          Fast Cash
+        </button>
+      )}
       {dialog && (
         <div
           className="fast-cash-dialog"

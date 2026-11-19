@@ -1513,21 +1513,24 @@ export function CheckoutReview({
                 >
                   {checkout.phase === 'quoted' ? 'Refresh final quote' : 'Get final quote'}
                 </button>
-                <FastCashCheckout
-                  checkout={checkout}
-                  ownerId={draft.ownerId}
-                  disabled={disabled}
-                  mutate={mutate}
-                  act={act}
-                  onNotice={setNotice}
-                  onOrderCreated={onOrderCreated}
-                  onPaid={async (receipt) => {
-                    await adopt(await readCheckout(draft.storeId, checkout.id, draft.ownerId));
-                    completedCallback.current?.(receipt);
-                  }}
-                />
               </>
             )}
+            {/* Mounted outside the editable block: its own quote and order submission make the
+                sale briefly non-editable, which must not discard the open Fast Checkout dialog. */}
+            <FastCashCheckout
+              checkout={checkout}
+              ownerId={draft.ownerId}
+              available={editable}
+              disabled={disabled || !editable}
+              mutate={mutate}
+              act={act}
+              onNotice={setNotice}
+              onOrderCreated={onOrderCreated}
+              onPaid={async (receipt) => {
+                await adopt(await readCheckout(draft.storeId, checkout.id, draft.ownerId));
+                completedCallback.current?.(receipt);
+              }}
+            />
             <CheckoutCartLines
               checkout={checkout}
               disabled={disabled || !editable}
