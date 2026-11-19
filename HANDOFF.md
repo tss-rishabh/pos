@@ -1,296 +1,122 @@
-# POS rewrite handoff — 18 November 2026
+# POS rewrite handoff — 19 November 2026 (W18, Phase F)
 
-The user requested handoff, then explicitly requested merging all accumulated
-changes into main with documentation for each PR. Implementation is **unfinished**;
-do not deploy or claim complete source parity. Preserved WIP has now been brought
-onto PR2's integration branch for review; do not cherry-pick it again. Only bounded
-integration fixes/checks resumed after the handoff request. This document
-supersedes older CHECKPOINT.md status paragraphs; receipts remain historical.
-
-GitHub organization ruleset14992756 requires one approving review. PR1's merge
-attempt was rejected with REVIEW_REQUIRED. Repository auto-merge is disabled;
-no review bypass or ruleset change was made. Both PRs require an approving GitHub
-review before normal merges can complete. The current descriptions and
-docs/pull-requests files record their scope and validation limits.
+The single-stack, schema-frozen rewrite is integrated and has passed local verification on loopback.
+**It is not production-ready:** the release gate fails by design until every surface and requirement has
+evidence. This document replaces the 18 November handoff, which described the pre-freeze tree; that version
+is in git history at `e392040f`.
 
 ## Start here
 
-- Repository: https://github.com/thesouledstore-tss/pos
-- Draft PR: https://github.com/thesouledstore-tss/pos/pull/2
-- Main worktree: `/Users/rishabhbhatia/code/pos-rewrite`
-- Main branch: `feature/order-copy-history-integration`
-- Implementation head before this handoff document: `e9c65583c896bbb0df7023699af15a3562cab1d8`.
-- Original POS: `/Users/rishabhbhatia/code/backend-pos-web`, pinned
-  `78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`.
-- The integration branch contains the WIP content described below. Its old
-  branch/commit labels are provenance, not instructions to reapply patches.
-- Read this document, CHECKPOINT.md, backend/parity/source-surface-map.md,
-  backend/parity/coverage-ledger.json if present, and the relevant scoped parity
-  documents. Mapping a source surface is not proof that its behavior is complete.
+| Item | Value |
+|---|---|
+| Repository | https://github.com/thesouledstore-tss/pos (PR #2) |
+| Branch | `refactor/single-stack-schema-freeze` |
+| Worktree | `/Users/rishabhbhatia/code/pos-rewrite-single-stack` |
+| Integration merge | `8a7530aa` (W14) |
+| Verified head | `a2382b4e`: W18 mechanical test and tooling fixes on top of `8a7530aa`. Product code (`backend/src`, `frontend/src`, `frontend/electron`) is unchanged since `8a7530aa`; later commits change only documentation and evidence |
+| Legacy source | `backend-pos-web@78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`. `/Users/rishabhbhatia/code/backend-pos-web` is checked out at a different commit, but contains the pin; tools that need a checkout at the pin use a clone |
+| Node | `/Users/rishabhbhatia/.npm/_npx/c9870267d9e0f935/node_modules/node/bin` (v24) |
 
-The user's required work order is **finish all implementation first, then run
-full parity/testing**. Necessary focused checks may verify a real fix, but do not
-keep rerunning broad suites while known code gaps remain. Earlier updates were
-too broad; report concrete merged commits and actual remaining requirements.
+**Read in this order:**
+1. `AGENTS.md`: the mandate and every user decision.
+2. `backend/parity/w18-verification.md`: the current verification matrix and failures.
+3. `backend/parity/security-decisions.md`: S1–S57.
+4. `docs/pull-requests/pr-2-description.md`: the PR #2 text, a draft not yet pasted to GitHub.
+5. `docs/plans/single-stack-schema-freeze.md`: the plan and its phase status.
+6. The workstream reports, `backend/parity/w2-followups.md` and `w3`–`w17-report.md`.
 
-## Required outcome and retained decisions
+## What the tree is now
 
-Separate TypeScript backend/frontend under this repository; Node24 LTS, React
-with Electron for web and Windows/macOS desktop, ORM queries, proper state,
-offline-first support, Google OIDC authorization-code/PKCE, strict input
-validation and no TypeScript `any`. Improve measured performance, preserve every
-reachable source feature, use readable/reusable code and meaningful endpoint names.
+- **Storage.** Production tables only: 119-table snapshot `backend/tests/golden/schema/production-schema.json`,
+  Drizzle 0 mismatches. Ephemeral state goes in Redis under legacy key names where legacy has them, otherwise
+  `pos:` keys. The ledger is `backend/parity/table-disposition.md`.
+- **Jobs.** One Redis job queue and worker (`backend/src/jobs`, `npm run worker:jobs`) for the legacy Celery tasks
+  and threads, plus gift-card batch generation.
+- **Order submission.** API-v2 `pos/order`, exactly as legacy calls it.
+- **Sign-in.** Password plus OTP/TOTP only; SSO is deleted.
+- **Desktop offline billing.** Encrypted SQLite in the Electron main process. Limits come from
+  `OFFLINE_BILLING_MAX_MINUTES` / `OFFLINE_BILLING_MAX_ORDERS`. The provisional reference is stored as a
+  `comments` row.
+- **Removed.** Screening, compatibility patches, cash-return intents, demo mode, CSV order import, SSO,
+  groups/permissions admin, all `pos_rewrite_*` tables and migrations, and all Python/Go/PHP.
 
-Interactive reads use PRIMARY, current daily reports use DATA, and older facts
-use qualified BigQuery publications. Current writer authority reads are distinct
-from historical financial facts. Never fall back to MySQL for missing historical
-facts or manufacture complete warehouse publications.
+## Verification state (W18)
 
-Logs must exclude customer PII, secrets, tokens, payloads and sensitive SQL
-values. Retain module/resource/event ID, request ID, user ID and event-instance
-traceability. This is desktop, not a mobile app. The earlier localhost4273
-preview was explicitly closed; do not reopen it without a new request.
+Every check below ran on loopback: a private MySQL 8.4.11 with `sql_mode=''` and private Redis servers, all since
+stopped. Nothing connected to production.
 
-Approved business decisions already implemented or recorded:
+| Check | Result |
+|---|---|
+| Static (`tsc` ×3, `eslint` ×2) | All clean |
+| Backend vitest, all MySQL gates | 1187 passed, 0 failed, 17 skipped (live suite gated) |
+| ORM metadata / route validation / log redaction | 0 mismatches / 335 of 335 routes / 4 of 4 |
+| Frontend vitest with browser gates | 408 of 409 passed (1 flaky) |
+| Playwright web e2e | 41 of 41 passed |
+| Electron offline billing | 12 of 12 passed on the rerun (the first run had 1 failure and 1 not run) |
+| Builds | Backend, frontend and the unsigned macOS package all build |
+| Container images and smoke | Both images build; smoke 10 of 10 |
+| `verify-project.ts --mysql --browser --release` | Run 2: 81 of 85 checks passed, 3 stale browser harnesses failed, and the gate failed. Evidence: `backend/evidence/verification-a2382b4e-single-stack.json` |
+| Integrity and credential greps | Clean |
+| Live read-only production (primary agent, run 4) | 16 of 16 paths; schema 99 of 99 exact |
+| Release gate | Fails: 396 surfaces and 12 requirements pending |
 
-- Offline cash sales complete with receipts from cached stock; reconcile
-  conflicts to a manager after reconnecting.
-- Correct duplicate-SKU per-line refunds, preserve cashback on Money changes,
-  and fix approved Points ledger bindings.
-- Preserve exact voucher paise and original earning expiry on cancellation.
-- Archive stores/operators and revoke access while retaining financial IDs.
-- Pause inconsistent CSV tenders for manager correction.
-- Use calendar-date ordering for payment-failure restoration, but retain the
-  source's extra Points history entry when restoring Money, as explicitly requested.
+W18 made only mechanical fixes, each in its own commit:
 
-## Integrated work most relevant to resuming
+| Commit | Fix |
+|---|---|
+| `7466be6f` | A stale `rewriteMigrations` reference |
+| `7d2976d8` | Tuple typing in a test |
+| `a3618584` | Tuple typing in a test |
+| `c243cf37` | Tuple typing in a test |
+| `5d0bf44f` | Removed verifier checks for deleted files |
+| `f600dd54` | Forwarded `E2E_MYSQL_URL` to the verifier's Playwright check |
+| `a2382b4e` | Removed the deleted local-delivery browser fixtures from the verifier |
 
-| Main commit | Change |
-| --- | --- |
-| `426b597` | Authorized N/HL/HE detail reads; current product/customer dimensions remain separate from immutable financial facts. |
-| `1947373`, `b519cf1`, `4a83b66` | Reloadable operator/store/counter/order/line return links and guarded super-admin override. |
-| `57225d9`, `7ec52eb` | Genuine paid N full/SDD invoices, explicit global access, native financial/issuer/history proof and detail callsite. |
-| `9a89415`, `3ed2a9c`, `5cd4fc9` | Actual-App configured default store operators, exact contact tokens, source blank Slack creation default. |
-| `23c3c52` | Exact barcode endpoint including alternate GTINs and wide IDs; current authority/session checks. |
-| `c0675f6` | Stale-scan protection, scoped durable offline aliases via additive IndexedDB v10, safe product/troubleshoot links. |
-| `bcc19d2` | Buffered direct quantity editing, preserving blank edits and explicit zero/removal. |
-| `3d06ef0`, `0129219` | Eligibility, recovery discovery/claim/adoption, original counter preservation and complete duplicate-SKU restoration conservation proofs. |
-| `e9c6558` | Backend read-only quoteDisplay projection and configurable cashback credit message; frontend completion is WIP. |
-| `1ae7710`, `4bd392e` | Full-verifier registration for actual native online detail/browser and counter barcode source/browser targets. |
+## Open items
 
-Other existing modules include checkout/payment/refund/financial recovery,
-inventory/administration, reporting, imports, coupons/vouchers/benefits,
-fulfillment, notifications, offline cash and desktop packaging. Their presence
-does not establish all-feature acceptance; follow the source inventory and evidence.
+1. **Release requirements.** All 12 are pending in `backend/parity/release-coverage.json`, and `sso-integration` is
+   obsolete. Decide whether to remove that id from `backend/src/domain/release.ts`.
+2. **E2E console errors and failed requests.** These need owners; the list is in `w18-verification.md` §3.
+   - pre-login 401 probes
+   - 403 notifications for a store the operator is not checked into
+   - invoice sandbox "Blocked script execution"
+   - unmocked wallet-spec requests
+   - logout `GET /stores` 401
+3. **Flaky tests.**
+   - The admin profile-image browser test: `private-images.tsx` sets "Image saved." while the busy status is still
+     rendered.
+   - The desktop O10 "page closed" failure: not reproduced, cause unconfirmed.
+4. **Stale `remaining_code` entries.** Several entries in `backend/tools/parity/source-surface-families.json` describe
+   work completed later (`w18-verification.md` §6). They need an owner review.
+5. **Missing legacy evidence.** The administration forms workflow (24 cases) and the browser halves of the native
+   workflows (`w15-report.md`).
+6. **No live or sandbox evidence** for writes, BigQuery reports, providers, `pos_stock_syncer*` or `worker:jobs`.
+7. **Stale browser harnesses.** Three standalone mocked-API harnesses, `frontend/tests/{order-search,order-history,reports}/browser-check.mjs`, predate the W5, W8 and W12 contract changes and fail in `verify-project` (`w18-verification.md` §4). They need re-authoring. Until then the verifier stops before its Playwright stage.
+8. **Undocumented environment.** `OFFLINE_BILLING_*` is not in `backend/.env.example`.
 
-## Immediate unfinished implementation
+## External prerequisites
 
-### 1. Checkout quote summary and complementary-product removal integration
+- API-v2 app credentials `API_V2_APP_ID`/`API_V2_APP_KEY`.
+- Provider sandbox credentials.
+- Apple signing and notarisation (plus a Windows Authenticode certificate and an app icon).
+- Production Redis with `noeviction`, over TLS, on database 0.
+- Staff must sign in again at cut-over.
+- Payment mode 1001 active (it already is).
+- `OFFLINE_BILLING_*` env.
+- Rotate the read-only MySQL password.
 
-Preserved **unverified** commit `ad6f1a1` on `fix/counter-scan-bindings`.
-Worktree: `/Users/rishabhbhatia/code/pos-rewrite-counter-scan`.
+## Re-running
 
-It adds CartQuoteSummary, CheckoutCartLines, typed quote-summary parsing, a
-CheckoutReview mount and complementary Remove using existing PUT
-`line-items/:productId` with quantity0. Backend changeLine already dispatches
-deleteCartPayload for quantity0, including complementary-only SKUs; it does not
-substitute setproduct. Draft synchronization and quote invalidation must remain.
+The exact commands, ports and environment for each check are in `backend/parity/w18-verification.md` §7.
+- **Live read-only suite.** Primary agent only, with `POS_PROD_RO_MYSQL_URL` from the environment; see
+  `backend/parity/live-readonly.md`.
+- **Evidence files.** Never overwrite one. `verification-caba871-r9.json`, `verification.json` and
+  `container-smoke.json` are historical; new runs go in new files.
 
-The original WIP was integrated as8f9495b. Follow-up f6e7d45 adds its browser
-runner and scoped documentation: four unit and seven controlled-browser cases,
-main/focused frontend strict, changed lint and production build passed on the
-recorded integration graph. This is not joined native/provider or full-template
-acceptance. The source control inventory and final full regression remain pending.
-The new exchange eligibility/recovery reads also required an E2E fixture repair
-e1c26a6; the original full-App exchange scenario passes locally afterward.
+## Standing rules
 
-Source anchors: create_order.html450–547 calculations and Cart Details;
-complementary controls165–174 and rebuilt1601; remove handler2583.
-Cashback is gated by discount_eligibility, not an invented show_app_cashback flag.
-Use fresh version/customer-matched existing customer-benefits app.discountEligible.
-
-Backend `state.quoteDisplay` is optional and contains:
-
-```
-nonCouponDiscount: string | null
-totalBeforeRounding: string | null
-cashbackCreditMessage: string
-```
-
-It derives only total_savings−coupon_discount and total+rounding_off using exact
-decimal source values; it never changes official payable/quote/payment state.
-Missing/malformed inputs return null, never a made-up zero. Raw quote metadata
-already reaches the frontend through publicCart. Config CASHBACK_CREDIT_MESSAGE
-defaults to the pinned source text and preserves explicit empty text. Nine
-projection checks, changed lint and backend strict pass. The first config test
-needed isolated demo config; the first strict attempt needed Decimal's named
-import. Both were corrected; no full regression ran afterward.
-
-### 2. Lost recovery-claim response and renewed customer proof
-
-Preserved **unverified** `50e2129` on `fix/source-online-order-details`.
-Worktree: `/tmp/pos-online-order-detail-fix-20261118`.
-
-Known bug in integrated3d06: pending claim originally retained no original
-proof/counter; the Check original action replayed POST and could clear an unknown
-outcome on409 after proof renewal. WIP adds an immutable claim receipt table and
-read-only exact-claim GET, current actor/check-in/fresh customer-proof checks,
-atomic receipt insertion, original pending fields and an explicit renewal path.
-It retains receipts after later authority handoffs. Receipt fields are only
-identifiers/hashes/result UUID, not provider/customer payloads.
-
-New migration: return-workflow/recovery-claims-migration.sql, registered after
-0004_returns in backend/src/db/migrations.ts. **Do not deploy/apply it live.**
-Original WIP was integrated as871ee3f; validation follow-up9640c75 now loads
-the migration in its native fixture and tests IDEMPOTENCY_CONFLICT. Four focused
-native cases cover recorded/not-recorded, original-proof expiry→renewal,
-native actor/check-in refusal and later handoff receipt retention;23 client/entry
-checks, backend/frontend strict, changed lint and production build pass on the
-recorded isolated integration graph. See
-backend/parity/online-exchange-recovery-claims.md for actual seams and retained
-setup failure. Joined browser renewal/provider and final full acceptance remain
-separate; do not call the whole legacy template certified.
-
-Also **not implemented**: source `_return_exchange_cells.html` suppresses NEW
-exchange for current Product.prod_type8, while failed-exchange recovery precedes
-that branch and stays allowed. Add the narrow new-selection/eligibility guard and
-reason while preserving retry/adoption. Do not apply a blanket type8 recovery ban.
-
-Verified group delivery0129219 already supports complete exchange-only duplicate
-SKU restoration groups with separate saleable/held conservation, immutable
-certificate/recheck and explicit requalification when a legitimate group expands.
-Incomplete/mixed/unassigned/surplus facts still refuse safely; do not invent
-restoration or replay an old return. Native stock/provider handover acceptance
-remains external, not implied by the fixture.
-
-### 3. Administration four-route source/App proof
-
-Preserved **WIP proof** `5a0da2e` on
-`proof/administration-forms-current-20261118`.
-Worktree: `/tmp/pos-administration-forms-workflow-20261118`.
-
-Nine files under backend/tools/administration/forms-workflow and corresponding
-frontend/tests. See its README for the owned fixture command. Full24-case target
-was interrupted for this requested handoff after11 completed operator cases;
-**not a full pass**. Its owned runner performed normal exact cleanup. No final
-r4 success receipt exists. Artifacts: `/tmp/pos-forms-workflow-evidence-20261118`.
-
-- r1/r2 failed and remain retained.
-- Source create persists blank stores.slack_group_url as empty string; candidate
-  inserted NULL. Narrow create-only fix5cd4fc9 is integrated.
-- r3 diagnostic exactly repeated the first store case:1/1 source Django→actual
-  built routed App/native cookie→physical-table equality passed.
-- Ordinary baseline stores now use source-created empty Slack strings. An
-  additional explicit NULL-edit exception retains the rewrite's existing secure
-  blank-update preservation and verifies both representations show disconnected.
-  Do not normalize ordinary comparisons or relabel the exception as source equality.
-- Full source classes/forms/decorators/child templates execute, but unrelated
-  base chrome is explicitly substituted. This is not whole-layout admission.
-- Runner currently documents a Python3.12.15 environment; source deployment is
-  CPython3.10. Qualify runtime-sensitive comparisons before broader claims.
-
-### 4. Joined historical order/source/SDK proof and final coverage review
-
-Preserved **unexecuted authoring** `c8bd5a4` on `proof/order-discovery-native-ui`.
-Worktree: `/tmp/pos-order-discovery-native-ui-20261118`.
-
-Official BigQuery SDK fixture transport/private proxy with bounded synthetic
-literal SELECT publications was planned, not executed or accepted. Do not claim
-real warehouse acceptance from contract-port tests. New rich detail requires
-its own complete online-detail publication; old search/public-order v1 facts
-are insufficient. No live dataset DDL or old-fact MySQL fallback is permitted.
-
-Checkout's complete reachable-control inventory was still being closed when
-the user requested handoff. Useful local scratch inventories:
-`/tmp/pos-checkout-action-source-controls.txt`,
-`/tmp/pos-checkout-action-source-bindings.txt`,
-`/tmp/pos-checkout-rewrite-bindings.txt`.
-The source map now records the remaining type8 guard and unfinished complete
-checkout-control inventory. Do not declare zero missing features solely because
-all routes have module mappings.
-
-## Actual validation state
-
-Last full verifier r9 is **FAILED**, frozen at
-`caba871773b55009d4fe21b20305cd2653824d5d`:
-
-- 163 expected checks;162 executed;157 passed;5 failed;1 generic browser check not run.
-- Backend inside that run:2722 passed,90 skipped,1 failed.
-- Raw report: backend/evidence/verification-caba871-r9.json, SHA256
-  `3ff9a11ceaae72fd51e84937fb1b4b8cdcb7e2b9aa8ab293bcd2537991c676fd`.
-- Canonical verification.json retains that failed report. Never overwrite or
-  relabel it as testing newer code.
-- Five failures have passing scoped corrections: deployment-Python oracle,
-  reminder/release-note navigation clocks, and stale order-history/payment
-  default-metadata fixtures. A fresh full run still has not proved them together.
-- Frozen checkout `/Users/rishabhbhatia/code/pos-rewrite-validation-20261118-r9`
-  and private run `/tmp/pos-rewrite-validation-20261118-r9` remain preserved.
-  Full runner is terminal; its exact container and volume are absent. Do not restart it.
-
-Windows and macOS CI44344235142 passed exact historical4f30e87, including unsigned
-packaging/recovery. See backend/evidence/desktop-ci-4f30e87.json. Later features
-are not covered by it. Hosted CI triggered by newer pushes may still be running;
-inspect GitHub rather than inferring a result. Signing/physical printing remain unaccepted.
-
-All396 inventoried source declarations currently await final admission; all12
-release requirements remain unaccepted. Existing scoped tests/receipts are useful
-evidence with explicit seams, not complete production certification.
-
-## Safe continuation and external dependencies
-
-Use Semble first for code discovery, then read returned files. Preserve source
-pins, failures, deadlines, assertions, and exact tested input hashes. Never
-rehash an old receipt to pretend it executed new code.
-
-An owned mitigated dependency checkout is available at
-`/Users/rishabhbhatia/code/pos-rewrite-validation-20261118-corrections`.
-It contains copies used for the last quote projection; compare its dirty files
-to committed main before clearing anything. Do not reset another worktree blindly.
-Original/shared node_modules and Python environments were intentionally untouched.
-Both packages have a reviewed local picomatch mitigation tarball; it is not an
-official patched release or a claim of zero dev advisories. Production dependency
-audit was previously clean, but security acceptance is not complete.
-
-Known Node24 executable on this machine:
-`/Users/rishabhbhatia/.npm/_npx/c9870267d9e0f935/node_modules/node/bin/node`.
-Source order oracles now use cached offline CPython3.10/Django4.2.5/PyMySQL1.1.1
-via backend/tools/order-search/run-oracle.sh. Operational oracles use an owned
-CPython3.10 workbook environment or POS_OPERATIONAL_SOURCE_PYTHON. Do not use
-ambient Python3.14 float-sum behavior as the deployed source oracle.
-
-After implementation is complete, freeze a new owned checkout and run the
-registered full verifier with Node24:
-
-```
-cd backend
-npm run verify:project -- --mysql --browser --release
-```
-
-This requires an explicitly owned loopback MySQL fixture via POS_VERIFY_MYSQL_URL,
-copied private Python/Go oracle dependencies and pinned source roots. Reuse the
-documented r9 owned runner setup as a template, not its frozen checkout/process.
-The verifier sanitizes environment and must never inherit live credentials.
-Other-origin source/cache prerequisites are documented in
-backend/tools/other-origin-verification/README.md and CHECKPOINT.md. Do not skip
-registered phases to obtain a green headline.
-
-External acceptance still includes Google client/callback/tenant configuration,
-complete curated BigQuery/CDC publications, actual financial providers/SDD
-renderer, current shared stock writer/procedure contract, background workers,
-representative performance/security review, physical offline reconciliation and
-printing, signed Windows/macOS installers/upgrades and deployment/rollback.
-
-Google issuer is accounts.google.com; reference repo service is
-tss-fullstack-admin/apps/web/app/services/auth/oauth_service.ts. BigQuery reader
-key remains local at `/Users/rishabhbhatia/Downloads/reports-bigquery-reader.json`;
-project tssgcp2025, raw dataset tss_mysql_raw_layer, location asia-south1. Access is
-strictly read-only data plus bounded query jobs. Never print/copy the key or
-credentials. Supplied live MySQL access was read-only; current pos_stock_syncer
-was absent on inspected reader/writer. Old backup self-commits and is not an
-accepted atomic writer contract. Do not make live calls/writes or invent it.
-
-The OpenObserve inspection request was explicitly cancelled. Do not resume it.
-AWS access was authorized for relevant inspection, not arbitrary deployment.
-Do not send messages, charge providers, deploy, run live financial writes or
-apply production DDL. Repository merges are explicitly authorized by the user's
-later request, subject to GitHub's actual approval requirements.
+- Never connect to production, except the primary agent's live read-only suite.
+- Never write to live services.
+- Never add schema.
+- Keep the release gate failing until the evidence exists.
+- Do not claim production readiness.

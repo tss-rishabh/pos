@@ -1,5 +1,33 @@
 # POS rewrite checkpoint
 
+## Single-stack Phase F verification — 19 November 2026 (W18)
+
+This section supersedes everything below. The sections below describe the pre-freeze tree: Google OIDC,
+`pos_rewrite_*` tables, Python/Go oracles, IndexedDB offline cash and demo mode, all since deleted. They remain
+as history only.
+
+- **Branch.** `refactor/single-stack-schema-freeze`. Integration merge `8a7530aa` (W2–W17); verified head
+  `a2382b4e` (product code unchanged since `8a7530aa`).
+- **Decisions.** `AGENTS.md`, 18–19 November: schema freeze, Node/TS only, removed features, desktop offline
+  billing, and the module decisions. Security decisions S1–S57 are in `backend/parity/security-decisions.md`.
+- **Verification.** All local verification ran on loopback; full matrix in `backend/parity/w18-verification.md`.
+  - Static checks are clean.
+  - Backend vitest with every MySQL gate: 1187 passed, 0 failed, 17 gated-live skipped.
+  - ORM 0 mismatches; route validation 335/335.
+  - Frontend vitest with browser gates: 408/409 (1 flaky).
+  - Playwright web: 41/41.
+  - Electron offline billing: 12/12 on the rerun (first run 10 passed, 1 failed, 1 not run).
+  - Builds and the unsigned macOS package pass; container smoke 10/10.
+  - `verify-project --mysql --browser --release` run 2 (`a2382b4e`): 81 of 85 checks passed, 3 stale mocked-API browser harnesses failed, and the release gate failed.
+- **Live read-only (primary agent).** `backend/evidence/live-readonly-2026-11-19-r4.json`: 16/16 paths, schema 99/99
+  exact, 0 locks.
+- **Release gate.** Fails: 396 surfaces and 12 requirements pending. No production readiness is claimed.
+- **Evidence.** New evidence is `backend/evidence/verification-a2382b4e-single-stack.json`,
+  `verification-f600dd54-single-stack.json` and
+  `backend/evidence/container-smoke-f600dd54-single-stack.json`. Historical evidence, including
+  `verification-caba871-r9.json`, is unchanged.
+- **Next steps.** See `HANDOFF.md`, "Open items" and "External prerequisites".
+
 ## Handoff and requested main integration — 18 November 2026
 
 The user requested a handoff, then explicitly asked to merge all accumulated
