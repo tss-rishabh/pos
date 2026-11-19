@@ -230,12 +230,15 @@ export function catalogService(databases: Databases) {
                 .$dynamic()
             : reader
                 .select({
-                  // `INDEX(...)` is the optimizer-hint form of FORCE INDEX (MySQL 8.0.20+): the
-                  // same plan where the index exists, but a missing index name is only a
-                  // warning (the optimizer then plans freely) instead of ER_KEY_DOES_NOT_EXITS,
-                  // which took down the counter catalogue and offline billing on a schema
-                  // without it (W26, UAT).
-                  id: sql<bigint>`/*+ JOIN_ORDER(product_store, products) INDEX(product_store idx_store_id_stock_is_avail_is_del) */ ${Product.id}`.as(
+                  // `INDEX(...)` is the optimizer-hint form of FORCE INDEX (MySQL 8.0.20+). A
+                  // missing index name is only warning 3128, not ER_KEY_DOES_NOT_EXITS, which
+                  // took down the counter catalogue and offline billing on a schema without
+                  // `idx_store_id_stock_is_avail_is_del` (W26, UAT). Where it exists the plan is
+                  // the former FORCE INDEX range (proved on the production-shaped fixture).
+                  // Without that index, NO_INDEX_MERGE keeps the fallback on the plain store_id
+                  // ref (~0.45 s on UAT) instead of a store_id/is_avail/is_del intersection
+                  // (2.9 s, 10 s timeouts under load); it changes nothing when the index exists.
+                  id: sql<bigint>`/*+ JOIN_ORDER(product_store, products) INDEX(product_store idx_store_id_stock_is_avail_is_del) NO_INDEX_MERGE(product_store store_id, is_avail, is_del) */ ${Product.id}`.as(
                     'page_id',
                   ),
                 })

@@ -170,7 +170,10 @@ describe.skipIf(!template)('in-stock catalog page: INDEX optimizer hint (W26)', 
   }
   /** The same statement as before W26: FORCE INDEX on the derived page's product_store. */
   const forceIndexForm = (text: string) => {
-    const hinted = text.replace(` INDEX(product_store ${INDEX})`, '');
+    const hinted = text.replace(
+      ` INDEX(product_store ${INDEX}) NO_INDEX_MERGE(product_store store_id, is_avail, is_del)`,
+      '',
+    );
     expect(hinted).not.toBe(text);
     const forced = hinted.replace(
       /(\/\*\+ JOIN_ORDER\(product_store, products\) \*\/[\s\S]*?from `product_store`)/,
@@ -186,7 +189,7 @@ describe.skipIf(!template)('in-stock catalog page: INDEX optimizer hint (W26)', 
     expect(withIndex[0]!.data.length).toBeGreaterThan(5);
     statements.length = 0;
     await catalogService(capturing).products(user, '1', '', '0', 20, false);
-    const page = statements.find((entry) => entry.sql.includes(`INDEX(product_store ${INDEX})`));
+    const page = statements.find((entry) => entry.sql.includes(`INDEX(product_store ${INDEX}`));
     expect(page, 'the in-stock page statement carries the INDEX hint').toBeDefined();
     const hinted = await explain(page!);
     const forced = await explain({ sql: forceIndexForm(page!.sql), params: page!.params });
@@ -203,12 +206,18 @@ describe.skipIf(!template)('in-stock catalog page: INDEX optimizer hint (W26)', 
       expect(await pages()).toStrictEqual(withIndex);
       statements.length = 0;
       await catalogService(capturing).products(user, '1', '', '0', 20, false);
-      const page = statements.find((entry) => entry.sql.includes(`INDEX(product_store ${INDEX})`))!;
+      const page = statements.find((entry) => entry.sql.includes(`INDEX(product_store ${INDEX}`))!;
       const hinted = await explain(page);
       expect(hinted.tables.find((table) => table.table_name === 'product_store')?.key).not.toBe(
         INDEX,
       );
       expect(hinted.warnings.map((warning) => warning.Level)).toContain('Warning');
+      // The fallback stays a plain store_id ref, never an index-merge intersection.
+      expect(
+        hinted.tables
+          .filter((table) => table.table_name === 'product_store')
+          .map((t) => t.access_type),
+      ).not.toContain('index_merge');
       // The pre-W26 statement fails on this schema (what UAT showed).
       await expect(connection.query(forceIndexForm(page.sql), page.params)).rejects.toMatchObject({
         code: 'ER_KEY_DOES_NOT_EXITS',
