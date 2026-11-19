@@ -5,6 +5,7 @@ import { AppError } from '../../domain/errors.js';
 import { identifier } from '../../domain/validation.js';
 import type { OrdersService } from '../orders.js';
 import { orderListQuery } from './contracts.js';
+import { auditCrossStoreLookup } from './audit.js';
 
 /** `cr` is the legacy cross-store flag; `from`/`to` from older links are accepted and ignored. */
 const detailQuery = z
@@ -54,6 +55,11 @@ export function registerPublicOrders(app: FastifyInstance, orders: OrdersService
       );
       const result = await orders.detail(user, params.storeId, params.orderId, { crossAccess });
       await assertSessionCurrent(request);
+      if (crossAccess)
+        auditCrossStoreLookup(request, 'order-detail', {
+          storeId: params.storeId,
+          orderId: params.orderId,
+        });
       // Preserve driver IDs exactly in both live and synthetic review responses.
       return JSON.parse(
         JSON.stringify(result, (_key, value: unknown) =>

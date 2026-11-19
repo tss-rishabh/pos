@@ -7,6 +7,7 @@ import { AppError } from '../../../domain/errors.js';
 import { positiveId } from '../contracts.js';
 import { orderSearchInput } from './contracts.js';
 import { orderSearchService } from './service.js';
+import { auditCrossStoreLookup } from '../audit.js';
 export { orderSearchService } from './service.js';
 export { orderSearchInput } from './contracts.js';
 export type OrderSearchService = ReturnType<typeof orderSearchService>;
@@ -33,7 +34,16 @@ export async function registerOrderSearch(
     const { storeId } = params.parse(request.params);
     empty.parse(request.query);
     const input = orderSearchInput.parse(request.body);
-    return checked(request, () => service.search(authenticated(request), storeId, input));
+    const result = await checked(request, () =>
+      service.search(authenticated(request), storeId, input),
+    );
+    // Explicit order IDs reach any store, as the legacy cross-store lookup (S24).
+    if (input.orderIds.length)
+      auditCrossStoreLookup(request, 'order-search', {
+        storeId,
+        orderCount: input.orderIds.length,
+      });
+    return result;
   });
   app.get(
     '/api/v1/stores/:storeId/order-search-options',

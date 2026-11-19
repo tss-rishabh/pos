@@ -9,6 +9,7 @@ import { invoiceDocumentScope, invoiceKind } from './contracts.js';
 import { invoiceDocumentOptions, type InvoiceDocumentOptions } from './options.js';
 import { invoiceDocumentService } from './service.js';
 import { invoicePreviewScope, invoicePreviewHtml, invoicePreviewPolicy } from './presentation.js';
+import { auditCrossStoreLookup } from '../order-history/audit.js';
 
 /** Legacy `store|online|online_sdd/<order_id>/invoice/` (`order/urls.py:13-15`). */
 export function registerInvoiceDocuments(
@@ -84,6 +85,11 @@ export function registerInvoiceDocuments(
         scope.kind,
       );
       await assertCurrentSession(request);
+      if (scope.access)
+        auditCrossStoreLookup(request, 'invoice', {
+          storeId: scope.storeId,
+          orderId: scope.orderId,
+        });
       return reply
         .header('Cache-Control', 'no-store')
         .header('Pragma', 'no-cache')
@@ -113,8 +119,14 @@ export function registerInvoiceDocuments(
     async (request, reply) => {
       const user = operator(request);
       const kind = invoiceKind.parse((request.params as { kind?: unknown }).kind);
-      const document = await service.document(user, selection(request), kind);
+      const scope = selection(request),
+        document = await service.document(user, scope, kind);
       await assertCurrentSession(request);
+      if (scope.access)
+        auditCrossStoreLookup(request, 'invoice', {
+          storeId: scope.storeId,
+          orderId: scope.orderId,
+        });
       return reply
         .header('Cache-Control', 'no-store')
         .header('Pragma', 'no-cache')

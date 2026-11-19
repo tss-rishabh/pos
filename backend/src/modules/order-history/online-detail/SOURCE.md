@@ -7,7 +7,6 @@
 > `hl_cancel_reason`, `target_user_list` membership, `eligible_stores`, `sdd_invoice`, express
 > pending flags) is returned as `context` (`context.ts`).
 
-
 Pinned source: `78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`, `order/views.py:504` and `order/templates/order/online/show.html`.
 
 Read groups to preserve:
