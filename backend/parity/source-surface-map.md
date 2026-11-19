@@ -36,10 +36,10 @@ Mapped surfaces: `stores/urls.py:8` (implementation_present), `stores/urls.py:9`
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `frontend/src/pages/administration/stores.tsx:18` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
+| `frontend/src/pages/administration/stores.tsx:19` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
 | `frontend/src/pages/administration/collection-table.tsx:79` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
 | `backend/src/modules/administration/store-detail-routes.ts:15` | Actual selected-store detail/PNG endpoints recheck current native scope and encode only the exact static public marketing URL, not a login/application capability. |
-| `frontend/src/pages/administration/stores.tsx:169` | Actual store row opens its selected-store detail/marketing QR action; checked-in application handoff remains separate. |
+| `frontend/src/pages/administration/stores.tsx:170` | Actual store row opens its selected-store detail/marketing QR action; checked-in application handoff remains separate. |
 
 ### storage
 
@@ -47,7 +47,7 @@ Mapped surfaces: `stores/urls.py:21` (implementation_present), `stores/urls.py:2
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `frontend/src/pages/administration/store-resources.tsx:35` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
+| `frontend/src/pages/administration/store-resources.tsx:36` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
 | `frontend/src/pages/administration/collection-table.tsx:79` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
 
 ### counters
@@ -56,7 +56,7 @@ Mapped surfaces: `stores/urls.py:31` (implementation_present), `stores/urls.py:3
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `frontend/src/pages/administration/store-resources.tsx:35` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
+| `frontend/src/pages/administration/store-resources.tsx:36` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
 | `frontend/src/pages/administration/collection-table.tsx:79` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
 
 ### salespeople
@@ -65,7 +65,7 @@ Mapped surfaces: `core/urls.py:53` (implementation_present), `core/urls.py:54` (
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `frontend/src/pages/administration/people.tsx:364` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
+| `frontend/src/pages/administration/people.tsx:365` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
 | `frontend/src/pages/administration/collection-table.tsx:79` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
 
 ### operators
@@ -74,7 +74,7 @@ Mapped surfaces: `users/urls.py:14` (implementation_present), `users/urls.py:15`
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `frontend/src/pages/administration/people.tsx:91` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
+| `frontend/src/pages/administration/people.tsx:92` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
 | `frontend/src/pages/administration/collection-table.tsx:79` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
 
 ### terminals
@@ -85,7 +85,7 @@ Mapped surfaces: `core/urls.py:131` (implementation_present), `core/urls.py:132`
 | --- | --- |
 | `backend/src/modules/administration/index.ts:140` | Actual administration registrar mounts the credential-free EDC directory. |
 | `backend/src/modules/administration/terminal-directory.ts:28` | Pine/Paytm union applies fresh role/current assigned-store authority, finite provider/search/sort and bounded primary paging; credential fields are not selected. |
-| `frontend/src/pages/administration/terminal-directory.tsx:58` | Actual provider directory offers nonsecret columns, visibility/page choices and page/full CSV while preserving the independent write-only editor. |
+| `frontend/src/pages/administration/terminal-directory.tsx:59` | Actual provider directory offers nonsecret columns, visibility/page choices and page/full CSV while preserving the independent write-only editor. |
 
 ### documentation
 
@@ -93,16 +93,16 @@ Mapped surfaces: `core/urls.py:123` (external_acceptance), `core/urls.py:124` (e
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `frontend/src/pages/administration/documentation.tsx:119` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
+| `frontend/src/pages/administration/documentation.tsx:105` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
 | `frontend/src/pages/administration/collection-table.tsx:79` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
 
 ### shared-shell
 
-Mapped surfaces: `dashboard/urls.py:8` (implementation_present), `dashboard/urls.py:9` (implementation_present), `dashboard/urls.py:10` (implementation_present), `dashboard/templates/dashboard/main_dashboard.html` (implementation_present), `users/templates/admin/includes/footer.html` (implementation_present), `users/templates/admin/includes/header.html` (implementation_present), `users/templates/admin/includes/navbar.html` (implementation_present), `users/templates/admin/includes/sidebar.html` (implementation_present), `users/templates/admin/includes/whatsnew.html` (implementation_present), `users/templates/admin/layouts/base.html` (implementation_present), `users/templates/admin/layouts/base_create_order.html` (implementation_present), `users/templates/admin/layouts/base_no_sidebar_navbar.html` (implementation_present).
+Mapped surfaces: `dashboard/urls.py:8` (partial), `dashboard/urls.py:9` (implementation_present), `dashboard/urls.py:10` (implementation_present), `dashboard/templates/dashboard/main_dashboard.html` (partial), `users/templates/admin/includes/footer.html` (implementation_present), `users/templates/admin/includes/header.html` (implementation_present), `users/templates/admin/includes/navbar.html` (implementation_present), `users/templates/admin/includes/sidebar.html` (implementation_present), `users/templates/admin/includes/whatsnew.html` (implementation_present), `users/templates/admin/layouts/base.html` (implementation_present), `users/templates/admin/layouts/base_create_order.html` (implementation_present), `users/templates/admin/layouts/base_no_sidebar_navbar.html` (implementation_present).
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `frontend/src/components/workspace-context.tsx:12` | Existing operator-scoped native check-in query is observed without another background poll; the global display uses that record and its expiry, not workspace selection. Account type comes from the current authenticated principal. Runtime verification remains pending. |
+| `frontend/src/components/check-in.tsx:45` | The operator-scoped native check-in query is shared with notifications and reminders; the header status uses that record and its expiry, not workspace selection. Check-in and check-out call the unchanged PUT/DELETE operators/me/check-in. Account type comes from the current authenticated principal. |
 | `frontend/src/components/realtime-clock.tsx:4` | Local HH:MM:SS clock updates an isolated leaf component and cleans up its timer/listener; no network or parent workspace rerender is needed. |
 | `frontend/src/components/release-notes.tsx:12` | Explicit global trigger opens the accessible read-only native dialog; Close/Got it/Escape dismiss it, visible dialogs take priority, and source role-1 report-note visibility is preserved without seen tracking. Behavioral verification remains pending. |
 
@@ -114,9 +114,9 @@ Mapped surfaces: `order/urls.py:8` (partial), `order/urls.py:9` (partial), `orde
 | --- | --- |
 | `backend/src/modules/order-history/online-detail/service.ts:25` | Authorized N/HL/HE details bind native current authority to complete primary or qualified BigQuery facts, then hydrate explicitly current customer/product dimensions. Source/native/routed-App proof is scoped; complete historical transport and per-line actions remain separate. |
 | `backend/src/modules/order-history/search/default-ranges.ts:6` | Server-authoritative rolling five-day store-page bounds include its extra ending minute and bounded midnight fraction without a future warehouse publication. Active type switching must retain this same window; separate online-prefix arithmetic does not establish rendered online-entry behavior. |
-| `frontend/src/pages/operations.tsx:138` | Initial defaults anchor once per authority scope; opening rows preserves list state, historical detail gets its own row-day context, and explicit date ranges remain authoritative. Source-derived/native/routed-App regressions are separate from complete workflow admission. |
-| `frontend/src/pages/operations.tsx:329` | Actual OrdersPage mounts the source-specific search/list alongside independently authorized detail/payment controls. |
-| `frontend/src/pages/order-history/SourceOrderList.tsx:213` | Actual order-list CSV uses only the loaded page and selected visible columns; page choices 5/10/25/50/100 and source sort actions remain wired. |
+| `frontend/src/pages/operations.tsx:143` | Initial defaults anchor once per authority scope; opening rows preserves list state, historical detail gets its own row-day context, and explicit date ranges remain authoritative. Source-derived/native/routed-App regressions are separate from complete workflow admission. |
+| `frontend/src/pages/operations.tsx:331` | Actual OrdersPage mounts the source-specific search/list alongside independently authorized detail/payment controls. |
+| `frontend/src/pages/order-history/SourceOrderList.tsx:217` | Actual order-list CSV uses only the loaded page and selected visible columns; page choices 5/10/25/50/100 and source sort actions remain wired. |
 | `frontend/src/pages/order-history/search-client.ts:166` | Loaded duplicate rows are preserved and spreadsheet formula strings neutralized; this does not certify original full-workflow or identical download bytes. |
 
 ### returns-exchanges
@@ -140,7 +140,7 @@ Mapped surfaces: `order/urls.py:13` (external_acceptance), `order/urls.py:14` (e
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `frontend/src/pages/order-history/OnlineOrderDetail.tsx:229` | Paid N detail selects the explicit global access mode; HL/HE retain existing owned-store invoice authority. Absent private consumer/history configuration refuses the document. |
+| `frontend/src/pages/order-history/OnlineOrderDetail.tsx:234` | Paid N detail selects the explicit global access mode; HL/HE retain existing owned-store invoice authority. Absent private consumer/history configuration refuses the document. |
 
 ### express-fulfillment
 
@@ -182,8 +182,8 @@ Mapped surfaces: `report/urls.py:69` (external_acceptance), `report/urls.py:70` 
 | Code/source reference | Reviewed scope |
 | --- | --- |
 | `frontend/src/pages/finance/report-dates.ts:10` | Actual source GET/widget/AJAX clocks retain the five-day-back start and one-minute ending-date rollover. A complete same-position future partition is required at midnight; no fabricated zero row or hybrid financial snapshot. |
-| `frontend/src/pages/reports.tsx:185` | Actual DSR client table filters/sorts/pages loaded rows; server-calculated totals remain authoritative. |
-| `frontend/src/pages/reports.tsx:195` | Actual visible-column CSV is distinct from the retained complete CSV and preserves the original server totals rather than recalculating financial amounts. |
+| `frontend/src/pages/reports.tsx:188` | Actual DSR client table filters/sorts/pages loaded rows; server-calculated totals remain authoritative. |
+| `frontend/src/pages/reports.tsx:198` | Actual visible-column CSV is distinct from the retained complete CSV and preserves the original server totals rather than recalculating financial amounts. |
 
 ### operational-reports
 
@@ -199,7 +199,7 @@ Mapped surfaces: `report/urls.py:91` (external_acceptance), `report/urls.py:92` 
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `frontend/src/pages/operational-reports/exports.tsx:131` | Actual export-history screen exports only selected metadata columns from its loaded authorized page, with no file-key/URL fetch or recursive export-of-exports job. |
+| `frontend/src/pages/operational-reports/exports.tsx:135` | Actual export-history screen exports only selected metadata columns from its loaded authorized page, with no file-key/URL fetch or recursive export-of-exports job. |
 | `frontend/src/pages/operational-reports/export-metadata.ts:38` | Finite bounded metadata CSV preserves static safe messages and formula/UTF-8 guards; raw legacy error messages and file keys stay excluded. |
 
 ### inactive-upload-logs
@@ -238,9 +238,9 @@ Any remaining code gaps are distinct from configured provider acceptance. Parent
 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
-| routes | 68 | 29 | 0 | 158 |
+| routes | 65 | 30 | 2 | 158 |
 | jobs | 0 | 2 | 3 | 27 |
-| templates | 32 | 7 | 5 | 62 |
+| templates | 30 | 8 | 6 | 62 |
 | websockets | 0 | 0 | 0 | 1 |
 | administration | 0 | 1 | 0 | 1 |
 
@@ -280,7 +280,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/urls.py:60` | `salesperson/<int:pk>/assign-store/` | salespeople | implementation_present |
 | `core/urls.py:62` | `spl-permission/` | special-permission-history, global-barcode-assignment | external_acceptance |
 | `core/urls.py:63` | `special_permission_data/` | special-permission-history | external_acceptance |
-| `core/urls.py:66` | `ajax-get-quotes/` | motivational-quotes | implementation_present |
+| `core/urls.py:66` | `ajax-get-quotes/` | motivational-quotes | missing |
 | `core/urls.py:67` | `ajax-add-barcode/` | global-barcode-assignment | external_acceptance |
 | `core/urls.py:68` | `ajax-tss-money/` | wallet-adjustments | external_acceptance |
 | `core/urls.py:69` | `ajax-tss-points/` | wallet-adjustments | external_acceptance |
@@ -339,7 +339,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/urls.py:165` | `download-demo/` | catalog-maintenance | external_acceptance |
 | `core/urls.py:167` | `get-location-by-pincode/` | postal-code-location | implementation_present |
 | `dashboard/urls.py:7` | `dashboard` | dashboard-summary | external_acceptance |
-| `dashboard/urls.py:8` | `shortcut` | motivational-quotes, shared-shell | implementation_present |
+| `dashboard/urls.py:8` | `shortcut` | motivational-quotes, shared-shell | partial |
 | `dashboard/urls.py:9` | `ajax-feed-live-internet-speed/` | shared-shell | implementation_present |
 | `dashboard/urls.py:10` | `ajax-live-internet-data/` | shared-shell | implementation_present |
 | `notification/urls.py:7` | `ajax-notification-update/` | notifications | external_acceptance |
@@ -386,7 +386,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:50` | `ajax-transaction-status-check-paytm/` | payments | external_acceptance |
 | `order/urls.py:51` | `ajax-get-payment-mode-by-order-id/` | payments | external_acceptance |
 | `order/urls.py:54` | `ajax-fast-checkout/` | fast-cash | partial |
-| `order/urls.py:57` | `key-shortcuts/` | cashier-shortcuts | implementation_present |
+| `order/urls.py:57` | `key-shortcuts/` | cashier-shortcuts | missing |
 | `order/urls.py:58` | `ajax-m-user-mobile` | customer-contacts | partial |
 | `order/urls.py:59` | `ajax-m-user-email` | customer-contacts | partial |
 | `order/urls.py:60` | `ajax-add-feedback/` | product-feedback | implementation_present |
@@ -592,7 +592,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/templates/upload_logs/index.html` | `core/templates/upload_logs/index.html` | inventory-imports, legacy-order-imports, parent-store-assignment-csv, inactive-upload-logs | missing |
 | `core/templates/user_to_app/index.html` | `core/templates/user_to_app/index.html` | customer-application-handoff | external_acceptance |
 | `dashboard/templates/dashboard/dashboard.html` | `dashboard/templates/dashboard/dashboard.html` | dashboard-summary | external_acceptance |
-| `dashboard/templates/dashboard/main_dashboard.html` | `dashboard/templates/dashboard/main_dashboard.html` | shared-shell, motivational-quotes | implementation_present |
+| `dashboard/templates/dashboard/main_dashboard.html` | `dashboard/templates/dashboard/main_dashboard.html` | shared-shell, motivational-quotes | partial |
 | `order/templates/order/_exchange_js.html` | `order/templates/order/_exchange_js.html` | returns-exchanges | external_acceptance |
 | `order/templates/order/_hl_banner.html` | `order/templates/order/_hl_banner.html` | express-fulfillment, notifications | external_acceptance |
 | `order/templates/order/add_order_feedback.html` | `order/templates/order/add_order_feedback.html` | product-feedback | implementation_present |
@@ -611,7 +611,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/templates/order/online/_return_exchange_cells.html` | `order/templates/order/online/_return_exchange_cells.html` | orders-read, returns-exchanges, invoice-documents | partial |
 | `order/templates/order/online/show.html` | `order/templates/order/online/show.html` | orders-read, returns-exchanges, invoice-documents | partial |
 | `order/templates/order/shipping.html` | `order/templates/order/shipping.html` | shipping-labels | external_acceptance |
-| `order/templates/order/shortcuts.html` | `order/templates/order/shortcuts.html` | cashier-shortcuts | implementation_present |
+| `order/templates/order/shortcuts.html` | `order/templates/order/shortcuts.html` | cashier-shortcuts | missing |
 | `order/templates/order/show.html` | `order/templates/order/show.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries, legacy-vinculum-status | partial |
 | `order/templates/order/tab.html` | `order/templates/order/tab.html` | checkout-cart, motivational-quotes | partial |
 | `report/templates/bd_report/daily_report_matric_report_datatable.html` | `report/templates/bd_report/daily_report_matric_report_datatable.html` | business-metrics-upload | missing |
