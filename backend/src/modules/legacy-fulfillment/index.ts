@@ -9,6 +9,13 @@ import {
 import { authenticated } from '../../auth/routes.js';
 import { AppError } from '../../domain/errors.js';
 import { identifier } from '../../domain/validation.js';
+import {
+  noBody,
+  noQuery,
+  operatorHeaders,
+  requestHeaders,
+  routeSchema,
+} from '../../domain/route-validation.js';
 import type { JobProducer } from '../../jobs/contract.js';
 import { createProductSyncAdapter } from '../administration/product-sync.js';
 import { readAdministrationWorkerOptions } from '../administration/worker-options.js';
@@ -139,8 +146,26 @@ export function registerLegacyFulfillment(
   const params = z.object({ storeId: identifier, orderId: identifier }).strict(),
     empty = z.object({}).strict(),
     note = z.object({ note: z.string().trim().min(1).max(200) }).strict(),
-    trace = (resource: string, action: string) => ({
+    cancellationBody = z.object({ reason: z.string().trim().min(1).max(200) }).strict(),
+    transferBody = z
+      .object({
+        reason: z.string().trim().min(1).max(200),
+        reasonDropdown: z.enum([
+          'Product not available at store',
+          'Packaging material not available at store',
+          'Printer not available at store',
+          'Bandwidth issue at store',
+        ]),
+      })
+      .strict(),
+    trace = (resource: string, action: string, body?: z.ZodType) => ({
       config: { trace: { module: 'legacy-fulfillment', resource, action } },
+      ...routeSchema({
+        params,
+        querystring: empty,
+        ...(body ? { body } : {}),
+        headers: operatorHeaders,
+      }),
     });
   const actor = (request: FastifyRequest) => {
     const user = authenticated(request);
@@ -163,7 +188,7 @@ export function registerLegacyFulfillment(
     noStore(reply);
     return { data: await actions.status(user, value.storeId, value.orderId) };
   });
-  app.put(base + '/packing', trace('legacy-packing', 'create'), async (request, reply) => {
+  app.put(base + '/packing', trace('legacy-packing', 'create', note), async (request, reply) => {
     const user = actor(request),
       value = params.parse(request.params),
       input = note.parse(request.body);
@@ -172,7 +197,7 @@ export function registerLegacyFulfillment(
   });
   app.post(
     base + '/rto-receipts',
-    trace('legacy-rto-receipt', 'create'),
+    trace('legacy-rto-receipt', 'create', note),
     async (request, reply) => {
       const user = actor(request),
         value = params.parse(request.params),
@@ -183,7 +208,7 @@ export function registerLegacyFulfillment(
   );
   app.post(
     lifecycle + '/courier-requests',
-    trace('courier-request', 'create'),
+    trace('courier-request', 'create', noBody),
     async (request, reply) => {
       const user = actor(request),
         value = params.parse(request.params);
@@ -194,43 +219,29 @@ export function registerLegacyFulfillment(
   );
   app.post(
     lifecycle + '/cancellations',
-    trace('delivery-cancellation', 'create'),
+    trace('delivery-cancellation', 'create', cancellationBody),
     async (request, reply) => {
       const user = actor(request),
         value = params.parse(request.params),
-        input = z
-          .object({ reason: z.string().trim().min(1).max(200) })
-          .strict()
-          .parse(request.body);
+        input = cancellationBody.parse(request.body);
       noStore(reply);
       return actions.cancel(user, value.storeId, value.orderId, input.reason);
     },
   );
   app.post(
     lifecycle + '/transfers',
-    trace('delivery-transfer', 'create'),
+    trace('delivery-transfer', 'create', transferBody),
     async (request, reply) => {
       const user = actor(request),
         value = params.parse(request.params),
-        input = z
-          .object({
-            reason: z.string().trim().min(1).max(200),
-            reasonDropdown: z.enum([
-              'Product not available at store',
-              'Packaging material not available at store',
-              'Printer not available at store',
-              'Bandwidth issue at store',
-            ]),
-          })
-          .strict()
-          .parse(request.body);
+        input = transferBody.parse(request.body);
       noStore(reply);
       return actions.pass(user, value.storeId, value.orderId, input.reason, input.reasonDropdown);
     },
   );
   app.post(
     lifecycle + '/online-conversions',
-    trace('online-conversion', 'create'),
+    trace('online-conversion', 'create', noBody),
     async (request, reply) => {
       const user = actor(request),
         value = params.parse(request.params);
@@ -243,6 +254,7 @@ export function registerLegacyFulfillment(
   // Service webhooks, served at the legacy paths (order.urls is mounted at `orders/` and
   // `api/v1/orders/`, POSAdmin/urls.py:16-17) with the legacy form body and APPID/APPKEY headers.
   const service = (kind: 'arrival' | 'cancellation') => ({
+    ...routeSchema({ querystring: noQuery, body: serviceForm, headers: credentials }),
     config: {
       authentication: 'service' as const,
       trace: {
@@ -252,9 +264,16 @@ export function registerLegacyFulfillment(
       },
     },
   });
-  const credentials = z
-    .object({ appid: z.string().max(1024).optional(), appkey: z.string().max(1024).optional() })
-    .passthrough();
+  const credentials = requestHeaders({
+    appid: z.string().max(1024).optional(),
+    appkey: z.string().max(1024).optional(),
+  });
+  /**
+   * The integration parser hands handlers the form fields (`formFields`, at most 16 string
+   * values; `null` without a body). Legacy reads only the named `request.POST` keys and ignores
+   * any other field the sender adds, so the handlers below keep their passthrough parses.
+   */
+  const serviceForm = z.record(z.string().max(4096), z.string().max(4096)).nullable();
   const arrival = z
     .object({ order_id: sourceId, location_id: sourceId, is_notify: postFlag })
     .passthrough();

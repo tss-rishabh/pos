@@ -125,13 +125,13 @@ describe('operational report request boundaries', () => {
         await app.inject({
           method: 'POST',
           url: '/api/v1/report-exports',
-          headers: { cookie: 'fixture-session', 'x-operator-id': 'another-operator' },
-          payload: {},
+          headers: { cookie: 'fixture-session', 'x-operator-id': '11' },
+          payload: { input: { kind: 'cash-balance', from: '2026-11-16', to: '2026-11-16' } },
         })
       ).statusCode,
     ).toBe(409);
     expect(
-      (await app.inject({ method: 'GET', url: '/api/v1/report-exports/invalid/file' })).statusCode,
+      (await app.inject({ method: 'GET', url: '/api/v1/report-exports/1/file' })).statusCode,
     ).toBe(401);
     const body = { from: '2026-11-16T00:00:00', to: '2026-11-16T23:59:59', storeIds: ['1'] };
     for (const payload of [

@@ -84,7 +84,7 @@ async function setup(subscription?: {
   app.decorateRequest('sessionExpiresAt', null);
   app.decorateRequest('authSessionValid', null);
   app.addHook('preHandler', async (request) => {
-    if (subscription?.invalidUpgrade) request.headers['sec-websocket-version'] = '12';
+    if (subscription?.invalidUpgrade) request.raw.headers['sec-websocket-version'] = '12';
     if (request.headers.cookie === 'fixture-session') {
       request.principal = user;
       request.sessionExpiresAt = Date.now() + 60000;

@@ -5,7 +5,8 @@ import type { Databases } from '../../db/pools.js';
 import { authenticated } from '../../auth/routes.js';
 import { AppError } from '../../domain/errors.js';
 import { invoiceAdapter, type InvoiceAdapter } from './adapter.js';
-import { invoiceDocumentScope, invoiceKind } from './contracts.js';
+import { operatorHeaders, routeSchema } from '../../domain/route-validation.js';
+import { invoiceDocumentScope, invoiceIdentifier, invoiceKind } from './contracts.js';
 import { invoiceDocumentOptions, type InvoiceDocumentOptions } from './options.js';
 import { invoiceDocumentService } from './service.js';
 import { invoicePreviewScope, invoicePreviewHtml, invoicePreviewPolicy } from './presentation.js';
@@ -30,7 +31,10 @@ export function registerInvoiceDocuments(
       'WhatsApp invoice message was not sent.',
     ),
   );
-  const accessQuery = z.object({ access: z.literal('global-online').optional() }).strict();
+  const accessQuery = z.object({ access: z.literal('global-online').optional() }).strict(),
+    previewParams = invoicePreviewScope.omit({ access: true }),
+    orderParams = z.object({ storeId: invoiceIdentifier, orderId: invoiceIdentifier }).strict(),
+    kindParams = orderParams.extend({ kind: invoiceKind });
   const selection = (request: FastifyRequest) =>
     invoiceDocumentScope.parse({
       ...z.object({ storeId: z.string(), orderId: z.string() }).strip().parse(request.params),
@@ -57,10 +61,15 @@ export function registerInvoiceDocuments(
       config: {
         trace: { module: 'invoice-documents', resource: 'invoice-preview', action: 'read' },
       },
+      ...routeSchema({
+        params: previewParams,
+        querystring: accessQuery,
+        headers: operatorHeaders,
+      }),
     },
     async (request, reply) => {
       const scope = invoicePreviewScope.parse({
-          ...invoicePreviewScope.parse(request.params),
+          ...previewParams.parse(request.params),
           ...accessQuery.parse(request.query),
         }),
         user = authenticated(request);
@@ -105,6 +114,7 @@ export function registerInvoiceDocuments(
       config: {
         trace: { module: 'invoice-documents', resource: 'invoice-capabilities', action: 'read' },
       },
+      ...routeSchema({ params: orderParams, querystring: accessQuery, headers: operatorHeaders }),
     },
     async (request, reply) => {
       const user = operator(request);
@@ -115,7 +125,10 @@ export function registerInvoiceDocuments(
   );
   app.get(
     '/api/v1/stores/:storeId/orders/:orderId/invoices/:kind',
-    { config: { trace: { module: 'invoice-documents', resource: 'tax-invoice', action: 'read' } } },
+    {
+      config: { trace: { module: 'invoice-documents', resource: 'tax-invoice', action: 'read' } },
+      ...routeSchema({ params: kindParams, querystring: accessQuery, headers: operatorHeaders }),
+    },
     async (request, reply) => {
       const user = operator(request);
       const kind = invoiceKind.parse((request.params as { kind?: unknown }).kind);

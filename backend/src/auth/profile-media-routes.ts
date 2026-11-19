@@ -8,11 +8,21 @@ import {
   profileUploadInput,
   type profileMediaService,
 } from './profile-media.js';
+import { requestHeaders, routeSchema, type RouteSchema } from '../domain/route-validation.js';
 
 const none = z.object({}).strict();
-const headers = z.object({ cookie: z.string().max(16384).optional() }).passthrough();
-function validate(request: FastifyRequest) {
-  none.parse(request.query ?? {});
+const headers = requestHeaders({ cookie: z.string().max(16384).optional() });
+/** The profile page appends the image revision as a cache key (`?v=<revision>`). */
+const imageQuery = z.strictObject({
+  v: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .optional(),
+});
+const attachParams = z.object({ uploadId: z.uuid() }).strict();
+const imageParams = z.object({ kind: profileImageKind }).strict();
+function validate(request: FastifyRequest, query: z.ZodType = none) {
+  query.parse(request.query ?? {});
   headers.parse(request.headers);
 }
 export function registerProfileMedia(
@@ -20,14 +30,15 @@ export function registerProfileMedia(
   media: ReturnType<typeof profileMediaService>,
   profile: ProfileService,
 ) {
-  const trace = (action: string) => ({
+  const trace = (action: string, schema: Omit<RouteSchema, 'headers'> = {}) => ({
     config: {
       trace: { module: 'identity', resource: 'operator-profile-image', action },
     },
+    ...routeSchema({ querystring: none, ...schema, headers }),
   });
   app.post(
     '/api/v1/operators/current/profile/image-uploads',
-    trace('reserve'),
+    trace('reserve', { body: profileUploadInput }),
     async (request, reply) => {
       validate(request);
       none.parse(request.params ?? {});
@@ -38,11 +49,11 @@ export function registerProfileMedia(
   );
   app.post(
     '/api/v1/operators/current/profile/image-uploads/:uploadId/attachment',
-    trace('attach'),
+    trace('attach', { params: attachParams, body: profileAttachInput }),
     async (request, reply) => {
       validate(request);
       const user = authenticated(request),
-        { uploadId } = z.object({ uploadId: z.uuid() }).strict().parse(request.params);
+        { uploadId } = attachParams.parse(request.params);
       await media.attach(user, uploadId, profileAttachInput.parse(request.body).revision);
       return reply
         .header('Cache-Control', 'no-store')
@@ -51,10 +62,10 @@ export function registerProfileMedia(
   );
   app.get(
     '/api/v1/operators/current/profile/images/:kind',
-    trace('read'),
+    trace('read', { params: imageParams, querystring: imageQuery }),
     async (request, reply) => {
-      validate(request);
-      const { kind } = z.object({ kind: profileImageKind }).strict().parse(request.params);
+      validate(request, imageQuery);
+      const { kind } = imageParams.parse(request.params);
       const controller = new AbortController();
       reply.raw.once('close', () => controller.abort());
       const image = await media.stream(authenticated(request), kind, controller.signal);

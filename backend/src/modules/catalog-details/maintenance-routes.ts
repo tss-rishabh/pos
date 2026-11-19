@@ -2,9 +2,18 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authenticated } from '../../auth/routes.js';
 import { identifier } from '../../domain/validation.js';
+import {
+  noBody,
+  noQuery,
+  operatorHeaders,
+  routeSchema,
+  transportHeaders,
+} from '../../domain/route-validation.js';
 import { inventoryPullInput } from './maintenance-domain.js';
 import type { catalogMaintenanceService } from './maintenance-service.js';
 
+const pullBody = z.object({ input: inventoryPullInput }).strict();
+const productParams = z.object({ productId: identifier }).strict();
 /** Legacy `inventory-sync/` (core/urls.py:79) and `ajax-troubleshoot-product/` (:154). */
 export async function registerCatalogMaintenanceRoutes(
   app: FastifyInstance,
@@ -20,7 +29,10 @@ export async function registerCatalogMaintenanceRoutes(
         .parse(value ?? {});
   app.get(
     '/api/v1/catalog/maintenance/capabilities',
-    trace('catalog-maintenance', 'capabilities'),
+    {
+      ...trace('catalog-maintenance', 'capabilities'),
+      ...routeSchema({ querystring: noQuery, headers: transportHeaders }),
+    },
     (request) => {
       authenticated(request);
       empty(request.query);
@@ -29,7 +41,10 @@ export async function registerCatalogMaintenanceRoutes(
   );
   app.get(
     '/api/v1/catalog/inventory-pulls/sample',
-    trace('inventory-pull', 'sample'),
+    {
+      ...trace('inventory-pull', 'sample'),
+      ...routeSchema({ querystring: noQuery, headers: transportHeaders }),
+    },
     (request, reply) => {
       authenticated(request);
       empty(request.query);
@@ -40,17 +55,32 @@ export async function registerCatalogMaintenanceRoutes(
         .send('sku\n');
     },
   );
-  app.post('/api/v1/catalog/inventory-pulls', trace('inventory-pull', 'create'), (request) => {
-    empty(request.query);
-    const body = z.object({ input: inventoryPullInput }).strict().parse(request.body);
-    return service.inventoryPull(authenticated(request), body.input, request.id);
-  });
+  app.post(
+    '/api/v1/catalog/inventory-pulls',
+    {
+      ...trace('inventory-pull', 'create'),
+      ...routeSchema({ querystring: noQuery, body: pullBody, headers: operatorHeaders }),
+    },
+    (request) => {
+      empty(request.query);
+      const body = pullBody.parse(request.body);
+      return service.inventoryPull(authenticated(request), body.input, request.id);
+    },
+  );
   app.post(
     '/api/v1/catalog/products/:productId/troubleshooting',
-    trace('product-troubleshoot', 'apply'),
+    {
+      ...trace('product-troubleshoot', 'apply'),
+      ...routeSchema({
+        params: productParams,
+        querystring: noQuery,
+        body: noBody,
+        headers: operatorHeaders,
+      }),
+    },
     (request) => {
       const user = authenticated(request),
-        params = z.object({ productId: identifier }).strict().parse(request.params);
+        params = productParams.parse(request.params);
       empty(request.query);
       empty(request.body);
       return service.troubleshoot(user, params.productId, request.id);

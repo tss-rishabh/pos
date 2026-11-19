@@ -12,6 +12,14 @@ import { authenticated } from '../../auth/routes.js';
 import { identifier, cursor } from '../../domain/validation.js';
 import { AppError } from '../../domain/errors.js';
 import { requireRole, requireStore } from '../../domain/access.js';
+import {
+  noBody,
+  noQuery,
+  operatorHeaders,
+  requestHeaders,
+  routeSchema,
+  transportHeaders,
+} from '../../domain/route-validation.js';
 import { expressStatusSchema, fulfillmentTabSchema } from './domain.js';
 import { notificationBus, type NotificationBus } from './notification-bus.js';
 import { notificationStream } from './notification-stream.js';
@@ -41,8 +49,17 @@ export { createOrderNotification } from './notifications.js';
 export { fulfillmentEffects } from './effects.js';
 export { enqueueAdvanceOrderNotification } from './jobs.js';
 
-const scope = z.object({ storeId: identifier }),
-  orderScope = scope.extend({ orderId: identifier });
+const scope = z.object({ storeId: identifier }).strict(),
+  orderScope = scope.extend({ orderId: identifier }),
+  lineScope = orderScope.extend({ lineId: identifier }),
+  notificationScope = scope.extend({ notificationId: identifier });
+/** Express actions read only `X-Operator-ID`; the action itself takes no body. */
+const operatorAction = routeSchema({
+  params: orderScope,
+  querystring: noQuery,
+  body: noBody,
+  headers: operatorHeaders,
+});
 const trace = (resource: string, action: string) => ({
   trace: { module: 'fulfillment', resource, action },
 });
@@ -181,7 +198,10 @@ export async function registerFulfillment(
   // ── Hyperlocal progress (check-in store, `order/views.py:4908-5353`) ──
   app.get(
     '/api/v1/fulfillment/progress',
-    { config: trace('express-progress', 'read') },
+    {
+      config: trace('express-progress', 'read'),
+      ...routeSchema({ querystring: tabQuery, headers: transportHeaders }),
+    },
     async (request) => {
       const user = authenticated(request);
       tabQuery.parse(request.query);
@@ -190,18 +210,21 @@ export async function registerFulfillment(
       return { ...(await service.progress(user)), pollIntervalMs: credentials.HL_POLL_INTERVAL_MS };
     },
   );
+  const progressOrdersQuery = z
+    .object({
+      tab: z.string().max(32).optional(),
+      offset: z.coerce.number().int().min(0).max(1_000_000).catch(0).default(0),
+    })
+    .strict();
   app.get(
     '/api/v1/fulfillment/progress/orders',
-    { config: trace('express-order', 'list') },
+    {
+      config: trace('express-order', 'list'),
+      ...routeSchema({ querystring: progressOrdersQuery, headers: transportHeaders }),
+    },
     async (request) => {
       const user = authenticated(request),
-        query = z
-          .object({
-            tab: z.string().max(32).optional(),
-            offset: z.coerce.number().int().min(0).max(1_000_000).catch(0).default(0),
-          })
-          .strict()
-          .parse(request.query),
+        query = progressOrdersQuery.parse(request.query),
         tab = fulfillmentTabSchema.catch('in_queue').parse(query.tab ?? 'in_queue');
       // The content view enqueues O1; Load More (offset > 0) does not (`order/views.py:5316`).
       if (query.offset === 0) await enqueueAutoReject(jobs, await service.checkInStore(user), log);
@@ -210,20 +233,26 @@ export async function registerFulfillment(
   );
   app.get(
     '/api/v1/stores/:storeId/fulfillment/summary',
-    { config: trace('express-summary', 'read') },
+    {
+      config: trace('express-summary', 'read'),
+      ...routeSchema({ params: scope, querystring: noQuery, headers: transportHeaders }),
+    },
     async (request) => {
       const user = authenticated(request),
         params = scope.parse(request.params);
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       requireStore(user, params.storeId);
       return service.summary(params.storeId);
     },
   );
   app.get(
     '/api/v1/stores/:storeId/fulfillment/expiry-alerts',
-    { config: trace('express-expiry-alert', 'list') },
+    {
+      config: trace('express-expiry-alert', 'list'),
+      ...routeSchema({ params: scope, querystring: noQuery, headers: transportHeaders }),
+    },
     async (request) => {
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       const user = authenticated(request),
         params = scope.parse(request.params);
       await requireCurrentCheckIn(user.id, params.storeId, 'expiry reminders');
@@ -237,19 +266,23 @@ export async function registerFulfillment(
   );
   app.get(
     '/api/v1/fulfillment/rejection-reasons',
-    { config: trace('rejection-reason', 'list') },
+    {
+      config: trace('rejection-reason', 'list'),
+      ...routeSchema({ querystring: noQuery, headers: transportHeaders }),
+    },
     async (request) => {
       authenticated(request);
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       return service.rejectionReasons();
     },
   );
 
   // ── Express actions ──
-  const empty = z.object({}).strict();
+  const empty = z.object({}).strict(),
+    rejectionBody = z.object({ rejectionReasonId: identifier.optional() }).strict();
   app.post(
     '/api/v1/stores/:storeId/fulfillment/orders/:orderId/acceptance',
-    { config: trace('express-order', 'acceptance') },
+    { config: trace('express-order', 'acceptance'), ...operatorAction },
     async (request) => {
       const user = assertOperator(request),
         params = orderScope.parse(request.params);
@@ -259,14 +292,19 @@ export async function registerFulfillment(
   );
   app.post(
     '/api/v1/stores/:storeId/fulfillment/orders/:orderId/rejection',
-    { config: trace('express-order', 'rejection') },
+    {
+      config: trace('express-order', 'rejection'),
+      ...routeSchema({
+        params: orderScope,
+        querystring: noQuery,
+        body: rejectionBody.nullable(),
+        headers: operatorHeaders,
+      }),
+    },
     async (request) => {
       const user = assertOperator(request),
         params = orderScope.parse(request.params),
-        body = z
-          .object({ rejectionReasonId: identifier.optional() })
-          .strict()
-          .parse(request.body ?? {});
+        body = rejectionBody.parse(request.body ?? {});
       if (!body.rejectionReasonId)
         throw new AppError(400, 'REJECTION_REASON_REQUIRED', 'Rejection reason is required');
       return service.reject(user, params.storeId, params.orderId, body.rejectionReasonId);
@@ -279,7 +317,7 @@ export async function registerFulfillment(
   ] as const)
     app.post(
       `/api/v1/stores/:storeId/fulfillment/orders/:orderId/${path}`,
-      { config: trace('express-order', path) },
+      { config: trace('express-order', path), ...operatorAction },
       async (request) => {
         const user = assertOperator(request),
           params = orderScope.parse(request.params);
@@ -289,41 +327,57 @@ export async function registerFulfillment(
     );
   app.put(
     '/api/v1/stores/:storeId/fulfillment/orders/:orderId/lines/:lineId/packing',
-    { config: trace('express-line', 'pack') },
+    {
+      config: trace('express-line', 'pack'),
+      ...routeSchema({
+        params: lineScope,
+        querystring: noQuery,
+        body: noBody,
+        headers: operatorHeaders,
+      }),
+    },
     async (request) => {
       const user = assertOperator(request),
-        params = orderScope.extend({ lineId: identifier }).parse(request.params);
+        params = lineScope.parse(request.params);
       empty.parse(request.body ?? {});
       return service.packLine(user, params.storeId, params.orderId, params.lineId);
     },
   );
+  const expiryDateTime = z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, 'Invalid expiry format')
+    .refine((value) => {
+      try {
+        Temporal.PlainDateTime.from(value);
+        return true;
+      } catch {
+        return false;
+      }
+    }, 'Invalid expiry format');
+  const editBody = z
+    .object({
+      status: expressStatusSchema.optional(),
+      pendingExpiresAt: expiryDateTime.optional(),
+      acceptedExpiresAt: expiryDateTime.optional(),
+    })
+    .strict()
+    .refine((value) => Object.keys(value).length > 0, 'Nothing to update');
   app.patch(
     '/api/v1/stores/:storeId/fulfillment/orders/:orderId',
-    { config: trace('express-order', 'admin-edit') },
+    {
+      config: trace('express-order', 'admin-edit'),
+      ...routeSchema({
+        params: orderScope,
+        querystring: noQuery,
+        body: editBody,
+        headers: operatorHeaders,
+      }),
+    },
     async (request) => {
       const user = assertOperator(request),
         params = orderScope.parse(request.params);
       requireRole(user, [1]);
-      const dateTime = z
-        .string()
-        .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, 'Invalid expiry format')
-        .refine((value) => {
-          try {
-            Temporal.PlainDateTime.from(value);
-            return true;
-          } catch {
-            return false;
-          }
-        }, 'Invalid expiry format');
-      const body = z
-        .object({
-          status: expressStatusSchema.optional(),
-          pendingExpiresAt: dateTime.optional(),
-          acceptedExpiresAt: dateTime.optional(),
-        })
-        .strict()
-        .refine((value) => Object.keys(value).length > 0, 'Nothing to update')
-        .parse(request.body);
+      const body = editBody.parse(request.body);
       return service.edit(user, params.storeId, params.orderId, body);
     },
   );
@@ -331,79 +385,91 @@ export async function registerFulfillment(
   // ── All-stores monitoring dashboard (`order/hl_all_stores.py`) ──
   app.get(
     '/api/v1/fulfillment/store-monitoring/stores',
-    { config: trace('monitoring-store', 'list') },
+    {
+      config: trace('monitoring-store', 'list'),
+      ...routeSchema({ querystring: noQuery, headers: transportHeaders }),
+    },
     async (request) => {
       authenticated(request);
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       return monitoring.stores();
     },
   );
   app.get(
     '/api/v1/fulfillment/store-monitoring/defaults',
-    { config: trace('store-monitoring-default', 'read') },
+    {
+      config: trace('store-monitoring-default', 'read'),
+      ...routeSchema({ querystring: noQuery, headers: transportHeaders }),
+    },
     async (request) => {
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       // Legacy first GET stores the initial selection in the session (`order/views.py:5412-5414`).
       const defaults = await monitoring.defaults(authenticated(request));
       await selection.save(request.authSessionId, request.sessionExpiresAt, defaults.storeIds);
       return defaults;
     },
   );
+  const selectionBody = z
+    .object({ storeIds: z.array(z.string().regex(/^\d{1,10}$/)).max(5000) })
+    .strict();
   /** Legacy dashboard POST: `request.session['hla_store_ids'] = store ids` (`order/views.py:5442-5444`). */
   app.put(
     '/api/v1/fulfillment/store-monitoring/selection',
-    { config: trace('store-monitoring-selection', 'update') },
+    {
+      config: trace('store-monitoring-selection', 'update'),
+      ...routeSchema({ querystring: noQuery, body: selectionBody, headers: transportHeaders }),
+    },
     async (request) => {
       authenticated(request);
-      z.object({}).strict().parse(request.query);
-      const body = z
-        .object({ storeIds: z.array(z.string().regex(/^\d{1,10}$/)).max(5000) })
-        .strict()
-        .parse(request.body);
+      noQuery.parse(request.query);
+      const body = selectionBody.parse(request.body);
       await selection.save(request.authSessionId, request.sessionExpiresAt, body.storeIds);
       return { storeIds: [...new Set(body.storeIds)] };
     },
   );
+  // Legacy `HLGlobalFilters.from_request` sanitises instead of rejecting.
+  const monitoringDate = z
+    .string()
+    .max(10)
+    .optional()
+    .transform((value) => {
+      if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+      try {
+        return Temporal.PlainDate.from(value).toString();
+      } catch {
+        return undefined;
+      }
+    });
+  const monitoringOrderIds = z
+    .string()
+    .max(20000)
+    .optional()
+    .transform((value) =>
+      (value ?? '')
+        .split(',')
+        .map((part) => part.trim())
+        .filter((part) => /^\d{1,19}$/.test(part) && BigInt(part) > 0n),
+    );
+  const monitoringQuery = z
+    .object({
+      from: monitoringDate,
+      to: monitoringDate,
+      orderIds: monitoringOrderIds,
+      tab: z.string().max(32).optional(),
+      subStatuses: z.string().max(500).optional(),
+      page: z.string().max(12).optional(),
+      pageSize: z.string().max(4).optional(),
+    })
+    .strict();
   app.get(
     '/api/v1/fulfillment/store-monitoring',
-    { config: trace('store-monitoring', 'list') },
+    {
+      config: trace('store-monitoring', 'list'),
+      ...routeSchema({ querystring: monitoringQuery, headers: transportHeaders }),
+    },
     async (request) => {
       const user = authenticated(request);
-      // Legacy `HLGlobalFilters.from_request` sanitises instead of rejecting.
-      const date = z
-        .string()
-        .max(10)
-        .optional()
-        .transform((value) => {
-          if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
-          try {
-            return Temporal.PlainDate.from(value).toString();
-          } catch {
-            return undefined;
-          }
-        });
-      const ids = z
-        .string()
-        .max(20000)
-        .optional()
-        .transform((value) =>
-          (value ?? '')
-            .split(',')
-            .map((part) => part.trim())
-            .filter((part) => /^\d{1,19}$/.test(part) && BigInt(part) > 0n),
-        );
-      const raw = z
-        .object({
-          from: date,
-          to: date,
-          orderIds: ids,
-          tab: z.string().max(32).optional(),
-          subStatuses: z.string().max(500).optional(),
-          page: z.string().max(12).optional(),
-          pageSize: z.string().max(4).optional(),
-        })
-        .strict()
-        .parse(request.query);
+      const raw = monitoringQuery.parse(request.query);
       const tab = monitorTabSchema.catch('in_queue').parse(raw.tab ?? 'in_queue'),
         allowed: readonly string[] = monitorTabs[tab],
         page = Math.max(1, Number.parseInt(raw.page ?? '1', 10) || 1),
@@ -449,6 +515,19 @@ export async function registerFulfillment(
           .max(500),
       })
       .loose();
+    /**
+     * The scope parser hands handlers the raw text (`null` without a body); the handlers keep
+     * parsing it as legacy does. Legacy reads no query string.
+     */
+    const rawBody = z.string().max(256_000).nullable();
+    const notifyHeaders = requestHeaders({
+        appid: z.string().max(1024).optional(),
+        appkey: z.string().max(1024).optional(),
+      }),
+      courierHeaders = requestHeaders({
+        apikey: z.string().max(1024).optional(),
+        'content-type': z.string().max(1024).optional(),
+      });
     /** `AjaxExpressOrderNotifyView` (`order/views.py:5252-5281`). */
     async function notify(request: FastifyRequest, reply: FastifyReply) {
       try {
@@ -510,6 +589,7 @@ export async function registerFulfillment(
         `${prefix}/ajax-express-order-notify/`,
         {
           config: { ...trace('express-order-webhook', 'receive'), authentication: 'service' },
+          ...routeSchema({ querystring: noQuery, body: rawBody, headers: notifyHeaders }),
         },
         notify,
       );
@@ -517,25 +597,33 @@ export async function registerFulfillment(
         `${prefix}/ship-express-order/`,
         {
           config: { ...trace('express-shipment-webhook', 'receive'), authentication: 'service' },
+          ...routeSchema({ querystring: noQuery, body: rawBody, headers: courierHeaders }),
         },
         courierShip,
       );
     }
   });
 
+  const notificationsQuery = z
+    .object({
+      after: cursor.default('0'),
+      limit: z.coerce.number().int().min(1).max(100).default(30),
+    })
+    .strict();
   app.get(
     '/api/v1/stores/:storeId/notifications',
-    { config: { trace: { module: 'notifications', resource: 'notification', action: 'list' } } },
+    {
+      config: { trace: { module: 'notifications', resource: 'notification', action: 'list' } },
+      ...routeSchema({
+        params: scope,
+        querystring: notificationsQuery,
+        headers: transportHeaders,
+      }),
+    },
     async (request) => {
       const user = authenticated(request),
         params = scope.parse(request.params),
-        query = z
-          .object({
-            after: cursor.default('0'),
-            limit: z.coerce.number().int().min(1).max(100).default(30),
-          })
-          .strict()
-          .parse(request.query);
+        query = notificationsQuery.parse(request.query);
       await requireCurrentCheckIn(user.id, params.storeId, 'notifications');
       const notices = await service.notifications(user, params.storeId, query.after, query.limit);
       await requireCurrentCheckIn(user.id, params.storeId, 'notifications');
@@ -544,10 +632,18 @@ export async function registerFulfillment(
   );
   app.put(
     '/api/v1/stores/:storeId/notifications/:notificationId/read-receipt',
-    { config: { trace: { module: 'notifications', resource: 'read-receipt', action: 'create' } } },
+    {
+      config: { trace: { module: 'notifications', resource: 'read-receipt', action: 'create' } },
+      ...routeSchema({
+        params: notificationScope,
+        querystring: noQuery,
+        body: noBody,
+        headers: operatorHeaders,
+      }),
+    },
     async (request) => {
       const user = assertOperator(request),
-        params = scope.extend({ notificationId: identifier }).parse(request.params);
+        params = notificationScope.parse(request.params);
       await requireCurrentCheckIn(user.id, params.storeId, 'notifications');
       const result = await service.markNotificationRead(
         user,
@@ -589,6 +685,11 @@ export async function registerFulfillment(
       config: {
         trace: { module: 'notifications', resource: 'notification-stream', action: 'subscribe' },
       },
+      ...routeSchema({
+        params: scope,
+        querystring: noQuery,
+        headers: requestHeaders({ origin: z.string().max(2048).optional() }),
+      }),
       onError: async (request) => {
         streams.get(request)?.stop();
       },

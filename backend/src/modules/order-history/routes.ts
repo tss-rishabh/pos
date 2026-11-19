@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authenticated } from '../../auth/routes.js';
 import { AppError } from '../../domain/errors.js';
 import { identifier } from '../../domain/validation.js';
+import { routeSchema, transportHeaders } from '../../domain/route-validation.js';
 import type { OrdersService } from '../orders.js';
 import { orderListQuery } from './contracts.js';
 import { auditCrossStoreLookup } from './audit.js';
@@ -25,10 +26,14 @@ async function assertSessionCurrent(request: FastifyRequest) {
 }
 
 export function registerPublicOrders(app: FastifyInstance, orders: OrdersService) {
-  const scope = z.object({ storeId: identifier });
+  const scope = z.strictObject({ storeId: identifier }),
+    detailParams = scope.extend({ orderId: identifier });
   app.get(
     '/api/v1/stores/:storeId/orders',
-    { config: { trace: { module: 'orders', resource: 'order', action: 'list' } } },
+    {
+      config: { trace: { module: 'orders', resource: 'order', action: 'list' } },
+      ...routeSchema({ params: scope, querystring: orderListQuery, headers: transportHeaders }),
+    },
     async (request) => {
       const user = authenticated(request),
         { storeId } = scope.parse(request.params),
@@ -44,10 +49,13 @@ export function registerPublicOrders(app: FastifyInstance, orders: OrdersService
   );
   app.get(
     '/api/v1/stores/:storeId/orders/:orderId',
-    { config: { trace: { module: 'orders', resource: 'order', action: 'read' } } },
+    {
+      config: { trace: { module: 'orders', resource: 'order', action: 'read' } },
+      ...routeSchema({ params: detailParams, querystring: detailQuery, headers: transportHeaders }),
+    },
     async (request) => {
       const user = authenticated(request),
-        params = scope.extend({ orderId: identifier }).parse(request.params),
+        params = detailParams.parse(request.params),
         query = detailQuery.parse(request.query);
       // Legacy `int(request.GET.get('cr', 0))`, with a non-integer treated as 0.
       const crossAccess = Boolean(

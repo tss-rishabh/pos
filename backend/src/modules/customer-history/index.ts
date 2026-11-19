@@ -4,7 +4,9 @@ import type { Databases } from '../../db/pools.js';
 import { authenticated } from '../../auth/routes.js';
 import { AppError } from '../../domain/errors.js';
 import { identifier } from '../../domain/validation.js';
+import { operatorHeaders, routeSchema } from '../../domain/route-validation.js';
 import { customerProfileScope } from '../customer-insights/contracts.js';
+import { historyLineQuery, historyQuery } from './contracts.js';
 import { customerHistoryService } from './service.js';
 export function registerCustomerHistory(
   app: FastifyInstance,
@@ -13,7 +15,8 @@ export function registerCustomerHistory(
   options: Parameters<typeof customerHistoryService>[2] = {},
 ) {
   const service = customerHistoryService(config, db, options),
-    base = '/api/v1/stores/:storeId/checkout-sessions/:checkoutId';
+    base = '/api/v1/stores/:storeId/checkout-sessions/:checkoutId',
+    lineScope = customerProfileScope.extend({ orderId: identifier });
   function actor(request: FastifyRequest) {
     const user = authenticated(request);
     if (request.headers['x-operator-id'] !== user.id)
@@ -30,6 +33,12 @@ export function registerCustomerHistory(
       config: {
         trace: { module: 'customer-history', resource: 'customer-history', action: 'read' },
       },
+      // The service parses the query with the same `historyQuery`.
+      ...routeSchema({
+        params: customerProfileScope,
+        querystring: historyQuery,
+        headers: operatorHeaders,
+      }),
     },
     async (request, reply) => {
       reply.header('Cache-Control', 'private, no-store');
@@ -46,9 +55,15 @@ export function registerCustomerHistory(
       config: {
         trace: { module: 'customer-history', resource: 'customer-order-lines', action: 'read' },
       },
+      // The service parses the query with the same `historyLineQuery`.
+      ...routeSchema({
+        params: lineScope,
+        querystring: historyLineQuery,
+        headers: operatorHeaders,
+      }),
     },
     async (request, reply) => {
-      const params = customerProfileScope.extend({ orderId: identifier }).parse(request.params);
+      const params = lineScope.parse(request.params);
       reply.header('Cache-Control', 'private, no-store');
       return service.lines(
         actor(request),

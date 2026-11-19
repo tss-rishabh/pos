@@ -5,9 +5,10 @@ import type { IdentityService } from './identity.js';
 import { AppError } from '../domain/errors.js';
 import { profileInput, passwordInput, type ProfileService } from './profile.js';
 import type { SessionService } from './sessions.js';
+import { requestHeaders, routeSchema } from '../domain/route-validation.js';
 
 const none = z.object({}).strict();
-const headers = z.object({ cookie: z.string().max(16384).optional() }).passthrough();
+const headers = requestHeaders({ cookie: z.string().max(16384).optional() });
 function validate(request: FastifyRequest) {
   none.parse(request.params ?? {});
   none.parse(request.query ?? {});
@@ -19,8 +20,9 @@ export function registerProfile(
   identity: IdentityService,
   sessions: Pick<SessionService, 'refreshPasswordHash'>,
 ) {
-  const trace = (action: string) => ({
+  const trace = (action: string, body?: z.ZodType) => ({
     config: { trace: { module: 'identity', resource: 'operator-profile', action } },
+    ...routeSchema({ querystring: none, headers, ...(body ? { body } : {}) }),
   });
   async function response(
     request: FastifyRequest,
@@ -42,18 +44,22 @@ export function registerProfile(
       sessionExpiresAt: request.sessionExpiresAt,
     };
   });
-  app.patch('/api/v1/operators/current/profile', trace('update'), async (request) => {
+  app.patch('/api/v1/operators/current/profile', trace('update', profileInput), async (request) => {
     validate(request);
     return response(
       request,
       await profile.update(authenticated(request), profileInput.parse(request.body)),
     );
   });
-  app.put('/api/v1/operators/current/password', trace('change-password'), async (request) => {
-    validate(request);
-    return response(
-      request,
-      await profile.changePassword(authenticated(request), passwordInput.parse(request.body)),
-    );
-  });
+  app.put(
+    '/api/v1/operators/current/password',
+    trace('change-password', passwordInput),
+    async (request) => {
+      validate(request);
+      return response(
+        request,
+        await profile.changePassword(authenticated(request), passwordInput.parse(request.body)),
+      );
+    },
+  );
 }

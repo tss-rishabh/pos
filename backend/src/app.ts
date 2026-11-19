@@ -167,7 +167,12 @@ export async function buildApp(
   registerEventCatalog(app);
   registerRequestTrace(app);
   await app.register(cookie);
-  await app.register(cors, { origin: new URL(config.WEB_ORIGIN).origin, credentials: true });
+  await app.register(cors, {
+    origin: new URL(config.WEB_ORIGIN).origin,
+    credentials: true,
+    // Lets a cross-origin web client read the request reference it shows on errors.
+    exposedHeaders: ['X-Request-Id'],
+  });
   await app.register(helmet);
   await app.register(rateLimit, { max: 240, timeWindow: '1 minute' });
   const authEvents = authEventLogger(app.log);

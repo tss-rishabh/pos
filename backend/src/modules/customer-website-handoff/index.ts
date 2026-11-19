@@ -1,9 +1,9 @@
 import type { FastifyInstance } from 'fastify';
-import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import { authenticated } from '../../auth/routes.js';
 import { AppError } from '../../domain/errors.js';
+import { noQuery, operatorHeaders, routeSchema } from '../../domain/route-validation.js';
 import { customerWebsiteHandoffService } from './service.js';
 import {
   readCustomerWebsiteHandoffOptions,
@@ -31,9 +31,15 @@ export function registerCustomerWebsiteHandoff(
         },
         rateLimit: { max: 10, timeWindow: '1 minute' },
       },
+      ...routeSchema({
+        params: websiteHandoffScope,
+        querystring: noQuery,
+        body: websiteHandoffIssue.nullable(),
+        headers: operatorHeaders,
+      }),
     },
     async (request, reply) => {
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       const user = authenticated(request);
       if (request.headers['x-operator-id'] !== user.id)
         throw new AppError(
