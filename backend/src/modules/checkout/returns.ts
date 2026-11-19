@@ -97,10 +97,10 @@ export function returnReadService(
           gift: AmountToBeRefundedLog.gift_voucher_amount,
         })
         .from(AmountToBeRefundedLog)
+        // AjaxGetPayAmtView (order/views.py:1421,1429): filter(order_id, prod_id).first().
         .where(
           and(
             eq(AmountToBeRefundedLog.order_id, BigInt(orderId)),
-            eq(AmountToBeRefundedLog.has_product_id, BigInt(lineId)),
             eq(AmountToBeRefundedLog.prod_id, line.productId),
           ),
         )
