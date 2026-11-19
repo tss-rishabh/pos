@@ -43,18 +43,17 @@ export const orderSearchPage = z
     recordsFiltered: zero,
     page: z.number().int().min(1),
     pageSize: z.number().int().min(1).max(100),
-    reader: z.enum(['primary', 'data', 'bigquery', 'mixed']),
+    reader: z.literal('primary'),
     data: z.array(sourceOrderRow).max(100),
     fetchedAt: z.iso.datetime({ offset: true }),
     range: z
       .object({
-        from: z.iso.date(),
-        to: z.iso.date(),
+        placedFrom: z.string().max(32).nullable(),
+        placedTo: z.string().max(32).nullable(),
         timeZone: z.string(),
         ignoredForQueue: z.boolean(),
       })
       .strict(),
-    generationId: z.uuid().nullable(),
   })
   .strict();
 const sourceTimestamp = z
@@ -103,6 +102,16 @@ export const orderSearchOptions = z
     orderTypes: z.array(z.enum(['ST', 'HL', 'HE', 'N'])),
     checkedInStoreId: id.nullable(),
     defaults: orderDefaultRanges.optional(),
+    /** Legacy `_hl_get_tab_counts` for the checked-in store (header banner). */
+    hyperlocalTabs: z
+      .object({
+        inQueue: z.number().int().nonnegative(),
+        notPacked: z.number().int().nonnegative(),
+        packed: z.number().int().nonnegative(),
+        shipped: z.number().int().nonnegative(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 export type SearchSort =

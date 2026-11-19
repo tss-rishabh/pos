@@ -7,10 +7,6 @@ import {
 } from '../../src/modules/order-history/online-detail/values.js';
 import { nextStoreIds } from '../../src/modules/order-history/online-detail/authority.js';
 import { onlineDetailSelection } from '../../src/modules/order-history/online-detail/contracts.js';
-import {
-  readOnlineDetailOptions,
-  qualifiedDetailViews,
-} from '../../src/modules/order-history/online-detail/options.js';
 
 describe('online detail input and safe legacy values', () => {
   it('retains flat original payment entries without executing legacy text', () => {
@@ -70,7 +66,7 @@ describe('online detail input and safe legacy values', () => {
     expect(() => nextStoreIds('[9007199254740993]')).toThrow();
     expect(() => nextStoreIds('{"store":1}')).toThrow();
   });
-  it('requires explicit type/paired dates and qualified private publication configuration', () => {
+  it('requires explicit type and paired dates', () => {
     expect(onlineDetailSelection.parse({ type: 'N' })).toEqual({ type: 'N' });
     for (const input of [
       { type: 'ST' },
@@ -79,11 +75,5 @@ describe('online detail input and safe legacy values', () => {
       { type: 'N', intent: 'report' },
     ])
       expect(onlineDetailSelection.safeParse(input).success).toBe(false);
-    expect(() => qualifiedDetailViews(readOnlineDetailOptions({}))).toThrow(
-      'Complete historical order',
-    );
-    expect(() =>
-      readOnlineDetailOptions({ BQ_ORDER_DETAIL_FACTS_VIEW: 'project.dataset.view`;DROP TABLE x' }),
-    ).toThrow();
   });
 });

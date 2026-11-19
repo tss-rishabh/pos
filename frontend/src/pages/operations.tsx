@@ -10,8 +10,7 @@ import { request } from '../api/client';
 import {
   orderBrowseDetail,
   orderBrowserDates,
-  orderDateQuery,
-  currentOrderDay,
+  type StoreOrderLegacy,
 } from './order-history/client';
 import {
   AutomaticInvoicePreview,
@@ -184,24 +183,16 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
     [dates.from, dates.to, user.id, storeId],
   );
   useEffect(() => setAutomaticInvoice(null), [user.id, storeId, selected]);
-  const [rowDetail, setRowDetail] = useState<{
-    scope: string;
-    orderId: string;
-    from: string;
-    to: string;
-  } | null>(null);
-  const detailDates =
-    rowDetail?.scope === authorityScope && rowDetail.orderId === selected
-      ? { from: rowDetail.from, to: rowDetail.to }
-      : dates.explicit
-        ? { from: dates.from, to: dates.to }
-        : undefined;
+  // Legacy `?cr=1`: an order opened from an order-ID search may belong to another store.
+  const [crossAccess, setCrossAccess] = useState<{ scope: string; orderId: string } | null>(null);
+  const crossAccessOpen = crossAccess?.scope === authorityScope && crossAccess.orderId === selected;
+  const view = searchParams.get('view') === 'online' ? 'online' : 'store';
   const setSelected = (id: string) => {
     const next = new URLSearchParams(searchParams);
     if (id) next.set('orderId', id);
     else {
       next.delete('orderId');
-      setRowDetail(null);
+      setCrossAccess(null);
     }
     setSearchParams(next, {
       replace: true,
@@ -224,19 +215,11 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
     }
   }, [link.mismatch, link.needsBinding, location.key, user.id, storeId]);
   const detail = useQuery({
-    queryKey: [
-      user.id,
-      'order',
-      storeId,
-      selected,
-      detailDates?.from ?? null,
-      detailDates?.to ?? null,
-    ],
-    enabled: !!selected && online && dates.valid,
+    queryKey: [user.id, 'order', storeId, selected, crossAccessOpen],
+    enabled: !!selected && online,
     queryFn: ({ signal }) =>
       request(
-        `/api/v1/stores/${storeId}/orders/${selected}` +
-          (detailDates ? '?' + orderDateQuery(detailDates) : ''),
+        `/api/v1/stores/${storeId}/orders/${selected}` + (crossAccessOpen ? '?cr=1' : ''),
         { operatorId: user.id, signal },
         orderBrowseDetail,
       ),
@@ -244,7 +227,22 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
   });
   return (
     <>
-      <PageTitle eyebrow="FROM FIRST SCAN TO FINAL RECEIPT" title="Orders">
+      <PageTitle
+        eyebrow="FROM FIRST SCAN TO FINAL RECEIPT"
+        title={view === 'online' ? 'Online orders' : 'Orders'}
+      >
+        <button
+          className="button secondary"
+          onClick={() => {
+            const next = new URLSearchParams(searchParams);
+            if (view === 'online') next.delete('view');
+            else next.set('view', 'online');
+            next.delete('orderId');
+            setSearchParams(next, { replace: true });
+          }}
+        >
+          {view === 'online' ? 'Store orders' : 'Online orders'}
+        </button>
         <button className="button secondary" onClick={() => void orders.refetch()}>
           Refresh orders
           <ArrowUpRight size={16} />
@@ -300,8 +298,8 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
           Apply dates
         </button>
         <p className="muted">
-          Today opens live store orders. Earlier or mixed dates open a verified historical snapshot.
-          Select up to 62 calendar days.
+          Store orders open the last five days by default. The Online view has no default date
+          range.
         </p>
       </form>
       {!dates.valid && (
@@ -329,7 +327,8 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
         ))}
       {dates.valid && (dates.explicit || defaults) && (
         <SourceOrderList
-          key={`${user.id}:${user.role}:${user.userType}:${user.storeIds.join(',')}:${storeId}`}
+          key={`${user.id}:${user.role}:${user.userType}:${user.storeIds.join(',')}:${storeId}:${view}`}
+          view={view}
           user={user}
           storeId={storeId}
           dates={{ from: dates.from, to: dates.to, explicit: dates.explicit }}
@@ -337,17 +336,8 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
           options={orderMetadata.data}
           online={online}
           refreshToken={refreshToken}
-          onOpen={(row) => {
-            const day = row.created_at.slice(0, 10);
-            setRowDetail(
-              !dates.explicit &&
-                day <
-                  (defaults
-                    ? currentOrderDay(Date.parse(defaults.generatedAt), defaults.timeZone)
-                    : dates.to)
-                ? { scope: authorityScope, orderId: row.id, from: day, to: day }
-                : null,
-            );
+          onOpen={(row, options) => {
+            setCrossAccess(options.crossAccess ? { scope: authorityScope, orderId: row.id } : null);
             setSelected(row.id);
           }}
         />
@@ -390,12 +380,7 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
                   {detail.data?.status} · {currency(detail.data?.amount || 0)}
                 </p>
                 <p className="muted">Placed {detail.data?.createdAt}</p>
-                {detail.data?.reader === 'bigquery' && (
-                  <p role="status">
-                    Historical snapshot. Payment, cancellation and invoice actions independently
-                    verify current records.
-                  </p>
-                )}
+                {detail.data?.legacy && <StoreOrderContext legacy={detail.data.legacy} />}
                 {detail.data?.isPaid && (
                   <InvoiceActions storeId={storeId} orderId={selected} ownerId={user.id} />
                 )}
@@ -463,13 +448,29 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
                     void orders.refetch();
                   }}
                 />
+                {detail.data?.legacy && <h3>Products (Items : {detail.data.legacy.totalItems})</h3>}
                 {detail.data?.lines.map((l) => (
                   <div className="receipt-line" key={l.id}>
                     <div>
                       <strong>{l.name}</strong>
                       <small>
-                        {l.quantity} item(s) · {l.status}
+                        Line {l.id} · SKU {l.productId} · ERP {l.erpProduct ?? '-'} · {l.quantity}{' '}
+                        item(s) · {l.status} · GST {l.gst}%
                       </small>
+                      {detail.data?.legacy?.giftVouchers
+                        .filter((voucher) => voucher.id === l.giftVoucherId)
+                        .map((voucher) => (
+                          <small key={voucher.id}>SR. NO {voucher.giftCardSrno}</small>
+                        ))}
+                      {detail.data?.legacy?.isShopifyOrder ? (
+                        <small>Shopify Order not eligible for return</small>
+                      ) : l.productType === '8' ? (
+                        <small>Not Applicable For Return / Exchange</small>
+                      ) : !detail.data?.legacy?.isAtStore ? (
+                        <small>Check-in first to check return/exchange status</small>
+                      ) : (
+                        <NavLink to={`/returns?orderId=${selected}`}>Return / exchange</NavLink>
+                      )}
                     </div>
                     <strong>{currency(l.amount)}</strong>
                   </div>
@@ -528,5 +529,89 @@ export function StoresPage({
         <Empty title="No stores assigned">Your administrator can assign your store access.</Empty>
       )}
     </>
+  );
+}
+
+function StoreOrderContext({ legacy }: { legacy: StoreOrderLegacy }) {
+  const customer = legacy.customer;
+  return (
+    <section aria-label="Order context">
+      {customer && (
+        <>
+          <h3>
+            {customer.firstName} {customer.lastName}
+          </h3>
+          <p className="muted">
+            {customer.email} ({customer.id}) · {customer.telephone}
+          </p>
+          {legacy.exclusive.member && (
+            <p>
+              Exclusive member
+              {legacy.exclusive.expiry ? ` · Exclusive Expiry ${legacy.exclusive.expiry}` : ''}
+            </p>
+          )}
+          {legacy.exclusive.message && <p role="status">{legacy.exclusive.message}</p>}
+          <p>
+            TSS Money {customer.tssMoney} · TSS Points {customer.tssPoints}
+          </p>
+        </>
+      )}
+      <dl>
+        <div className="receipt-line">
+          <dt>Payment status</dt>
+          <dd>{legacy.paymentStatus?.label ?? ''}</dd>
+        </div>
+        <div className="receipt-line">
+          <dt>Payment method</dt>
+          <dd>{(legacy.paymentMethod?.name ?? '').toUpperCase()}</dd>
+        </div>
+        <div className="receipt-line">
+          <dt>Order status</dt>
+          <dd>{(legacy.orderStatus?.label ?? '').toUpperCase()}</dd>
+        </div>
+        <div className="receipt-line">
+          <dt>Store</dt>
+          <dd>{legacy.storeName}</dd>
+        </div>
+        <div className="receipt-line">
+          <dt>Transaction ID</dt>
+          <dd>{legacy.transactionId}</dd>
+        </div>
+      </dl>
+      {legacy.orderMessage && <p>Message : {legacy.orderMessage}</p>}
+      {legacy.isOfflineOrder && <p>Order Mode : Punched Offline Order</p>}
+      {legacy.isShopifyOrder && <p>Order Mode : Punched Shopify Order</p>}
+      {legacy.crossAccess && <p className="muted">Opened from an order-ID search (other store).</p>}
+      <h3>Vinculum Status</h3>
+      <dl>
+        {(['CREATE', 'PACK', 'SHIP', 'DELIVER'] as const).map((platform) => (
+          <div className="receipt-line" key={platform}>
+            <dt>{platform}</dt>
+            <dd>
+              {legacy.vincStatus[platform]?.status ?? '-'} {legacy.vincStatus[platform]?.date ?? ''}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <h3>Transaction logs</h3>
+      {legacy.transactionLog.map((entry, index) => (
+        <article key={index}>
+          <p>
+            <strong>{entry.comment}</strong> · {entry.createdAt}
+          </p>
+          <p className="muted">
+            {entry.orderStatus} · {entry.paymentStatus}
+          </p>
+          <dl>
+            {entry.payments.map((payment) => (
+              <div className="receipt-line" key={payment.method}>
+                <dt>{payment.method.toUpperCase()}</dt>
+                <dd>{payment.value ?? '—'}</dd>
+              </div>
+            ))}
+          </dl>
+        </article>
+      ))}
+    </section>
   );
 }

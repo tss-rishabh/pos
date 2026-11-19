@@ -7,8 +7,6 @@ import { AppError } from '../../../domain/errors.js';
 import { positiveId } from '../contracts.js';
 import { orderSearchInput } from './contracts.js';
 import { orderSearchService } from './service.js';
-import type { OrderSearchOptions } from './options.js';
-export { readOrderSearchOptions } from './options.js';
 export { orderSearchService } from './service.js';
 export { orderSearchInput } from './contracts.js';
 export type OrderSearchService = ReturnType<typeof orderSearchService>;
@@ -16,10 +14,9 @@ export async function registerOrderSearch(
   app: FastifyInstance,
   config: Config,
   db: Databases,
-  options?: OrderSearchOptions,
-  dependencies: Parameters<typeof orderSearchService>[3] & { service?: OrderSearchService } = {},
+  dependencies: Parameters<typeof orderSearchService>[2] & { service?: OrderSearchService } = {},
 ) {
-  const service = dependencies.service ?? orderSearchService(config, db, options, dependencies),
+  const service = dependencies.service ?? orderSearchService(config, db, dependencies),
     params = z.object({ storeId: positiveId }).strict(),
     empty = z.object({}).strict();
   const trace = (resource: string) => ({

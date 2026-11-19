@@ -59,7 +59,7 @@ export async function readInvoiceDocument(
   invoiceKind.parse(kind);
   if (access && !['online', 'same-day'].includes(kind))
     throw new Error('Choose a supported global invoice.');
-  const path = `/api/v1/stores/${storeId}/orders/${orderId}/${kind === 'store' ? 'invoice' : `invoices/${kind}`}${invoiceAccessQuery(access)}`;
+  const path = `/api/v1/stores/${storeId}/orders/${orderId}/invoices/${kind}${invoiceAccessQuery(access)}`;
   const document = await request(
     path,
     { operatorId: ownerId, signal, cache: 'no-store' },

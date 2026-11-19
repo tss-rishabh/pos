@@ -2,13 +2,12 @@ import { z } from 'zod';
 import type { Config } from '../../config.js';
 import { AppError } from '../../domain/errors.js';
 import { boundedJson } from '../../domain/http-json.js';
-import { currentRequestTrace } from '../../observability/context.js';
 import {
   customerBriefing,
   type BriefingIdentity,
   type CustomerBriefing,
 } from './briefing-contracts.js';
-import { customerInsightContract, type CustomerBriefingOptions } from './briefing-options.js';
+import type { CustomerBriefingOptions } from './briefing-options.js';
 
 function unavailable() {
   return new AppError(
@@ -27,13 +26,9 @@ export function customerBriefingGateway(
 ): CustomerBriefingGateway {
   return {
     async read(identity, storeId) {
-      if (
-        !options.CUSTOMER_INSIGHTS_ENABLED ||
-        options.CUSTOMER_INSIGHT_QUERY_CONTRACT !== customerInsightContract ||
-        !options.CUSTOMER_INSIGHT_URL ||
-        !options.CUSTOMER_INSIGHT_API_KEY
-      )
-        throw unavailable();
+      // Legacy AjaxCustomerInsightView (users/views.py:697-801): GET CUSTOMER_INSIGHT_URL with
+      // X-API-Key (omitted when the key is empty), contact-first identity and store_id.
+      if (!options.CUSTOMER_INSIGHT_URL) throw unavailable();
       if (
         options.CUSTOMER_INSIGHT_STORE_IDS.length &&
         !options.CUSTOMER_INSIGHT_STORE_IDS.includes(storeId)
@@ -65,26 +60,22 @@ export function customerBriefingGateway(
       url.searchParams.set('store_id', storeId);
       let response: Response;
       try {
-        const trace = currentRequestTrace();
         response = await fetcher(url, {
           method: 'GET',
           redirect: 'error',
           cache: 'no-store',
           signal: AbortSignal.timeout(5000),
-          headers: {
-            'X-API-Key': options.CUSTOMER_INSIGHT_API_KEY,
-            'X-POS-Insights-Contract': customerInsightContract,
-            ...(trace ? { 'X-Request-ID': trace.requestId } : {}),
-          },
+          headers: options.CUSTOMER_INSIGHT_API_KEY
+            ? { 'X-API-Key': options.CUSTOMER_INSIGHT_API_KEY }
+            : {},
         });
       } catch {
         throw unavailable();
       }
-      if (
-        !response.ok ||
-        response.headers.get('X-POS-Insights-Contract') !== customerInsightContract
-      )
+      if (response.status !== 200) {
+        await response.body?.cancel();
         throw unavailable();
+      }
       try {
         const raw = await boundedJson(response, 256000);
         const envelope = z

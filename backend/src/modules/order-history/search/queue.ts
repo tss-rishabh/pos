@@ -42,7 +42,8 @@ export function queuedForStore(next: string | null, storeId: string) {
     throw searchDataInvalid();
   return parsed.data.includes(storeId);
 }
-export function sourceQueueRepository(db: Databases, maxOrders = 10000) {
+/** Legacy in_queue / not_packed selections (`orders_datatable.py:73-87`), with no row bound as legacy. */
+export function sourceQueueRepository(db: Databases) {
   return async function discover(scope: SourceSearchScope, input: OrderSearchInput) {
     const storeId = scope.checkedInStoreId;
     if (!storeId)
@@ -125,14 +126,7 @@ export function sourceQueueRepository(db: Databases, maxOrders = 10000) {
             : undefined,
         ),
       )
-      .orderBy(Order.id)
-      .limit(maxOrders + 1);
-    if (rows.length > maxOrders)
-      throw new AppError(
-        422,
-        'ORDER_QUEUE_TOO_LARGE',
-        'This queue exceeds the complete-result safety bound. Narrow or reconcile the queue.',
-      );
+      .orderBy(Order.id);
     const orders: LiveQueueOrder[] = [];
     for (const row of rows) {
       if (row.locationId === null) continue;

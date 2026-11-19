@@ -2,8 +2,6 @@ import type { Config } from '../../../config.js';
 import type { Databases } from '../../../db/pools.js';
 import type { Principal } from '../../../domain/access.js';
 import { AppError } from '../../../domain/errors.js';
-import { orderRange } from '../contracts.js';
-import { sourceOrderDefaults } from '../search/default-ranges.js';
 import {
   onlineDetailSelection,
   onlineOrderDetail,
@@ -16,17 +14,21 @@ import {
   readCurrentOrderCustomer,
   readCurrentOrderProducts,
 } from './native.js';
-import { historicalOnlineDetails, type HistoricalOnlineDetailPort } from './reader.js';
+import { readOnlineDetailContext } from './context.js';
 import { detailUnavailable } from './errors.js';
 
+/**
+ * Legacy `ShowOnlineOrderDetailsView.get` (`order/views.py:504-680`): the order is read by id
+ * from the primary database for any order date, as legacy reads it. There is no warehouse
+ * path: legacy never reads order details from BigQuery.
+ */
 export function onlineOrderDetailService(
   config: Config,
   db: Databases,
-  dependencies: { history?: HistoricalOnlineDetailPort; clock?: () => number } = {},
+  dependencies: { clock?: () => number } = {},
 ) {
   const clock = dependencies.clock ?? Date.now,
-    authority = onlineDetailAuthority(config, db),
-    history = dependencies.history ?? historicalOnlineDetails(config, undefined, clock);
+    authority = onlineDetailAuthority(config, db);
   return {
     async read(
       user: Principal,
@@ -34,53 +36,24 @@ export function onlineOrderDetailService(
       orderId: string,
       raw: OnlineDetailSelection,
     ): Promise<OnlineOrderDetail> {
-      const selection = onlineDetailSelection.parse(raw),
-        readTime = clock();
-      const selected = orderRange(
-        { from: selection.from, to: selection.to },
-        config.BUSINESS_TIMEZONE,
-        readTime,
-      );
+      const selection = onlineDetailSelection.parse(raw);
       const original = await authority(user, storeId, orderId, selection);
-      let fact: OnlineOrderDetail['fact'] | null = null,
-        publication: OnlineOrderDetail['publication'] = null;
-      if (selected.reader === 'primary') {
-        const sourceEnd = !selected.explicit
-          ? sourceOrderDefaults(readTime, selected.timeZone).store.placedTo
-          : undefined;
-        fact = await db
-          .get('primary')
-          .transaction(
-            (tx) =>
-              readNativeOnlineDetail(
-                tx,
-                orderId,
-                selected,
-                sourceEnd && sourceEnd >= selected.end ? sourceEnd : undefined,
-              ),
-            { isolationLevel: 'repeatable read', accessMode: 'read only' },
-          );
-        if (!fact && selected.explicit) throw detailUnavailable();
-      }
-      if (!fact) {
-        const result = await history.read({
-          orderId,
-          customerId: original.customerId,
-          ...(selected.reader === 'bigquery' ? { range: selected } : {}),
-          cutoff: selected.cutoff,
-          timeZone: selected.timeZone,
+      const fact = await db
+        .get('primary')
+        .transaction((tx) => readNativeOnlineDetail(tx, orderId, config.BUSINESS_TIMEZONE), {
+          isolationLevel: 'repeatable read',
+          accessMode: 'read only',
         });
-        fact = result.fact;
-        publication = result.publication;
-      }
+      if (!fact) throw detailUnavailable();
       assertDetailBinding(fact, original, selection);
-      const [customer, products] = await Promise.all([
+      const [customer, products, context] = await Promise.all([
         readCurrentOrderCustomer(db, fact.customerId, config.BUSINESS_TIMEZONE, clock()),
         readCurrentOrderProducts(
           db,
           fact.lines.map((line) => line.productId),
           clock(),
         ),
+        readOnlineDetailContext(db, user, fact, selection.type === 'HE' ? storeId : null),
       ]);
       const current = await authority(user, storeId, orderId, selection);
       if (current.binding !== original.binding)
@@ -92,12 +65,12 @@ export function onlineOrderDetailService(
       return onlineOrderDetail.parse({
         type: selection.type,
         storeId,
-        reader: publication ? 'bigquery' : 'primary',
+        reader: 'primary',
         fetchedAt: new Date(clock()).toISOString(),
         fact,
         customer,
         products,
-        publication,
+        context,
       });
     },
   };

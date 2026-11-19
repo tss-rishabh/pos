@@ -4,47 +4,66 @@ import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import { authenticated } from '../../auth/routes.js';
 import { AppError } from '../../domain/errors.js';
-import { invoiceDocumentScope } from './contracts.js';
+import { invoiceAdapter, type InvoiceAdapter } from './adapter.js';
+import { invoiceDocumentScope, invoiceKind } from './contracts.js';
 import { invoiceDocumentOptions, type InvoiceDocumentOptions } from './options.js';
-import { onlineInvoiceService } from './service.js';
-import { scopedInvoiceService } from './scoped-service.js';
-import { invoiceCapabilities } from './capabilities.js';
-import { invoiceService } from '../checkout/invoices.js';
+import { invoiceDocumentService } from './service.js';
 import { invoicePreviewScope, invoicePreviewHtml, invoicePreviewPolicy } from './presentation.js';
 
+/** Legacy `store|online|online_sdd/<order_id>/invoice/` (`order/urls.py:13-15`). */
 export function registerInvoiceDocuments(
   app: FastifyInstance,
   config: Config,
   db: Databases,
   options: InvoiceDocumentOptions = invoiceDocumentOptions(),
-  fetcher: typeof fetch = fetch,
+  adapter: InvoiceAdapter = invoiceAdapter(config, options),
 ) {
+  const service = invoiceDocumentService(config, db, options, adapter, (outcome) =>
+    app.log.warn(
+      {
+        module: 'invoice-documents',
+        resource: 'whatsapp-invoice',
+        eventId: 'invoice-documents.whatsapp-invoice.not-sent',
+        outcome,
+      },
+      'WhatsApp invoice message was not sent.',
+    ),
+  );
   const accessQuery = z.object({ access: z.literal('global-online').optional() }).strict();
   const selection = (request: FastifyRequest) =>
     invoiceDocumentScope.parse({
-      ...invoiceDocumentScope.parse(request.params),
+      ...z.object({ storeId: z.string(), orderId: z.string() }).strip().parse(request.params),
       ...accessQuery.parse(request.query),
     });
+  function operator(request: FastifyRequest) {
+    const user = authenticated(request);
+    if (request.headers['x-operator-id'] !== user.id)
+      throw new AppError(
+        409,
+        'OPERATOR_CHANGED',
+        'The signed-in operator changed. Refresh this workspace.',
+      );
+    return user;
+  }
   async function assertCurrentSession(request: FastifyRequest) {
     if (!request.authSessionValid && config.DEMO_MODE) return;
     if (!request.authSessionValid || !(await request.authSessionValid()))
       throw new AppError(401, 'SESSION_EXPIRED', 'Sign in again to load this invoice.');
   }
-  const read = onlineInvoiceService(db, config, options, fetcher);
-  const readScoped = scopedInvoiceService(db, config, options, fetcher);
-  const capabilities = invoiceCapabilities(db, options);
-  const readStore = invoiceService(db, config, options, fetcher);
   app.get(
     '/api/v1/operators/:operatorId/stores/:storeId/orders/:orderId/invoices/:kind/preview',
-    { config: { trace: { module: 'checkout', resource: 'invoice-preview', action: 'read' } } },
+    {
+      config: {
+        trace: { module: 'invoice-documents', resource: 'invoice-preview', action: 'read' },
+      },
+    },
     async (request, reply) => {
       const scope = invoicePreviewScope.parse({
           ...invoicePreviewScope.parse(request.params),
           ...accessQuery.parse(request.query),
         }),
         user = authenticated(request);
-      // Browser frame navigations cannot set custom headers. The captured actor
-      // is asserted by the path and MUST match the fresh revocable cookie identity.
+      // Frame navigations cannot set custom headers; the path actor must match the session.
       if (
         scope.operatorId !== user.id ||
         (request.headers['x-operator-id'] !== undefined &&
@@ -55,115 +74,53 @@ export function registerInvoiceDocuments(
           'OPERATOR_CHANGED',
           'The signed-in operator changed. Refresh this workspace.',
         );
-      if (scope.access && !['online', 'same-day'].includes(scope.kind))
-        throw new AppError(400, 'INVALID_REQUEST', 'Choose a supported global invoice.');
-      reply
+      const document = await service.document(
+        user,
+        {
+          storeId: scope.storeId,
+          orderId: scope.orderId,
+          ...(scope.access ? { access: scope.access } : {}),
+        },
+        scope.kind,
+      );
+      await assertCurrentSession(request);
+      return reply
         .header('Cache-Control', 'no-store')
         .header('Pragma', 'no-cache')
         .header('Referrer-Policy', 'no-referrer')
-        .header('Content-Security-Policy', invoicePreviewPolicy);
-      const document =
-        scope.kind === 'store'
-          ? await readStore(user, scope.storeId, scope.orderId)
-          : scope.kind === 'online'
-            ? await read(user, {
-                storeId: scope.storeId,
-                orderId: scope.orderId,
-                ...(scope.access ? { access: scope.access } : {}),
-              })
-            : await readScoped(
-                user,
-                {
-                  storeId: scope.storeId,
-                  orderId: scope.orderId,
-                  ...(scope.access ? { access: scope.access } : {}),
-                },
-                scope.kind,
-              );
-      await assertCurrentSession(request);
-      return reply
+        .header('Content-Security-Policy', invoicePreviewPolicy)
         .type('text/html; charset=utf-8')
         .send(invoicePreviewHtml(document.html, scope, document.number));
     },
   );
-  for (const preview of [false, true])
-    app.get(
-      `/api/v1/stores/:storeId/orders/:orderId/invoices/online${preview ? '/preview' : ''}`,
-      {
-        config: {
-          trace: {
-            module: 'checkout',
-            resource: 'online-tax-invoice',
-            action: preview ? 'preview' : 'read',
-          },
-        },
-      },
-      async (request, reply) => {
-        const user = authenticated(request);
-        if (request.headers['x-operator-id'] !== user.id)
-          throw new AppError(
-            409,
-            'OPERATOR_CHANGED',
-            'The signed-in operator changed. Refresh this workspace.',
-          );
-        const document = await read(user, selection(request));
-        await assertCurrentSession(request);
-        reply
-          .header('Cache-Control', 'no-store')
-          .header('Pragma', 'no-cache')
-          .header('Referrer-Policy', 'no-referrer');
-        if (!preview) return document;
-        return reply
-          .header(
-            'Content-Security-Policy',
-            "default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'; frame-ancestors 'self'; sandbox allow-same-origin allow-modals",
-          )
-          .type('text/html; charset=utf-8')
-          .send(document.html);
-      },
-    );
   app.get(
     '/api/v1/stores/:storeId/orders/:orderId/invoices/capabilities',
-    { config: { trace: { module: 'checkout', resource: 'invoice-capabilities', action: 'read' } } },
+    {
+      config: {
+        trace: { module: 'invoice-documents', resource: 'invoice-capabilities', action: 'read' },
+      },
+    },
     async (request, reply) => {
-      const user = authenticated(request);
-      if (request.headers['x-operator-id'] !== user.id)
-        throw new AppError(
-          409,
-          'OPERATOR_CHANGED',
-          'The signed-in operator changed. Refresh this workspace.',
-        );
-      reply.header('Cache-Control', 'no-store');
-      const result = await capabilities(user, selection(request));
+      const user = operator(request);
+      const result = await service.capabilities(user, selection(request));
       await assertCurrentSession(request);
-      return result;
+      return reply.header('Cache-Control', 'no-store').send(result);
     },
   );
-  for (const kind of ['same-day', 'express'] as const)
-    app.get(
-      `/api/v1/stores/:storeId/orders/:orderId/invoices/${kind}`,
-      {
-        config: {
-          trace: {
-            module: 'checkout',
-            resource: kind === 'express' ? 'express-tax-invoice' : 'same-day-tax-invoice',
-            action: 'read',
-          },
-        },
-      },
-      async (request, reply) => {
-        const user = authenticated(request);
-        if (request.headers['x-operator-id'] !== user.id)
-          throw new AppError(
-            409,
-            'OPERATOR_CHANGED',
-            'The signed-in operator changed. Refresh this workspace.',
-          );
-        reply.header('Cache-Control', 'no-store').header('Referrer-Policy', 'no-referrer');
-        const result = await readScoped(user, selection(request), kind);
-        await assertCurrentSession(request);
-        return result;
-      },
-    );
-  return read;
+  app.get(
+    '/api/v1/stores/:storeId/orders/:orderId/invoices/:kind',
+    { config: { trace: { module: 'invoice-documents', resource: 'tax-invoice', action: 'read' } } },
+    async (request, reply) => {
+      const user = operator(request);
+      const kind = invoiceKind.parse((request.params as { kind?: unknown }).kind);
+      const document = await service.document(user, selection(request), kind);
+      await assertCurrentSession(request);
+      return reply
+        .header('Cache-Control', 'no-store')
+        .header('Pragma', 'no-cache')
+        .header('Referrer-Policy', 'no-referrer')
+        .send(document);
+    },
+  );
+  return service;
 }

@@ -1,187 +1,115 @@
-import { createHash, randomUUID } from 'node:crypto';
 import { Temporal } from '@js-temporal/polyfill';
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
-import { ExpressLineItem, Notification, Store, UsersNotification } from '../../db/legacy-schema.js';
-import { retryTransaction } from '../../db/retry.js';
-import { AppError } from '../../domain/errors.js';
+import { Notification, Store, UsersNotification } from '../../db/legacy-schema.js';
 import { generatedId } from '../../db/generated-id.js';
+import { retryTransaction } from '../../db/retry.js';
 import { sourceIntId } from './source-id.js';
-import { checkInService } from '../administration/checkins.js';
-import type { NoticeEvent, NotificationBus } from './notification-bus.js';
+import type { CheckInReader } from './checkin.js';
+import type { FulfillmentEffects, FulfillmentLogger } from './effects.js';
+import type { NotificationBus } from './notification-bus.js';
 import { localTimestamp } from './domain.js';
-import { notificationEvents, fulfillmentEffects } from './schema.js';
+import { slackText } from './slack-text.js';
 
-export interface ExpressNoticeCommand {
-  eventId: string;
+export interface OrderNotificationInput {
+  title: string;
   orderId: string;
-  storeIds: string[];
+  storeId: string;
+  isSlack?: boolean;
+  isNewOrder?: boolean;
+  /** Legacy `flag`, prefixed to the Slack text. */
+  flag?: string;
+  /** Legacy `staff_user`, appended to the Slack text. */
+  staffUser?: string;
+  reason?: string;
+  sendToCommon?: boolean;
 }
-export function notificationDelivery(
-  config: Config,
-  db: Databases,
-  bus: NotificationBus,
-  checkins: Pick<ReturnType<typeof checkInService>, 'checkedInUsers'> = checkInService(db, config),
-) {
-  const now = () => localTimestamp(Temporal.Now.instant(), config.BUSINESS_TIMEZONE);
-  async function publish(eventId: string, storeId: string, notice: NoticeEvent) {
-    const active = new Set(await checkins.checkedInUsers(storeId));
-    await bus.publish({
-      ...notice,
-      userIds: notice.userIds.filter((userId) => active.has(userId)),
+export interface OrderNotificationDependencies {
+  config: Pick<Config, 'BUSINESS_TIMEZONE'>;
+  db: Databases;
+  checkins: Pick<CheckInReader, 'checkedInUsers'>;
+  effects: Pick<FulfillmentEffects, 'slack'>;
+  bus?: Pick<NotificationBus, 'publish'>;
+  log?: FulfillmentLogger;
+  clock?: () => Temporal.Instant;
+}
+/**
+ * Legacy `create_order_notification_sync` (`helpers/notification_helpers.py:40-57`), the body of
+ * job O5 `order.views.advance_order_notification` (`order/views.py:4481-4483`) and of the
+ * synchronous calls in the hyperlocal transfer flows. Order: Slack, `pos_notifications`,
+ * `pos_user_notifications` for the users in `check_in_list_{store}`, then the live push.
+ */
+export async function createOrderNotification(
+  deps: OrderNotificationDependencies,
+  input: OrderNotificationInput,
+): Promise<{ notificationId: string } | null> {
+  if (!/^\d+$/.test(input.orderId) || BigInt(input.orderId) <= 0n) return null;
+  const db = deps.db.get('writer'),
+    storeNumber = sourceIntId(input.storeId),
+    now = localTimestamp(
+      (deps.clock ?? (() => Temporal.Now.instant()))(),
+      deps.config.BUSINESS_TIMEZONE,
+    );
+  const [store] = await db
+    .select({ name: Store.store_name })
+    .from(Store)
+    .where(eq(Store.id, BigInt(input.storeId)))
+    .limit(1);
+  let title = input.title;
+  if (store) title += ` to ${store.name ?? 'None'}`;
+  if (input.reason) title += ` | Reason: ${input.reason}`;
+  if (input.isSlack) {
+    let text = `🛵 Order Id: ${input.orderId}, ${slackText(title)}`;
+    if (input.flag) text = `${input.flag} ${text}`;
+    if (input.staffUser) text += ` | Staff User : ${slackText(input.staffUser)}`;
+    await deps.effects.slack(text, {
+      storeId: input.storeId,
+      sendToCommon: input.sendToCommon ?? true,
     });
-    await db
-      .get('writer')
-      .update(notificationEvents)
-      .set({ publishedAt: now() })
-      .where(and(eq(notificationEvents.eventId, eventId), eq(notificationEvents.storeId, storeId)));
   }
-  return {
-    async receive(command: ExpressNoticeCommand, requestId: string | null = null) {
-      const data = [];
-      for (const storeId of [...new Set(command.storeIds)]) {
-        const storeNumber = sourceIntId(storeId);
-        const hash = createHash('sha256')
-          .update(JSON.stringify({ orderId: command.orderId, storeId }))
-          .digest('hex');
-        const users = await checkins.checkedInUsers(storeId);
-        const notice = await retryTransaction(() =>
-          db.get('writer').transaction(async (tx) => {
-            await tx
-              .insert(notificationEvents)
-              .values({
-                eventId: command.eventId,
-                storeId,
-                requestHash: hash,
-                requestId,
-                createdAt: now(),
-              })
-              .onDuplicateKeyUpdate({ set: { eventId: command.eventId } });
-            const [reservation] = await tx
-              .select()
-              .from(notificationEvents)
-              .where(
-                and(
-                  eq(notificationEvents.eventId, command.eventId),
-                  eq(notificationEvents.storeId, storeId),
-                ),
-              )
-              .for('update');
-            if (reservation!.requestHash !== hash)
-              throw new AppError(
-                409,
-                'IDEMPOTENCY_CONFLICT',
-                'This event ID was used with different data.',
-              );
-            if (reservation!.notice) return reservation!.notice;
-            const [line] = await tx
-              .select({ id: ExpressLineItem.id })
-              .from(ExpressLineItem)
-              .where(
-                and(
-                  eq(ExpressLineItem.order, BigInt(command.orderId)),
-                  eq(ExpressLineItem.store_id, storeNumber),
-                ),
-              )
-              .limit(1);
-            if (!line)
-              throw new AppError(
-                404,
-                'FULFILLMENT_ORDER_NOT_FOUND',
-                'Express order not found in the requested store.',
-              );
-            const [store] = await tx
-              .select({ name: Store.store_name })
-              .from(Store)
-              .where(eq(Store.id, BigInt(storeId)))
-              .limit(1);
-            const timestamp = now();
-            const inserted = {
-              id: generatedId(
-                await tx.insert(Notification).values({
-                  title: `Hyperlocal Order to ${store?.name || `Store ${storeId}`}`,
-                  order_id: BigInt(command.orderId),
-                  store_id: storeNumber,
-                  created_at: timestamp,
-                  updated_at: timestamp,
-                }),
-              ),
-            };
-            if (users.length)
-              await tx.insert(UsersNotification).values(
-                users.map((userId) => ({
-                  notification: BigInt(inserted.id),
-                  pos_admin_id: sourceIntId(userId),
-                  is_viewed: 0,
-                  created_at: timestamp,
-                  updated_at: timestamp,
-                })),
-              );
-            const result: NoticeEvent = {
-              event: 'notification.created',
-              notificationId: String(inserted.id),
-              storeId,
-              userIds: users,
-              isNewOrder: true,
-            };
-            await tx.insert(fulfillmentEffects).values({
-              id: randomUUID(),
-              commandId: command.eventId,
-              operatorId: 'service',
-              requestId,
-              storeId,
-              orderId: command.orderId,
-              kind: 'store-notification',
-              payload: { action: 'NEW_ORDER', commonChannel: false, productIds: [] },
-              status: 'PENDING',
-              attempts: 0,
-              sequence: 0,
-              createdAt: timestamp,
-            });
-            await tx
-              .update(notificationEvents)
-              .set({ notice: result })
-              .where(
-                and(
-                  eq(notificationEvents.eventId, command.eventId),
-                  eq(notificationEvents.storeId, storeId),
-                ),
-              );
-            return result;
-          }),
+  const users = await deps.checkins.checkedInUsers(input.storeId);
+  const notificationId = await retryTransaction(() =>
+    db.transaction(async (tx) => {
+      const id = generatedId(
+        await tx.insert(Notification).values({
+          title,
+          order_id: BigInt(input.orderId),
+          store_id: storeNumber,
+          created_at: now,
+          updated_at: now,
+        }),
+      );
+      if (users.length)
+        await tx.insert(UsersNotification).values(
+          users.map((userId) => ({
+            notification: id,
+            pos_admin_id: sourceIntId(userId),
+            is_viewed: 0,
+            created_at: now,
+            updated_at: now,
+          })),
         );
-        // Duplicate event IDs cannot insert duplicate DB notices. Publication is
-        // at-least-once; consumers deduplicate the stable notification ID.
-        let publication: 'published' | 'pending' = 'published';
-        try {
-          await publish(command.eventId, storeId, notice);
-        } catch {
-          publication = 'pending';
-        }
-        data.push({ storeId, notificationId: notice.notificationId, publication });
-      }
-      return { eventId: command.eventId, data };
-    },
-    async publishPending(limit = 100) {
-      const rows = await db
-        .get('writer')
-        .select()
-        .from(notificationEvents)
-        .where(isNull(notificationEvents.publishedAt))
-        .orderBy(asc(notificationEvents.createdAt))
-        .limit(limit);
-      let completed = 0;
-      for (const row of rows) {
-        if (!row.notice) continue;
-        try {
-          await publish(row.eventId, row.storeId, row.notice);
-          completed++;
-        } catch {
-          break;
-        }
-      }
-      return { completed };
-    },
-  };
+      return String(id);
+    }),
+  );
+  // Legacy group_send is best effort (`notification_helpers.py:13-29` swallows errors).
+  if (deps.bus)
+    await deps.bus
+      .publish({
+        event: 'notification.created',
+        notificationId,
+        storeId: input.storeId,
+        userIds: users,
+        isNewOrder: input.isNewOrder ?? false,
+      })
+      .catch(() =>
+        deps.log?.('warn', {
+          eventId: 'fulfillment.notification.publish-failed',
+          resource: 'notification',
+          outcome: 'failed',
+          storeId: input.storeId,
+        }),
+      );
+  return { notificationId };
 }

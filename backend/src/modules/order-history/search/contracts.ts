@@ -31,6 +31,7 @@ export const orderSearchInput = z
     to: date.optional(),
     placedFrom: timestamp.optional(),
     placedTo: timestamp.optional(),
+    /** Accepted for older clients; order search always reads the primary reader as legacy. */
     intent: z.enum(['interactive', 'report']).default('interactive'),
     mobile: z
       .string()
@@ -83,6 +84,9 @@ export const orderSearchInput = z
       });
     if (Boolean(value.from) !== Boolean(value.to))
       ctx.addIssue({ code: 'custom', path: ['from'], message: 'Supply both calendar dates.' });
+    if (value.from && value.to && value.from > value.to)
+      ctx.addIssue({ code: 'custom', path: ['to'], message: 'The end date precedes the start.' });
+
     if (Boolean(value.placedFrom) !== Boolean(value.placedTo))
       ctx.addIssue({
         code: 'custom',
@@ -184,12 +188,19 @@ export interface SourceOrderRow {
   is_global_order: number;
   actionStoreId: string | null;
 }
+/** Legacy `created_at__gte`/`__lte` window. `inclusive` is the legacy `__lte` timestamp form. */
+export interface SearchWindow {
+  start: string;
+  end: string;
+  inclusive: boolean;
+}
 export interface SourceSearchScope {
   contextStoreId: string;
   checkedInStoreId: string | null;
   allowedStores: string[];
   internal: boolean;
-  globalReader: boolean;
+  /** pos_user.user_type == 2: legacy hides non-ID Online (N) searches from these users. */
+  franchiseViewer: boolean;
   binding: string;
   effectiveType: 'ST' | 'HL' | 'HE' | 'N';
   selectedStores: string[];
@@ -204,11 +215,15 @@ export interface SourceSearchPage {
   recordsFiltered: string;
   page: number;
   pageSize: number;
-  reader: 'primary' | 'data' | 'bigquery' | 'mixed';
+  reader: 'primary';
   data: SourceOrderRow[];
   fetchedAt: string;
-  range: { from: string; to: string; timeZone: string; ignoredForQueue: boolean };
-  generationId: string | null;
+  range: {
+    placedFrom: string | null;
+    placedTo: string | null;
+    timeZone: string;
+    ignoredForQueue: boolean;
+  };
 }
 export const sourceRowSchema = z
   .object({

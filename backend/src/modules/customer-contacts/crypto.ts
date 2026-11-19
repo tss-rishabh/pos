@@ -8,8 +8,7 @@ import {
 } from 'node:crypto';
 import { z } from 'zod';
 import { registrationDigest } from '../checkout/customers/crypto.js';
-import { contactEnvelope, contactOtpPayload } from './contracts.js';
-import type { CustomerContactStage } from './schema.js';
+type CustomerContactStage = 'current' | 'new';
 
 export const contactCode = () => randomInt(0, 1000000).toString().padStart(6, '0');
 export function contactDigest(secret: string, purpose: string, value: string) {
@@ -82,7 +81,3 @@ export function openContact<T>(secret: string, id: string, value: string, schema
     ) as unknown,
   );
 }
-export const openContactEnvelope = (secret: string, id: string, value: string) =>
-  openContact(secret, id, value, contactEnvelope);
-export const openContactOtp = (secret: string, id: string, value: string) =>
-  openContact(secret, id, value, contactOtpPayload);

@@ -2,7 +2,6 @@ import mysql from 'mysql2/promise';
 import { getTableConfig, type MySqlTable } from 'drizzle-orm/mysql-core';
 import { eq } from 'drizzle-orm';
 import { Temporal } from '@js-temporal/polyfill';
-import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { readConfig } from '../../src/config.js';
 import { createDatabases, type Databases } from '../../src/db/pools.js';
@@ -21,18 +20,15 @@ import {
   Store,
   UsersNotification,
 } from '../../src/db/legacy-schema.js';
-import { fulfillmentService } from '../../src/modules/fulfillment/service.js';
-import { fulfillmentOutbox, type EffectDelivery } from '../../src/modules/fulfillment/outbox.js';
-import { fulfillmentEffects } from '../../src/modules/fulfillment/schema.js';
-import { notificationBus } from '../../src/modules/fulfillment/notification-bus.js';
-import { notificationDelivery } from '../../src/modules/fulfillment/notifications.js';
 import type { Principal } from '../../src/domain/access.js';
-import { fulfillmentMaintenance } from '../../src/modules/fulfillment/maintenance.js';
+import { fulfillmentService } from '../../src/modules/fulfillment/service.js';
+import { fulfillmentEffects } from '../../src/modules/fulfillment/effects.js';
+import { redisCheckIns } from '../../src/modules/fulfillment/checkin.js';
+import { memoryOrderRedis } from '../../src/modules/fulfillment/order-redis.js';
 import { readFulfillmentOptions } from '../../src/modules/fulfillment/options.js';
+import { autoRejectTimedOutForStore } from '../../src/modules/fulfillment/expiry.js';
+import { createOrderNotification } from '../../src/modules/fulfillment/notifications.js';
 import { fulfillmentMonitoring } from '../../src/modules/fulfillment/monitoring.js';
-import { operatorCheckIns } from '../../src/modules/administration/schema.js';
-import { monitoringOptions } from '../../src/modules/fulfillment/monitoring-options.js';
-import { fulfillmentWorker } from '../../src/modules/fulfillment/worker.js';
 
 const connection = process.env.MYSQL_INTEGRATION_URL;
 describe.skipIf(!connection)('fulfillment lifecycle on isolated local MySQL', () => {
@@ -51,7 +47,6 @@ describe.skipIf(!connection)('fulfillment lifecycle on isolated local MySQL', ()
     UserStore,
     Store,
     UsersNotification,
-    operatorCheckIns,
   ];
   const user: Principal = {
     id: '900001',
@@ -70,7 +65,55 @@ describe.skipIf(!connection)('fulfillment lifecycle on isolated local MySQL', ()
   let admin: mysql.Connection | undefined,
     databases: Databases | undefined,
     created = false;
-  const bus = notificationBus(config);
+  const options = {
+    ...readFulfillmentOptions({}),
+    BACKEND_SYNC_API_BASE_URL: 'https://sync.example.test',
+    BACKEND_SYNC_REPO_API_KEY: 'fixture-sync-key',
+    MJML_HOST: 'https://mailr.example.test/',
+    PREORDER_URL: 'https://preorder.example.test/',
+    PREORDER_INTERNAL_KEY: 'fixture-preorder-key',
+    MAIN_API_V2_URL: 'https://api-v2.example.test/',
+    SLACK_URL: 'https://hooks.slack.com/services/common',
+  };
+  /** Every outbound request, with the express line statuses visible at the moment it was sent. */
+  const calls: { url: string; body: unknown; statuses: string[] }[] = [];
+  const responses = new Map<string, string>();
+  let redis = memoryOrderRedis();
+  const published: unknown[] = [];
+  const fetcher: typeof fetch = async (input, init) => {
+    const [rows] = await admin!.query<mysql.RowDataPacket[]>(
+      'SELECT status FROM express_line_item WHERE store_id=1 ORDER BY id',
+    );
+    calls.push({
+      url: String(input),
+      body: JSON.parse(String(init?.body)) as unknown,
+      statuses: rows.map((row) => String(row.status)),
+    });
+    return new Response(responses.get(String(input)) ?? '{}', { status: 200 });
+  };
+  function harness() {
+    const effects = fulfillmentEffects(db(), options, { fetch: fetcher }),
+      checkins = redisCheckIns(redis);
+    return {
+      effects,
+      checkins,
+      service: fulfillmentService(config, db(), options, { checkins, effects, clock }),
+      expiry: { config, db: db(), options, redis, effects, clock },
+      notifications: {
+        config,
+        db: db(),
+        checkins,
+        effects,
+        clock,
+        bus: {
+          publish: async (event: unknown) => {
+            published.push(event);
+          },
+        },
+      },
+    };
+  }
+  const urls = () => calls.map((call) => call.url);
   function db() {
     if (!databases) throw new Error('Fixture not initialized');
     return databases;
@@ -127,10 +170,6 @@ describe.skipIf(!connection)('fulfillment lifecycle on isolated local MySQL', ()
         `CREATE TABLE ${mysql.escapeId(cfg.name)} (${columns.join(',')}) ENGINE=InnoDB`,
       );
     }
-    for (const query of readFileSync('src/modules/fulfillment/migration.sql', 'utf8')
-      .split(';')
-      .filter((value) => value.trim()))
-      await admin.query(query);
     url.pathname = '/' + schema;
     databases = createDatabases(
       readConfig({
@@ -146,22 +185,21 @@ describe.skipIf(!connection)('fulfillment lifecycle on isolated local MySQL', ()
   beforeEach(async () => {
     for (const model of models)
       await admin!.query(`TRUNCATE TABLE ${mysql.escapeId(getTableConfig(model).name)}`);
-    for (const name of [
-      'pos_rewrite_fulfillment_commands',
-      'pos_rewrite_fulfillment_effects',
-      'pos_rewrite_notification_events',
-    ])
-      await admin!.query(`TRUNCATE TABLE ${mysql.escapeId(name)}`);
-    await insert(Store, { id: 1, store_name: 'Fixture store', is_active: 1, type: 'STORE' });
+    redis = memoryOrderRedis();
+    await redis.set(`check_in_${user.id}`, '[1, "Fixture store"]');
+    redis.lPush('check_in_list_1', user.id);
+    calls.length = 0;
+    responses.clear();
+    await insert(Store, {
+      id: 1,
+      store_name: 'Fixture store',
+      is_active: 1,
+      type: 'STORE',
+      slack_group_url: 'https://hooks.slack.com/services/store-1',
+    });
+    await insert(Store, { id: 2, store_name: 'Other store', is_active: 1, type: 'STORE' });
     await insert(PosUser, { id: Number(user.id), is_active: 1, role: 4, user_type: 1 });
     await insert(UserStore, { django_user_id: Number(user.id), store_id: 1 });
-    await insert(operatorCheckIns, {
-      operator_id: user.id,
-      store_id: 1,
-      counter_id: null,
-      checked_in_at: '2026-11-16 08:00:00.000',
-      expires_at: '2099-01-01 00:00:00.000',
-    });
     await insert(Product, { id: 101, product: 'Fixture tee' });
     await insert(Order, {
       id: 1001,
@@ -198,7 +236,30 @@ describe.skipIf(!connection)('fulfillment lifecycle on isolated local MySQL', ()
     }
     await insert(HyperlocalRejectionReason, { id: 1, reason: 'Fixture reason', is_active: 1 });
   });
-  it('keeps notification IDs above the safe integer boundary distinct through cursors and read updates', async () => {
+  afterAll(async () => {
+    await databases?.close();
+    if (admin && created) {
+      await admin.changeUser({ database: 'mysql' });
+      await admin.query(`DROP DATABASE ${mysql.escapeId(schema)}`);
+    }
+    await admin?.end();
+  });
+  const lineStatuses = async () => {
+    const [rows] = await admin!.query<mysql.RowDataPacket[]>(
+      'SELECT id, store_id, status, rejection_reason_id FROM express_line_item ORDER BY id',
+    );
+    return rows.map((row) => [Number(row.id), String(row.status), row.rejection_reason_id]);
+  };
+  const logs = async () => {
+    const [rows] = await admin!.query<mysql.RowDataPacket[]>(
+      'SELECT order_id, store_id, old_status, new_status FROM express_order_status_log ORDER BY id',
+    );
+    return rows.map(
+      (row) => `${row.order_id}/${row.store_id}:${row.old_status}->${row.new_status}`,
+    );
+  };
+
+  it('keeps notification IDs above the safe integer boundary and creates O5 notices for checked-in users', async () => {
     const first = '9007199254740993',
       second = '9007199254740994';
     for (const id of [first, second]) {
@@ -214,187 +275,300 @@ describe.skipIf(!connection)('fulfillment lifecycle on isolated local MySQL', ()
         is_viewed: 0,
       });
     }
-    const service = fulfillmentService(config, db());
+    const { service, notifications } = harness();
     const rows = await service.notifications(user, '1', first);
     expect(rows.data.map((row) => row.id)).toEqual([second]);
     expect(rows.unreadCount).toBe(2);
     await service.markNotificationRead(user, '1', second);
-    const after = await service.notifications(user, '1');
-    expect(after.data.find((row) => row.id === first)?.isViewed).toBe(false);
-    expect(after.data.find((row) => row.id === second)?.isViewed).toBe(true);
-    expect(after.unreadCount).toBe(1);
-    const delivery = notificationDelivery(config, db(), bus, {
-        checkedInUsers: async () => [user.id],
+    expect((await service.notifications(user, '1')).unreadCount).toBe(1);
+    await redis.set(`check_in_${user.id}`, '[2, "Other store"]');
+    await expect(service.markNotificationRead(user, '1', first)).rejects.toMatchObject({
+      code: 'CHECK_IN_REQUIRED',
+    });
+    const created = await createOrderNotification(notifications, {
+      title: 'Hyperlocal Order',
+      orderId: '1001',
+      storeId: '1',
+      isSlack: true,
+      isNewOrder: true,
+      sendToCommon: false,
+    });
+    expect(created?.notificationId).toBe('9007199254740995');
+    const [notice] = await admin!.query<mysql.RowDataPacket[]>(
+      'SELECT title FROM pos_notifications WHERE id=?',
+      ['9007199254740995'],
+    );
+    expect(notice[0]?.title).toBe('Hyperlocal Order to Fixture store');
+    const [targets] = await admin!.query<mysql.RowDataPacket[]>(
+      'SELECT pos_admin_id FROM pos_user_notifications WHERE notification_id=?',
+      ['9007199254740995'],
+    );
+    expect(targets.map((row) => String(row.pos_admin_id))).toEqual([user.id]);
+    expect(calls).toEqual([
+      expect.objectContaining({
+        url: 'https://hooks.slack.com/services/store-1',
+        body: expect.objectContaining({
+          text: '🛵 Order Id: 1001, Hyperlocal Order to Fixture store',
+        }),
       }),
-      created = await delivery.receive({
-        eventId: crypto.randomUUID(),
-        orderId: '1001',
-        storeIds: ['1'],
-      });
-    expect(created.data[0]?.notificationId).toBe('9007199254740995');
-    expect((await service.notifications(user, '1', second)).data.map((row) => row.id)).toEqual([
-      '9007199254740995',
+    ]);
+    expect(published).toContainEqual({
+      event: 'notification.created',
+      notificationId: '9007199254740995',
+      storeId: '1',
+      userIds: [user.id],
+      isNewOrder: true,
+    });
+  });
+
+  it('accepts only this store’s pending lines and writes the legacy log, deltas and alert', async () => {
+    const { service, effects } = harness();
+    const result = await service.accept(user, '1', '1001');
+    await effects.idle();
+    expect(result).toEqual({ message: 'Success', updatedCount: 2 });
+    expect(await lineStatuses()).toEqual([
+      [101, 'ACCEPTED', null],
+      [102, 'ACCEPTED', null],
+      [103, 'PENDING', null],
+    ]);
+    expect(await logs()).toEqual(['1001/1:PENDING->ACCEPTED']);
+    expect(calls.map((call) => [call.url, call.body])).toEqual(
+      expect.arrayContaining([
+        [
+          'https://preorder.example.test/express-delivery/concurrency-sync',
+          { storeId: 1, pending: -2, accepted: 2 },
+        ],
+        [
+          'https://hooks.slack.com/services/store-1',
+          expect.objectContaining({
+            text: '✅ Hyperlocal Order ID: 1001 Accepted at Fixture store',
+          }),
+        ],
+      ]),
+    );
+    // A repeat accept matches legacy: nothing moves, but the log row is written again.
+    expect((await service.accept(user, '1', '1001')).updatedCount).toBe(0);
+    expect(await logs()).toHaveLength(2);
+    await admin!.query('DELETE FROM user_stores WHERE django_user_id=?', [user.id]);
+    await expect(service.accept(user, '1', '1001')).rejects.toMatchObject({
+      code: 'STORE_ACCESS_DENIED',
+    });
+  });
+
+  it('enforces the legacy card guards before any write', async () => {
+    const { service } = harness();
+    await admin!.query("UPDATE express_line_item SET vinc_status='' WHERE id=101");
+    await expect(service.accept(user, '1', '1001')).rejects.toMatchObject({
+      code: 'FULFILLMENT_AWAITING_ALLOCATION',
+    });
+    await admin!.query(
+      "UPDATE express_line_item SET vinc_status='Allocated', pending_expires_at='2026-11-16 13:00:00' WHERE id=101",
+    );
+    await expect(service.reject(user, '1', '1001', '1')).rejects.toMatchObject({
+      code: 'FULFILLMENT_ACCEPTANCE_EXPIRED',
+    });
+    await admin!.query(
+      "UPDATE express_line_item SET status='ACCEPTED', pending_expires_at='2026-11-16 14:00:00' WHERE store_id=1",
+    );
+    await expect(service.reject(user, '1', '1001', '1')).rejects.toMatchObject({
+      code: 'FULFILLMENT_REJECT_AFTER_ACCEPTANCE',
+    });
+    await admin!.query("UPDATE has_products SET shipment_id='0' WHERE id IN (501, 502)");
+    await expect(service.pack(user, '1', '1001')).rejects.toMatchObject({
+      code: 'FULFILLMENT_AWAITING_SHIPMENT_ID',
+    });
+    await admin!.query("UPDATE has_products SET shipment_id='S1', awb='' WHERE id IN (501, 502)");
+    await admin!.query("UPDATE express_line_item SET status='PACKED' WHERE store_id=1");
+    await expect(service.ship(user, '1', '1001')).rejects.toMatchObject({
+      code: 'FULFILLMENT_AWAITING_AWB',
+    });
+    expect(await logs()).toEqual([]);
+    expect(calls).toEqual([]);
+  });
+
+  it('rejects with an active reason and converts to a warehouse order after commit', async () => {
+    const { service } = harness();
+    await expect(service.reject(user, '1', '1001', '9')).rejects.toMatchObject({
+      code: 'INVALID_REJECTION_REASON',
+    });
+    responses.set('https://api-v2.example.test/express-to-warehouse-order', '{"order": 7777}');
+    expect(await service.reject(user, '1', '1001', '1')).toEqual({
+      message: 'Success',
+      updatedCount: 2,
+    });
+    expect(await lineStatuses()).toEqual([
+      [101, 'REJECTED', 1],
+      [102, 'REJECTED', 1],
+      [103, 'PENDING', null],
+    ]);
+    expect(calls[0]).toMatchObject({
+      url: 'https://api-v2.example.test/express-to-warehouse-order',
+      body: { order_id: 1001, has_product_ids: [501, 502] },
+      statuses: ['REJECTED', 'REJECTED'],
+    });
+    expect(calls[1]?.body).toMatchObject({
+      text: '❌ Hyperlocal Order ID: 1001 Rejected at Fixture store — Converted to online order | New Order ID: 7777 | Reason: Fixture reason | SKUs: [101, 101]',
+    });
+  });
+
+  it('packs, ships (session and courier) and marks RTO with the legacy side-effect order', async () => {
+    const { service, effects } = harness();
+    await service.accept(user, '1', '1001');
+    await effects.idle();
+    calls.length = 0;
+    expect((await service.pack(user, '1', '1001')).updatedCount).toBe(2);
+    await effects.idle();
+    // Legacy posts PACK before its own update (`order/views.py:5059`).
+    expect(calls[0]).toMatchObject({
+      url: 'https://sync.example.test/order/status',
+      body: { orderId: '1001', has_product_ids: ['501', '502'], platform: 'PACK' },
+      statuses: ['ACCEPTED', 'ACCEPTED'],
+    });
+    expect(urls()).toContain('https://preorder.example.test/express-delivery/concurrency-sync');
+    expect(await logs()).toEqual(['1001/1:PENDING->ACCEPTED', '1001/1:ACCEPTED->PACKED']);
+    calls.length = 0;
+    expect(await service.shipFromCourier('1001', 'UNKNOWN')).toBeNull();
+    const shipped = await service.shipFromCourier('1001', 'SAMPLE-AWB');
+    expect(shipped).toEqual({ message: 'Success', updatedCount: 2 });
+    expect(calls.map((call) => [call.url, call.body])).toEqual([
+      [
+        'https://sync.example.test/order/status',
+        { orderId: '1001', has_product_ids: ['501', '502'], platform: 'SHIP' },
+      ],
+      [
+        'https://mailr.example.test/api/v2/mailr/express-order/out-for-delivery/',
+        { order_id: '1001', awb: 'SAMPLE-AWB' },
+      ],
+      [
+        'https://hooks.slack.com/services/store-1',
+        expect.objectContaining({
+          text: '🚚 Hyperlocal Order ID: 1001 Shipped from Fixture store | SKUs: [101, 101]',
+        }),
+      ],
+    ]);
+    const [order] = await db().get('writer').select().from(Order);
+    expect(order?.order_statuses).toBe(26n);
+    await expect(service.ship(user, '1', '1001')).rejects.toMatchObject({
+      code: 'FULFILLMENT_STATE_CONFLICT',
+    });
+    await expect(service.rto(user, '1', '1001')).rejects.toMatchObject({
+      code: 'RTO_NOT_RECEIVED',
+    });
+    await admin!.query("UPDATE has_products SET status='RTO_DELIVERED' WHERE order_id=1001");
+    calls.length = 0;
+    expect((await service.rto(user, '1', '1001')).updatedCount).toBe(2);
+    expect(calls[0]).toMatchObject({
+      url: 'https://sync.example.test/order/rto',
+      body: { orderId: '1001', has_product_ids: ['501', '502'] },
+    });
+  });
+
+  it('packs a single accepted line as AjaxExpressLineItemPackView does', async () => {
+    const { service, effects } = harness();
+    await service.accept(user, '1', '1001');
+    await effects.idle();
+    calls.length = 0;
+    expect(await service.packLine(user, '1', '1001', '101')).toEqual({
+      message: 'Success',
+      updatedCount: 1,
+    });
+    await effects.idle();
+    await expect(service.packLine(user, '1', '1001', '101')).rejects.toMatchObject({
+      code: 'FULFILLMENT_STATE_CONFLICT',
+    });
+    expect(calls.map((call) => call.body)).toEqual([{ storeId: 1, accepted: -1 }]);
+  });
+
+  it('runs O1 under the legacy lock: rejects allocated, times out the rest, auto-packs and retries allocation', async () => {
+    const { expiry } = harness();
+    await admin!.query(
+      "UPDATE express_line_item SET pending_expires_at='2026-11-16 13:00:00' WHERE store_id=1",
+    );
+    await insert(Order, { id: 1002, first_name: 'Second', created_at: '2026-11-16 10:00:00' });
+    await insert(Order, { id: 1003, first_name: 'Third', created_at: '2026-11-16 10:00:00' });
+    await insert(HasProduct, { id: 504, order_id: 1002, prod_id: 101, qty: 1, status: 'PLACED' });
+    await insert(HasProduct, { id: 505, order_id: 1003, prod_id: 101, qty: 1, status: 'PLACED' });
+    await insert(ExpressLineItem, {
+      id: 104,
+      order_id: 1002,
+      store_id: 1,
+      has_product_id: 504,
+      status: 'PENDING',
+      pending_expires_at: '2026-11-16 13:00:00',
+      vinc_status: '',
+    });
+    await insert(ExpressLineItem, {
+      id: 105,
+      order_id: 1003,
+      store_id: 1,
+      has_product_id: 505,
+      status: 'ACCEPTED',
+      accepted_expires_at: '2026-11-16 13:00:00',
+      vinc_status: '',
+    });
+    await redis.set('express_reject_lock:1', 'other-run', { EX: 300 });
+    expect(await autoRejectTimedOutForStore(expiry, '1')).toBe('skipped-locked');
+    expect(await lineStatuses()).toContainEqual([101, 'PENDING', null]);
+    await redis.del(['express_reject_lock:1']);
+    expect(await autoRejectTimedOutForStore(expiry, '1')).toBe('completed');
+    expect(await redis.get('express_reject_lock:1')).toBeNull();
+    expect(await lineStatuses()).toEqual([
+      [101, 'REJECTED', 5],
+      [102, 'REJECTED', 5],
+      [103, 'PENDING', null],
+      [104, 'TIMED_OUT', 5],
+      [105, 'PACKED', null],
+    ]);
+    expect(await logs()).toEqual([
+      '1001/1:PENDING->REJECTED',
+      '1002/1:PENDING->TIMED_OUT',
+      '1003/1:ACCEPTED->PACKED',
+    ]);
+    // The conversion API runs before the rejection is written (`order/tasks.py:112-115`).
+    expect(calls[0]).toMatchObject({
+      url: 'https://api-v2.example.test/express-to-warehouse-order',
+      statuses: ['PENDING', 'PENDING', 'PENDING', 'ACCEPTED'],
+    });
+    expect(urls()).toContain('https://sync.example.test/order/status');
+    calls.length = 0;
+    await admin!.query("UPDATE express_line_item SET vinc_status='Allocated' WHERE id=104");
+    await autoRejectTimedOutForStore(expiry, '1');
+    expect((await lineStatuses())[3]).toEqual([104, 'REJECTED', 5]);
+    expect((await logs()).at(-1)).toBe('1002/1:TIMED_OUT->REJECTED');
+    // 🔺 alert, then the deferred conversion and its own success alert (`order/tasks.py:207-217`).
+    expect(urls()).toEqual([
+      'https://hooks.slack.com/services/store-1',
+      'https://api-v2.example.test/express-to-warehouse-order',
+      'https://hooks.slack.com/services/store-1',
     ]);
   });
-  it('does not mark notifications read with expired or different-store check-in authority', async () => {
-    await insert(Notification, { id: 1, store_id: 1, order_id: 1001, title: 'Fixture notice' });
-    await insert(UsersNotification, {
-      notification_id: 1,
-      pos_admin_id: Number(user.id),
-      is_viewed: 0,
+
+  it('serves progress for the Redis check-in store with legacy card facts and Load More', async () => {
+    const { service } = harness();
+    const progress = await service.progress(user);
+    expect(progress).toMatchObject({
+      storeId: '1',
+      tabCounts: { in_queue: 1, not_packed: 0, packed: 0, shipped: 0 },
+      orderIds: { in_queue: ['1001'] },
     });
-    const service = fulfillmentService(config, db());
-    await admin!.query(
-      'UPDATE pos_rewrite_operator_checkins SET expires_at=? WHERE operator_id=?',
-      ['2000-01-01 00:00:00.000', user.id],
-    );
-    await expect(service.markNotificationRead(user, '1', '1')).rejects.toMatchObject({
-      code: 'CHECK_IN_REQUIRED',
+    const page = await service.progressOrders(user, 'in_queue', 0);
+    expect(page).toMatchObject({ storeId: '1', hasMore: false, orderIds: ['1001'] });
+    expect(page.data[0]).toMatchObject({
+      id: '1001',
+      customerName: 'Fixture ',
+      expiresAt: '2026-11-16 14:00:00',
+      isVincAllocated: true,
+      hasShipmentId: true,
+      hasAwb: true,
+      storeOrderAmount: 210,
     });
-    await admin!.query(
-      'UPDATE pos_rewrite_operator_checkins SET expires_at=?,store_id=? WHERE operator_id=?',
-      ['2099-01-01 00:00:00.000', 2, user.id],
-    );
-    await expect(service.markNotificationRead(user, '1', '1')).rejects.toMatchObject({
-      code: 'CHECK_IN_REQUIRED',
-    });
-    const [rows] = await admin!.query<mysql.RowDataPacket[]>(
-      'SELECT is_viewed FROM pos_user_notifications WHERE notification_id=? AND pos_admin_id=?',
-      [1, user.id],
-    );
-    expect(rows).toHaveLength(1);
-    expect(Number(rows[0]?.is_viewed)).toBe(0);
+    expect(page.data[0]?.lines.map((line) => line.id)).toEqual(['101', '102']);
+    await redis.del([`check_in_${user.id}`]);
+    expect((await service.progress(user)).storeId).toBeNull();
   });
-  it('uses writer-current assignment/account/role before actions, retries and administrator edits', async () => {
-    const service = fulfillmentService(config, db(), clock),
-      command = {
-        commandId: crypto.randomUUID(),
-        action: 'ACCEPT' as const,
-        orderId: '1001',
-        storeId: '1',
-      };
-    await service.execute(user, command);
-    await admin!.query('DELETE FROM user_stores WHERE django_user_id=?', [user.id]);
-    await expect(service.execute(user, command)).rejects.toMatchObject({
-      code: 'STORE_ACCESS_DENIED',
-    });
-    await expect(service.receipt(user, command.commandId)).rejects.toMatchObject({
-      code: 'STORE_ACCESS_DENIED',
-    });
-    await expect(service.markNotificationRead(user, '1', '1')).rejects.toMatchObject({
-      code: 'STORE_ACCESS_DENIED',
-    });
-    const [commands] = await admin!.query<mysql.RowDataPacket[]>(
-      'SELECT COUNT(*) AS count FROM pos_rewrite_fulfillment_commands',
-    );
-    expect(Number(commands[0]?.count)).toBe(1);
-    await admin!.query('UPDATE pos_user SET role=1 WHERE id=?', [user.id]);
-    const staleAdmin = { ...user, role: 1 as const };
-    await service.edit(staleAdmin, '1', '1001', { status: 'PENDING' });
-    await admin!.query('UPDATE pos_user SET role=4 WHERE id=?', [user.id]);
-    await expect(
-      service.edit(staleAdmin, '1', '1001', { status: 'ACCEPTED' }),
-    ).rejects.toMatchObject({ code: 'ROLE_ACCESS_DENIED' });
-    await admin!.query('UPDATE pos_user SET is_active=0 WHERE id=?', [user.id]);
-    await expect(
-      service.execute(user, { ...command, commandId: crypto.randomUUID(), action: 'PACK' }),
-    ).rejects.toMatchObject({ code: 'AUTH_REQUIRED' });
-    await expect(
-      service.execute({ ...user, id: 'service-courier' }, command),
-    ).rejects.toMatchObject({ code: 'AUTH_REQUIRED' });
-  });
-  afterAll(async () => {
-    await bus.close();
-    await databases?.close();
-    if (admin && created) {
-      await admin.changeUser({ database: 'mysql' });
-      await admin.query(`DROP DATABASE ${mysql.escapeId(schema)}`);
-    }
-    await admin?.end();
-  });
-  it('serializes concurrent retries and changes only scoped lines with one status log', async () => {
-    const service = fulfillmentService(config, db(), clock),
-      command = {
-        commandId: crypto.randomUUID(),
-        storeId: '1',
-        orderId: '1001',
-        action: 'ACCEPT' as const,
-      };
-    const receipts = await Promise.all(
-      Array.from({ length: 8 }, () => service.execute(user, command)),
-    );
-    expect(
-      receipts.every(
-        (receipt) => receipt.updatedCount === 2 && receipt.commandId === command.commandId,
-      ),
-    ).toBe(true);
-    const lines = await db().get('writer').select().from(ExpressLineItem);
-    expect(
-      lines.filter((line) => line.store_id === 1).every((line) => line.status === 'ACCEPTED'),
-    ).toBe(true);
-    expect(lines.find((line) => line.store_id === 2)?.status).toBe('PENDING');
-    expect(await db().get('writer').select().from(ExpressOrderStatusLog)).toHaveLength(1);
-    expect(await db().get('writer').select().from(fulfillmentEffects)).toHaveLength(2);
-    await expect(service.execute(user, { ...command, action: 'PACK' })).rejects.toMatchObject({
-      code: 'IDEMPOTENCY_CONFLICT',
-    });
-  });
-  it('preserves all-store distinct-status counts, split pairs, scope and packed-log timers', async () => {
-    const tables: Record<string, string> = {
-      EXPRESS_LINES: 'express_line_item',
-      ORDERS: 'orders',
-      HAS_PRODUCTS: 'has_products',
-      PRODUCTS: 'products',
-      STORES: 'stores',
-      ORDER_STATUSES: 'order_status',
-      PAYMENT_STATUSES: 'payment_status',
-      STATUS_LOGS: 'express_order_status_log',
-    };
-    const options = monitoringOptions(
-      Object.fromEntries(
-        Object.entries(tables).map(([key, table]) => [
-          'BQ_FULFILLMENT_' + key,
-          'fixture-project.fulfillment.' + table,
-        ]),
-      ),
-    );
-    const monitor = fulfillmentMonitoring(
-        config,
-        db(),
-        options,
-        {
-          async queryReport(statement, params) {
-            // Execute the report's bound join projection against the disposable
-            // original tables. Only dialect syntax changes; no fact/column/date
-            // predicates are removed and this is never a runtime fallback.
-            const values: unknown[] = [];
-            let query = statement
-              .replace(/`fixture-project\.fulfillment\.([a-z_]+)`/g, (_whole, table: string) =>
-                mysql.escapeId(table),
-              )
-              .replace(/\bAS STRING\b/g, 'AS CHAR')
-              .replace(/DATETIME\(@(start|end)\)/g, 'CAST(@$1 AS DATETIME)')
-              .replace(
-                /IN UNNEST\(@(\w+)\)|@(\w+)/g,
-                (_whole, arrayName: string | undefined, name: string | undefined) => {
-                  if (arrayName) {
-                    const items = params[arrayName];
-                    if (!Array.isArray(items) || !items.length)
-                      throw new Error('Fixture requires nonempty bound IDs.');
-                    values.push(...items);
-                    return 'IN (' + items.map(() => '?').join(',') + ')';
-                  }
-                  values.push(params[name!]);
-                  return '?';
-                },
-              );
-            if (statement.startsWith('SELECT COUNT(*)')) query += ' AS fixture_count';
-            const [rows] = await admin!.query<mysql.RowDataPacket[]>(query, values);
-            return rows;
-          },
-        },
-        clock,
-      ),
+
+  it('reads the all-stores monitor from MySQL with legacy store scope, date swap and packed timers', async () => {
+    const monitor = fulfillmentMonitoring(config, db(), redisCheckIns(redis), clock),
       input = {
         from: '2026-11-16',
         to: '2026-11-16',
@@ -402,20 +576,21 @@ describe.skipIf(!connection)('fulfillment lifecycle on isolated local MySQL', ()
         page: 99,
         pageSize: 10 as const,
       };
-    const scoped = await monitor.read(user, input);
-    expect(scoped.reader).toBe('bigquery');
+    expect(await monitor.defaults(user)).toMatchObject({
+      from: '2026-11-16',
+      to: '2026-11-16',
+      storeIds: ['1'],
+    });
+    const scoped = await monitor.read({ ...input, storeIds: ['1'] });
     expect(scoped.tabCounts.in_queue).toBe(1);
-    expect(scoped.total).toBe(1);
     expect(scoped.page).toBe(1);
     expect(scoped.data[0]?.lines).toHaveLength(2);
     expect(scoped.data[0]?.storeOrderAmount).toBe(210);
-    const split = await monitor.read({ ...user, role: 1 }, { ...input, storeIds: ['1', '2'] });
-    expect(split.total).toBe(2);
-    expect(split.tabCounts.in_queue).toBe(1);
-    expect(split.data.every((row) => row.isSplit)).toBe(true);
-    await expect(monitor.read(user, { ...input, storeIds: ['2'] })).rejects.toMatchObject({
-      code: 'STORE_ACCESS_DENIED',
-    });
+    const all = await monitor.read({ ...input, from: '2026-11-17', to: '2026-11-15' });
+    expect(all.total).toBe(2);
+    expect(all.data.every((row) => row.isSplit)).toBe(true);
+    expect((await monitor.read({ ...input, from: undefined, to: undefined })).total).toBe(2);
+    expect((await monitor.stores()).data.map((store) => store.id)).toEqual(['1', '2']);
     await db()
       .get('writer')
       .update(ExpressLineItem)
@@ -428,245 +603,29 @@ describe.skipIf(!connection)('fulfillment lifecycle on isolated local MySQL', ()
       new_status: 'PACKED',
       changed_at: '2026-11-16 13:00:00',
     });
-    const packed = await monitor.read(user, { ...input, tab: 'packed' });
+    const packed = await monitor.read({ ...input, tab: 'packed', storeIds: ['1'] });
     expect(packed.data[0]?.packedAt).toBe('2026-11-16 13:00:00');
     expect(packed.data[0]?.packedSeconds).toBe(1800);
   });
-  it('preserves line packing, bulk shipping and received-RTO guards', async () => {
-    const service = fulfillmentService(config, db(), clock);
-    const run = (action: 'ACCEPT' | 'PACK' | 'PACK_LINE' | 'SHIP' | 'RTO', lineId?: string) =>
-      service.execute(user, {
-        commandId: crypto.randomUUID(),
-        storeId: '1',
-        orderId: '1001',
-        action,
-        ...(lineId ? { lineId } : {}),
-      });
-    await run('ACCEPT');
-    const packed = await run('PACK_LINE', '101');
-    expect(packed.updatedCount).toBe(1);
-    const lineEffects = await db()
-      .get('writer')
-      .select()
-      .from(fulfillmentEffects)
-      .where(eq(fulfillmentEffects.commandId, packed.commandId));
-    expect(lineEffects.map((row) => row.kind)).toEqual(['concurrency-sync']);
-    await run('PACK');
-    const shipped = await run('SHIP');
-    expect(shipped.updatedCount).toBe(2);
-    const [order] = await db().get('writer').select().from(Order);
-    expect(order?.order_statuses).toBe(26n);
+
+  it('lets only role 1 edit express lines, logging each changed status', async () => {
+    const { service } = harness();
+    await expect(service.edit(user, '1', '1001', { status: 'ACCEPTED' })).rejects.toMatchObject({
+      code: 'ROLE_ACCESS_DENIED',
+    });
+    await admin!.query('UPDATE pos_user SET role=1, user_type=2 WHERE id=?', [user.id]);
+    await admin!.query('DELETE FROM user_stores WHERE django_user_id=?', [user.id]);
+    const admin1 = { ...user, role: 1 as const, userType: 2 as const, storeIds: [] };
     expect(
-      (await db().get('writer').select().from(HasProduct).where(eq(HasProduct.id, 501n)))[0]
-        ?.status,
-    ).toBe('OUT_FOR_DELIVERY');
-    await expect(run('RTO')).rejects.toMatchObject({ code: 'RTO_NOT_RECEIVED' });
-    await db()
-      .get('writer')
-      .update(HasProduct)
-      .set({ status: 'RTO_DELIVERED' })
-      .where(eq(HasProduct.order, 1001n));
-    expect((await run('RTO')).updatedCount).toBe(2);
-  });
-  it('does not retry a counter delta after an uncertain remote result', async () => {
-    const receipt = await fulfillmentService(config, db(), clock).execute(user, {
-      commandId: crypto.randomUUID(),
-      storeId: '1',
-      orderId: '1001',
-      action: 'ACCEPT',
-    });
-    const deliveries: EffectDelivery[] = [];
-    const outbox = fulfillmentOutbox(
-      config,
-      db(),
-      async (delivery) => {
-        deliveries.push(delivery);
-        throw new Error('simulated response lost');
-      },
-      clock,
-    );
-    expect(await outbox.dispatchNext()).toMatchObject({ status: 'UNCERTAIN' });
-    expect(await outbox.dispatchNext()).toBeNull();
-    const rows = await db().get('writer').select().from(fulfillmentEffects);
-    expect(deliveries).toHaveLength(1);
-    expect(rows.find((row) => row.id === receipt.effectIds[0])?.attempts).toBe(1);
-    expect(rows.find((row) => row.id === receipt.effectIds[1])?.status).toBe('PENDING');
-  });
-  it('serializes counter deltas by store even when multiple workers claim independent commands', async () => {
-    const service = fulfillmentService(config, db(), clock);
-    await service.execute(user, {
-      commandId: crypto.randomUUID(),
-      storeId: '1',
-      orderId: '1001',
-      action: 'ACCEPT',
-    });
-    await service.execute(user, {
-      commandId: crypto.randomUUID(),
-      storeId: '1',
-      orderId: '1001',
-      action: 'PACK',
-    });
-    const delivered: EffectDelivery[] = [],
-      firstStarted = Promise.withResolvers<void>(),
-      release = Promise.withResolvers<void>();
-    const outbox = fulfillmentOutbox(
-      config,
-      db(),
-      async (effect) => {
-        delivered.push(effect);
-        if (effect.kind === 'concurrency-sync' && effect.payload.accepted === 2) {
-          firstStarted.resolve();
-          await release.promise;
-        }
-      },
-      clock,
-    );
-    const first = outbox.dispatchNext();
-    await firstStarted.promise;
-    await outbox.dispatchNext();
-    await outbox.dispatchNext();
-    expect(
-      delivered
-        .filter((effect) => effect.kind === 'concurrency-sync')
-        .map((effect) => effect.payload.accepted),
-    ).toEqual([2]);
-    release.resolve();
-    await first;
-    for (let index = 0; index < 8; index++) if (!(await outbox.dispatchNext())) break;
-    expect(
-      delivered
-        .filter((effect) => effect.kind === 'concurrency-sync')
-        .map((effect) => effect.payload.accepted),
-    ).toEqual([2, -2]);
-  });
-  it('runs and drains the delivery worker with originating request/user IDs and no payload logging', async () => {
-    await db().get('writer').update(ExpressLineItem).set({
-      pending_expires_at: '2099-01-01 12:00:00',
-      accepted_expires_at: '2099-01-01 14:00:00',
-    });
-    const requestId = crypto.randomUUID(),
-      command = {
-        commandId: crypto.randomUUID(),
-        storeId: '1',
-        orderId: '1001',
-        action: 'ACCEPT' as const,
-      },
-      service = fulfillmentService(config, db(), clock);
-    await service.execute(user, command, requestId);
-    await service.execute(user, command, crypto.randomUUID());
-    const logs: Record<string, unknown>[] = [],
-      options = readFulfillmentOptions({
-        FULFILLMENT_WORKER_BATCH_SIZE: '4',
-        FULFILLMENT_WORKER_CONCURRENCY: '2',
+      await service.edit(admin1, '2', '1001', {
+        status: 'ACCEPTED',
+        acceptedExpiresAt: '2026-11-16T18:30',
       }),
-      outbox = fulfillmentOutbox(config, db(), async () => ({ acknowledged: true }), clock),
-      maintenance = fulfillmentMaintenance(config, db(), options, clock),
-      notifications = notificationDelivery(config, db(), bus, { checkedInUsers: async () => [] });
-    const worker = fulfillmentWorker(
-      config,
-      db(),
-      outbox,
-      maintenance,
-      notifications,
-      options,
-      (_level, event) => logs.push({ ...event }),
-    );
-    await worker.runOnce();
-    await worker.runOnce();
-    await worker.stop();
-    const deliveries = logs.filter((event) => event.effectId);
-    expect(deliveries).toHaveLength(2);
-    expect(
-      deliveries.every(
-        (event) =>
-          event.requestId === requestId &&
-          event.userId === user.id &&
-          typeof event.eventInstanceId === 'string',
-      ),
-    ).toBe(true);
-    expect(JSON.stringify(logs)).not.toMatch(
-      /Fixture|fixture@example|SAMPLE-AWB|payload|hasProductIds/,
-    );
-    const count = logs.length;
-    await worker.runOnce();
-    expect(logs).toHaveLength(count);
-  });
-  it('deduplicates webhook notices and keeps failed publications durable', async () => {
-    const delivery = notificationDelivery(config, db(), bus, {
-      checkedInUsers: async () => ['900001'],
+    ).toEqual({ success: true, updatedCount: 1 });
+    expect(await logs()).toEqual(['1001/2:PENDING->ACCEPTED']);
+    await admin!.query('UPDATE pos_user SET is_active=0 WHERE id=?', [user.id]);
+    await expect(service.edit(admin1, '1', '1001', { status: 'PENDING' })).rejects.toMatchObject({
+      code: 'AUTH_REQUIRED',
     });
-    const command = { eventId: crypto.randomUUID(), orderId: '1001', storeIds: ['1', '1'] };
-    const result = await Promise.all(Array.from({ length: 4 }, () => delivery.receive(command)));
-    expect(new Set(result.map((row) => row.data[0]?.notificationId)).size).toBe(1);
-    expect(result.every((row) => row.data[0]?.publication === 'pending')).toBe(true);
-    expect(await db().get('writer').select().from(Notification)).toHaveLength(1);
-    expect(await db().get('writer').select().from(UsersNotification)).toHaveLength(1);
-    expect(await db().get('writer').select().from(fulfillmentEffects)).toHaveLength(1);
-    await expect(delivery.receive({ ...command, orderId: '1002' })).rejects.toMatchObject({
-      code: 'IDEMPOTENCY_CONFLICT',
-    });
-  });
-  it('auto-packs only expired accepted lines with one counter delta, then supports idempotent courier shipment', async () => {
-    const service = fulfillmentService(config, db(), clock);
-    await service.execute(user, {
-      commandId: crypto.randomUUID(),
-      storeId: '1',
-      orderId: '1001',
-      action: 'ACCEPT',
-    });
-    await db()
-      .get('writer')
-      .update(ExpressLineItem)
-      .set({ accepted_expires_at: '2026-11-16 12:00:00' })
-      .where(eq(ExpressLineItem.store_id, 1));
-    const maintenance = fulfillmentMaintenance(config, db(), readFulfillmentOptions({}), clock);
-    expect(await maintenance.runStore('1')).toMatchObject({ packed: 2, rejected: 0, timedOut: 0 });
-    const effects = await db().get('writer').select().from(fulfillmentEffects);
-    expect(
-      effects
-        .filter((effect) => effect.operatorId === 'service' && effect.kind === 'concurrency-sync')
-        .map((effect) => effect.payload.accepted),
-    ).toEqual([-2]);
-    expect(
-      (await db().get('writer').select().from(HasProduct).where(eq(HasProduct.id, 501n)))[0]
-        ?.status,
-    ).toBe('PLACED');
-    const commandId = crypto.randomUUID(),
-      receipt = await service.shipFromCourier(commandId, '1001', 'SAMPLE-AWB');
-    expect(receipt.updatedCount).toBe(2);
-    expect(await service.shipFromCourier(commandId, '1001', 'SAMPLE-AWB')).toEqual(receipt);
-    await expect(service.shipFromCourier(commandId, '1001', 'DIFFERENT-AWB')).rejects.toMatchObject(
-      { code: 'IDEMPOTENCY_CONFLICT' },
-    );
-  });
-  it('runs expiry transitions transactionally once and retries delayed allocations', async () => {
-    await db()
-      .get('writer')
-      .update(ExpressLineItem)
-      .set({ pending_expires_at: '2026-11-16 12:00:00', vinc_status: '' })
-      .where(eq(ExpressLineItem.id, 102));
-    await db()
-      .get('writer')
-      .update(ExpressLineItem)
-      .set({ pending_expires_at: '2026-11-16 12:00:00' })
-      .where(eq(ExpressLineItem.id, 101));
-    const maintenance = fulfillmentMaintenance(config, db(), readFulfillmentOptions({}), clock);
-    const results = await Promise.all([maintenance.runStore('1'), maintenance.runStore('1')]);
-    expect(results.reduce((sum, result) => sum + result.timedOut, 0)).toBe(2);
-    expect(await db().get('writer').select().from(ExpressOrderStatusLog)).toHaveLength(1);
-    await db()
-      .get('writer')
-      .update(ExpressLineItem)
-      .set({ vinc_status: 'Part Allocated' })
-      .where(eq(ExpressLineItem.id, 102));
-    expect(await maintenance.runStore('1')).toMatchObject({ rejected: 2, timedOut: 0, packed: 0 });
-    const rows = await db().get('writer').select().from(ExpressLineItem);
-    expect(
-      rows
-        .filter((row) => row.store_id === 1)
-        .every((row) => row.status === 'REJECTED' && row.rejection_reason_id === 5),
-    ).toBe(true);
-    expect(rows.find((row) => row.store_id === 2)?.status).toBe('PENDING');
-    expect(await db().get('writer').select().from(ExpressOrderStatusLog)).toHaveLength(2);
   });
 });

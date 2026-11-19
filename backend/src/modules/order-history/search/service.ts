@@ -1,46 +1,102 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
+import { Temporal } from '@js-temporal/polyfill';
 import type { Config } from '../../../config.js';
 import type { Databases } from '../../../db/pools.js';
-import { Store, PaymentMethod, PaymentStatus, OrderStatus } from '../../../db/legacy-schema.js';
+import {
+  Store,
+  PaymentMethod,
+  PaymentStatus,
+  OrderStatus,
+  ExpressLineItem,
+} from '../../../db/legacy-schema.js';
 import { AppError } from '../../../domain/errors.js';
 import type { Principal } from '../../../domain/access.js';
-import { orderRange, positiveId } from '../contracts.js';
+import { positiveId } from '../contracts.js';
 import {
   orderSearchInput,
   sourceSearchContract,
+  type OrderSearchInput,
   type OrderSearchRequest,
+  type SearchWindow,
   type SourceSearchPage,
-  type SourceOrder,
 } from './contracts.js';
 import { sourceSearchAuthority } from './scope.js';
 import { sourceNativeRepository } from './native.js';
 import { sourceQueueRepository } from './queue.js';
-import { sourceHistoricalSearch, type SourceHistorySearchPort } from './warehouse.js';
-import { searchContactKeys, searchContactSelection } from './contacts.js';
-import { sourceIndex, sourceSelect } from './reducer.js';
-import { formatSourceOrder, searchDataInvalid } from './format.js';
-import { readOrderSearchOptions, type OrderSearchOptions } from './options.js';
-import {
-  sourceOrderDefaults,
-  sourceSearchReadPlan,
-  type SourceSearchReadPlan,
-} from './default-ranges.js';
+import { formatSourceOrder } from './format.js';
+import { sourceOrderDefaults } from './default-ranges.js';
+
+/** The submitted window: placement timestamps (legacy `__lte` form), calendar dates, or none. */
+export function searchWindow(input: OrderSearchInput): SearchWindow | null {
+  if (input.placedFrom && input.placedTo)
+    return { start: input.placedFrom, end: input.placedTo, inclusive: true };
+  if (input.from && input.to)
+    return {
+      start: input.from + ' 00:00:00',
+      end: Temporal.PlainDate.from(input.to).add({ days: 1 }).toString() + ' 00:00:00',
+      inclusive: false,
+    };
+  return null;
+}
+export interface HyperlocalTabCounts {
+  inQueue: number;
+  notPacked: number;
+  packed: number;
+  shipped: number;
+}
+/**
+ * Legacy `_hl_get_tab_counts` (`order/views.py:4696-4746`): distinct orders per Express line
+ * status for the checked-in store, scoped to today's expiry dates, read from READ_DB_ALIAS.
+ */
+export async function hyperlocalTabCounts(
+  db: Databases,
+  storeId: string | null,
+  today: string,
+): Promise<HyperlocalTabCounts> {
+  if (!storeId) return { inQueue: 0, notPacked: 0, packed: 0, shipped: 0 };
+  const count = async (
+    statuses: ('PENDING' | 'ACCEPTED' | 'PACKED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'RTO')[],
+    expiry: 'pending' | 'accepted',
+  ) => {
+    const column =
+      expiry === 'pending'
+        ? ExpressLineItem.pending_expires_at
+        : ExpressLineItem.accepted_expires_at;
+    const [row] = await db
+      .get('data')
+      .select({ count: sql<string>`CAST(COUNT(DISTINCT ${ExpressLineItem.order}) AS CHAR)` })
+      .from(ExpressLineItem)
+      .where(
+        and(
+          eq(ExpressLineItem.store_id, Number(storeId)),
+          inArray(ExpressLineItem.status, statuses),
+          sql`DATE(${column}) = ${today}`,
+        ),
+      );
+    return Number(row?.count ?? '0');
+  };
+  const [inQueue, notPacked, packed, shipped] = await Promise.all([
+    count(['PENDING'], 'pending'),
+    count(['ACCEPTED'], 'accepted'),
+    count(['PACKED'], 'accepted'),
+    count(['OUT_FOR_DELIVERY', 'DELIVERED', 'RTO'], 'accepted'),
+  ]);
+  return { inQueue, notPacked, packed, shipped };
+}
+
 export function orderSearchService(
   config: Config,
   db: Databases,
-  options: OrderSearchOptions = readOrderSearchOptions(),
-  dependencies: { history?: SourceHistorySearchPort; clock?: () => number } = {},
+  dependencies: { clock?: () => number } = {},
 ) {
   const clock = dependencies.clock ?? Date.now,
     capture = sourceSearchAuthority(config, db),
-    native = sourceNativeRepository(db, searchContactKeys(options)),
-    contacts = searchContactSelection(db, options),
-    discover = sourceQueueRepository(db, options.ORDER_SEARCH_MAX_QUEUE_ORDERS),
-    history = dependencies.history ?? sourceHistoricalSearch(config, options, dependencies);
+    native = sourceNativeRepository(db),
+    discover = sourceQueueRepository(db);
   async function recheck(
     user: Principal,
     storeId: string,
-    input: ReturnType<typeof orderSearchInput.parse>,
+    input: OrderSearchInput,
     binding: string,
   ) {
     if ((await capture(user, storeId, input)).binding !== binding)
@@ -51,6 +107,7 @@ export function orderSearchService(
       );
   }
   return {
+    /** Legacy `AjaxOrderListView.datatables` (`order/datatables/orders_datatable.py:22-196`). */
     async search(
       user: Principal,
       storeId: string,
@@ -59,20 +116,18 @@ export function orderSearchService(
       positiveId.parse(storeId);
       const input = orderSearchInput.parse(raw),
         scope = await capture(user, storeId, input),
-        queue = input.notPacked || input.inQueue;
-      const plan: SourceSearchReadPlan = queue
-        ? { selected: orderRange({}, config.BUSINESS_TIMEZONE, clock()) }
-        : sourceSearchReadPlan(input, config.BUSINESS_TIMEZONE, clock());
-      const selected = plan.selected;
+        queue = input.notPacked || input.inQueue,
+        window = queue ? null : searchWindow(input);
       const metadata = {
         contract: sourceSearchContract as typeof sourceSearchContract,
         draw: input.draw,
         pageSize: input.pageSize,
         fetchedAt: new Date(clock()).toISOString(),
+        reader: 'primary' as const,
         range: {
-          from: selected.from,
-          to: selected.to,
-          timeZone: selected.timeZone,
+          placedFrom: window?.start ?? null,
+          placedTo: window?.end ?? null,
+          timeZone: config.BUSINESS_TIMEZONE,
           ignoredForQueue: queue,
         },
       };
@@ -86,122 +141,41 @@ export function orderSearchService(
         return {
           ...metadata,
           emptySelection: true,
-          reader: selected.reader,
           recordsTotal: '0',
           recordsFiltered: '0',
           page: 1,
-          generationId: null,
           data: [],
         };
       }
-      if (!queue && selected.reader !== 'bigquery' && (!scope.explicitIds || selected.explicit)) {
-        const result = await native.search(scope, input, selected);
-        await recheck(user, storeId, input, scope.binding);
-        return {
-          ...metadata,
-          reader: selected.reader,
-          recordsTotal: result.count,
-          recordsFiltered: result.count,
-          page: result.page,
-          generationId: null,
-          data: result.rows.map((row) => formatSourceOrder(row.fact, scope, row.rowKey)),
-        };
-      }
-      let live: Awaited<ReturnType<typeof discover>> | undefined,
-        current: SourceOrder[] = [],
-        old: Awaited<ReturnType<SourceHistorySearchPort['range']>> | undefined;
-      if (queue || (scope.explicitIds && !selected.explicit)) {
-        const today = orderRange({}, config.BUSINESS_TIMEZONE, clock());
-        live = queue ? await discover(scope, input) : undefined;
-        const ids = live ? live.orders.map((row) => row.id) : input.orderIds;
-        current = await native.facts(scope, today, ids);
-        const present = new Set(current.map((row) => row.id)),
-          older = ids.filter((id) => !present.has(id));
-        if (older.length) old = await history.ids(scope, older, today.cutoff);
-        if (live && older.some((id) => !old?.indexes.some((row) => row.id === id)))
-          throw new AppError(
-            503,
-            'ORDER_QUEUE_HISTORY_UNAVAILABLE',
-            'Some queued orders need a complete historical publication before this queue can be shown.',
-          );
-      } else {
-        if (plan.historical) old = await history.range(scope, plan.historical);
-        if (plan.current)
-          current = await native.currentFacts(
-            scope,
-            input,
-            plan.current,
-            options.ORDER_SEARCH_MAX_INDEX_ROWS,
-          );
-      }
-      const currentIndexes = current.map((row) => sourceIndex(row));
-      let indexes = [...currentIndexes, ...(old?.indexes ?? [])];
-      if (new Set(indexes.map((row) => row.id)).size !== indexes.length) throw searchDataInvalid();
-      // Queue status/owner remain current operational facts, while older header/payment/customer facts stay warehouse-only.
-      if (live) {
-        const state = new Map(live.orders.map((row) => [row.id, row]));
-        indexes = indexes.map((row) => {
-          const value = state.get(row.id);
-          if (!value) throw searchDataInvalid();
-          return { ...row, statusId: value.statusId };
-        });
-      }
-      const chosen = sourceSelect(
-          indexes,
-          scope,
-          input,
-          await contacts(input),
-          live ? new Set(live.orders.map((row) => row.id)) : undefined,
-        ),
-        wanted = [...new Set(chosen.rows.map((row) => row.index.id))];
-      const facts = new Map(current.map((row) => [row.id, row]));
-      for (const fact of (await old?.facts(wanted.filter((id) => !facts.has(id)))) ?? [])
-        facts.set(fact.id, fact);
-      if (live) {
-        const fresh = await discover(scope, input);
-        if (fresh.binding !== live.binding)
-          throw new AppError(
-            409,
-            'ORDER_QUEUE_CHANGED',
-            'This delivery queue changed while loading. Refresh it.',
-          );
-        for (const value of fresh.orders) {
-          const fact = facts.get(value.id);
-          if (fact)
-            facts.set(value.id, {
-              ...fact,
-              statusId: value.statusId,
-              status: value.status,
-              locationId: value.locationId,
-              locationType: value.locationType,
-              locationStoreId: value.ownerStoreId,
-              locationLabel: value.locationLabel,
-              transfer: value.transfer === 1,
-              nextLocations: value.nextLocations ?? '',
-            });
-        }
-      }
+      const queued = queue ? (await discover(scope, input)).orders.map((row) => row.id) : undefined;
+      // Queue tabs ignore order IDs, as legacy clears `order_id_list` for them.
+      const result = await native.search(
+        scope,
+        queue ? { ...input, orderIds: [] } : input,
+        window,
+        queued,
+      );
       await recheck(user, storeId, input, scope.binding);
       return {
         ...metadata,
-        reader: old ? (live || plan.current ? 'mixed' : 'bigquery') : 'primary',
-        recordsTotal: chosen.count,
-        recordsFiltered: chosen.count,
-        page: chosen.page,
-        generationId: old?.generationId ?? null,
-        data: chosen.rows.map((row) => {
-          const fact = facts.get(row.index.id);
-          if (!fact) throw searchDataInvalid();
-          return formatSourceOrder(fact, scope, row.rowKey);
-        }),
+        recordsTotal: result.count,
+        recordsFiltered: result.count,
+        page: result.page,
+        data: result.rows.map((row) => formatSourceOrder(row.fact, scope, row.rowKey)),
       };
     },
+    /** Legacy `OrdersView.get` / `OnlineOrdersView.get` page context (`order/views.py:67-260`). */
     async options(user: Principal, storeId: string) {
-      const defaults = sourceOrderDefaults(clock(), config.BUSINESS_TIMEZONE);
+      const now = clock(),
+        defaults = sourceOrderDefaults(now, config.BUSINESS_TIMEZONE);
       const input = orderSearchInput.parse({ storeIds: [storeId] }),
         scope = await capture(user, storeId, input),
         primary = db.get('primary');
-      const [stores, methods, paymentStatuses, orderStatuses] = await Promise.all([
+      const today = Temporal.Instant.fromEpochMilliseconds(now)
+        .toZonedDateTimeISO(config.BUSINESS_TIMEZONE)
+        .toPlainDate()
+        .toString();
+      const [stores, methods, paymentStatuses, orderStatuses, hyperlocalTabs] = await Promise.all([
         primary
           .select({
             id: sql<string>`CAST(${Store.id} AS CHAR)`,
@@ -210,7 +184,7 @@ export function orderSearchService(
           })
           .from(Store)
           .where(and(eq(Store.is_active, true), inArray(Store.id, scope.allowedStores.map(BigInt))))
-          .orderBy(Store.store_name, Store.id),
+          .orderBy(Store.id),
         primary
           .select({ id: sql<string>`CAST(${PaymentMethod.id} AS CHAR)`, name: PaymentMethod.name })
           .from(PaymentMethod)
@@ -229,6 +203,7 @@ export function orderSearchService(
           })
           .from(OrderStatus)
           .orderBy(OrderStatus.id),
+        hyperlocalTabCounts(db, scope.checkedInStoreId, today),
       ]);
       await recheck(user, storeId, input, scope.binding);
       return {
@@ -236,9 +211,13 @@ export function orderSearchService(
         methods,
         paymentStatuses,
         orderStatuses,
-        orderTypes: scope.globalReader ? ['ST', 'HL', 'HE', 'N'] : ['ST', 'HL', 'HE'],
+        // Legacy shows the Store, Online and HyperLocal radios to everyone; the HL list is
+        // the Online page (`orders/online/`).
+        orderTypes: ['ST', 'HL', 'HE', 'N'] as ('ST' | 'HL' | 'HE' | 'N')[],
         checkedInStoreId: scope.checkedInStoreId,
+        // Store page: 5 days back to now + 1 minute. Online page: no default range.
         defaults,
+        hyperlocalTabs,
       };
     },
   };

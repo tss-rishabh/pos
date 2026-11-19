@@ -19,11 +19,7 @@ import {
   type RegistrationOtpSender,
 } from '../../src/modules/checkout/customers/service.js';
 import { customerRegistrationOutboxDispatcher } from '../../src/modules/checkout/customers/outbox.js';
-import {
-  registrationCodeDigest,
-  registrationDigest,
-} from '../../src/modules/checkout/customers/crypto.js';
-import { customerContactChallenges } from '../../src/modules/customer-contacts/schema.js';
+import { registrationCodeDigest } from '../../src/modules/checkout/customers/crypto.js';
 import type { DeliveryResult } from '../../src/modules/checkout/delivery.js';
 import { FixtureGateway, operator, signingEnvironment } from './fixtures.js';
 
@@ -220,71 +216,6 @@ describe.skipIf(!template)('customer registration in an isolated writer schema',
       is_two_fa: 1,
     });
   }
-  it('coordinates new registration with pending contact changes and releases only a genuinely expired reservation', async () => {
-    const state = await service.create(operator, '1', '3'),
-      value = details(),
-      challengeId = crypto.randomUUID(),
-      key = 'email:' + registrationDigest(environment.secret, 'email', value.email.toLowerCase());
-    await seed(customerContactChallenges, {
-      id: challengeId,
-      checkout_id: state.id,
-      operator_id: operator.id,
-      store_id: '1',
-      counter_id: '3',
-      customer_id: '777',
-      active_customer_id: null,
-      kind: 'email',
-      target_key: key,
-      status: 'PENDING_NEW',
-      expires_at_ms: clock + 600000,
-    });
-    await connection.execute(
-      'INSERT INTO pos_rewrite_customer_contact_reservations(contact_key,challenge_id,expires_at_ms) VALUES(?,?,?)',
-      [key, challengeId, clock + 600000],
-    );
-    for (const status of ['PENDING_NEW', 'COMMITTING', 'UNCERTAIN']) {
-      await connection.execute(
-        'UPDATE pos_rewrite_customer_contact_challenges SET status=? WHERE id=?',
-        [status, challengeId],
-      );
-      await expect(
-        service.requestRegistration(operator, '1', state.id, mutation(0), value),
-      ).rejects.toMatchObject({ code: 'CUSTOMER_CONTACT_RESERVED' });
-    }
-    expect(
-      await rows('SELECT id FROM pos_rewrite_customer_registrations WHERE checkout_id=?', [
-        state.id,
-      ]),
-    ).toHaveLength(0);
-    expect(messages).toHaveLength(0);
-    await connection.execute(
-      "UPDATE pos_rewrite_customer_contact_challenges SET status='PENDING_NEW',expires_at_ms=? WHERE id=?",
-      [clock - 1, challengeId],
-    );
-    await connection.execute(
-      'UPDATE pos_rewrite_customer_contact_reservations SET expires_at_ms=? WHERE contact_key=?',
-      [clock - 1, key],
-    );
-    await service.requestRegistration(operator, '1', state.id, mutation(0), value);
-    expect(
-      (
-        await rows('SELECT status FROM pos_rewrite_customer_contact_challenges WHERE id=?', [
-          challengeId,
-        ])
-      )[0]?.status,
-    ).toBe('EXPIRED');
-    expect(
-      await rows(
-        'SELECT contact_key FROM pos_rewrite_customer_contact_reservations WHERE contact_key=?',
-        [key],
-      ),
-    ).toHaveLength(0);
-    expect(
-      await rows('SELECT id FROM pos_rewrite_customer_registrations WHERE checkout_id=?', [
-        state.id,
-      ]),
-    ).toHaveLength(1);
-  });
   it('queues encrypted registration once, consumes proof, preserves exact customer IDs and connects the original cart', async () => {
     const state = await service.create(operator, '1', '3'),
       value = details();

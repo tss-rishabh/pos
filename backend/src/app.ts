@@ -98,11 +98,7 @@ import {
   registerGlobalVouchers,
 } from './modules/global-vouchers/index.js';
 import { registerCustomerContacts } from './modules/customer-contacts/index.js';
-import {
-  readCustomerWebsiteHandoffOptions,
-  registerCustomerWebsiteHandoff,
-} from './modules/customer-website-handoff/index.js';
-import { readCustomerContactOptions } from './modules/customer-contacts/options.js';
+import { registerCustomerWebsiteHandoff } from './modules/customer-website-handoff/index.js';
 import {
   customerOtpService,
   readCustomerOtpOptions,
@@ -122,10 +118,7 @@ import { publicOrderHistory } from './modules/order-history/index.js';
 import { registerPublicOrders } from './modules/order-history/routes.js';
 import { registerOnlineOrderDetails } from './modules/order-history/online-detail/routes.js';
 import { historicalOrderCopyFacts } from './modules/order-history/copy-adapter.js';
-import {
-  registerOrderSearch,
-  readOrderSearchOptions,
-} from './modules/order-history/search/index.js';
+import { registerOrderSearch } from './modules/order-history/search/index.js';
 import { demoOrderSearch } from './modules/order-history/search/demo.js';
 import { draftMutationSchema, draftService } from './modules/drafts.js';
 import { demoServices, demoUser } from './modules/demo.js';
@@ -137,6 +130,8 @@ import { routeRead } from './domain/routing.js';
 import { mergeDailyRows, dailyTotals } from './modules/daily-report.js';
 import { scopedStores } from './domain/access.js';
 import { sql } from 'drizzle-orm';
+import type { JobProducer } from './jobs/contract.js';
+import { memoryOrderRedis, nodeOrderRedis } from './modules/fulfillment/order-redis.js';
 
 const id = identifier;
 const scope = z.object({ storeId: id });
@@ -147,7 +142,12 @@ class PrivateLogController extends LogController {
 }
 export async function buildApp(
   config: Config,
-  options: { logger?: FastifyServerOptions['logger']; authRedis?: RedisPort } = {},
+  options: {
+    logger?: FastifyServerOptions['logger'];
+    authRedis?: RedisPort;
+    /** Redis job-queue producer (phase-c-legacy-jobs.md §4); wired by the jobs workstream. */
+    jobs?: JobProducer;
+  } = {},
 ) {
   const logger = options.logger
     ? ({
@@ -202,11 +202,13 @@ export async function buildApp(
     ? demoServices()
     : {
         catalog: catalogService(db),
-        orders: ordersService(db, config, orderHistory),
+        orders: ordersService(db, config),
         drafts: draftService(db),
       };
+  const orderRedis = config.DEMO_MODE ? memoryOrderRedis() : nodeOrderRedis(config);
   app.addHook('onClose', async () => {
     await identity.close();
+    await orderRedis.close();
     await db.close();
   });
   app.addHook('onRequest', async (request, reply) => {
@@ -426,8 +428,6 @@ export async function buildApp(
     paymentCorrections: paymentCorrectionEvidence(paymentCorrections.proofKey ?? ''),
     customerOtp,
     orderCopy: { history: historicalOrderCopyFacts(orderHistory) },
-    rejectedInboundRepairDispatcherEnabled:
-      !config.DEMO_MODE && wholeOrderOptions.WHOLE_ORDER_STATUS_WORKER_ENABLED,
     ...(stockProjection
       ? { inventoryProcedureVerified: true, stockProcedure: stockProjection }
       : {}),
@@ -439,24 +439,17 @@ export async function buildApp(
     projection: checkoutRuntime,
   });
   await registerGlobalVouchers(app, config, db, readGlobalVoucherOptions(), { customerOtp });
-  registerCustomerWebsiteHandoff(
-    app,
-    config,
-    db,
-    customerOtp,
-    readCustomerWebsiteHandoffOptions(),
-    sessions.alive,
-  );
-  await registerFulfillment(app, config, db);
+  registerCustomerWebsiteHandoff(app, config, db);
+  await registerFulfillment(app, config, db, { redis: orderRedis, jobs: options.jobs });
   registerShippingLabels(app, db);
-  registerLegacyFulfillment(app, config, db);
+  registerLegacyFulfillment(app, config, db, { jobs: options.jobs, redis: orderRedis });
   await registerWholeOrderStatus(app, config, db, wholeOrderOptions);
-  registerCustomerWorkspace(app, config, db);
+  registerCustomerWorkspace(app, config, db, orderRedis);
   registerCustomerHistory(app, config, db);
-  registerProductFeedback(app, config, db);
+  registerProductFeedback(app, config, db, orderRedis);
   registerCheckoutPerformance(app, config, db);
   registerInvoiceDocuments(app, config, db);
-  registerCustomerContacts(app, config, db, readCustomerContactOptions());
+  registerCustomerContacts(app, config, db);
   await registerFinance(app, config, db, {
     paymentCorrections,
     ...(config.DEMO_MODE ? { demoStores: services.catalog.stores } : {}),
@@ -599,7 +592,6 @@ export async function buildApp(
     app,
     config,
     db,
-    readOrderSearchOptions(),
     config.DEMO_MODE ? { service: demoOrderSearch(config, services.catalog, services.orders) } : {},
   );
   app.get('/api/v1/stores/:storeId/cart-drafts', async (request) => {

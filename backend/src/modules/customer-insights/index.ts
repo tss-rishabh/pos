@@ -6,17 +6,21 @@ import { authenticated } from '../../auth/routes.js';
 import { customerProfileScope } from './contracts.js';
 import { customerProfileService } from './profile.js';
 import { customerProfileAdjustmentService } from './adjustments.js';
-import { checkoutEnvironment } from '../checkout/gateway.js';
+import type { OrderRedis } from '../fulfillment/order-redis.js';
 import { customerBriefingService } from './briefing.js';
 import { customerBriefingGateway } from './briefing-gateway.js';
 import { readCustomerBriefingOptions } from './briefing-options.js';
 import { appCashbackCampaign } from './benefits-gateway.js';
 import { customerBenefitsService } from './benefits.js';
 
-export function registerCustomerWorkspace(app: FastifyInstance, config: Config, db: Databases) {
-  const environment = checkoutEnvironment();
-  const service = customerProfileService(config, db, environment);
-  const adjustments = customerProfileAdjustmentService(config, db, environment);
+export function registerCustomerWorkspace(
+  app: FastifyInstance,
+  config: Config,
+  db: Databases,
+  redis: OrderRedis,
+) {
+  const service = customerProfileService(config, db);
+  const adjustments = customerProfileAdjustmentService(config, db, redis);
   const benefits = customerBenefitsService(config, db, appCashbackCampaign(config));
   const insights = customerBriefingService(
     config,

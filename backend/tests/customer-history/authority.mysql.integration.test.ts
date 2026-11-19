@@ -4,7 +4,8 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { readConfig } from '../../src/config.js';
 import { createDatabases, type Databases } from '../../src/db/pools.js';
-import { migrationPlan } from '../../src/db/migrations.js';
+import { existsSync, readFileSync } from 'node:fs';
+import { migrationPaths, splitMigration } from '../../src/db/migrations.js';
 import type { Principal } from '../../src/domain/access.js';
 import { AppError } from '../../src/domain/errors.js';
 import { checkInService } from '../../src/modules/administration/checkins.js';
@@ -102,8 +103,10 @@ describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
       await fixture.insert('stores', { id: 1, type: 'STORE', is_active: 1 });
       await fixture.insert('store_counters', { id: 2, store_id: 1, is_active: 1 });
       await fixture.insert('user_stores', { django_user_id: 44, store_id: 1 });
-      for (const migration of migrationPlan())
-        for (const statement of migration.statements) await connection.query(statement);
+      // Workstreams delete their module migration files ahead of the registry clean-up.
+      for (const path of migrationPaths.filter((value) => existsSync(value)))
+        for (const statement of splitMigration(readFileSync(path, 'utf8')))
+          await connection.query(statement);
       url.pathname = '/' + schema;
       config = readConfig({
         NODE_ENV: 'test',

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Temporal } from '@js-temporal/polyfill';
 import { AppError } from '../../domain/errors.js';
 import type { OrderDto, Page } from '../../domain/contracts.js';
+import type { StoreOrderLegacyContext, StoreOrderLine } from './store-detail.js';
 export const orderHistoryContract = 'pos-public-order-history-v1';
 const positivePattern = /^[1-9]\d{0,18}$/;
 const nonnegativePattern = /^(0|[1-9]\d{0,18})$/;
@@ -149,7 +150,7 @@ export interface OrderDetail {
   createdAt: string;
   status: string | null;
   isPaid: boolean;
-  lines: {
+  lines: ({
     id: string | bigint;
     productId: string | bigint;
     name: string | null;
@@ -158,11 +159,19 @@ export interface OrderDetail {
     gst: number;
     // has_products.status is a nullable ENUM in production.
     status: string | null;
-  }[];
+  } & Partial<
+    Pick<
+      StoreOrderLine,
+      'erpProduct' | 'productType' | 'parentProductId' | 'giftVoucherId' | 'returnStatus'
+    >
+  >)[];
   reader?: 'primary' | 'data' | 'bigquery';
   range?: OrderReadRange;
   fetchedAt?: string;
   publication?: OrderHistoryEvidence;
+  /** Legacy `ShowOrderDetailsView` context (`store-detail.ts`); absent in demo mode. */
+  orderAmount?: number;
+  legacy?: StoreOrderLegacyContext;
 }
 export const copySource = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('store'), storeId: positiveId }).strict(),

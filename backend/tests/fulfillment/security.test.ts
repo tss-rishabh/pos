@@ -9,6 +9,7 @@ import type { Principal } from '../../src/domain/access.js';
 import { registerFulfillment } from '../../src/modules/fulfillment/index.js';
 import type { NotificationBus } from '../../src/modules/fulfillment/notification-bus.js';
 import { readFulfillmentOptions } from '../../src/modules/fulfillment/options.js';
+import { memoryOrderRedis } from '../../src/modules/fulfillment/order-redis.js';
 
 const user: Principal = {
   id: '900001',
@@ -26,6 +27,7 @@ const config = readConfig({
 const credentials = readFulfillmentOptions({
   APP_ID: 'fixture-app',
   APP_KEY: 'fixture-service-secret-'.repeat(2),
+  EXPRESS_ORDER_API_KEY: 'fixture-courier-secret-'.repeat(2),
 });
 let app: FastifyInstance | undefined;
 afterEach(async () => {
@@ -95,6 +97,7 @@ async function setup(subscription?: {
       .send({ code: error instanceof AppError ? error.code : 'INVALID_REQUEST' }),
   );
   await registerFulfillment(app, config, db, {
+    redis: memoryOrderRedis(),
     bus,
     credentials,
     checkins: { checkedInStore: async () => checkedInStore, checkedInUsers: async () => [user.id] },
@@ -331,33 +334,41 @@ describe('fulfillment security boundaries', () => {
   });
   it('rejects missing/invalid webhook credentials before DB work even with a browser cookie', async () => {
     const fixture = await setup();
-    for (const headers of [
-      {},
-      { cookie: 'fixture-session' },
-      { appid: 'fixture-app', appkey: 'wrong', cookie: 'fixture-session' },
-    ]) {
-      const response = await fixture.app.inject({
-        method: 'POST',
-        url: '/api/v1/webhooks/express-orders',
-        headers,
-        payload: { eventId: crypto.randomUUID(), orderId: '1', storeIds: ['1'] },
-      });
-      expect(response.statusCode).toBe(401);
-      expect(response.body).not.toContain('fixture-service-secret');
-    }
-    for (const headers of [
-      {},
-      { cookie: 'fixture-session' },
-      { cookie: 'fixture-session', 'x-api-key': 'wrong' },
-    ]) {
-      const response = await fixture.app.inject({
-        method: 'POST',
-        url: '/api/v1/webhooks/express-shipments',
-        headers,
-        payload: { commandId: crypto.randomUUID(), orderId: '1', awb: 'FIXTURE' },
-      });
-      expect(response.statusCode).toBe(401);
-    }
+    for (const url of [
+      '/orders/ajax-express-order-notify/',
+      '/api/v1/orders/ajax-express-order-notify/',
+    ])
+      for (const headers of [
+        {},
+        { cookie: 'fixture-session' },
+        { appid: 'fixture-app', appkey: 'wrong', cookie: 'fixture-session' },
+      ]) {
+        const response = await fixture.app.inject({
+          method: 'POST',
+          url,
+          headers,
+          payload: { order_id: 1, store_ids: [1] },
+        });
+        expect(response.statusCode).toBe(401);
+        expect(response.json()).toEqual({ status: '401', message: 'Authentication Failed' });
+        expect(response.body).not.toContain('fixture-service-secret');
+      }
+    for (const url of ['/orders/ship-express-order/', '/api/v1/orders/ship-express-order/'])
+      for (const headers of [
+        {},
+        { cookie: 'fixture-session' },
+        { cookie: 'fixture-session', apikey: 'wrong' },
+        { 'x-api-key': 'fixture-courier-secret-'.repeat(2) },
+      ]) {
+        const response = await fixture.app.inject({
+          method: 'POST',
+          url,
+          headers: { ...headers, 'content-type': 'application/x-www-form-urlencoded' },
+          payload: 'order_id=1&awb=FIXTURE',
+        });
+        expect(response.statusCode).toBe(401);
+        expect(response.json()).toEqual({ status: 'failed', message: 'wrong api key' });
+      }
     expect(fixture.calls()).toBe(0);
   });
   it('rejects an operator switch or unauthorized store before mutating anything', async () => {
@@ -366,7 +377,7 @@ describe('fulfillment security boundaries', () => {
       method: 'POST',
       url: '/api/v1/stores/1/fulfillment/orders/10/acceptance',
       headers: { cookie: 'fixture-session', 'x-operator-id': '2' },
-      payload: { commandId: crypto.randomUUID() },
+      payload: {},
     });
     expect(response.statusCode).toBe(409);
     expect(fixture.calls()).toBe(0);

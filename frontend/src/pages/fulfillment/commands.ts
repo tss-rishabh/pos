@@ -1,71 +1,33 @@
 import { z } from 'zod';
-import { ApiError, request } from '../../api/client';
+import { request } from '../../api/client';
 
+export type FulfillmentAction = 'acceptance' | 'rejection' | 'packing' | 'shipment' | 'rto-receipt';
 export interface CommandInput {
+  storeId: string;
   orderId: string;
-  path: string;
+  action: FulfillmentAction;
   rejectionReasonId?: string;
 }
-const savedSchema = z.object({
-  commandId: z.uuid(),
-  input: z.object({
-    orderId: z.string(),
-    path: z.string(),
-    rejectionReasonId: z.string().optional(),
-  }),
-});
-const receiptSchema = z.object({
-  commandId: z.uuid(),
-  updatedCount: z.number(),
-  integrationState: z.enum(['pending', 'not-required']),
-  effectIds: z.array(z.string()),
-});
-type Receipt = z.infer<typeof receiptSchema>;
-type CommandStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
-/** Keep the original command ID/body across timeouts, reloads and desktop restarts. */
-export async function sendFulfillmentCommand(
-  ownerId: string,
-  storeId: string,
+const resultSchema = z.object({ message: z.string(), updatedCount: z.number() });
+export type FulfillmentResult = z.infer<typeof resultSchema>;
+/**
+ * One legacy express action. Legacy sends each click once with no command id; the
+ * server's state-filtered update is the duplicate guard, so a retry never repeats a move.
+ */
+export function sendFulfillmentCommand(
+  operatorId: string,
   input: CommandInput,
-  storage: CommandStorage = localStorage,
-  send?: (commandId: string, input: CommandInput) => Promise<Receipt>,
-): Promise<Receipt> {
-  const key = `pos-fulfillment-command:${ownerId}:${storeId}:${input.orderId}:${input.path}`;
-  const raw = storage.getItem(key);
-  let saved: z.infer<typeof savedSchema> | undefined;
-  if (raw) {
-    try {
-      saved = savedSchema.parse(JSON.parse(raw) as unknown);
-    } catch {
-      throw new Error('The saved operation cannot be read. Review this order before trying again.');
-    }
-  }
-  if (saved && JSON.stringify(saved.input) !== JSON.stringify(input))
-    throw new Error('A previous operation needs confirmation before changing its details.');
-  saved ??= { commandId: crypto.randomUUID(), input };
-  storage.setItem(key, JSON.stringify(saved));
-  try {
-    const receipt = send
-      ? await send(saved.commandId, saved.input)
-      : await request(
-          `/api/v1/stores/${storeId}/fulfillment/orders/${saved.input.orderId}/${saved.input.path}`,
-          {
-            method: 'POST',
-            operatorId: ownerId,
-            body: JSON.stringify({
-              commandId: saved.commandId,
-              ...(saved.input.rejectionReasonId
-                ? { rejectionReasonId: saved.input.rejectionReasonId }
-                : {}),
-            }),
-          },
-          receiptSchema,
-        );
-    storage.removeItem(key);
-    return receipt;
-  } catch (error) {
-    if (error instanceof ApiError && [400, 401, 403, 404].includes(error.status))
-      storage.removeItem(key);
-    throw error;
-  }
+  send: typeof request = request,
+): Promise<FulfillmentResult> {
+  return send(
+    `/api/v1/stores/${encodeURIComponent(input.storeId)}/fulfillment/orders/${encodeURIComponent(input.orderId)}/${input.action}`,
+    {
+      method: 'POST',
+      operatorId,
+      body: JSON.stringify(
+        input.rejectionReasonId ? { rejectionReasonId: input.rejectionReasonId } : {},
+      ),
+    },
+    resultSchema,
+  );
 }

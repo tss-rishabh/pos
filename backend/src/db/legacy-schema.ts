@@ -902,6 +902,7 @@ export const HyperlocalOrderLog = mysqlTable('hyperlocal_order_log', {
   source_tracking_url: varchar('source_tracking_url', { length: 255 }),
   destination_tracking_url: varchar('destination_tracking_url', { length: 255 }),
   pos_admin_id: int('pos_admin_id').notNull(),
+  delivery_exception_date: datetime('delivery_exception_date', { mode: 'string' }).notNull(),
   created_at: datetime('created_at', { mode: 'string' }).notNull(),
   updated_at: datetime('updated_at', { mode: 'string' }).notNull(),
 });

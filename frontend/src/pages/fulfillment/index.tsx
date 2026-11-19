@@ -1,64 +1,110 @@
 import { useEffect, useState } from 'react';
-import { NavLink, useSearchParams } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, NavLink, useSearchParams } from 'react-router-dom';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
-import { AlertCircle, Box, Check, Clock3, PackageCheck, RefreshCw, Truck, X } from 'lucide-react';
+import {
+  AlertCircle,
+  Check,
+  ChevronDown,
+  Clock3,
+  PackageCheck,
+  RefreshCw,
+  Truck,
+  Undo2,
+  X,
+} from 'lucide-react';
 import { params, request } from '../../api/client';
 import type { Principal } from '../../api/types';
 import { Empty, ErrorState, Loading, PageTitle } from '../../components/common';
 import { currency } from '../../lib/format';
 import { useOnline } from '../../hooks/use-pos';
+import { InvoiceDocumentAction } from '../invoice-documents/document';
 import './style.css';
-import { sendFulfillmentCommand } from './commands';
+import { sendFulfillmentCommand, type FulfillmentAction } from './commands';
 import { ShippingLabelAction } from './shipping-label';
 import { useFulfillmentExpiryAlerts } from './expiry-alerts';
 
+/** Legacy hyperlocal progress page (`order/templates/order/hyperlocal/progress.html`). */
 const tabs = [
   ['in_queue', 'In queue'],
-  ['not_packed', 'To pack'],
+  ['not_packed', 'Not packed'],
   ['packed', 'Packed'],
   ['shipped', 'Shipped'],
 ] as const;
+type Tab = (typeof tabs)[number][0];
 const lineSchema = z.object({
   id: z.string(),
   hasProductId: z.string(),
+  productId: z.string().nullable(),
+  parentProductId: z.string().nullable(),
   productName: z.string().nullable(),
+  image: z.string().nullable(),
+  price: z.string().nullable(),
   quantity: z.string().nullable(),
+  gst: z.number().nullable(),
   status: z.string().nullable(),
-  productStatus: z.string().nullable(),
-  awb: z.string().nullable(),
 });
+const orderSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  customerName: z.string(),
+  paymentStatus: z.string().nullable(),
+  orderStatus: z.string().nullable(),
+  createdAt: z.string(),
+  expiresAt: z.string().nullable(),
+  lines: z.array(lineSchema),
+  storeOrderAmount: z.number(),
+  isVincAllocated: z.boolean(),
+  hasShipmentId: z.boolean(),
+  hasAwb: z.boolean(),
+  isRto: z.boolean(),
+  canMarkRto: z.boolean(),
+  isTimedOut: z.boolean(),
+});
+type Order = z.infer<typeof orderSchema>;
 const pageSchema = z.object({
-  data: z.array(
-    z.object({
-      id: z.string(),
-      reference: z.string(),
-      expiresAt: z.string().nullable(),
-      customer: z.object({
-        name: z.string(),
-        phone: z.string(),
-        address1: z.string(),
-        address2: z.string(),
-        city: z.string(),
-        postalCode: z.string(),
-      }),
-      lines: z.array(lineSchema),
-      storeOrderAmount: z.number(),
-      isVincAllocated: z.boolean(),
-      hasShipmentId: z.boolean(),
-      hasAwb: z.boolean(),
-      isRto: z.boolean(),
-      canMarkRto: z.boolean(),
-    }),
-  ),
+  storeId: z.string().nullable(),
+  data: z.array(orderSchema),
   hasMore: z.boolean(),
   nextOffset: z.number(),
+  orderIds: z.array(z.string()),
 });
-const summarySchema = z.object({
+const progressSchema = z.object({
+  storeId: z.string().nullable(),
   tabCounts: z.record(z.string(), z.number()),
   orderIds: z.record(z.string(), z.array(z.string())),
+  pollIntervalMs: z.number(),
 });
-type Tab = (typeof tabs)[number][0];
+
+/** Legacy countdown text (`progress.html:500-536`): `h:mm:ss`, `m:ss`, or EXPIRED. */
+export function countdown(expiresAt: string, now: number) {
+  const target = new Date(expiresAt.replace(' ', 'T')).getTime(),
+    remaining = target - now;
+  if (Number.isNaN(target) || remaining <= 0)
+    return { text: 'EXPIRED', tone: 'red', expired: true };
+  const total = Math.floor(remaining / 1000),
+    hours = Math.floor(total / 3600),
+    minutes = Math.floor((total % 3600) / 60),
+    seconds = total % 60;
+  const text =
+    (hours > 0 ? `${hours}:${minutes < 10 ? '0' : ''}` : '') +
+    `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  return {
+    text,
+    tone: remaining < 120000 ? 'red' : remaining < 300000 ? 'amber' : 'green',
+    expired: false,
+  };
+}
+function useNow(enabled: boolean) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!enabled) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [enabled]);
+  return now;
+}
+
 export function FulfillmentPage({ user, storeId }: { user: Principal; storeId: string }) {
   const client = useQueryClient();
   const online = useOnline();
@@ -73,33 +119,51 @@ export function FulfillmentPage({ user, storeId }: { user: Principal; storeId: s
     next.set('tab', value);
     setSearch(next);
   };
-  const [offset, setOffset] = useState(0),
-    [notice, setNotice] = useState(''),
-    [reject, setReject] = useState(''),
-    [reason, setReason] = useState('');
+  const [notice, setNotice] = useState(''),
+    [reject, setReject] = useState<{ orderId: string; storeId: string } | null>(null),
+    [reason, setReason] = useState(''),
+    [expanded, setExpanded] = useState<string | null>(null),
+    [, setKnown] = useState<string[] | null>(null),
+    [hasNew, setHasNew] = useState(false);
   useEffect(() => {
-    setOffset(0);
     setNotice('');
-    setReject('');
+    setReject(null);
     setReason('');
-  }, [user.id, storeId, tab]);
-  const summary = useQuery({
-    queryKey: [user.id, 'fulfillment-summary', storeId],
-    enabled: !!storeId,
-    queryFn: () => request(`/api/v1/stores/${storeId}/fulfillment/summary`, {}, summarySchema),
-    refetchInterval: 15000,
+    setKnown(null);
+    setHasNew(false);
+  }, [user.id, tab]);
+  const progress = useQuery({
+    queryKey: [user.id, 'fulfillment-progress', tab],
+    queryFn: () => request(`/api/v1/fulfillment/progress?${params({ tab })}`, {}, progressSchema),
+    refetchInterval: (query) => query.state.data?.pollIntervalMs ?? 100000,
   });
-  const page = useQuery({
-    queryKey: [user.id, 'fulfillment-orders', storeId, tab, offset],
-    enabled: !!storeId,
-    queryFn: () =>
+  const page = useInfiniteQuery({
+    queryKey: [user.id, 'fulfillment-orders', tab],
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) =>
       request(
-        `/api/v1/stores/${storeId}/fulfillment/orders?${params({ tab, offset: String(offset) })}`,
+        `/api/v1/fulfillment/progress/orders?${params({ tab, offset: String(pageParam) })}`,
         {},
         pageSchema,
       ),
-    refetchInterval: 15000,
+    getNextPageParam: (last) => (last.hasMore ? last.nextOffset : undefined),
   });
+  const checkInStore = progress.data?.storeId ?? page.data?.pages[0]?.storeId ?? null;
+  // Legacy polling keeps the rendered cards and only reports genuinely new orders
+  // (`progress.html:546-584`); cards that left the tab disappear on refresh.
+  const fresh = progress.data?.orderIds[tab],
+    freshKey = fresh?.join(',');
+  useEffect(() => {
+    if (freshKey === undefined) return;
+    const ids = freshKey ? freshKey.split(',') : [];
+    setKnown((previous) => {
+      if (previous && ids.some((id) => !previous.includes(id))) setHasNew(true);
+      return ids;
+    });
+  }, [freshKey]);
+  const orders = (page.data?.pages.flatMap((item) => item.data) ?? []).filter(
+    (order) => !fresh || fresh.includes(order.id),
+  );
   const reasons = useQuery({
     queryKey: [user.id, 'fulfillment-rejection-reasons'],
     enabled: !!reject,
@@ -111,29 +175,18 @@ export function FulfillmentPage({ user, storeId }: { user: Principal; storeId: s
       ),
   });
   const alerts = useFulfillmentExpiryAlerts(user.id, storeId, !!storeId && online);
+  const now = useNow(tab === 'in_queue' || tab === 'not_packed');
   const action = useMutation({
-    mutationFn: async ({
-      orderId,
-      path,
-      rejectionReasonId,
-    }: {
+    mutationFn: (input: {
+      storeId: string;
       orderId: string;
-      path: string;
+      action: FulfillmentAction;
       rejectionReasonId?: string;
-    }) =>
-      sendFulfillmentCommand(user.id, storeId, {
-        orderId,
-        path,
-        ...(rejectionReasonId ? { rejectionReasonId } : {}),
-      }),
+    }) => sendFulfillmentCommand(user.id, input),
     onSuccess: async (result) => {
-      setReject('');
+      setReject(null);
       setReason('');
-      setNotice(
-        result.integrationState === 'pending'
-          ? `Updated ${result.updatedCount} line(s). External synchronization is pending.`
-          : `Updated ${result.updatedCount} line(s).`,
-      );
+      setNotice(`${result.message}: updated ${result.updatedCount} item(s).`);
       await client.invalidateQueries({
         predicate: (query) =>
           query.queryKey[0] === user.id &&
@@ -142,23 +195,117 @@ export function FulfillmentPage({ user, storeId }: { user: Principal; storeId: s
       });
     },
   });
+  const refresh = () => {
+    setHasNew(false);
+    void progress.refetch();
+    void page.refetch();
+  };
+  function actions(order: Order, expired: boolean) {
+    const store = checkInStore!;
+    const run = (kind: FulfillmentAction) =>
+      action.mutate({ storeId: store, orderId: order.id, action: kind });
+    const disabled = action.isPending || !online;
+    // Legacy card buttons (`_order_cards.html:115-190`).
+    if (tab === 'in_queue') {
+      if (order.isTimedOut)
+        return <span className="badge red">Expired – Waiting for Allocation</span>;
+      if (!order.isVincAllocated)
+        return <span className="badge amber">Waiting for Allocation</span>;
+      return (
+        <>
+          <button
+            className="button primary"
+            disabled={disabled || expired}
+            title={expired ? 'The acceptance window for this order has expired.' : undefined}
+            onClick={() => run('acceptance')}
+          >
+            <Check size={15} />
+            Accept
+          </button>
+          <button
+            className="button secondary"
+            disabled={disabled || expired}
+            onClick={() => setReject({ orderId: order.id, storeId: store })}
+          >
+            <X size={15} />
+            Reject
+          </button>
+        </>
+      );
+    }
+    if (tab === 'not_packed')
+      return order.hasShipmentId ? (
+        <button
+          className="button primary"
+          disabled={disabled || expired}
+          onClick={() => run('packing')}
+        >
+          <PackageCheck size={15} />
+          Mark Packed
+        </button>
+      ) : (
+        <button className="button secondary" disabled>
+          <Clock3 size={15} />
+          Waiting for Shipment ID
+        </button>
+      );
+    if (tab === 'packed')
+      return (
+        <>
+          <InvoiceDocumentAction
+            user={user}
+            storeId={store}
+            orderId={order.id}
+            kind="express"
+            online={online}
+          />
+          {order.hasAwb ? (
+            <>
+              <ShippingLabelAction user={user} storeId={store} orderId={order.id} online={online} />
+              <button
+                className="button primary"
+                disabled={disabled}
+                onClick={() => run('shipment')}
+              >
+                <Truck size={15} />
+                Mark Shipped
+              </button>
+            </>
+          ) : (
+            <button className="button secondary" disabled>
+              <Clock3 size={15} />
+              Waiting for AWB
+            </button>
+          )}
+        </>
+      );
+    if (order.canMarkRto)
+      return (
+        <button className="button secondary" disabled={disabled} onClick={() => run('rto-receipt')}>
+          <Undo2 size={15} />
+          Mark as RTO
+        </button>
+      );
+    if (order.isRto) return <span className="badge neutral">RTO Done</span>;
+    return null;
+  }
   return (
     <>
-      <PageTitle eyebrow="EVERY ORDER, MOVING FORWARD" title="Express fulfillment">
+      <PageTitle eyebrow="EVERY ORDER, MOVING FORWARD" title="Hyperlocal progress">
         <NavLink className="button secondary" to="/local-deliveries">
           Local deliveries
         </NavLink>
-        <button
-          className="button secondary"
-          onClick={() => {
-            void page.refetch();
-            void summary.refetch();
-          }}
-        >
+        <button className="button secondary" onClick={refresh}>
           <RefreshCw size={16} />
           Refresh
         </button>
       </PageTitle>
+      {progress.isSuccess && !checkInStore && (
+        <p role="status" className="fulfillment-status">
+          <AlertCircle size={15} />
+          Check in to a store to see its hyperlocal orders.
+        </p>
+      )}
       <div className="fulfillment-tabs" role="tablist" aria-label="Fulfillment status">
         {tabs.map(([value, label]) => (
           <button
@@ -169,22 +316,23 @@ export function FulfillmentPage({ user, storeId }: { user: Principal; storeId: s
             onClick={() => setTab(value)}
           >
             {label}
-            <span>{summary.data?.tabCounts[value] || 0}</span>
+            <span>{progress.data?.tabCounts[value] ?? 0}</span>
           </button>
         ))}
       </div>
+      {hasNew && (
+        <div className="fulfillment-status" role="status">
+          <AlertCircle size={16} />
+          New orders have arrived.
+          <button className="button secondary" onClick={refresh}>
+            Refresh
+          </button>
+        </div>
+      )}
       {!!alerts.data?.expiringSoon.length && (
         <div className="fulfillment-status" role="status">
           <AlertCircle size={16} />
           {alerts.data.expiringSoon.length} order deadline(s) within 35 minutes.
-          <button
-            className="button secondary"
-            onClick={() =>
-              setTab(alerts.data!.expiringSoon[0]!.type === 'pending' ? 'in_queue' : 'not_packed')
-            }
-          >
-            Review queue
-          </button>
         </div>
       )}
       {notice && (
@@ -193,167 +341,145 @@ export function FulfillmentPage({ user, storeId }: { user: Principal; storeId: s
           {notice}
         </p>
       )}
-      {action.isError && <ErrorState error={action.error} />}{' '}
+      {action.isError && <ErrorState error={action.error} />}
       {page.isPending ? (
         <Loading />
       ) : page.isError ? (
         <ErrorState error={page.error} retry={() => void page.refetch()} />
+      ) : orders.length === 0 ? (
+        <Empty title="No orders found for this tab." />
       ) : (
-        <div className="fulfillment-grid">
-          {page.data.data.map((order) => (
-            <article className="surface fulfillment-card" key={order.id}>
-              <header>
-                <div>
-                  <small>ORDER</small>
-                  <h2>{order.reference || order.id}</h2>
-                </div>
-                <span className="badge neutral">{order.lines.length} line(s)</span>
-              </header>
-              {order.expiresAt && (
-                <div className="fulfillment-deadline">
-                  <Clock3 size={14} />
-                  {tab === 'in_queue' ? 'Acceptance' : 'Packing'} deadline · {order.expiresAt}
-                </div>
-              )}
-              <div className="fulfillment-customer">
-                <strong>{order.customer.name || 'Customer'}</strong>
-                <span>
-                  {order.customer.city} {order.customer.postalCode}
-                </span>
-              </div>
-              <div>
-                {order.lines.map((line) => (
-                  <div className="fulfillment-line" key={line.id}>
-                    <Box size={18} />
-                    <div>
-                      <strong>{line.productName || `Item ${line.hasProductId}`}</strong>
-                      <small>
-                        {line.quantity || '0'} unit(s) · {line.status}
-                      </small>
-                      {line.awb && <small>AWB {line.awb}</small>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="fulfillment-amount">
-                <span>Store amount</span>
-                <strong>{currency(order.storeOrderAmount)}</strong>
-              </div>
-              <div className="fulfillment-flags">
-                <span className={`badge ${order.isVincAllocated ? 'green' : 'amber'}`}>
-                  {order.isVincAllocated ? 'Allocated' : 'Awaiting allocation'}
-                </span>
-                {order.isRto && <span className="badge amber">RTO received</span>}
-              </div>
-              <footer>
-                {tab === 'in_queue' && (
-                  <>
-                    <button
-                      className="button primary"
-                      disabled={action.isPending}
-                      onClick={() => action.mutate({ orderId: order.id, path: 'acceptance' })}
-                    >
-                      <Check size={15} />
-                      Accept all
-                    </button>
-                    <button
-                      className="button secondary"
-                      disabled={action.isPending}
-                      onClick={() => setReject(order.id)}
-                    >
-                      Reject
-                    </button>
-                  </>
-                )}
-                {tab === 'not_packed' && (
-                  <>
-                    <button
-                      className="button primary"
-                      disabled={action.isPending}
-                      onClick={() => action.mutate({ orderId: order.id, path: 'packing' })}
-                    >
-                      <PackageCheck size={15} />
-                      Mark packed
-                    </button>
-                    <button
-                      className="button secondary"
-                      disabled={action.isPending}
-                      onClick={() => setReject(order.id)}
-                    >
-                      Reject
-                    </button>
-                  </>
-                )}
-                {tab === 'packed' && (
-                  <button
-                    className="button primary"
-                    disabled={action.isPending}
-                    onClick={() => action.mutate({ orderId: order.id, path: 'shipment' })}
-                  >
-                    <Truck size={15} />
-                    Mark shipped
-                  </button>
-                )}
-                {tab === 'shipped' && order.canMarkRto && (
-                  <button
-                    className="button secondary"
-                    disabled={action.isPending}
-                    onClick={() => action.mutate({ orderId: order.id, path: 'rto-receipt' })}
-                  >
-                    Confirm RTO receipt
-                  </button>
-                )}
-                {(tab === 'packed' || tab === 'shipped') && order.hasAwb && (
-                  <ShippingLabelAction
-                    user={user}
-                    storeId={storeId}
-                    orderId={order.id}
-                    online={online}
-                  />
-                )}
-              </footer>
-            </article>
-          ))}
+        <div className="surface monitor-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>User ID</th>
+                <th>Name</th>
+                <th>Pay Status</th>
+                <th>Amount</th>
+                <th>Order Status</th>
+                <th>Order Date</th>
+                {(tab === 'in_queue' || tab === 'not_packed') && <th>Expires In</th>}
+                <th>Actions</th>
+              </tr>
+            </thead>
+            {orders.map((order) => {
+              const timer =
+                order.expiresAt && (tab === 'in_queue' || tab === 'not_packed')
+                  ? countdown(order.expiresAt, now)
+                  : null;
+              return (
+                <tbody key={order.id}>
+                  <tr>
+                    <td>
+                      <button
+                        className="icon-button"
+                        aria-expanded={expanded === order.id}
+                        aria-label={`Show items of order ${order.id}`}
+                        onClick={() => setExpanded(expanded === order.id ? null : order.id)}
+                      >
+                        <ChevronDown size={14} />
+                      </button>
+                      <strong>#{order.id}</strong>
+                    </td>
+                    <td>{order.userId}</td>
+                    <td>{order.customerName}</td>
+                    <td>
+                      <span
+                        className={`badge ${order.paymentStatus === 'Paid' ? 'green' : 'amber'}`}
+                      >
+                        {order.paymentStatus}
+                      </span>
+                    </td>
+                    <td>{currency(Math.round(order.storeOrderAmount))}</td>
+                    <td>
+                      <span className="badge neutral">{order.orderStatus}</span>
+                    </td>
+                    <td>{order.createdAt}</td>
+                    {(tab === 'in_queue' || tab === 'not_packed') && (
+                      <td>
+                        {order.isTimedOut ? (
+                          <span className="badge red">EXPIRED</span>
+                        ) : timer ? (
+                          <span className={`badge ${timer.tone}`}>{timer.text}</span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                    )}
+                    <td className="fulfillment-flags">{actions(order, Boolean(timer?.expired))}</td>
+                  </tr>
+                  {expanded === order.id && (
+                    <tr>
+                      <td colSpan={9}>
+                        <div className="monitor-line-items">
+                          {order.lines.length === 0 && <small>No line items found.</small>}
+                          {order.lines.map((line) => (
+                            <div key={line.id}>
+                              <small>{line.hasProductId}</small>
+                              <small>{line.productId}</small>
+                              {line.image ? (
+                                <img src={line.image} alt="" loading="lazy" />
+                              ) : (
+                                <small>No img</small>
+                              )}
+                              <div>
+                                {line.productId ? (
+                                  <Link
+                                    to={`/catalog/products/${
+                                      line.parentProductId && line.parentProductId !== '0'
+                                        ? line.parentProductId
+                                        : line.productId
+                                    }`}
+                                  >
+                                    {line.productName}
+                                  </Link>
+                                ) : (
+                                  line.productName
+                                )}
+                                <small>
+                                  ₹{line.price} · Qty {line.quantity} · GST {line.gst}%
+                                </small>
+                              </div>
+                              <span className="badge neutral">{line.status}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              );
+            })}
+          </table>
         </div>
       )}
-      {page.data?.data.length === 0 && (
-        <Empty title="This queue is clear">Orders appear here when they reach this stage.</Empty>
+      {page.hasNextPage && (
+        <div className="fulfillment-pagination">
+          <button
+            className="button secondary"
+            disabled={page.isFetchingNextPage}
+            onClick={() => void page.fetchNextPage()}
+          >
+            <ChevronDown size={15} />
+            Load More Orders
+          </button>
+        </div>
       )}
-      <div className="fulfillment-pagination">
-        <button
-          className="button secondary"
-          disabled={offset === 0 || page.isFetching}
-          onClick={() => setOffset(Math.max(0, offset - 20))}
-        >
-          Previous
-        </button>
-        <span>Page {Math.floor(offset / 20) + 1}</span>
-        <button
-          className="button secondary"
-          disabled={!page.data?.hasMore || page.isFetching}
-          onClick={() => setOffset(page.data!.nextOffset)}
-        >
-          Next
-        </button>
-      </div>
       {reject && (
         <div className="modal-backdrop">
           <section className="modal" role="dialog" aria-modal="true" aria-labelledby="reject-title">
             <button
               className="icon-button modal-close"
               aria-label="Cancel rejection"
-              onClick={() => setReject('')}
+              onClick={() => setReject(null)}
             >
               <X size={20} />
             </button>
-            <div className="eyebrow">REVIEW BEFORE REJECTING</div>
-            <h2 id="reject-title">Reject order {reject}?</h2>
-            <p>
-              The actionable lines will be rejected and queued for warehouse conversion. Choose the
-              reason staff should see.
-            </p>
+            <h2 id="reject-title">Reject order {reject.orderId}?</h2>
             <label>
-              Reason
+              Select a reason for rejection:
               <select
                 aria-label="Rejection reason"
                 value={reason}
@@ -372,11 +498,11 @@ export function FulfillmentPage({ user, storeId }: { user: Principal; storeId: s
               className="button primary full"
               disabled={!reason || action.isPending}
               onClick={() =>
-                action.mutate({ orderId: reject, path: 'rejection', rejectionReasonId: reason })
+                action.mutate({ ...reject, action: 'rejection', rejectionReasonId: reason })
               }
             >
               <AlertCircle size={16} />
-              Reject order
+              Reject
             </button>
           </section>
         </div>

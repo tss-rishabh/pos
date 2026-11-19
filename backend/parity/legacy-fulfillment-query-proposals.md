@@ -1,3 +1,10 @@
+> **Superseded (W5, 19 November 2026).** The schema freeze forbids this ALTER and the
+> rewrite no longer proposes it. Legacy `update_or_create` inserts that omit
+> `delivery_exception_date` store the zero date under the production (non-strict)
+> `sql_mode`; the rewrite writes `0000-00-00 00:00:00` explicitly
+> (`src/modules/legacy-fulfillment/runtime.ts`, `upsertCourierLog`) and never creates the
+> earlier rewrite-only arrival/transfer log. Kept only as historical evidence.
+
 # Local delivery database compatibility proposal
 
 Source baseline `backend-pos-web@78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`;

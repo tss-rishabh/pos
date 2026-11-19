@@ -66,3 +66,15 @@
   border-radius: 6px;
   font: inherit;
 }
+.local-delivery-links,
+.local-delivery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-block: 1rem;
+}
+.local-delivery-workspace fieldset {
+  border: 1px solid #dce3d2;
+  border-radius: 6px;
+  padding: 0.75rem;
+}

@@ -75,3 +75,31 @@ The MySQL fixture validates an exact localhost template and creates/drops only r
 This slice does **not** certify the whole original `AjaxOrderListView`: its existing additional order-type/global/queue/mobile/email/payment/status/search/sort and detailed formatter columns are outside the eight-column rewrite projection tested here. Treat those original source surfaces separately in the overall feature inventory rather than marking this routing patch as full datatable parity.
 
 Focused checkpoint: 35 backend checks (including six native MySQL cases), two frontend unit checks, five controlled Chromium checks, both strict programs/lint, and six executed GCP synthetic valid/corrupt SELECT cases. The GCP aggregate was zero source rows and zero estimated bytes; it covered the separate manifest, full detail and minimal-copy paths with the actual SDK parameter normalizer. No source-table query, external mutation or production DDL was used.
+
+## W5 Phase D update (19 November 2026)
+
+Legacy reads every order date from MySQL (`OrdersView`, `ShowOrderDetailsView`,
+`ShowOnlineOrderDetailsView`, `AjaxOrderListView` use the default database; legacy BigQuery is used
+only for footfall/targets, `helpers/bigquery.py:66,70`). The rewrite-only publication readers for the
+store order list/detail, order search and online detail were removed; all of them read the primary
+reader for any date. `order-history/reader.ts` (`publicOrderHistory`) remains only because checkout's
+order copy (W4) still imports `historicalOrderCopyFacts`.
+
+Store order detail (`GET /api/v1/stores/:storeId/orders/:orderId`, `store-detail.ts`) now returns the
+`ShowOrderDetailsView` context under `legacy` and accepts `?cr=` as legacy `int(request.GET.get('cr', 0))`.
+
+### Messages (S4)
+
+| Case | Legacy | Rewrite |
+|---|---|---|
+| Order not in the operator's stores (no `cr`) | flash "Unauthorized access to the store order." + redirect to `orders_store` | 403 `ORDER_STORE_FORBIDDEN` "Unauthorized access to the store order." |
+| Unknown order id | `AttributeError` (500) | 404 `ORDER_NOT_FOUND` "Order not found." |
+| Store detail with no check-in, non-franchise order store | `IndexError` on `stores[0]` (500) | treated as no franchise check-in; page renders |
+| Online detail, wrong order type for the id | template renders whatever matches | 404 `ORDER_NOT_FOUND` "Order not found in this store and order type." |
+| Online detail HL/HE without check-in to the store | renders (no check) | 409 `ORDER_DETAIL_CHECK_IN_REQUIRED` "Check in to this store before opening its delivery details." |
+
+### Not implemented (needs a table outside the production snapshot)
+
+- `total_points` / `total_point_is_credited` (`Helpers.total_point_credited`, `helpers/helpers.py:1847-1859`)
+  reads `order_point_cashback` on legacy's separate `mysql_db` connection. That table is not in
+  `tests/golden/schema/production-schema.json`; the detail returns `cashback: null`.

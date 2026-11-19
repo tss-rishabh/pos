@@ -17,7 +17,6 @@ import {
 } from './search-client';
 import './order-search.css';
 import { onlineOrderDetailLink } from './online-detail-client';
-import { currentOrderDay } from './client';
 const titles = { ST: 'Store', HL: 'Local delivery', HE: 'Express', N: 'Online' } as const;
 const columns: [keyof SourceOrderRow, string, SearchSort?][] = [
   ['id', 'Order', 'id'],
@@ -39,6 +38,7 @@ export function SourceOrderList({
   refreshToken = 0,
   defaults,
   options: providedOptions,
+  view = 'store',
   onOpen,
 }: {
   user: Principal;
@@ -48,12 +48,17 @@ export function SourceOrderList({
   options?: OrderSearchMetadata;
   online: boolean;
   refreshToken?: number;
-  onOpen: (row: SourceOrderRow) => void;
+  /** `online` is legacy `orders/online/`: Local delivery type with an empty date range. */
+  view?: 'store' | 'online';
+  /** `crossAccess` mirrors the legacy `?cr=1` link from an order-ID search. */
+  onOpen: (row: SourceOrderRow, options: { crossAccess: boolean }) => void;
 }) {
-  const initialRange = defaults && dates.explicit === false ? defaults.store : undefined;
+  const onlineView = view === 'online';
+  const initialRange =
+    !onlineView && defaults && dates.explicit === false ? defaults.store : undefined;
   const localTime = (value: string) => value.replace(' ', 'T').slice(0, 16);
   const [form, setForm] = useState({
-      type: 'ST' as OrderSearchBody['orderType'],
+      type: (onlineView ? 'HL' : 'ST') as OrderSearchBody['orderType'],
       stores: [storeId],
       ids: '',
       idsAcrossDates: false,
@@ -74,11 +79,10 @@ export function SourceOrderList({
     [selection, setSelection] = useState<{ id: string; body: OrderSearchBody }>(() => ({
       id: crypto.randomUUID(),
       body: {
-        orderType: 'ST',
+        orderType: onlineView ? 'HL' : 'ST',
         storeIds: [storeId],
         orderIds: [],
-        from: dates.from,
-        to: dates.to,
+        ...(onlineView ? {} : { from: dates.from, to: dates.to }),
         ...initialRange,
         mobile: '',
         email: '',
@@ -108,6 +112,7 @@ export function SourceOrderList({
     if (calendarChanged) {
       setForm((old) => ({ ...old, placedFrom: '', placedTo: '' }));
     }
+    if (onlineView && !dates.explicit) return;
     setSelection((old) => ({
       id: crypto.randomUUID(),
       body: {
@@ -166,8 +171,9 @@ export function SourceOrderList({
             placedTo: form.placedTo.replace('T', ' ') + ':00',
           }
         : {};
-    const from = form.placedFrom?.slice(0, 10) || dates.from,
-      to = form.placedTo?.slice(0, 10) || dates.to;
+    // The Online page has no default window (legacy `OnlineOrdersView.get`).
+    const from = form.placedFrom?.slice(0, 10) || (onlineView ? undefined : dates.from),
+      to = form.placedTo?.slice(0, 10) || (onlineView ? undefined : dates.to);
     apply({
       ...selection.body,
       placedFrom: undefined,
@@ -195,9 +201,6 @@ export function SourceOrderList({
   function detailLink(row: SourceOrderRow) {
     const type = appliedType;
     if (type === 'ST') throw new Error('Use the store-order detail path.');
-    const clock = defaults ?? metadata.data?.defaults;
-    const today = clock ? currentOrderDay(Date.parse(clock.generatedAt), clock.timeZone) : null;
-    const day = row.created_at.slice(0, 10);
     return onlineOrderDetailLink(
       user,
       type === 'HE'
@@ -205,7 +208,6 @@ export function SourceOrderList({
         : storeId,
       row.id,
       type,
-      today && day < today ? { from: day, to: day } : undefined,
     );
   }
   function exportPage() {
@@ -221,8 +223,25 @@ export function SourceOrderList({
   const total = BigInt(data?.recordsFiltered ?? '0'),
     pages = (total + BigInt(selection.body.pageSize) - 1n) / BigInt(selection.body.pageSize),
     page = data?.page ?? selection.body.page;
+  const tabs = metadata.data?.hyperlocalTabs;
   return (
     <section className="surface order-search-workspace">
+      {tabs && (
+        <nav aria-label="Hyperlocal order tabs" className="order-search-actions">
+          {(
+            [
+              ['in_queue', 'Order In Queue', tabs.inQueue],
+              ['not_packed', 'Not Packed', tabs.notPacked],
+              ['packed', 'Packed', tabs.packed],
+              ['shipped', 'Shipped', tabs.shipped],
+            ] as const
+          ).map(([tab, label, count]) => (
+            <NavLink key={tab} className="button secondary" to={'/fulfillment?tab=' + tab}>
+              {label} : <strong>{count}</strong>
+            </NavLink>
+          ))}
+        </nav>
+      )}
       <form
         aria-label="Order filters"
         onSubmit={(event) => {
@@ -412,7 +431,7 @@ export function SourceOrderList({
         {queue && (
           <p className="muted">
             Delivery queues use your checked-in store and ignore placement dates and explicit order
-            IDs. Older details require a verified historical snapshot.
+            IDs.
           </p>
         )}
         {error && (
@@ -477,15 +496,7 @@ export function SourceOrderList({
         <>
           <p className="muted">
             {data?.recordsFiltered} result rows ·{' '}
-            {data?.emptySelection
-              ? 'No stores selected'
-              : data?.reader === 'mixed'
-                ? 'Live queue with historical details'
-                : data?.reader === 'bigquery'
-                  ? 'Verified historical snapshot; later changes may still be replicating'
-                  : data?.reader === 'data'
-                    ? 'Today’s reporting reader'
-                    : 'Current operational reader'}
+            {data?.emptySelection ? 'Please select atleast one store' : 'Current orders'}
             {data?.fetchedAt ? ' · Updated ' + new Date(data.fetchedAt).toLocaleTimeString() : ''}
           </p>
           <div className="table-wrap">
@@ -558,7 +569,7 @@ export function SourceOrderList({
                         <button
                           className="text-button"
                           onClick={() =>
-                            row.actionStoreId === storeId ? onOpen(row) : setSummary(row)
+                            onOpen(row, { crossAccess: selection.body.orderIds.length > 0 })
                           }
                         >
                           View order {row.id}
@@ -657,11 +668,11 @@ export function SourceOrderList({
                   </div>
                 ))}
             </dl>
-            {summary.actionStoreId === storeId && appliedType === 'ST' && (
+            {appliedType === 'ST' && (
               <button
                 className="button primary"
                 onClick={() => {
-                  onOpen(summary);
+                  onOpen(summary, { crossAccess: selection.body.orderIds.length > 0 });
                   setSummary(null);
                 }}
               >

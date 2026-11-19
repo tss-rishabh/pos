@@ -38,6 +38,16 @@ export async function orderHistoryFixture(template: string) {
       'payment_status',
       'has_products',
       'products',
+      'users',
+      'payment_method',
+      'store_counters',
+      'pos_terminal_transactions',
+      'pos_paytm_transactions',
+      'gift_vouchers',
+      'vinculum_auto_delivered_logs',
+      'reverse_pickup_reason',
+      'pos_transaction_logs',
+      'user_eav',
     ]);
     url.pathname = '/' + schema;
     const config = readConfig({

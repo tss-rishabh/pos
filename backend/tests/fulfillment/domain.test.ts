@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
-  actionableLines,
   fulfillmentOrderFacts,
-  planEffects,
   type FulfillmentLine,
 } from '../../src/modules/fulfillment/domain.js';
-import { expiryTransitions } from '../../src/modules/fulfillment/maintenance.js';
+import { expiryTransitions } from '../../src/modules/fulfillment/expiry.js';
 import { goldenStdout } from '../golden/load.js';
 
-function line(change: Partial<FulfillmentLine> = {}): FulfillmentLine {
+type OracleLine = Omit<FulfillmentLine, 'price' | 'image' | 'parentProductId'>;
+/** Card-only fields are not part of the captured oracle input, so they are added per call. */
+const card = (lines: OracleLine[]): FulfillmentLine[] =>
+  lines.map((item) => ({ ...item, price: null, image: null, parentProductId: null }));
+function line(change: Partial<OracleLine> = {}): OracleLine {
   return {
     id: '1',
     orderId: '1',
@@ -29,7 +31,7 @@ function line(change: Partial<FulfillmentLine> = {}): FulfillmentLine {
     ...change,
   };
 }
-describe('express fulfillment source parity and lifecycle safety', () => {
+describe('express fulfillment source parity', () => {
   it('matches original card facts, including duplicate HP allocation sets and split shipment flags', () => {
     const cases = [
       [line()],
@@ -54,7 +56,7 @@ describe('express fulfillment source parity and lifecycle safety', () => {
     );
     expect(
       cases.map((lines) => {
-        const r = fulfillmentOrderFacts(lines);
+        const r = fulfillmentOrderFacts(card(lines));
         return {
           store_order_amt: r.storeOrderAmount,
           is_rto: r.isRto,
@@ -66,39 +68,6 @@ describe('express fulfillment source parity and lifecycle safety', () => {
         };
       }),
     ).toEqual(expected);
-  });
-  it('only changes source-eligible statuses and requires RTO receipt for every selected line', () => {
-    const rows = [
-      line(),
-      line({ id: '2', status: 'ACCEPTED' }),
-      line({ id: '3', status: 'PACKED' }),
-    ];
-    expect(actionableLines('ACCEPT', rows).map((l) => l.id)).toEqual(['1']);
-    expect(actionableLines('REJECT', rows).map((l) => l.id)).toEqual(['1', '2']);
-    expect(actionableLines('PACK', rows).map((l) => l.id)).toEqual(['2']);
-    expect(actionableLines('SHIP', rows).map((l) => l.id)).toEqual(['3']);
-    expect(() =>
-      actionableLines('RTO', [line({ status: 'OUT_FOR_DELIVERY', productStatus: 'DELIVERED' })]),
-    ).toThrow('Not all items');
-    expect(() => actionableLines('SHIP', [])).toThrow('No packed items');
-    expect(() => actionableLines('PACK_LINE', rows, '1')).toThrow('ACCEPTED');
-  });
-  it('queues signed counter deltas and external effects instead of claiming upstream completion', () => {
-    const accepted = planEffects('ACCEPT', '1', '1', [line(), line({ id: '2' })]);
-    expect(accepted.find((e) => e.kind === 'concurrency-sync')?.payload).toEqual({
-      storeId: '1',
-      pending: -2,
-      accepted: 2,
-    });
-    const packed = planEffects('PACK', '1', '1', [line({ status: 'ACCEPTED' })]);
-    expect(packed.find((e) => e.kind === 'concurrency-sync')?.payload.accepted).toBe(-1);
-    expect(packed.find((e) => e.kind === 'status-api')?.payload.status).toBe('PACK');
-    expect(
-      planEffects('PACK_LINE', '1', '1', [line({ status: 'ACCEPTED' })]).some(
-        (e) => e.kind === 'status-api',
-      ),
-    ).toBe(false);
-    expect(planEffects('ACCEPT', '1', '1', [])).toEqual([]);
   });
   it('matches the original pending timeout/allocation split and accepted auto-pack helpers', () => {
     const cases = [];

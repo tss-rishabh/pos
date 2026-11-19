@@ -56,8 +56,74 @@ export const orderBrowsePage = z.object({
     .nullable(),
   ...metadata,
 });
+const status = z.object({ id: numeric, label: z.string() }).strict();
+/** Legacy `ShowOrderDetailsView` context (`order/views.py:351-501`). */
+export const storeOrderLegacy = z
+  .object({
+    crossAccess: z.boolean(),
+    customer: z
+      .object({
+        id: numeric,
+        firstName: z.string(),
+        lastName: z.string(),
+        email: z.string(),
+        telephone: z.string(),
+        tssMoney: z.string(),
+        tssPoints: z.string(),
+      })
+      .strict()
+      .nullable(),
+    exclusive: z
+      .object({ member: z.boolean(), expiry: z.string().nullable(), message: z.string() })
+      .strict(),
+    paymentStatus: status.nullable(),
+    paymentMethod: z.object({ id: numeric, name: z.string().nullable() }).strict().nullable(),
+    orderStatus: status.nullable(),
+    storeName: z.string(),
+    isOfflineOrder: z.boolean(),
+    isShopifyOrder: z.boolean(),
+    orderMessage: z.string(),
+    isManuallyPaid: z.boolean(),
+    counterId: numeric,
+    transactionId: z.string(),
+    isUploaded: z.boolean(),
+    plutusId: z.string(),
+    paytmMid: z.string(),
+    showMarkPaymentPopUp: z.boolean(),
+    totalItems: z.number().int(),
+    giftVouchers: z.array(z.object({ id, giftCardSrno: numeric }).strict()),
+    vincStatus: z.record(
+      z.enum(['CREATE', 'PACK', 'SHIP', 'DELIVER']),
+      z.object({ status: z.string(), date: z.string() }).strict(),
+    ),
+    isFranchiseeOrder: z.boolean(),
+    isSuperAdmin: z.boolean(),
+    isAtStore: z.boolean(),
+    checkedInStoreId: id.nullable(),
+    exchangeFeatureEnabled: z.boolean(),
+    reasons: z.array(z.object({ id, reason: z.string() }).strict()),
+    transactionLog: z.array(
+      z
+        .object({
+          storeId: numeric,
+          orderStatus: z.string(),
+          paymentStatus: z.string(),
+          comment: z.string(),
+          createdAt: z.string(),
+          payments: z.array(
+            z.object({ method: z.string(), value: z.string().nullable() }).strict(),
+          ),
+        })
+        .strict(),
+    ),
+    cashback: z.null(),
+  })
+  .strict();
+export type StoreOrderLegacy = z.infer<typeof storeOrderLegacy>;
 export const orderBrowseDetail = orderDetailSchema.extend({
   ...metadata,
+  orderAmount: z.number().finite().optional(),
+  legacy: storeOrderLegacy.optional(),
   lines: z.array(
     z.object({
       id,
@@ -66,7 +132,12 @@ export const orderBrowseDetail = orderDetailSchema.extend({
       quantity: z.string().regex(/^-?(0|[1-9]\d{0,18})$/),
       amount: z.number().finite(),
       gst: z.number().finite(),
-      status: z.string(),
+      status: z.string().nullable(),
+      erpProduct: z.string().optional(),
+      productType: numeric.optional(),
+      parentProductId: numeric.optional(),
+      giftVoucherId: numeric.optional(),
+      returnStatus: z.number().int().optional(),
     }),
   ),
 });
