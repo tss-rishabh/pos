@@ -1,12 +1,14 @@
 import { defineConfig, devices } from '@playwright/test';
 import { existsSync } from 'node:fs';
 import { delimiter, dirname } from 'node:path';
+import { harnessPorts } from './ports';
 import { harnessDatabaseUrl } from './support';
 
 /**
  * verify-project browser harnesses (order search, order history, daily reports) on the real e2e
  * stack (backend/tools/e2e/stack.ts): seeded loopback MySQL schema, private redis-server, fake
- * adapters, the real backend, and the built web app served by `vite preview` (run
+ * adapters, the real backend, and the built web app served by `vite preview`, on their own ports
+ * (ports.ts) so the Playwright suite or a parallel stack on 4410/4173 cannot collide (run
  * `npm run build` first; verify-project builds before its browser checks). Each harness adds its
  * own synthetic rows with backend/tools/e2e/harness-fixtures.ts. Unlike the Playwright suite, the
  * stack keeps the production day-close rollout default (COCO) so daily reporting runs for real.
@@ -15,6 +17,14 @@ import { harnessDatabaseUrl } from './support';
  */
 if (process.versions.node.split('.')[0] !== '24')
   throw new Error('Playwright fixtures require the installed Node 24 runtime.');
+// One harness per invocation: each owns its stack, and the fixture sets are mutually exclusive
+// (the report rows would change the order-search counts). Workers re-load this file; skip there.
+const harnessDirectories = ['order-search/', 'order-history/', 'reports/'];
+if (
+  process.env.TEST_WORKER_INDEX === undefined &&
+  process.argv.filter((value) => harnessDirectories.includes(value)).length !== 1
+)
+  throw new Error(`Run exactly one harness: ${harnessDirectories.join(', ')}.`);
 const pathVariable =
   Object.keys(process.env).find((name) => name.toLowerCase() === 'path') ?? 'PATH';
 const nodeEnvironment = {
@@ -37,7 +47,7 @@ export default defineConfig({
   expect: { timeout: 10000 },
   reporter: [['list']],
   use: {
-    baseURL: 'http://localhost:4173',
+    baseURL: `http://localhost:${harnessPorts.web}`,
     ...devices['Desktop Chrome'],
     launchOptions: chromiumExecutable ? { executablePath: chromiumExecutable } : {},
     // These harnesses own their API traffic; offline shell behaviour has separate worker tests.
@@ -50,12 +60,13 @@ export default defineConfig({
     {
       command: 'node --import tsx tools/e2e/stack.ts',
       cwd: '../../../backend',
-      url: 'http://127.0.0.1:4410/health/ready',
+      url: `http://127.0.0.1:${harnessPorts.backend}/health/ready`,
       timeout: 120000,
       env: {
         ...nodeEnvironment,
         E2E_MYSQL_URL: harnessDatabaseUrl(),
-        E2E_WEB_ORIGIN: 'http://localhost:4173',
+        E2E_WEB_ORIGIN: `http://localhost:${harnessPorts.web}`,
+        E2E_BACKEND_PORT: String(harnessPorts.backend),
         E2E_DAY_CLOSE_ENABLED_STORE_IDS: 'COCO',
       },
       reuseExistingServer: false,
@@ -64,9 +75,9 @@ export default defineConfig({
       stderr: 'pipe',
     },
     {
-      command: 'node node_modules/vite/bin/vite.js preview --host 127.0.0.1',
+      command: 'node node_modules/vite/bin/vite.js preview --config tests/harness/vite.config.ts',
       cwd: '../..',
-      url: 'http://127.0.0.1:4173',
+      url: `http://127.0.0.1:${harnessPorts.web}`,
       env: nodeEnvironment,
       reuseExistingServer: false,
       stdout: 'pipe',
