@@ -359,15 +359,27 @@ Decisions applied (user and primary agent; `AGENTS.md` "Checkout", S33–S36):
    `container-fixture.cjs:27` customer-contacts worker (not W4).
 
 Still open / needs decision:
-- **#26 temp.id email popup** (`create_order.html:7926`, `ajax_m_user_email`): needs a customer
-  email update, which went with the removed customer-contacts feature. NEEDS USER DECISION:
-  restore a legacy email-update endpoint or drop the popup.
 - **#25 website handoff**: owned by `customer-website-handoff` (not W4).
 - Picker troubleshoot (`catalog-details`, not W4): legacy is one click for any signed-in user;
   the rewrite is role 1 / user_type 1 with preview/apply and a background job.
-- An online type-8 exchange outside the merged cell is refused only after eligibility, after the
-  PENDING `pos_exchange_log` row is written (it becomes `FAILED_NEEDS_MANUAL_FIX`).
 - Order SMS still waits for W8's `JobProducer`.
+
+Second follow-up (coordinator, 20 November 2026):
+- **#26 temp.id email popup** (`create_order.html:7926-7990`, trigger `:1710`, `:2275`;
+  `extra.exclusive_product` = added `prod_type == 5`, `order/views.py:1732`): `MembershipEmailPrompt.tsx`
+  opens after a product add that brings a new membership line while the connected customer's email
+  contains `temp.id` (read from W5's contact workspace). Submit checks the legacy email pattern
+  ("Please provide a valid email"), posts W5's `…/customer-contacts/email` (legacy `ajax-m-user-email`,
+  S19); success shows the server message and reloads the sale (legacy "Window reloading..."),
+  failure shows the server message and keeps the popup open (legacy re-opens it). W5's contract
+  covers what legacy needs; no backend change.
+- **S35 ordering**: `exchanges.start` runs a read-only preflight (`repository.exchangePreflight`)
+  before `begin`: exchange-enabled (check-in store) and store type-8 refusals, and for an online
+  type-8 line the API-v2 eligibility answer decides the merged cell, so every refusal happens before
+  the PENDING `pos_exchange_log` insert. The returns MySQL suite asserts no `pos_exchange_log` row and
+  an unchanged `has_products.status` after a refused online type-8 exchange (49/49 on isolated MySQL).
+- `API_V2_APP_ID` / `API_V2_APP_KEY` documented in `.env.example` (lookup answers 503 when unset).
+- Commits `692e25bb`, `d034c9b3`.
 
 Lead-side edits outside W4 ownership in this follow-up: `customer-insights/insights.tsx`
 (`initiallyOpen` prop), `src/app.ts` (stock-locations route), `tests/customer-otp/*`,
