@@ -780,6 +780,7 @@ export const Comments = mysqlTable('comments', {
   updated_at: datetime('updated_at', { mode: 'string' }).notNull(),
   has_product_id: bigint('has_product_id', { mode: 'bigint' }),
   prod_id: bigint('prod_id', { mode: 'bigint' }).notNull(),
+  hl_status: varchar('hl_status', { length: 45 }),
 });
 
 export const ReversePickupReason = mysqlTable('reverse_pickup_reason', {
@@ -1340,4 +1341,29 @@ export const UserStore = mysqlTable('user_stores', {
   id: bigint('id', { mode: 'bigint' }).autoincrement().primaryKey().notNull(),
   django_user_id: bigint('django_user_id', { mode: 'bigint' }).notNull(),
   store_id: bigint('store_id', { mode: 'bigint' }).notNull(),
+});
+
+export const FlagHistory = mysqlTable('flag_history', {
+  id: bigint('id', { mode: 'bigint' }).autoincrement().primaryKey().notNull(),
+  order_id: bigint('order_id', { mode: 'bigint' }).notNull(),
+  flag_id: bigint('flag_id', { mode: 'bigint' }).notNull(),
+  f_comment: text('f_comment').notNull(),
+  user_id: bigint('user_id', { mode: 'bigint' }).notNull(),
+  created_at: datetime('created_at', { mode: 'string' }).notNull(),
+  updated_at: datetime('updated_at', { mode: 'string' }).notNull(),
+});
+
+export const HyperlocalAvailabilityLog = mysqlTable('hyperlocal_availability_log', {
+  id: int('id').autoincrement().primaryKey().notNull(),
+  order_id: bigint('order_id', { mode: 'bigint' }).notNull(),
+  pincode: int('pincode').notNull(),
+  delivery_charges: int('delivery_charges').notNull(),
+  buffer_stock: int('buffer_stock').notNull(),
+  cart_type: mysqlEnum('cart_type', ['INVALID', 'MIXED', 'VALID', 'NONE']).notNull(),
+  stock_threshold: mysqlEnum('stock_threshold', ['GUILTY', 'NOT_GUILTY', 'NONE']).notNull(),
+  store_availability: mysqlEnum('store_availability', ['GUILTY', 'NOT_GUILTY', 'NONE']).notNull(),
+  is_slot_visible: tinyint('is_slot_visible'),
+  products_stats: text('products_stats').notNull(),
+  created_at: datetime('created_at', { mode: 'string' }).notNull(),
+  updated_at: datetime('updated_at', { mode: 'string' }).notNull(),
 });
