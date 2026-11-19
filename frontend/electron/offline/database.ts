@@ -142,6 +142,16 @@ const migrations: readonly string[] = [
    CREATE INDEX sales_status ON sales(status, sequence);
    CREATE INDEX products_name ON products(store_id, name);
    CREATE INDEX conflicts_open ON conflicts(sale_id, resolved_at);`,
+  // Legacy requires a master salesperson on every order: cache the store's active
+  // salespeople and record the one chosen for each offline sale.
+  `CREATE TABLE salespeople (
+     store_id TEXT NOT NULL,
+     salesperson_id TEXT NOT NULL,
+     name TEXT NOT NULL,
+     refreshed_at INTEGER NOT NULL,
+     PRIMARY KEY (store_id, salesperson_id)
+   ) STRICT;
+   ALTER TABLE sales ADD COLUMN salesperson_id TEXT;`,
 ];
 
 function migrate(db: SqliteDatabase) {
@@ -188,6 +198,7 @@ const saleRow = z.object({
   counter_id: z.string(),
   operator_id: z.string(),
   operator_name: z.string(),
+  salesperson_id: z.string().nullable(),
   created_at: z.number().int(),
   gross_paise: z.number().int(),
   rounding_paise: z.number().int(),
@@ -215,11 +226,13 @@ const conflictRow = z.object({
   created_at: z.number().int(),
 });
 const resolutionJson = z.object({
-  action: z.enum(['accept', 'correct-tender', 'void']),
+  action: z.enum(['accept', 'correct-tender', 'link-order', 'recreate', 'void']),
   managerId: z.string(),
   reason: z.string(),
   resolvedAt: z.number().int(),
+  orderId: z.string().optional(),
 });
+export type SaleResolution = z.infer<typeof resolutionJson>;
 
 export interface CachedOperator {
   id: string;
@@ -239,6 +252,7 @@ export interface NewSale {
   counterId: string;
   operatorId: string;
   operatorName: string;
+  salespersonId: string;
   createdAt: number;
   grossPaise: number;
   roundingPaise: number;
@@ -319,6 +333,7 @@ export function offlineStore(db: SqliteDatabase) {
       counterId: sale.counter_id,
       operatorId: sale.operator_id,
       operatorName: sale.operator_name,
+      salespersonId: sale.salesperson_id,
       createdAt: sale.created_at,
       status: sale.status,
       lines: linesFor(sale.sale_id),
@@ -472,6 +487,22 @@ export function offlineStore(db: SqliteDatabase) {
       }
       setMeta('catalog', JSON.stringify({ storeId, refreshedAt: now, products: products.length }));
     },
+    /** Active checkout salespeople of the store, refreshed with the catalogue. */
+    replaceSalespeople(storeId: string, people: { id: string; name: string }[], now: number) {
+      db.prepare('DELETE FROM salespeople WHERE store_id = ?').run(storeId);
+      const insert = db.prepare(
+        'INSERT OR IGNORE INTO salespeople (store_id, salesperson_id, name, refreshed_at) VALUES (?, ?, ?, ?)',
+      );
+      for (const person of people) insert.run(storeId, person.id, person.name, now);
+    },
+    salespeople(storeId: string): { id: string; name: string }[] {
+      return db
+        .prepare(
+          'SELECT salesperson_id AS id, name FROM salespeople WHERE store_id = ? ORDER BY name, salesperson_id',
+        )
+        .all(storeId)
+        .map((row) => z.object({ id: z.string(), name: z.string() }).parse(row));
+    },
     /** Store and counter names for receipts, cached on each online contact. */
     saveScopeNames(
       stores: { id: string; name: string }[],
@@ -490,6 +521,19 @@ export function offlineStore(db: SqliteDatabase) {
            refreshed_at = excluded.refreshed_at`,
       );
       for (const item of counters) counter.run(item.id, storeId, item.name, now);
+    },
+    /** Active counters of the store as of the latest online contact. */
+    counters(storeId: string): { id: string; name: string }[] {
+      return db
+        .prepare(
+          // Only the counters returned by the latest online refresh: a deactivated counter
+          // keeps its cached name for old receipts but can no longer be billed at.
+          `SELECT counter_id AS id, name FROM counters WHERE store_id = ?
+             AND refreshed_at = (SELECT max(refreshed_at) FROM counters WHERE store_id = ?)
+           ORDER BY CAST(counter_id AS INTEGER)`,
+        )
+        .all(storeId, storeId)
+        .map((row) => z.object({ id: z.string(), name: z.string() }).parse(row));
     },
     scopeNames(storeId: string, counterId: string) {
       const name = z.object({ name: z.string() });
@@ -548,8 +592,8 @@ export function offlineStore(db: SqliteDatabase) {
     insertSale(sale: NewSale) {
       db.prepare(
         `INSERT INTO sales (sale_id, sequence, provisional_ref, store_id, counter_id, operator_id, operator_name,
-           created_at, gross_paise, rounding_paise, payable_paise, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued')`,
+           salesperson_id, created_at, gross_paise, rounding_paise, payable_paise, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued')`,
       ).run(
         sale.saleId,
         sale.sequence,
@@ -558,6 +602,7 @@ export function offlineStore(db: SqliteDatabase) {
         sale.counterId,
         sale.operatorId,
         sale.operatorName,
+        sale.salespersonId,
         sale.createdAt,
         sale.grossPaise,
         sale.roundingPaise,
@@ -660,15 +705,7 @@ export function offlineStore(db: SqliteDatabase) {
         'INSERT INTO conflicts (sale_id, code, message, created_at) VALUES (?, ?, ?, ?)',
       ).run(saleId, code, message, now);
     },
-    resolve(
-      saleId: string,
-      resolution: {
-        action: 'accept' | 'correct-tender' | 'void';
-        managerId: string;
-        reason: string;
-        resolvedAt: number;
-      },
-    ) {
+    resolve(saleId: string, resolution: SaleResolution) {
       db.prepare(
         'UPDATE conflicts SET resolved_at = ?, resolved_by = ?, resolution = ? WHERE sale_id = ? AND resolved_at IS NULL',
       ).run(resolution.resolvedAt, resolution.managerId, resolution.action, saleId);

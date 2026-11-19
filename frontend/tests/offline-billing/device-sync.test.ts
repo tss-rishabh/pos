@@ -42,6 +42,7 @@ function fakeServer(): ServerApi {
       ],
       nextCursor: null,
     }),
+    salespeople: async () => [{ id: '4401', name: 'Riya' }],
     upload: async (_trace, _operator, _store, _counter, sale) => {
       uploads.push(sale);
       return respond(sale);
@@ -66,6 +67,7 @@ const sale = (lines = [{ productId: '1001', quantity: 2 }]) => ({
   storeId: '12',
   counterId: '3',
   lines,
+  salespersonId: '4401',
   tender: { mode: 'cash' as const, receivedPaise: 100000 },
 });
 

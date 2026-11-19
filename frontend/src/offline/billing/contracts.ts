@@ -12,6 +12,11 @@ export const tenderReference = z
     /^[A-Za-z0-9][A-Za-z0-9._/-]{3,99}$/,
     'Enter the card or UPI reference from the terminal.',
   );
+/** Checkout salesperson: legacy order_stores/has_products use signed INT. */
+export const salespersonIdSchema = z
+  .string()
+  .regex(/^[1-9]\d{0,9}$/)
+  .refine((value) => BigInt(value) <= 2147483647n, 'Select a salesperson.');
 export const provisionalReferenceSchema = z.string().max(55).regex(PROVISIONAL_REFERENCE_PATTERN);
 
 export const tenderSchema = z.discriminatedUnion('mode', [
@@ -33,11 +38,23 @@ export const conflictCodeSchema = z.enum([
 ]);
 export type ConflictCode = z.infer<typeof conflictCodeSchema>;
 
+/** Manager decisions. For an unknown sync outcome the manager links the order found in
+ * Orders ('link-order') or confirms that none exists ('recreate'); nothing else resends it. */
+export const resolutionActionSchema = z.enum([
+  'accept',
+  'correct-tender',
+  'link-order',
+  'recreate',
+  'void',
+]);
+export type ResolutionAction = z.infer<typeof resolutionActionSchema>;
+
 export const ipcChannels = [
   'offline:status',
   'offline:catalog:search',
   'offline:catalog:barcode',
   'offline:catalog:refresh',
+  'offline:salespeople:list',
   'offline:sale:create',
   'offline:sale:list',
   'offline:sale:reprint',
@@ -67,6 +84,7 @@ export const ipcRequestSchemas = {
     })
     .strict(),
   'offline:catalog:refresh': empty,
+  'offline:salespeople:list': z.object({ storeId: identifier }).strict(),
   'offline:sale:create': z
     .object({
       saleId: z.uuid(),
@@ -82,6 +100,7 @@ export const ipcRequestSchemas = {
           (lines) => new Set(lines.map((line) => line.productId)).size === lines.length,
           'Each product may appear once.',
         ),
+      salespersonId: salespersonIdSchema,
       tender: tenderSchema,
     })
     .strict(),
@@ -97,14 +116,19 @@ export const ipcRequestSchemas = {
   'offline:conflict:resolve': z
     .object({
       saleId: z.uuid(),
-      action: z.enum(['accept', 'correct-tender', 'void']),
+      action: resolutionActionSchema,
       reason: z.string().trim().min(5).max(200),
       tender: tenderSchema.optional(),
+      orderId: identifier.optional(),
     })
     .strict()
     .refine((value) => (value.action === 'correct-tender') === Boolean(value.tender), {
       message: 'A corrected tender is required only when correcting the tender.',
       path: ['tender'],
+    })
+    .refine((value) => (value.action === 'link-order') === Boolean(value.orderId), {
+      message: 'Enter the order ID only when linking the order found in Orders.',
+      path: ['orderId'],
     }),
 } satisfies Record<IpcChannel, z.ZodType>;
 export type IpcRequest<C extends IpcChannel> = z.input<(typeof ipcRequestSchemas)[C]>;
@@ -134,8 +158,12 @@ export const statusSchema = z.object({
   available: z.boolean(),
   unavailableReason: z.string().nullable(),
   online: z.boolean(),
+  /** False until the main process has probed the store service after start. */
+  reachabilityKnown: z.boolean(),
   lastContactAt: z.number().int().nullable(),
   operator: operatorSummarySchema.nullable(),
+  /** Cached active counters of the checked-in store (legacy check-ins carry no counter). */
+  counters: z.array(z.object({ id: identifier, name: z.string().max(300) })),
   limits: limitStatusSchema,
   catalog: z.object({
     storeId: identifier.nullable(),
@@ -182,6 +210,7 @@ export const saleSchema = z.object({
   counterId: identifier,
   operatorId: identifier,
   operatorName: z.string(),
+  salespersonId: salespersonIdSchema.nullable(),
   createdAt: z.number().int(),
   status: saleStatusSchema,
   lines: z.array(saleLineSchema),
@@ -200,10 +229,11 @@ export const saleSchema = z.object({
   conflict: conflictSchema.nullable(),
   resolution: z
     .object({
-      action: z.enum(['accept', 'correct-tender', 'void']),
+      action: resolutionActionSchema,
       managerId: identifier,
       reason: z.string(),
       resolvedAt: z.number().int(),
+      orderId: identifier.optional(),
     })
     .nullable(),
 });
@@ -221,6 +251,9 @@ export const ipcResponseSchemas = {
   'offline:catalog:search': z.object({ products: z.array(catalogProductSchema) }),
   'offline:catalog:barcode': z.object({ product: catalogProductSchema.nullable() }),
   'offline:catalog:refresh': z.object({ products: z.number().int().min(0) }),
+  'offline:salespeople:list': z.object({
+    salespeople: z.array(z.object({ id: salespersonIdSchema, name: z.string().max(200) })),
+  }),
   'offline:sale:create': z.object({ sale: saleSchema, receipt: receiptSchema }),
   'offline:sale:list': z.object({ sales: z.array(saleSchema) }),
   'offline:sale:reprint': z.object({ receipt: receiptSchema }),

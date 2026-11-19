@@ -18,6 +18,7 @@ function handlers(overrides: Partial<IpcHandlers> = {}): IpcHandlers {
     'offline:catalog:search': fail,
     'offline:catalog:barcode': fail,
     'offline:catalog:refresh': fail,
+    'offline:salespeople:list': fail,
     'offline:sale:create': fail,
     'offline:sale:list': fail,
     'offline:sale:reprint': fail,
@@ -32,6 +33,7 @@ const sale = {
   storeId: '12',
   counterId: '3',
   lines: [{ productId: '1001', quantity: 2 }],
+  salespersonId: '4401',
   tender: { mode: 'card', reference: 'RRN998877' },
 };
 
@@ -157,7 +159,7 @@ describe('IPC validation', () => {
       (event) => event === 'trusted',
       vi.fn(),
     );
-    expect(registered.size).toBe(10);
+    expect(registered.size).toBe(11);
     const rejected = await registered.get('offline:status')!('evil', { requestId, payload: {} });
     expect(rejected).toMatchObject({ ok: false, error: { code: 'UNTRUSTED_SENDER' } });
     expect(status).not.toHaveBeenCalled();

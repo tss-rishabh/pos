@@ -121,8 +121,10 @@ function unavailableStatus(reason: string): OfflineStatus {
     available: false,
     unavailableReason: reason,
     online: net.isOnline(),
+    reachabilityKnown: false,
     lastContactAt: null,
     operator: null,
+    counters: [],
     limits: evaluateLimits(DEFAULT_LIMITS, null, 0),
     catalog: { storeId: null, products: 0, refreshedAt: null },
     queue: { queued: 0, syncing: 0, needsManager: 0, synced: 0, voided: 0 },
@@ -207,6 +209,7 @@ export async function startOfflineBilling(
       'offline:catalog:search': refuse,
       'offline:catalog:barcode': refuse,
       'offline:catalog:refresh': refuse,
+      'offline:salespeople:list': refuse,
       'offline:sale:create': refuse,
       'offline:sale:list': () => ({ sales: [] }),
       'offline:sale:reprint': refuse,
@@ -245,6 +248,9 @@ export async function startOfflineBilling(
     'offline:catalog:barcode': async (payload) => ({ product: await service.byBarcode(payload) }),
     'offline:catalog:refresh': async (_payload, traceId) => ({
       products: await service.refreshCatalog(traceId),
+    }),
+    'offline:salespeople:list': async (payload) => ({
+      salespeople: await service.salespeople(payload),
     }),
     'offline:sale:create': (payload, traceId) => service.createSale(payload, traceId),
     'offline:sale:list': (payload) => ({ sales: service.list(payload) }),

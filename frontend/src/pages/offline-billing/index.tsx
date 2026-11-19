@@ -24,6 +24,7 @@ import type {
   OfflineReceipt,
   OfflineSale,
   OfflineStatus,
+  ResolutionAction,
   Tender,
 } from '../../offline/billing/contracts';
 import { formatMoney, parseMoney, saleTotals } from '../../offline/billing/money';
@@ -150,11 +151,11 @@ function OfflineBilling({ client }: { client: OfflineBillingClient }) {
         </div>
       )}
       {status && <StatusPanel status={status} />}
-      {status && !status.online && canBill && operator?.storeId && operator.counterId && (
+      {status && !status.online && canBill && operator?.storeId && status.counters.length > 0 && (
         <SaleComposer
           client={client}
           storeId={operator.storeId}
-          counterId={operator.counterId}
+          counters={status.counters}
           busy={busy}
           onCompleted={(value) => {
             setReceipt(value);
@@ -298,14 +299,14 @@ function StatusPanel({ status }: { status: OfflineStatus }) {
 function SaleComposer({
   client,
   storeId,
-  counterId,
+  counters,
   busy,
   onCompleted,
   onError,
 }: {
   client: OfflineBillingClient;
   storeId: string;
-  counterId: string;
+  counters: { id: string; name: string }[];
   busy: boolean;
   onCompleted: (receipt: OfflineReceipt) => void;
   onError: (message: string) => void;
@@ -316,7 +317,22 @@ function SaleComposer({
     [mode, setMode] = useState<TenderMode>('cash'),
     [received, setReceived] = useState(''),
     [reference, setReference] = useState(''),
+    [salespeople, setSalespeople] = useState<{ id: string; name: string }[]>([]),
+    [salespersonId, setSalespersonId] = useState(''),
+    [chosenCounter, setCounterId] = useState(counters[0]?.id ?? ''),
     [saving, setSaving] = useState(false);
+  useEffect(() => {
+    let active = true;
+    client
+      .call('offline:salespeople:list', { storeId })
+      .then((result) => {
+        if (active) setSalespeople(result.salespeople);
+      })
+      .catch((e: unknown) => onError(message(e)));
+    return () => {
+      active = false;
+    };
+  }, [client, storeId, onError]);
   const saleId = useRef<string>(crypto.randomUUID());
   const totals = useMemo(
     () =>
@@ -362,7 +378,14 @@ function SaleComposer({
       onError(message(e));
     }
   }
+  const counterId = counters.some((counter) => counter.id === chosenCounter)
+    ? chosenCounter
+    : (counters[0]?.id ?? '');
   async function complete() {
+    if (!salespeople.some((person) => person.id === salespersonId)) {
+      onError('Please Select The Salesperson.');
+      return;
+    }
     let tender: Tender;
     if (mode === 'cash') {
       const paid = parseMoney(received || formatMoney(totals.payablePaise));
@@ -388,6 +411,7 @@ function SaleComposer({
           productId: line.product.productId,
           quantity: line.quantity,
         })),
+        salespersonId,
         tender,
       });
       saleId.current = crypto.randomUUID();
@@ -486,6 +510,27 @@ function SaleComposer({
           </tbody>
         </table>
       )}
+      <label className="offline-field">
+        Counter
+        <select value={counterId} onChange={(event) => setCounterId(event.target.value)}>
+          {counters.map((counter) => (
+            <option key={counter.id} value={counter.id}>
+              {counter.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="offline-field">
+        Salesperson
+        <select value={salespersonId} onChange={(event) => setSalespersonId(event.target.value)}>
+          <option value="">Not Selected</option>
+          {salespeople.map((person) => (
+            <option key={person.id} value={person.id}>
+              {person.name}
+            </option>
+          ))}
+        </select>
+      </label>
       <div className="offline-totals">
         <span>Subtotal {rupees(totals.grossPaise)}</span>
         <span>Rounding −{rupees(totals.roundingPaise)}</span>
@@ -608,12 +653,15 @@ function ResolveDialog({
   sale: OfflineSale;
   onClose: () => void;
   onResolve: (input: {
-    action: 'accept' | 'correct-tender' | 'void';
+    action: ResolutionAction;
     reason: string;
     tender?: Tender;
+    orderId?: string;
   }) => Promise<void>;
 }) {
-  const [action, setAction] = useState<'accept' | 'correct-tender' | 'void'>('correct-tender'),
+  const unknown = sale.conflict?.code === 'OUTCOME_UNKNOWN';
+  const [action, setAction] = useState<ResolutionAction>(unknown ? 'link-order' : 'correct-tender'),
+    [orderId, setOrderId] = useState(''),
     [reason, setReason] = useState(''),
     [mode, setMode] = useState<TenderMode>(sale.tender.mode),
     [value, setValue] = useState(''),
@@ -622,6 +670,10 @@ function ResolveDialog({
     const trimmed = reason.trim();
     if (trimmed.length < 5) {
       setError('Enter a reason of at least five characters.');
+      return;
+    }
+    if (action === 'link-order' && !/^[1-9]\d{0,19}$/.test(orderId.trim())) {
+      setError('Enter the order ID you found in Orders for this sale.');
       return;
     }
     let tender: Tender | undefined;
@@ -641,7 +693,12 @@ function ResolveDialog({
         tender = { mode, reference: value.trim() };
       }
     }
-    void onResolve({ action, reason: trimmed, ...(tender ? { tender } : {}) });
+    void onResolve({
+      action,
+      reason: trimmed,
+      ...(tender ? { tender } : {}),
+      ...(action === 'link-order' ? { orderId: orderId.trim() } : {}),
+    });
   }
   return (
     <div className="modal-backdrop">
@@ -666,19 +723,33 @@ function ResolveDialog({
           Decision
           <select
             value={action}
-            onChange={(event) =>
-              setAction(event.target.value as 'accept' | 'correct-tender' | 'void')
-            }
+            onChange={(event) => setAction(event.target.value as ResolutionAction)}
           >
-            <option value="correct-tender">Correct the tender</option>
-            <option value="accept">
-              {sale.conflict?.code === 'OUTCOME_UNKNOWN'
-                ? 'The order exists in Orders — record it'
-                : 'Accept the store’s current price/stock and sync'}
-            </option>
+            {unknown ? (
+              <>
+                <option value="link-order">The order exists in Orders — link it</option>
+                <option value="recreate">Orders has no order for this sale — create it</option>
+              </>
+            ) : (
+              <>
+                <option value="correct-tender">Correct the tender</option>
+                <option value="accept">Accept the store’s current price/stock and sync</option>
+              </>
+            )}
             <option value="void">Void this sale (goods returned)</option>
           </select>
         </label>
+        {action === 'link-order' && (
+          <label className="offline-field">
+            Order ID from Orders
+            <input
+              inputMode="numeric"
+              value={orderId}
+              maxLength={20}
+              onChange={(event) => setOrderId(event.target.value)}
+            />
+          </label>
+        )}
         {action === 'correct-tender' && (
           <>
             <label className="offline-field">
