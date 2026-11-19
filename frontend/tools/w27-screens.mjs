@@ -157,12 +157,9 @@ await step('logout', async () => {
   await go(page, '/');
   await page.waitForLoadState('networkidle');
   if (phase === 'before') await page.getByRole('button', { name: 'Sign out' }).click();
-  else {
-    await page.getByRole('button', { name: /Account menu/ }).click();
-    await shot(page, '21-account-menu');
-    await page.getByRole('menuitem', { name: 'Log out' }).click();
-  }
+  else await page.getByRole('banner').getByRole('button', { name: 'Log out', exact: true }).click();
   await page.getByLabel('Email or username').waitFor();
+  await shot(page, '21-logged-out');
 });
 if (app) {
   await app.close();
