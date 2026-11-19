@@ -1,8 +1,19 @@
 import { Temporal } from '@js-temporal/polyfill';
-import { sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, like, lte, or, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
+import {
+  MUser,
+  PosHoldStockLog,
+  PosUser,
+  Product,
+  ProductInventoryLog,
+  StockStorage,
+  StorageStockLog,
+  Store,
+  StoreStorage,
+} from '../../db/legacy-schema.js';
 import type { Principal } from '../../domain/access.js';
 import { requireStore } from '../../domain/access.js';
 import { unavailable } from '../../domain/errors.js';
@@ -20,27 +31,154 @@ import {
 import { sourcePageStart, sourcePosUserFullName, sourceStockDelta } from './domain.js';
 import { assertCatalogScope } from './service.js';
 
-/** Normalized physical source projection, including the legacy storage join by stock-row ID. */
+function auditLog(kind: AuditKind) {
+  if (kind === 'product')
+    return {
+      table: ProductInventoryLog,
+      id: ProductInventoryLog.id,
+      store: ProductInventoryLog.store_id,
+      product: ProductInventoryLog.product_id,
+      before: ProductInventoryLog.stock_before,
+      after: ProductInventoryLog.stock_after,
+      posUser: ProductInventoryLog.pos_user_id,
+      comment: ProductInventoryLog.comment,
+      createdAt: ProductInventoryLog.created_at,
+    };
+  if (kind === 'held')
+    return {
+      table: PosHoldStockLog,
+      id: PosHoldStockLog.id,
+      store: PosHoldStockLog.store_id,
+      product: PosHoldStockLog.product_id,
+      before: PosHoldStockLog.stock_before,
+      after: PosHoldStockLog.stock_after,
+      posUser: PosHoldStockLog.pos_user_id,
+      comment: PosHoldStockLog.comment,
+      createdAt: PosHoldStockLog.created_at,
+    };
+  return {
+    table: StorageStockLog,
+    id: StorageStockLog.id,
+    store: StorageStockLog.store,
+    product: StorageStockLog.product,
+    before: StorageStockLog.stock_before,
+    after: StorageStockLog.stock_after,
+    posUser: StorageStockLog.pos_user_id,
+    comment: StorageStockLog.comment,
+    createdAt: StorageStockLog.created_at,
+  };
+}
+/**
+ * Normalized physical source projection, including the legacy storage join by stock-row ID.
+ * The source wrapped it in a mergeable derived table (`select a.* from (...) a`); the builder
+ * applies the same filters, search and order directly to the joined rows.
+ */
 export function inventoryAuditSource(kind: AuditKind) {
-  const table =
-    kind === 'product'
-      ? sql`pos_product_inventory_logs`
-      : kind === 'held'
-        ? sql`pos_hold_stock_logs`
-        : sql`stock_storage_logs`;
-  const userJoin = kind === 'product' ? sql`left join users u on u.id=l.user_id` : sql``;
+  const log = auditLog(kind);
   const customerName =
     kind === 'product'
-      ? sql`concat(coalesce(u.firstname,''),case when coalesce(u.lastname,'')='' then '' else concat(' ',u.lastname) end)`
-      : sql`''`;
-  const storageJoin =
-    kind === 'storage'
-      ? sql`left join stock_storages ss on ss.id=l.storage_id left join store_storages sss on sss.id=ss.id`
-      : sql``;
-  return sql`select l.id as id,l.store_id as store_id,s.store_name,s.type as store_type,s.is_active as store_active,${kind === 'storage' ? sql`sss.storage_name` : sql`null`} as storage_name,l.product_id as product_id,p.product,p.erp_product,l.stock_before,l.stock_after,
-    case when coalesce(l.pos_user_id,0)<>0 then case when pu.id is null then null else trim(concat(coalesce(pu.first_name,''),' ',coalesce(pu.last_name,''))) end else ${customerName} end as user,
-    ${kind === 'product' ? sql`u.firstname` : sql`null`} as firstname,${kind === 'product' ? sql`u.lastname` : sql`null`} as lastname,l.pos_user_id as _pos_user_id,pu.id as _pos_user_exists,pu.first_name as _pos_first_name,pu.last_name as _pos_last_name,l.comment,l.created_at
-    from ${table} l join products p on p.id=l.product_id left join stores s on s.id=l.store_id left join pos_user pu on pu.id=l.pos_user_id ${userJoin} ${storageJoin}`;
+      ? sql<string>`concat(coalesce(${MUser.firstname},''),case when coalesce(${MUser.lastname},'')='' then '' else concat(' ',${MUser.lastname}) end)`
+      : sql<string>`''`;
+  const fields = {
+    id: log.id,
+    store_id: log.store,
+    store_name: Store.store_name,
+    storage_name: kind === 'storage' ? StoreStorage.storage_name : sql<string | null>`null`,
+    product_id: log.product,
+    product: Product.product,
+    erp_product: Product.erp_product,
+    stock_before: log.before,
+    stock_after: log.after,
+    user: sql<
+      string | null
+    >`case when coalesce(${log.posUser},0)<>0 then case when ${PosUser.id} is null then null else trim(concat(coalesce(${PosUser.first_name},''),' ',coalesce(${PosUser.last_name},''))) end else ${customerName} end`,
+    comment: log.comment,
+    created_at: log.createdAt,
+    _pos_user_id: log.posUser,
+    _pos_user_exists: PosUser.id,
+    _pos_first_name: PosUser.first_name,
+    _pos_last_name: PosUser.last_name,
+  };
+  const sort = {
+    id: log.id,
+    store_name: Store.store_name,
+    // The source sorts the product and held projections by a constant NULL storage name.
+    storage_name: kind === 'storage' ? StoreStorage.storage_name : undefined,
+    product_id: log.product,
+    product: Product.product,
+    erp_product: Product.erp_product,
+    created_at: log.createdAt,
+  };
+  return {
+    log,
+    fields,
+    sort,
+    scope: (productId: string, storeIds: readonly string[], from: string, to: string) =>
+      and(
+        eq(log.product, BigInt(productId)),
+        inArray(log.store, storeIds.map(BigInt)),
+        gte(log.createdAt, from),
+        lte(log.createdAt, to),
+        eq(Store.is_active, true),
+        kind === 'storage' ? eq(Store.type, 'STORE') : undefined,
+      ),
+    match: (pattern: string) =>
+      or(
+        like(log.product, pattern),
+        like(Product.product, pattern),
+        like(log.createdAt, pattern),
+        like(Store.store_name, pattern),
+        ...(kind === 'product'
+          ? [like(MUser.firstname, pattern), like(MUser.lastname, pattern)]
+          : []),
+        ...(kind === 'storage' ? [like(StoreStorage.storage_name, pattern)] : []),
+      ),
+    /** `from l join products p left join stores s left join pos_user pu [users u] [storages]`. */
+    joins: {
+      product: eq(Product.id, log.product),
+      store: eq(Store.id, log.store),
+      posUser: eq(PosUser.id, log.posUser),
+      user: kind === 'product' ? eq(MUser.id, ProductInventoryLog.user_id) : undefined,
+      storage: kind === 'storage' ? eq(StockStorage.id, StorageStockLog.storage) : undefined,
+      storageName: kind === 'storage' ? eq(StoreStorage.id, StockStorage.id) : undefined,
+    },
+  };
+}
+type AuditSource = ReturnType<typeof inventoryAuditSource>;
+function auditCount(reader: ReturnType<Databases['get']>, source: AuditSource, match?: SQL) {
+  let query = reader
+    .select({
+      unfiltered_count: sql<string>`count(*)`,
+      filtered_count: match
+        ? sql<string>`coalesce(sum(case when ${match} then 1 else 0 end),0)`
+        : sql<string>`count(*)`,
+    })
+    .from(source.log.table)
+    .innerJoin(Product, source.joins.product)
+    .leftJoin(Store, source.joins.store)
+    .leftJoin(PosUser, source.joins.posUser)
+    .$dynamic();
+  if (source.joins.user) query = query.leftJoin(MUser, source.joins.user);
+  if (source.joins.storage && source.joins.storageName)
+    query = query
+      .leftJoin(StockStorage, source.joins.storage)
+      .leftJoin(StoreStorage, source.joins.storageName);
+  return query;
+}
+function auditRows(reader: ReturnType<Databases['get']>, source: AuditSource) {
+  let query = reader
+    .select(source.fields)
+    .from(source.log.table)
+    .innerJoin(Product, source.joins.product)
+    .leftJoin(Store, source.joins.store)
+    .leftJoin(PosUser, source.joins.posUser)
+    .$dynamic();
+  if (source.joins.user) query = query.leftJoin(MUser, source.joins.user);
+  if (source.joins.storage && source.joins.storageName)
+    query = query
+      .leftJoin(StockStorage, source.joins.storage)
+      .leftJoin(StoreStorage, source.joins.storageName);
+  return query;
 }
 export function inventoryAuditService(
   config: Config,
@@ -142,27 +280,16 @@ export function inventoryAuditService(
           );
       } else {
         const source = inventoryAuditSource(kind),
-          scope = sql`a.product_id=${productId} and a.store_id in (${sql.join(
-            input.storeIds.map((id) => sql`${id}`),
-            sql`,`,
-          )}) and a.created_at>=${bounds.from} and a.created_at<=${bounds.to} and a.store_active=1 ${kind === 'storage' ? sql`and a.store_type='STORE'` : sql``}`;
-        const match = input.search
-          ? sql`(a.product_id like ${pattern} or a.product like ${pattern} or a.created_at like ${pattern} or a.store_name like ${pattern} ${kind === 'product' ? sql`or a.firstname like ${pattern} or a.lastname like ${pattern}` : sql``} ${kind === 'storage' ? sql`or a.storage_name like ${pattern}` : sql``})`
-          : sql`true`;
+          scope = source.scope(productId, input.storeIds, bounds.from, bounds.to);
+        const match = input.search ? source.match(pattern) : undefined;
         const [counts] = z
           .array(z.object({ unfiltered_count: countValue, filtered_count: countValue }))
-          .parse(
-            (
-              await db
-                .get('data')
-                .execute(
-                  sql`select count(*) as unfiltered_count,coalesce(sum(case when ${match} then 1 else 0 end),0) as filtered_count from (${source}) a where ${scope}`,
-                )
-            )[0],
-          );
+          .parse(await auditCount(db.get('data'), source, match).where(scope));
         unfiltered = counts?.unfiltered_count || 0;
         filtered = counts?.filtered_count || 0;
         start = sourcePageStart(input.start, input.length, filtered);
+        const sort = source.sort[input.sort],
+          direction = input.direction === 'asc' ? asc : desc;
         rows = z
           .array(
             auditRow.extend({
@@ -173,13 +300,11 @@ export function inventoryAuditService(
             }),
           )
           .parse(
-            (
-              await db
-                .get('data')
-                .execute(
-                  sql`select a.* from (${source}) a where ${scope} and ${match} order by ${sql.identifier(input.sort)} ${input.direction === 'asc' ? sql`asc` : sql`desc`},a.id asc limit ${input.length} offset ${start}`,
-                )
-            )[0],
+            await auditRows(db.get('data'), source)
+              .where(and(scope, match))
+              .orderBy(...(sort ? [direction(sort)] : []), asc(source.log.id))
+              .limit(input.length)
+              .offset(start),
           )
           .map(({ _pos_user_id, _pos_user_exists, _pos_first_name, _pos_last_name, ...row }) => ({
             ...row,
