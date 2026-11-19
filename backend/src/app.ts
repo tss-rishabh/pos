@@ -359,8 +359,6 @@ export async function buildApp(
     ...checkoutShared,
     environment: checkoutRuntime,
     customerOtp,
-    rejectedInboundRepairDispatcherEnabled:
-      !config.DEMO_MODE && wholeOrderOptions.WHOLE_ORDER_STATUS_WORKER_ENABLED,
     ...(stockProjection
       ? { inventoryProcedureVerified: true, stockProcedure: stockProjection }
       : {}),

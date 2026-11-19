@@ -20,26 +20,6 @@ export interface CheckoutEnvironment {
   returnSecret?: string;
   giftCardSalt?: string;
   giftCardExpiryDays?: number;
-  /** @deprecated Patched-upstream contracts were removed; always undefined. Kept for compile compatibility. */
-  checkoutProjectionContract?: string;
-  /** @deprecated See checkoutProjectionContract. */
-  checkoutProjectionKey?: string;
-  /** @deprecated See checkoutProjectionContract. */
-  refundAllocationContract?: string;
-  /** @deprecated See checkoutProjectionContract. */
-  refundSourcePatchHash?: string;
-  /** @deprecated See checkoutProjectionContract. */
-  customerContextContract?: string;
-  /** @deprecated See checkoutProjectionContract. */
-  customerContextKey?: string;
-  /** @deprecated See checkoutProjectionContract. */
-  membershipContextContract?: string;
-  /** @deprecated See checkoutProjectionContract. */
-  customerConsentContract?: string;
-  /** @deprecated See checkoutProjectionContract. */
-  exchangeStockContract?: string;
-  /** @deprecated See checkoutProjectionContract. */
-  giftCardContract?: string;
 }
 export function checkoutEnvironment(env: NodeJS.ProcessEnv = process.env): CheckoutEnvironment {
   const value = z
@@ -162,8 +142,9 @@ export function checkoutGateway(
     payload: Payload,
     token?: string,
     method: 'POST' | 'GET' = 'POST',
+    timeoutMs = 8000,
   ): Promise<unknown> {
-    const response = await request(url, payload, token, method, 8000);
+    const response = await request(url, payload, token, method, timeoutMs);
     const value = await body(response, response.ok || response.status >= 500);
     if (!response.ok) {
       const error = z
@@ -196,7 +177,14 @@ export function checkoutGateway(
     },
     async api(segment, payload, token) {
       if (segment !== 'pos/order')
-        return send(path(config.TSS_API_BASE_URL, segment), payload, token, 'POST');
+        return send(
+          path(config.TSS_API_BASE_URL, segment),
+          payload,
+          token,
+          'POST',
+          // call_pos_exchange_api (order/libs/calculations.py:419-423) uses timeout=30.
+          segment === 'pos/exchange' ? 30000 : 8000,
+        );
       // AjaxOrderView.order (order/views.py:2843-2879) and its caller (2751-2756): only HTTP 200
       // is success; any other status is "Something Went Wrong" and the cashier may retry.
       const response = await request(
