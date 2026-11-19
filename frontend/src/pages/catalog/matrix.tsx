@@ -4,7 +4,9 @@ import { Link } from 'react-router-dom';
 import { z } from 'zod';
 import type { Principal } from '../../api/types';
 import { request } from '../../api/client';
-import { Empty, ErrorState, Loading, PageTitle } from '../../components/common';
+import { Empty, ErrorState, PageTitle } from '../../components/common';
+import { MultiSelect } from '../../components/multi-select';
+import { SkeletonTable } from '../../components/loader';
 import { useOnline } from '../../hooks/use-pos';
 import { tableResult } from './contracts';
 import { CatalogPagination, CatalogTable, type CatalogColumn } from './table';
@@ -165,26 +167,17 @@ export function StockMatrixPage({ user, storeId }: { user: Principal; storeId: s
           setStart(0);
         }}
       >
-        <label>
-          Stores
-          <select
-            multiple
-            value={filters.storeIds}
-            onChange={(event) =>
-              setFilters({
-                ...filters,
-                storeIds: Array.from(event.target.selectedOptions, (option) => option.value),
-              })
-            }
-          >
-            {stores.data?.data.map((store) => (
-              <option value={store.id} key={store.id}>
-                {store.name}
-              </option>
-            ))}
-          </select>
-          <small>Clear the selection for all accessible stores.</small>
-        </label>
+        <MultiSelect
+          label="Stores"
+          emptyLabel="All accessible stores"
+          hint="Clear the selection for all accessible stores."
+          options={(stores.data?.data ?? []).map((store) => ({
+            value: store.id,
+            label: store.name,
+          }))}
+          value={filters.storeIds}
+          onChange={(storeIds) => setFilters({ ...filters, storeIds })}
+        />
         <label>
           Search SKU or product
           <input
@@ -241,7 +234,7 @@ export function StockMatrixPage({ user, storeId }: { user: Principal; storeId: s
       {stores.isError && <ErrorState error={stores.error} />}{' '}
       {capabilities.isError && editing && <ErrorState error={capabilities.error} />}{' '}
       {data.isPending ? (
-        <Loading />
+        <SkeletonTable />
       ) : data.isError ? (
         <ErrorState error={data.error} retry={() => void data.refetch()} />
       ) : (

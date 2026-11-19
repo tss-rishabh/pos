@@ -44,7 +44,7 @@ test('mounts scoped product feedback in the production app and rejects store cha
     `/stores/${store}/checkout-sessions/a53b9ec4-76ce-4641-95d5-7d3f4f073ab4/customers/${customer}/orders/${orderId}/feedback`;
   await page.goto(path('1', '777'));
   await signIn(page);
-  await expect(page.getByRole('heading', { name: 'Product feedback', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Product feedback.', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Production feedback fixture' })).toBeVisible();
   await expect(
     page.getByRole('cell', { name: '<script>window.feedbackPwned=true</script>', exact: true }),

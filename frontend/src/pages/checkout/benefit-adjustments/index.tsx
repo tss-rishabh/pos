@@ -187,11 +187,10 @@ export function GlobalBenefitAdjustmentsPage({
     );
   return (
     <>
-      <PageTitle title="Wallet adjustments" />
-      <p>
-        Review the customer, amount and earning details before applying an adjustment. Cashback is
-        preserved.
-      </p>
+      <PageTitle
+        title="Wallet adjustments"
+        subtitle="Review the customer, amount and earning details before applying an adjustment. Cashback is preserved."
+      />
       {!online && (
         <p role="status">Reconnect before looking up customers or sending a wallet adjustment.</p>
       )}
@@ -264,6 +263,7 @@ export function GlobalBenefitAdjustmentsPage({
               <button
                 className="button primary"
                 disabled={!online || !enabled || busy}
+                aria-busy={busy}
                 onClick={() => void recover('send')}
               >
                 Send saved wallet adjustment
@@ -274,6 +274,7 @@ export function GlobalBenefitAdjustmentsPage({
               <button
                 className="button primary"
                 disabled={!online || !enabled || busy}
+                aria-busy={busy}
                 onClick={() => void recover('retry')}
               >
                 Retry saved wallet adjustment
@@ -283,6 +284,7 @@ export function GlobalBenefitAdjustmentsPage({
               <button
                 className="button primary"
                 disabled={busy}
+                aria-busy={busy}
                 onClick={() => void recover('new')}
               >
                 New wallet adjustment
@@ -312,6 +314,7 @@ export function GlobalBenefitAdjustmentsPage({
             <button
               className="button primary"
               disabled={!enabled || !online || busy}
+              aria-busy={busy}
               onClick={() => void confirm()}
             >
               Confirm wallet adjustment
@@ -342,7 +345,11 @@ export function GlobalBenefitAdjustmentsPage({
                 }}
               />
             </label>
-            <button className="button secondary" disabled={busy || !online || !email}>
+            <button
+              className="button secondary"
+              disabled={busy || !online || !email}
+              aria-busy={busy && !customer}
+            >
               Find benefit customer
             </button>
           </form>
@@ -448,7 +455,11 @@ export function GlobalBenefitAdjustmentsPage({
                     required
                   />
                 </label>
-                <button className="button primary" disabled={busy || !online || !enabled}>
+                <button
+                  className="button primary"
+                  disabled={busy || !online || !enabled}
+                  aria-busy={busy}
+                >
                   Review wallet adjustment
                 </button>
               </form>

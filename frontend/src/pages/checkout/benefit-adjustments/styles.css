@@ -1,9 +1,9 @@
 .wallet-adjustment-card {
-  background: var(--paper, #fff);
-  border: 1px solid var(--line, #e5e8dc);
-  border-radius: 12px;
-  padding: 24px;
-  margin-top: 20px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: var(--space-5);
+  margin-top: var(--space-4);
   max-width: 920px;
 }
 .wallet-adjustment-form {
@@ -13,26 +13,18 @@
   align-items: end;
   margin-block: 16px;
 }
-.wallet-adjustment-form label {
-  display: grid;
-  gap: 6px;
-  font-size: 12px;
-}
 .wallet-adjustment-form input,
 .wallet-adjustment-form select {
   width: 100%;
-  min-height: 40px;
-  border: 1px solid var(--line, #dce0d3);
-  border-radius: 6px;
-  padding: 8px;
-  background: white;
-  color: var(--ink, #263126);
+}
+.wallet-adjustment-form > .button {
+  justify-self: start;
 }
 .wallet-adjustment-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 20px;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
 }
 .wallet-adjustment-summary {
   display: grid;
@@ -41,7 +33,7 @@
   max-width: 640px;
 }
 .wallet-adjustment-summary dt {
-  color: var(--muted, #717b65);
+  color: var(--muted);
 }
 .wallet-adjustment-summary dd {
   margin: 0;

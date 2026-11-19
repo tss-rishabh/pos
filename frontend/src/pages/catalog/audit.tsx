@@ -3,7 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { Principal } from '../../api/types';
 import { request } from '../../api/client';
-import { Empty, ErrorState, Loading, PageTitle } from '../../components/common';
+import { Empty, ErrorState, PageTitle } from '../../components/common';
+import { MultiSelect } from '../../components/multi-select';
+import { SkeletonTable } from '../../components/loader';
 import { useOnline } from '../../hooks/use-pos';
 import { auditRow, catalogMetadata, tableResult, type AuditRow } from './contracts';
 import { CatalogPagination, CatalogTable, type CatalogColumn } from './table';
@@ -136,31 +138,19 @@ export function InventoryAuditPage({
             <option value="storage">Storage stock</option>
           </select>
         </label>
-        <label>
-          Stores
-          <select
-            multiple
-            value={filters.storeIds}
-            onChange={(event) =>
-              setFilters({
-                ...filters,
-                storeIds: Array.from(event.target.selectedOptions, (option) => option.value),
-              })
-            }
-          >
-            {stores.data?.data
-              .filter(
-                (store) =>
-                  filters.kind !== 'storage' ||
-                  (store.type === 'STORE' && (user.role === 1 || user.storeIds.includes(store.id))),
-              )
-              .map((store) => (
-                <option key={store.id} value={store.id}>
-                  {store.name}
-                </option>
-              ))}
-          </select>
-        </label>
+        <MultiSelect
+          label="Stores"
+          emptyLabel="Select stores"
+          options={(stores.data?.data ?? [])
+            .filter(
+              (store) =>
+                filters.kind !== 'storage' ||
+                (store.type === 'STORE' && (user.role === 1 || user.storeIds.includes(store.id))),
+            )
+            .map((store) => ({ value: store.id, label: store.name }))}
+          value={filters.storeIds}
+          onChange={(storeIds) => setFilters({ ...filters, storeIds })}
+        />
         <label>
           From
           <input
@@ -234,7 +224,7 @@ export function InventoryAuditPage({
       )}
       {stores.isError && <ErrorState error={stores.error} />}{' '}
       {data.isPending ? (
-        <Loading />
+        <SkeletonTable />
       ) : data.isError ? (
         <ErrorState error={data.error} retry={() => void data.refetch()} />
       ) : (

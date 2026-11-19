@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import type { Principal } from '../../api/types';
 import { ApiError } from '../../api/client';
-import { ErrorState, Loading } from '../../components/common';
+import { ErrorState, Loading, PageTitle } from '../../components/common';
 import {
   feedbackInput,
   feedbackScope,
@@ -234,17 +234,12 @@ export function ProductFeedbackWorkspace({
     await execute(input, false);
   }
   return (
-    <main className="product-feedback-page">
-      <div className="page-title">
-        <div>
-          <p className="eyebrow">Customer history</p>
-          <h1>Product feedback</h1>
-          <p>Order {scope.orderId}</p>
-        </div>
+    <div className="product-feedback-page">
+      <PageTitle title="Product feedback" subtitle={`Order ${scope.orderId}`}>
         <Link className="button secondary" to="/">
           Back to counter
         </Link>
-      </div>
+      </PageTitle>
       {!online ? (
         <p role="status">Connect to view and save product feedback.</p>
       ) : (
@@ -339,6 +334,6 @@ export function ProductFeedbackWorkspace({
           )}
         </>
       )}
-    </main>
+    </div>
   );
 }

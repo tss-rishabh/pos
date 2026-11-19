@@ -19,10 +19,14 @@ test('stock-matrix store picker offers only the stores the backend authorises', 
     if (new URL(response.url()).pathname.startsWith('/api/') && response.status() >= 400)
       failures.push(`${response.status()} ${new URL(response.url()).pathname}`);
   });
-  const picker = page.getByRole('listbox', { name: 'Stores' });
-  await expect(picker.getByRole('option')).toHaveText(['Bandra Flagship', 'Indiranagar']);
-  await expect(picker.getByRole('option', { name: 'Colaba Unassigned' })).toHaveCount(0);
-  await picker.selectOption(['1', '2']);
+  // W27: the store list is a searchable multi-select (a checkbox per offered store).
+  await page.getByRole('button', { name: 'Stores', exact: true }).click();
+  const picker = page.getByRole('group', { name: 'Stores' });
+  await expect(picker.getByRole('listitem')).toHaveText(['Bandra Flagship', 'Indiranagar']);
+  await expect(picker.getByRole('checkbox', { name: 'Colaba Unassigned' })).toHaveCount(0);
+  await picker.getByRole('checkbox', { name: 'Bandra Flagship', exact: true }).check();
+  await picker.getByRole('checkbox', { name: 'Indiranagar', exact: true }).check();
+  await page.keyboard.press('Escape');
   const searched = page.waitForResponse(
     (response) => new URL(response.url()).pathname === '/api/v1/catalog/inventory/search',
   );

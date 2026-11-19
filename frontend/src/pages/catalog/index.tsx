@@ -3,7 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import type { Principal } from '../../api/types';
 import { request } from '../../api/client';
-import { Empty, ErrorState, Loading, PageTitle } from '../../components/common';
+import { Empty, ErrorState, PageTitle } from '../../components/common';
+import { MultiSelect } from '../../components/multi-select';
+import { SkeletonTable } from '../../components/loader';
 import { useOnline } from '../../hooks/use-pos';
 import { catalogMetadata, catalogRow, tableResult, type CatalogRow } from './contracts';
 import { CatalogPagination, CatalogTable, type CatalogColumn } from './table';
@@ -91,26 +93,17 @@ export function CatalogPage({ user, storeId }: { user: Principal; storeId: strin
           setStart(0);
         }}
       >
-        <label>
-          Stores
-          <select
-            multiple
-            value={filters.storeIds}
-            onChange={(event) =>
-              setFilters({
-                ...filters,
-                storeIds: Array.from(event.target.selectedOptions, (option) => option.value),
-              })
-            }
-          >
-            {stores.data?.data.map((store) => (
-              <option key={store.id} value={store.id}>
-                {store.name}
-              </option>
-            ))}
-          </select>
-          <small>Choose one or more stores.</small>
-        </label>
+        <MultiSelect
+          label="Stores"
+          emptyLabel="Select stores"
+          hint="Choose one or more stores."
+          options={(stores.data?.data ?? []).map((store) => ({
+            value: store.id,
+            label: store.name,
+          }))}
+          value={filters.storeIds}
+          onChange={(storeIds) => setFilters({ ...filters, storeIds })}
+        />
         <label>
           Search SKU, product, URL or type
           <input
@@ -154,7 +147,7 @@ export function CatalogPage({ user, storeId }: { user: Principal; storeId: strin
       )}
       {stores.isError && <ErrorState error={stores.error} />}{' '}
       {data.isPending ? (
-        <Loading />
+        <SkeletonTable />
       ) : data.isError ? (
         <ErrorState error={data.error} retry={() => void data.refetch()} />
       ) : (

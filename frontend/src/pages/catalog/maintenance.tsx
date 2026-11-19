@@ -93,24 +93,29 @@ export function InventoryPullPage({ user }: { user: Principal }) {
         }}
       >
         <div className="catalog-table-toolbar">
+          <div className="tab-group" role="group" aria-label="Inventory sync mode">
+            <button
+              type="button"
+              className={mode === 'manual' ? 'active' : ''}
+              aria-pressed={mode === 'manual'}
+              onClick={() => setMode('manual')}
+            >
+              Inventory Sync
+            </button>
+            <button
+              type="button"
+              className={mode === 'csv' ? 'active' : ''}
+              aria-pressed={mode === 'csv'}
+              onClick={() => setMode('csv')}
+            >
+              Inventory Sync in Bulk
+            </button>
+          </div>
           <button
             type="button"
-            className={`button ${mode === 'manual' ? 'primary' : 'secondary'}`}
-            onClick={() => setMode('manual')}
-          >
-            Inventory Sync
-          </button>
-          <button
-            type="button"
-            className={`button ${mode === 'csv' ? 'primary' : 'secondary'}`}
-            onClick={() => setMode('csv')}
-          >
-            Inventory Sync in Bulk
-          </button>
-          <button
-            type="button"
-            className="button secondary"
+            className="button secondary small"
             disabled={!online || sample.isPending}
+            aria-busy={sample.isPending}
             onClick={() => sample.mutate()}
           >
             Download sku sample
@@ -141,6 +146,7 @@ export function InventoryPullPage({ user }: { user: Principal }) {
           <button
             className="button primary"
             disabled={!online || !capabilities.data?.inventoryPullEnabled || submit.isPending}
+            aria-busy={submit.isPending}
           >
             {submit.isPending ? 'Submitting…' : 'Submit'}
           </button>
@@ -197,6 +203,7 @@ export function ProductTroubleshooting({
         <button
           className="button secondary"
           disabled={!online || run.isPending || capabilities.data?.troubleshootingEnabled === false}
+          aria-busy={run.isPending}
           onClick={() => run.mutate()}
         >
           {run.isPending ? 'Troubleshooting…' : 'Troubleshoot product'}

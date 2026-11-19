@@ -32,6 +32,21 @@ function csvRows(text) {
   return rows;
 }
 
+/**
+ * W27: catalog store pickers are searchable multi-selects. Select exactly `ids` (the checkbox
+ * `value` is the store id) and close the panel.
+ */
+async function chooseStores(page, ids) {
+  const form = page.locator('form.catalog-filters');
+  await form.getByRole('button', { name: 'Stores', exact: true }).click();
+  const panel = form.locator('.multi-select-panel');
+  for (const box of await panel.locator('input[type="checkbox"]').all()) {
+    const wanted = ids.includes(await box.getAttribute('value'));
+    if ((await box.isChecked()) !== wanted) await box.setChecked(wanted);
+  }
+  await page.keyboard.press('Escape');
+}
+
 export async function exerciseCatalogUi(fixture) {
   const browser = await chromium.launch({
     headless: true,
@@ -88,7 +103,7 @@ export async function exerciseCatalogUi(fixture) {
     fixture.progress('admin-catalog-heading');
     await expect(page.getByRole('heading', { name: 'Product catalog' })).toBeVisible();
     fixture.progress('admin-store-select');
-    await page.locator('form.catalog-filters select[multiple]').selectOption(['2']);
+    await chooseStores(page, ['2']);
     fixture.progress('admin-initial-submit');
     let current = await submit(page, 'catalog');
     assert(current.value.data.length > 0);
@@ -126,14 +141,14 @@ export async function exerciseCatalogUi(fixture) {
       page.getByRole('button', { name: 'Next', exact: true }).click(),
     );
     assert.equal(current.input.start, 10);
-    await page.locator('form.catalog-filters select[multiple]').selectOption(['1']);
+    await chooseStores(page, ['1']);
     current = await submit(page, 'catalog');
     assert.equal(current.input.start, 0);
     results.push('catalog-native-rows-counts-store-submit-pagination');
 
     // Single exact long-ID rows avoid source-undefined aggregate sort ties.
     // Multirow ordering/search equality is covered independently below.
-    await page.locator('form.catalog-filters select[multiple]').selectOption(['1']);
+    await chooseStores(page, ['1']);
     await page.getByLabel('Search SKU, product, URL or type').fill('9007199254740993');
     const sorts = await page
       .getByLabel('Sort by')
@@ -190,9 +205,7 @@ export async function exerciseCatalogUi(fixture) {
 
     await page.goto(fixture.origin + '/catalog/inventory');
     await expect(page.getByRole('heading', { name: 'Inventory matrix' })).toBeVisible();
-    await page
-      .locator('form.catalog-filters select[multiple]')
-      .selectOption(['1', '2', '3', '4', '5', '6', '7', '8']);
+    await chooseStores(page, ['1', '2', '3', '4', '5', '6', '7', '8']);
     current = await submit(page, 'matrix');
     assert(current.value.data.length > 0);
     assert.equal(await page.getByRole('button', { name: 'Export visible rows CSV' }).count(), 0);
@@ -220,12 +233,13 @@ export async function exerciseCatalogUi(fixture) {
     page = await open(fixture.accounts.restricted);
     await page.goto(fixture.origin + '/catalog/inventory');
     await expect(page.getByRole('heading', { name: 'Inventory matrix' })).toBeVisible();
-    await expect(
-      page.locator('form.catalog-filters select[multiple]').locator('option'),
-    ).toHaveCount(1);
-    await expect(
-      page.locator('form.catalog-filters select[multiple]').locator('option'),
-    ).toHaveAttribute('value', '1');
+    await page.locator('form.catalog-filters').getByRole('button', { name: 'Stores' }).click();
+    await expect(page.locator('.multi-select-panel input[type="checkbox"]')).toHaveCount(1);
+    await expect(page.locator('.multi-select-panel input[type="checkbox"]')).toHaveAttribute(
+      'value',
+      '1',
+    );
+    await page.keyboard.press('Escape');
     await expect(page.locator('.catalog-results')).not.toContainText('Fixture store 02');
     results.push('matrix-current-native-assignment-scope');
 
@@ -236,9 +250,8 @@ export async function exerciseCatalogUi(fixture) {
     ).toBeVisible();
     await page.goto(fixture.origin + '/catalog');
     await expect(page.getByRole('heading', { name: 'Product catalog' })).toBeVisible();
-    await expect(
-      page.locator('form.catalog-filters select[multiple]').locator('option'),
-    ).toHaveCount(1);
+    await page.locator('form.catalog-filters').getByRole('button', { name: 'Stores' }).click();
+    await expect(page.locator('.multi-select-panel input[type="checkbox"]')).toHaveCount(1);
     results.push('franchise-native-catalog-scope-and-matrix-denial');
     assert.equal(
       fixture.calls.filter(
@@ -257,9 +270,9 @@ export async function exerciseCatalogUi(fixture) {
       if (page && !page.isClosed())
         fixture.diagnostics?.({
           catalogForms: await page.locator('form.catalog-filters').count(),
-          catalogStoreControls: await page.locator('form.catalog-filters select[multiple]').count(),
+          catalogStoreControls: await page.locator('form.catalog-filters .multi-select').count(),
           catalogStoreOptions: await page
-            .locator('form.catalog-filters select[multiple] option')
+            .locator('form.catalog-filters .multi-select-panel input[type="checkbox"]')
             .count(),
           catalogRows: await page.locator('.catalog-results tbody tr').count(),
           catalogButtons: await page

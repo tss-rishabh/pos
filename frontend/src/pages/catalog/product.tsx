@@ -96,6 +96,7 @@ export function StockEditor({
           disabled={
             !stockEnabled || action.isPending || (!!current && stock === String(current.stock))
           }
+          aria-busy={action.isPending}
         >
           Save stock
         </button>
