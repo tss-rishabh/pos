@@ -119,8 +119,9 @@ export function exchangeService(context: ReturnServiceContext, orders: CheckoutG
     } catch (error) {
       // call_pos_exchange_api (order/libs/calculations.py:420-438).
       message =
+        // A rejection carries API-v2's title (calculations.py:429-431).
         error instanceof CheckoutGatewayError && !error.uncertain
-          ? 'Exchange order creation failed.'
+          ? error.message || 'Exchange order creation failed.'
           : error instanceof z.ZodError
             ? 'Exchange service returned an unexpected response.'
             : 'Could not reach exchange service. Please retry or contact support.';
