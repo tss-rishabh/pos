@@ -586,16 +586,16 @@ describe.skipIf(!connection)(
             notices.push({
               args: [title, order, Number(store)],
               kwargs: {
-                ...(input.isSlack !== undefined ? { is_slack: input.isSlack } : {}),
-                ...(input.isNewOrder !== undefined ? { is_new_order: input.isNewOrder } : {}),
-                ...(input.flag !== undefined ? { flag: input.flag } : {}),
-                ...(input.staffUser !== undefined ? { staff_user: input.staffUser } : {}),
-                ...(input.reason !== undefined ? { reason: input.reason } : {}),
+                ...(input!.isSlack !== undefined ? { is_slack: input!.isSlack } : {}),
+                ...(input!.isNewOrder !== undefined ? { is_new_order: input!.isNewOrder } : {}),
+                ...(input!.flag !== undefined ? { flag: input!.flag } : {}),
+                ...(input!.staffUser !== undefined ? { staff_user: input!.staffUser } : {}),
+                ...(input!.reason !== undefined ? { reason: input!.reason } : {}),
               },
             });
           },
           async slackText(message, input) {
-            slack.push({ args: [message], kwargs: input.flag ? { flag: input.flag } : {} });
+            slack.push({ args: [message], kwargs: input!.flag ? { flag: input!.flag } : {} });
           },
         },
         { ...real, hold: record('hold'), unhold: record('release') },
