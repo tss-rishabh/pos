@@ -11,10 +11,8 @@ import { createDatabases, type Databases } from '../../src/db/pools.js';
 import { PosUser } from '../../src/db/legacy-schema.js';
 import type { Principal } from '../../src/domain/access.js';
 import { AppError } from '../../src/domain/errors.js';
-import {
-  legacyFixtureRecord,
-  legacyFixtureTableSql,
-} from '../../tools/administration/mysql-fixture.js';
+import { legacyFixtureRecord } from '../../tools/administration/mysql-fixture.js';
+import { createProductionTables } from '../helpers/production-schema.js';
 import {
   registerSpecialPermissionHistory,
   specialPermissionHistoryService,
@@ -116,10 +114,7 @@ describe.skipIf(!template)('source SpecialPermission activity against isolated M
       `CREATE DATABASE ${mysql.escapeId(schemaName)} CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci`,
     );
     await connection.changeUser({ database: schemaName });
-    await connection.query(legacyFixtureTableSql(PosUser));
-    await connection.query(
-      "CREATE TABLE pos_special_permission_activity_log (id BIGINT NOT NULL PRIMARY KEY,pos_user_id BIGINT NOT NULL,platform VARCHAR(255) NOT NULL,recipient VARCHAR(45) NULL DEFAULT '',comment VARCHAR(255) NOT NULL,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL) CHARACTER SET latin1 COLLATE latin1_swedish_ci ENGINE=InnoDB",
-    );
+    await createProductionTables(connection, [PosUser, 'pos_special_permission_activity_log']);
     url.pathname = '/' + schemaName;
     databaseUrl = url.href;
     config = readConfig({

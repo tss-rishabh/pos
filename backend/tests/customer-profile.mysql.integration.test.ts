@@ -1,19 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import mysql from 'mysql2/promise';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { readConfig } from '../src/config.js';
 import { createDatabases, type Databases } from '../src/db/pools.js';
-import { existsSync, readFileSync } from 'node:fs';
-import { migrationPaths, splitMigration } from '../src/db/migrations.js';
 import { MUser, PosUser, Store, StoreCounter } from '../src/db/legacy-schema.js';
 import type { Principal } from '../src/domain/access.js';
 import { bindCheckInRedis, checkInService } from '../src/modules/administration/checkins.js';
 import { memoryRedisPort } from '../src/redis/memory.js';
 
-import { checkoutStateSchema } from '../src/modules/checkout/contracts.js';
-import { checkoutSessions } from '../src/modules/checkout/schema.js';
+import { checkoutStateSchema, type CheckoutState } from '../src/modules/checkout/contracts.js';
+import { checkoutSessionStore, sessionKeys } from '../src/modules/checkout/session-store.js';
+import { configuredStateStore } from '../src/modules/checkout/state-store.js';
 import {
   customerProfileDate,
   customerProfileService,
@@ -120,6 +119,11 @@ describe.skipIf(!integration)(
         createdAt: Date.now(),
         updatedAt: Date.now(),
       });
+    // The sale lives in the Redis checkout session store the services use (memory store here,
+    // shared through configuredStateStore because the fixture config has no REDIS_URL).
+    const sessions = () => checkoutSessionStore(configuredStateStore(config));
+    const writeSale = (value: CheckoutState) => sessions().write(value);
+    const savedSale = () => sessions().read(checkoutId);
     beforeAll(async () => {
       const base = new URL(integration!);
       if (
@@ -141,7 +145,7 @@ describe.skipIf(!integration)(
       });
       await connection.query(`CREATE DATABASE ${mysql.escapeId(schema)}`);
       await connection.changeUser({ database: schema });
-      fixture = verifiedMysqlFixture(connection, ['evidence/mysql-customer-benefit-schema.json']);
+      fixture = verifiedMysqlFixture(connection);
       await fixture.create([
         'users',
         'pos_user',
@@ -177,10 +181,6 @@ describe.skipIf(!integration)(
         status: 1,
         is_block: 0,
       });
-      // Workstreams delete their module migration files ahead of the registry clean-up.
-      for (const path of migrationPaths.filter((value) => existsSync(value)))
-        for (const statement of splitMigration(readFileSync(path, 'utf8')))
-          await connection.query(statement);
       base.pathname = '/' + schema;
       config = readConfig({
         NODE_ENV: 'test',
@@ -234,12 +234,8 @@ describe.skipIf(!integration)(
           user_platform: 'BACK_OFFICE_USER',
         })
         .where(eq(MUser.id, 777n));
-      await db.get('writer').delete(checkoutSessions).where(eq(checkoutSessions.id, checkoutId));
       await redis.del([...redis.snapshot().keys()]);
-      await db
-        .get('writer')
-        .insert(checkoutSessions)
-        .values({ id: checkoutId, operatorId: '7', storeId: '1', version: 1, state: state() });
+      await writeSale(state());
       await checkInService(db, config).set(user, '1', '2');
     });
     afterAll(async () => {
@@ -311,11 +307,7 @@ describe.skipIf(!integration)(
       });
       await db.get('writer').update(MUser).set({ is_block: 0 }).where(eq(MUser.id, 777n));
       const changed = { ...state(), storeId: '2' };
-      await db
-        .get('writer')
-        .update(checkoutSessions)
-        .set({ state: changed })
-        .where(and(eq(checkoutSessions.id, checkoutId), eq(checkoutSessions.operatorId, user.id)));
+      await writeSale(changed);
       await expect(service.read(user, scope)).rejects.toMatchObject({
         code: 'CUSTOMER_PROFILE_NOT_FOUND',
       });
@@ -364,12 +356,8 @@ describe.skipIf(!integration)(
         },
       });
       expect(result.adjustment.etag).toBe(result.profile.etag);
-      const [saved] = await db
-        .get('writer')
-        .select()
-        .from(checkoutSessions)
-        .where(eq(checkoutSessions.id, checkoutId));
-      expect(saved?.state).toMatchObject({
+      const saved = await savedSale();
+      expect(saved).toMatchObject({
         version: 2,
         phase: 'open',
         quote: null,
@@ -455,28 +443,16 @@ describe.skipIf(!integration)(
     it('rechecks editable state and current authority, including archived operators, stores and blocked customers', async () => {
       const input = await intent();
       for (const phase of ['uncertain', 'order-created', 'submitted'] as const) {
-        await db
-          .get('writer')
-          .update(checkoutSessions)
-          .set({ state: { ...state(), phase } })
-          .where(eq(checkoutSessions.id, checkoutId));
+        await writeSale({ ...state(), phase });
         await expect(adjustments.apply(user, scope, input)).rejects.toMatchObject({
           code: 'CUSTOMER_PROFILE_NOT_EDITABLE',
         });
       }
-      await db
-        .get('writer')
-        .update(checkoutSessions)
-        .set({ state: { ...state(), busyOperationId: randomUUID() } })
-        .where(eq(checkoutSessions.id, checkoutId));
+      await writeSale({ ...state(), busyOperationId: randomUUID() });
       await expect(adjustments.apply(user, scope, input)).rejects.toMatchObject({
         code: 'CUSTOMER_PROFILE_NOT_EDITABLE',
       });
-      await db
-        .get('writer')
-        .update(checkoutSessions)
-        .set({ state: state() })
-        .where(eq(checkoutSessions.id, checkoutId));
+      await writeSale(state());
       await db.get('writer').update(PosUser).set({ is_active: false }).where(eq(PosUser.id, 7n));
       await expect(adjustments.apply(user, scope, input)).rejects.toMatchObject({ status: 401 });
       await db.get('writer').update(PosUser).set({ is_active: true }).where(eq(PosUser.id, 7n));
@@ -501,9 +477,14 @@ describe.skipIf(!integration)(
     });
     it('rolls back customer fields and receipt when the late checkout write fails, then retries the same intent', async () => {
       const input = await intent();
-      await connection.query(
-        "CREATE TRIGGER fixture_profile_late_failure BEFORE UPDATE ON pos_rewrite_checkout_sessions FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='fixture rollback'",
-      );
+      // The late checkout write is the Redis sale replacement inside the writer transaction; make
+      // exactly that write fail (formerly a trigger on the deleted MySQL session table).
+      const store = configuredStateStore(config),
+        set = store.set.bind(store);
+      store.set = async (key, value, ttlSeconds, onlyIfAbsent) => {
+        if (key === sessionKeys.session(checkoutId)) throw new Error('fixture rollback');
+        return set(key, value, ttlSeconds, onlyIfAbsent);
+      };
       try {
         await expect(adjustments.apply(user, scope, input)).rejects.toThrow();
         const [customer] = await db
@@ -514,7 +495,7 @@ describe.skipIf(!integration)(
         expect(customer?.gender).toBe('F');
         expect(redis.snapshot().size).toBe(0);
       } finally {
-        await connection.query('DROP TRIGGER fixture_profile_late_failure');
+        store.set = set;
       }
       expect((await adjustments.apply(user, scope, input)).adjustment.checkoutVersion).toBe(2);
     });
@@ -556,12 +537,7 @@ describe.skipIf(!integration)(
         checkoutVersion: 1,
         briefing: { user_id: 'different-service-id', customer: { name: 'Fixture briefing' } },
       });
-      const [checkout] = await db
-        .get('writer')
-        .select()
-        .from(checkoutSessions)
-        .where(eq(checkoutSessions.id, checkoutId));
-      expect(checkout?.version).toBe(1);
+      expect((await savedSale())?.version).toBe(1);
     });
     it('releases SQL locks during a briefing request and rejects contact changes before publishing', async () => {
       let ready = () => {},
@@ -621,11 +597,7 @@ describe.skipIf(!integration)(
     it('rejects a changed checkout version instead of publishing recommendations for an older sale', async () => {
       const insights = customerBriefingService(config, db, {
         read: async () => {
-          await db
-            .get('writer')
-            .update(checkoutSessions)
-            .set({ version: 2, state: { ...state(), version: 2 } })
-            .where(eq(checkoutSessions.id, checkoutId));
+          await writeSale({ ...state(), version: 2 });
           return customerBriefing.parse({});
         },
       });
@@ -664,12 +636,7 @@ describe.skipIf(!integration)(
         .from(MUser)
         .where(eq(MUser.id, 777n));
       expect(stored?.money).toBeCloseTo(100.129, 3);
-      const [checkout] = await db
-        .get('writer')
-        .select({ version: checkoutSessions.version })
-        .from(checkoutSessions)
-        .where(eq(checkoutSessions.id, checkoutId));
-      expect(checkout?.version).toBe(1);
+      expect((await savedSale())?.version).toBe(1);
     });
     it('uses the same native email collation as the separate source membership and voucher queries', async () => {
       await db

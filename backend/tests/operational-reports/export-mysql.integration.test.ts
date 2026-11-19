@@ -11,6 +11,7 @@ import {
   reportExportService,
   type ExportBuilder,
 } from '../../src/modules/operational-reports/export-service.js';
+import { createProductionTables } from '../helpers/production-schema.js';
 import {
   reportExportOptions,
   type ReportExportStore,
@@ -97,16 +98,7 @@ describe.skipIf(!connection)('legacy report export jobs E1-E6 on isolated local 
     await admin.query(`CREATE DATABASE ${mysql.escapeId(schema)}`);
     created = true;
     await admin.changeUser({ database: schema });
-    await admin.query(
-      'CREATE TABLE pos_user(id BIGINT PRIMARY KEY,username VARCHAR(150),role SMALLINT,is_active BOOLEAN,user_type SMALLINT)',
-    );
-    await admin.query(
-      'CREATE TABLE user_stores(id BIGINT PRIMARY KEY,django_user_id BIGINT,store_id BIGINT)',
-    );
-    // Production DDL (tests/golden/schema/production-schema.json, report_exports).
-    await admin.query(
-      "CREATE TABLE report_exports(id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,report_name varchar(255) NOT NULL,report_type varchar(255) NOT NULL DEFAULT '',time_period varchar(55) DEFAULT NULL,is_completed tinyint DEFAULT '0',export_status varchar(55) DEFAULT 'PENDING',message varchar(255) NOT NULL DEFAULT '',export_requested_by int NOT NULL DEFAULT '0',export_requested_at datetime DEFAULT CURRENT_TIMESTAMP,export_completed_at datetime DEFAULT NULL,export_file_url varchar(255) NOT NULL DEFAULT '',export_format varchar(10) NOT NULL DEFAULT 'CSV',export_size int NOT NULL DEFAULT '0',export_rows_count int NOT NULL DEFAULT '0',created_at datetime DEFAULT CURRENT_TIMESTAMP,updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)",
-    );
+    await createProductionTables(admin, ['pos_user', 'user_stores', 'report_exports']);
     url.pathname = '/' + schema;
     database = createDatabases(
       readConfig({
@@ -127,10 +119,12 @@ describe.skipIf(!connection)('legacy report export jobs E1-E6 on isolated local 
     await admin!.query('DELETE FROM report_exports');
     await admin!.query('DELETE FROM pos_user');
     await admin!.query(
-      "INSERT INTO pos_user VALUES(900001,'fixture-one',4,1,1),(900002,'fixture-two',4,1,1),(900003,'fixture-admin',1,1,1)",
+      "INSERT INTO pos_user(id,username,role,is_active,user_type) VALUES(900001,'fixture-one',4,1,1),(900002,'fixture-two',4,1,1),(900003,'fixture-admin',1,1,1)",
     );
     await admin!.query('DELETE FROM user_stores');
-    await admin!.query('INSERT INTO user_stores VALUES(1,900001,1),(2,900002,2)');
+    await admin!.query(
+      'INSERT INTO user_stores(id,django_user_id,store_id) VALUES(1,900001,1),(2,900002,2)',
+    );
   });
   afterAll(async () => {
     await database?.close();

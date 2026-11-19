@@ -82,15 +82,6 @@ export async function returnWindowNativeFixture(template: string) {
         aggregateStockLog,
       ].map(getTableName);
     await fixture.create([...base, ...extra, 'amount_to_be_refunded_log']);
-    await connection.query(
-      'ALTER TABLE orders MODIFY ship_date DATETIME NULL DEFAULT NULL,MODIFY ret_ex_request_date DATETIME NULL DEFAULT NULL',
-    );
-    await connection.query(
-      'CREATE TABLE pos_rewrite_operator_auth_epochs(operator_id VARCHAR(32) PRIMARY KEY,epoch BIGINT UNSIGNED NOT NULL DEFAULT 0)',
-    );
-    await connection.query(
-      'CREATE TABLE pos_rewrite_administration_outbox(id VARCHAR(36) PRIMARY KEY,kind VARCHAR(64) NOT NULL,payload JSON NOT NULL,attempts INT NOT NULL,created_at DATETIME NOT NULL,delivered_at DATETIME NULL)',
-    );
     url.pathname = '/' + schema;
     const config = readConfig({
         NODE_ENV: 'test',
@@ -106,13 +97,7 @@ export async function returnWindowNativeFixture(template: string) {
       connection,
       fixture,
       async reset() {
-        for (const table of [
-          'pos_rewrite_operator_auth_epochs',
-          'pos_rewrite_administration_outbox',
-          'amount_to_be_refunded_log',
-          ...extra,
-          ...base,
-        ])
+        for (const table of ['amount_to_be_refunded_log', ...extra, ...base])
           await connection.query('DELETE FROM ' + mysql.escapeId(table));
         await fixture.insert(getTableName(PosUser), {
           id: '1',

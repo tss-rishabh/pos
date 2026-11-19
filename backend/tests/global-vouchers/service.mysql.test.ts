@@ -14,6 +14,7 @@ import type {
   VoucherUpstream,
   VoucherUpstreamReply,
 } from '../../src/modules/global-vouchers/upstream.js';
+import { injectWriteFailure } from '../helpers/production-schema.js';
 import { globalVoucherFixture } from './mysql-fixture.js';
 
 const template = process.env.GLOBAL_VOUCHERS_MYSQL_TEST_URL;
@@ -189,13 +190,15 @@ describe.skipIf(!template)('global vouchers on verified isolated MySQL and Redis
   it('rolls back a failed issuance, releases the claim and selection, and permits the exact retry', async () => {
     const selection = await lookup(),
       input = { operationId: randomUUID(), selectionId: selection.selectionId, amount: '10' };
-    await native.connection.query(
-      "CREATE TRIGGER fail_voucher_audit BEFORE INSERT ON pos_special_permission_activity_log FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='isolated audit failure'",
-    );
+    const restore = await injectWriteFailure(native.connection, {
+      table: 'pos_special_permission_activity_log',
+      event: 'INSERT',
+      message: 'isolated audit failure',
+    });
     try {
       await expect(service.issue(actor, input)).rejects.toThrow();
     } finally {
-      await native.connection.query('DROP TRIGGER fail_voucher_audit');
+      await restore();
     }
     expect(await counts()).toEqual({ coupons: 0, vouchers: 0, histories: 0, audits: 0 });
     expect((await service.issue(actor, input)).amount).toBe('10.00');

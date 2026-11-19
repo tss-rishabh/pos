@@ -110,8 +110,7 @@ describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
         'nps_questions',
       ]);
       await verifiedMysqlFixture(primary).create(['users', 'stores', 'nps_questions']);
-      // Source-verified existing email index; the generic fixture omits secondary indexes.
-      await primary.query('CREATE INDEX email ON users(email)');
+      // Production users DDL already carries the source email index (KEY `email`).
       await verifiedMysqlFixture(authority).create(['pos_user', 'user_stores', 'stores']);
       for (const connection of [source, primary]) {
         const fixture = verifiedMysqlFixture(connection);

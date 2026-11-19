@@ -99,21 +99,8 @@ describe.skipIf(!connection)('source hyperlocal daily SQL on verified-schema loc
         status: 'PACKED',
       });
     }
-    // Repeated ELI rows multiply source SUM; another status remains its own report group.
-    await fixture.insert('express_line_item', {
-      order_id: 1001,
-      has_product_id: 1,
-      store_id: 1,
-      pending_expires_at: '2026-11-16 10:00:00',
-      status: 'PACKED',
-    });
-    await fixture.insert('express_line_item', {
-      order_id: 1001,
-      has_product_id: 1,
-      store_id: 1,
-      pending_expires_at: '2026-11-16 10:00:00',
-      status: 'ACCEPTED',
-    });
+    // Production express_line_item has UNIQUE KEY unique_order_product(order_id,has_product_id),
+    // so one line can never carry repeated or differently-statused ELI rows.
     for (const [status, time] of [
       ['ACCEPTED', '2026-11-14 10:00:00'],
       ['ACCEPTED', '2026-11-15 10:00:00'],
@@ -173,7 +160,7 @@ describe.skipIf(!connection)('source hyperlocal daily SQL on verified-schema loc
       {
         async queryReport(statement, params) {
           // Native original SELECT is the isolated compatible-view oracle,
-          // including duplicate ELI multiplicity and all-history lifecycle MINs.
+          // including all-history lifecycle MINs.
           const sourceQuery = executePosSourceOracle(
             [
               'tools/operational-reports/hyperlocal-daily-oracle.py',
@@ -205,7 +192,7 @@ describe.skipIf(!connection)('source hyperlocal daily SQL on verified-schema loc
       })),
       key = (value: { line_item_id: string; express_line_item_status: string | null }) =>
         `${value.line_item_id}:${value.express_line_item_status}`;
-    expect(result.total).toBe(3);
+    expect(result.total).toBe(2);
     expect(result.reader).toBe('bigquery');
     expect([...result.data].sort((a, b) => key(a).localeCompare(key(b)))).toEqual(
       normalized.sort((a, b) => key(a).localeCompare(key(b))),
@@ -215,13 +202,13 @@ describe.skipIf(!connection)('source hyperlocal daily SQL on verified-schema loc
         (row) => row.line_item_id === '1' && row.express_line_item_status === 'PACKED',
       ),
     ).toMatchObject({
-      qty: 4,
-      amount: 236,
+      qty: 2,
+      amount: 118,
       allocation_date: '2026-11-14 10:00:00',
       delivery_date: '2026-11-16 13:00:00',
     });
     expect((await service.read(user, { ...input, page: 999, pageSize: 1 })).page).toBe(1);
-    expect((await service.read({ ...user, role: 1 }, input)).total).toBe(4);
-    expect((await service.read({ ...user, role: 1, userType: 2 }, input)).total).toBe(3);
+    expect((await service.read({ ...user, role: 1 }, input)).total).toBe(3);
+    expect((await service.read({ ...user, role: 1, userType: 2 }, input)).total).toBe(2);
   });
 });

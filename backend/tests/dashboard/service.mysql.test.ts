@@ -286,7 +286,7 @@ describe.skipIf(!connection)('source dashboard on isolated verified MySQL', () =
     expect(readers).toEqual(['writer']);
   });
 
-  it('rejects history that completed after assignment or authentication changes', async () => {
+  it('rejects history that completed after assignment or password changes', async () => {
     const result = {
       reader: 'bigquery' as const,
       asOf: now.toString(),
@@ -312,8 +312,7 @@ describe.skipIf(!connection)('source dashboard on isolated verified MySQL', () =
     };
     for (const mutation of [
       'DELETE FROM user_stores WHERE django_user_id=900001 AND store_id=2',
-      // Auth epochs were removed (W3); the authentication version derives from the account row.
-      "UPDATE pos_user SET password='pbkdf2_sha256$600000$changed$changed' WHERE id=900001",
+      "UPDATE pos_user SET password='changed-fixture-password-hash' WHERE id=900001",
     ]) {
       await fixture.reset();
       const service = dashboardService(fixture.config, fixture.db, readDashboardOptions({}), {

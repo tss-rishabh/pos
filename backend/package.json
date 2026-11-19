@@ -10,8 +10,6 @@
     "dev": "node --env-file=.env --watch --import=tsx src/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
-    "migrate:plan": "node dist/db/migrate.js",
-    "migrate:apply": "node --env-file-if-exists=.env dist/db/migrate.js --apply",
     "worker:jobs": "node --env-file-if-exists=.env dist/jobs/worker-main.js",
     "verify:project": "node --import tsx tools/verify-project.ts",
     "typecheck": "tsc --noEmit",

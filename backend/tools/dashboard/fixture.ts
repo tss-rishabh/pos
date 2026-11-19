@@ -1,7 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import mysql from 'mysql2/promise';
-import { z } from 'zod';
 import { readConfig } from '../../src/config.js';
 import { createDatabases } from '../../src/db/pools.js';
 import {
@@ -19,22 +17,6 @@ const tables = [
   'order_stores',
   'order_status',
 ] as const;
-const metadataSchema = z.object({
-  indexes: z
-    .record(
-      z.string(),
-      z.array(
-        z.object({
-          name: z.string().regex(/^[A-Za-z0-9_]+$/),
-          column: z.string().regex(/^[A-Za-z0-9_]+$/),
-          position: z.number().int(),
-          unique: z.boolean(),
-        }),
-      ),
-    )
-    .default({}),
-});
-
 /** Mutations are confined to a freshly-created random localhost schema. */
 export async function dashboardFixture(connection: string) {
   const url = new URL(connection);
@@ -53,38 +35,9 @@ export async function dashboardFixture(connection: string) {
   await admin.query('CREATE DATABASE ' + mysql.escapeId(schema));
   try {
     await admin.changeUser({ database: schema });
-    const fixture = verifiedMysqlFixture(admin, ['evidence/mysql-inventory-workbooks-schema.json']);
+    const fixture = verifiedMysqlFixture(admin);
     await fixture.create(tables);
     await admin.query("SET SESSION sql_mode='STRICT_TRANS_TABLES'");
-    const indexes = Object.assign(
-      {},
-      ...[
-        'evidence/mysql-schema.json',
-        'evidence/mysql-extra-schema.json',
-        'evidence/mysql-inventory-workbooks-schema.json',
-      ].map(
-        (path) => metadataSchema.parse(JSON.parse(readFileSync(path, 'utf8')) as unknown).indexes,
-      ),
-    ) as Record<string, z.infer<typeof metadataSchema>['indexes'][string]>;
-    for (const table of tables) {
-      const grouped = new Map<
-        string,
-        { unique: boolean; columns: { name: string; position: number }[] }
-      >();
-      for (const index of indexes[table] || []) {
-        if (index.name === 'PRIMARY') continue;
-        const value = grouped.get(index.name) || { unique: index.unique, columns: [] };
-        value.columns.push({ name: index.column, position: index.position });
-        grouped.set(index.name, value);
-      }
-      for (const [name, index] of grouped)
-        await admin.query(
-          `CREATE ${index.unique ? 'UNIQUE ' : ''}INDEX ${mysql.escapeId(name)} ON ${mysql.escapeId(table)}(${index.columns
-            .sort((a, b) => a.position - b.position)
-            .map((value) => mysql.escapeId(value.name))
-            .join(',')})`,
-        );
-    }
     url.pathname = '/' + schema;
     const config = readConfig({
         NODE_ENV: 'test',
@@ -103,7 +56,8 @@ export async function dashboardFixture(connection: string) {
       db,
       url: url.href,
       async reset() {
-        for (const table of tables) await admin.query('DELETE FROM ' + mysql.escapeId(table));
+        for (const table of tables)
+          await admin.query('DELETE FROM ' + mysql.escapeId(table));
         let storeIndex = 1;
         for (const [id, active] of [
           ['1', 1],

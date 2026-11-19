@@ -24,6 +24,7 @@ import {
   type CheckoutSessionStore,
 } from '../../src/modules/checkout/session-store.js';
 import { memoryStateStore, type PosStateStore } from '../../src/modules/checkout/state-store.js';
+import { createProductionTables } from '../helpers/production-schema.js';
 import { FixtureGateway, operator, signingEnvironment } from './fixtures.js';
 
 const template = process.env.CHECKOUT_MYSQL_TEST_URL;
@@ -104,20 +105,13 @@ describe.skipIf(!template)('customer registration in an isolated writer schema',
     schemaName = `pos_rewrite_checkout_test_customer_${process.pid}_${crypto.randomUUID().slice(0, 8)}`;
     await connection.query(`CREATE DATABASE ${mysql.escapeId(schemaName)}`);
     await connection.changeUser({ database: schemaName });
-    for (const table of [MUser, ExclusiveUser, StoreCounter, Product, ProductBarcode]) {
-      const metadata = getTableConfig(table),
-        definitions = metadata.columns.map(
-          (column) =>
-            `${mysql.escapeId(column.name)} ${column.getSQLType()}${column.notNull ? ' NOT NULL' : ''}${'autoIncrement' in column && column.autoIncrement ? ' AUTO_INCREMENT' : ''}`,
-        ),
-        primary = metadata.columns
-          .filter((column) => column.primary)
-          .map((column) => mysql.escapeId(column.name));
-      if (primary.length) definitions.push(`PRIMARY KEY (${primary.join(',')})`);
-      await connection.query(
-        `CREATE TABLE ${mysql.escapeId(metadata.name)} (${definitions.join(',')}) ENGINE=InnoDB`,
-      );
-    }
+    await createProductionTables(connection, [
+      MUser,
+      ExclusiveUser,
+      StoreCounter,
+      Product,
+      ProductBarcode,
+    ]);
     // Checkout sessions and registrations live in Redis (memory store here); their former
     // rewrite-table migrations are deleted.
     url.pathname = '/' + schemaName;

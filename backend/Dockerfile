@@ -14,34 +14,7 @@ COPY package.json package-lock.json ./
 COPY tools/dependency-security/manifest.json tools/dependency-security/verify.mjs tools/dependency-security/picomatch-4.0.7-pos-review.tgz ./tools/dependency-security/
 RUN node tools/dependency-security/verify.mjs --archive-only && npm ci --omit=dev --ignore-scripts && node tools/dependency-security/verify.mjs --production && npm cache clean --force
 COPY --from=build /app/dist ./dist
-COPY migrations ./migrations
 COPY resources ./resources
-COPY src/modules/administration/*.sql ./src/modules/administration/
-COPY src/modules/administration/barcodes/*.sql ./src/modules/administration/barcodes/
-COPY src/modules/administration/parent-store-imports/*.sql ./src/modules/administration/parent-store-imports/
-COPY src/modules/administration/ecommerce-sync/*.sql ./src/modules/administration/ecommerce-sync/
-COPY src/modules/application-links/*.sql ./src/modules/application-links/
-COPY src/modules/gift-card-batches/*.sql ./src/modules/gift-card-batches/
-COPY src/modules/customer-insights/*.sql ./src/modules/customer-insights/
-COPY src/modules/customer-contacts/*.sql ./src/modules/customer-contacts/
-COPY src/modules/customer-otp/*.sql ./src/modules/customer-otp/
-COPY src/modules/customer-website-handoff/*.sql ./src/modules/customer-website-handoff/
-COPY src/modules/global-vouchers/*.sql ./src/modules/global-vouchers/
-COPY src/modules/checkout-performance/*.sql ./src/modules/checkout-performance/
-COPY src/modules/checkout/migrations ./src/modules/checkout/migrations
-COPY src/modules/checkout/order-messages/*.sql ./src/modules/checkout/order-messages/
-COPY src/modules/checkout/order-copy/*.sql ./src/modules/checkout/order-copy/
-COPY src/modules/checkout/payment-reversals/*.sql ./src/modules/checkout/payment-reversals/
-COPY src/modules/checkout/payments/*.sql ./src/modules/checkout/payments/
-COPY src/modules/checkout/cancellations/*.sql ./src/modules/checkout/cancellations/
-COPY src/modules/fulfillment/migration.sql ./src/modules/fulfillment/migration.sql
-COPY src/modules/fulfillment/trace-migration.sql ./src/modules/fulfillment/trace-migration.sql
-COPY src/modules/legacy-fulfillment/migration.sql ./src/modules/legacy-fulfillment/migration.sql
-COPY src/modules/legacy-fulfillment/lifecycle/migration.sql ./src/modules/legacy-fulfillment/lifecycle/migration.sql
-COPY src/modules/legacy-order-status/*.sql ./src/modules/legacy-order-status/
-COPY src/modules/finance/migration.sql ./src/modules/finance/migration.sql
-COPY src/modules/operational-reports/*.sql ./src/modules/operational-reports/
-COPY src/modules/catalog-details/*.sql ./src/modules/catalog-details/
 USER node
 
 FROM runtime-base AS runtime

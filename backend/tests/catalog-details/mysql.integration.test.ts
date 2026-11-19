@@ -62,12 +62,8 @@ describe.skipIf(!integration)(
       return connection;
     };
     it('resolves exact alternate barcodes without fuzzy matches or duplicate SKU multiplication', async () => {
-      // The generic source fixture omits secondary indexes. Restore this saved
-      // physical unique index for the existing POS catalog FORCE INDEX contract.
-      await native().query(
-        'CREATE UNIQUE INDEX uq_product_store ON product_store(product_id,store_id)',
-      );
-      try {
+      // Production product_store carries uq_product_store, used by the POS catalog FORCE INDEX.
+      {
         const catalog = catalogService(db());
         const read = (barcode: string, store = '1') =>
           readCatalogBarcode(catalog, db(), principal, store, barcode);
@@ -118,8 +114,6 @@ describe.skipIf(!integration)(
         } finally {
           await native().query('DELETE FROM products_gs1 WHERE id IN (100,101)');
         }
-      } finally {
-        await native().query('DROP INDEX uq_product_store ON product_store');
       }
     });
     beforeAll(async () => {
@@ -172,12 +166,14 @@ describe.skipIf(!integration)(
         await fixture.insert('stores', {
           id,
           store_name: name,
+          phone: '9100000' + id,
           type,
           is_active: active,
           category: id === 1 ? 'FRANCHISE' : 'IN_HOUSE',
         });
       await fixture.insert('pos_user', {
         id: 1,
+        username: 'fixture-operator-1',
         first_name: 'Fixture',
         last_name: 'Operator',
         is_active: 1,
@@ -186,6 +182,7 @@ describe.skipIf(!integration)(
       });
       await fixture.insert('pos_user', {
         id: 2,
+        username: 'fixture-operator-2',
         first_name: 'Other',
         last_name: 'Operator',
         is_active: 1,

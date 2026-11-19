@@ -1,18 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import mysql from 'mysql2/promise';
-import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { readConfig } from '../../src/config.js';
 import { createDatabases, type Databases } from '../../src/db/pools.js';
-import { existsSync, readFileSync } from 'node:fs';
-import { migrationPaths, splitMigration } from '../../src/db/migrations.js';
 import type { Principal } from '../../src/domain/access.js';
 import { AppError } from '../../src/domain/errors.js';
 import { bindCheckInRedis, checkInService } from '../../src/modules/administration/checkins.js';
 import { memoryRedisPort } from '../../src/redis/memory.js';
 
-import { checkoutStateSchema } from '../../src/modules/checkout/contracts.js';
-import { checkoutSessions } from '../../src/modules/checkout/schema.js';
+import { checkoutStateSchema, type CheckoutState } from '../../src/modules/checkout/contracts.js';
+import { checkoutSessionStore } from '../../src/modules/checkout/session-store.js';
+import { configuredStateStore } from '../../src/modules/checkout/state-store.js';
 import { customerHistoryService } from '../../src/modules/customer-history/service.js';
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
 // Check-ins are the legacy Redis keys; bind an in-process port for this file.
@@ -107,10 +105,6 @@ describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
       await fixture.insert('stores', { id: 1, type: 'STORE', is_active: 1 });
       await fixture.insert('store_counters', { id: 2, store_id: 1, is_active: 1 });
       await fixture.insert('user_stores', { django_user_id: 44, store_id: 1 });
-      // Workstreams delete their module migration files ahead of the registry clean-up.
-      for (const path of migrationPaths.filter((value) => existsSync(value)))
-        for (const statement of splitMigration(readFileSync(path, 'utf8')))
-          await connection.query(statement);
       url.pathname = '/' + schema;
       config = readConfig({
         NODE_ENV: 'test',
@@ -123,14 +117,13 @@ describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
       });
       db = createDatabases(config);
     }, 20000);
+    // The sale lives in the Redis checkout session store (memory store: no REDIS_URL).
+    const writeSale = (value: CheckoutState) =>
+      checkoutSessionStore(configuredStateStore(config)).write(value);
     beforeEach(async () => {
       await connection!.query('UPDATE pos_user SET is_active=1 WHERE id=44');
       await connection!.query('UPDATE users SET status=1,is_block=0 WHERE id=7');
-      await db!.get('writer').delete(checkoutSessions).where(eq(checkoutSessions.id, checkoutId));
-      await db!
-        .get('writer')
-        .insert(checkoutSessions)
-        .values({ id: checkoutId, operatorId: '44', storeId: '1', version: 1, state: state() });
+      await writeSale(state());
       await checkInService(db!, config).set(user, '1', '2');
     });
     afterAll(async () => {
@@ -190,11 +183,7 @@ describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
       const changed = customerHistoryService(config, db!, {
         gateway: {
           async read() {
-            await db!
-              .get('writer')
-              .update(checkoutSessions)
-              .set({ version: 2, state: { ...state(), version: 2 } })
-              .where(eq(checkoutSessions.id, checkoutId));
+            await writeSale({ ...state(), version: 2 });
             return result();
           },
           async lines() {

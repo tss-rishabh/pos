@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import { z } from 'zod';
-import { migrationPlan } from '../../src/db/migrations.js';
 import {
   observedLegacyExportRawTable,
   rawLegacyExportProjection,
@@ -160,19 +159,6 @@ const configInputs = Object.fromEntries(
       },
     ]),
 );
-const rewriteMigrations = migrationPlan().map((migration) => ({
-  id: migration.id,
-  checksum: migration.checksum,
-  tables: [
-    ...new Set(
-      migration.statements.flatMap((statement) =>
-        [...statement.matchAll(/CREATE TABLE(?: IF NOT EXISTS)?\s+`?([A-Za-z_]\w*)`?/gi)].map(
-          (match) => match[1]!,
-        ),
-      ),
-    ),
-  ].sort(),
-}));
 const plan = {
   generatedAt: new Date().toISOString(),
   warehouseEvidenceAt: bq.checkedAt,
@@ -182,16 +168,6 @@ const plan = {
     'Metadata/SELECT/dry-run only. This tool performs only local file writes, not cloud writes.',
   sourceSchemas,
   normalizedInputs: configInputs,
-  rewriteMigrationInputs: rewriteMigrations,
-  sourceCompatibilityProposals: [
-    {
-      resource: 'initial-local-delivery-log',
-      sql: 'src/modules/legacy-fulfillment/lifecycle/compatibility/001_unset_exception_date.sql',
-      evidence: 'parity/legacy-fulfillment-query-proposals.md',
-      appliedToLive: false,
-      applicationMigration: false,
-    },
-  ],
   financialPublication: {
     contract: dailyWarehouseContract,
     rowHashExpression: dailyWarehouseRowHashExpression,
@@ -216,51 +192,6 @@ const plan = {
         'Column projection only; independent complete CDC/publication, source-clock and name-sort/search collation evidence still required.',
         'Retains bounded source time_period text exactly; never returns private file URL, free-text source message, token or command/filter JSON.',
         'Download authorization still uses writer-current internal-role1 and private storage checks.',
-      ],
-    },
-    {
-      resource: 'customer-behavior-history',
-      source: [
-        'tssgcp2025.tss_mysql_raw_layer.tss_orders',
-        'tssgcp2025.tss_mysql_raw_layer.tss_order_stores',
-        'tssgcp2025.tss_mysql_raw_layer.tss_has_products',
-        'tssgcp2025.tss_mysql_raw_layer.tss_products',
-        'tssgcp2025.tss_mysql_raw_layer.tss_nps_feedback',
-      ],
-      sql: 'parity/customer-history-projection-review.sql',
-      proposal: 'parity/customer-history-query-proposals.md',
-      evidence: [
-        'evidence/bigquery-customer-history-dry-run.json',
-        'parity/evidence/customer-history/bigquery-fixtures.json',
-      ],
-      activation: false,
-      limits: [
-        'Observed raw query estimates exceed the unchanged 1GB reader budget; do not automatically increase that cap.',
-        'Deploy four customer_bucket integer-range-partitioned fact projections with row-preserving updates/deletes/ownership propagation before selecting customer-bucket-v1.',
-        'Preserve native source float values, wall-clock DATETIME, duplicate store/HP rows and current product/parent-price dimensions; schema presence alone does not prove ingestion encoding.',
-        'Dedicated NPS numeric-prefix input excludes narrative tails; do not reuse it as the general feedback report source.',
-        'History display uses current writer checkout/customer authority around external reads, not a financial or common-snapshot publication attestation.',
-      ],
-    },
-    {
-      resource: 'customer-feedback-history',
-      source: [
-        'tssgcp2025.tss_mysql_raw_layer.tss_nps_feedback',
-        'tssgcp2025.tss_mysql_raw_layer.tss_orders',
-        'tssgcp2025.tss_mysql_raw_layer.tss_order_stores',
-      ],
-      sql: 'parity/feedback-history-projection-review.sql',
-      proposal: 'parity/feedback-history-query-proposals.md',
-      evidence: 'parity/evidence/feedback-history/bigquery-fixtures.json',
-      activation: false,
-      runtimeDefault:
-        'Observed raw facts with bounded current primary dimensions and per-request byte guard; proposed curated table is not deployed.',
-      limits: [
-        'Current questions/customers/store names are bounded primary dimensions, not historical MySQL fact fallbacks.',
-        'Native email equality preserves verified collation/PAD SPACE and resolves at most500 IDs; do not substitute LOWER in BigQuery or truncate a larger match set.',
-        'Optional date-partitioned facts preserve every feedback × store row including duplicate same-store/null online associations and all order statuses.',
-        'The curated-table example uses a distinct prefix in the already authorized raw dataset; only a separately authorized publisher may deploy/populate it.',
-        'Fresh writer operator/role/type/assignment checks surround external work; raw CDC does not certify a financial/common snapshot.',
       ],
     },
   ],

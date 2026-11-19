@@ -1,5 +1,6 @@
 import mysql from 'mysql2/promise';
 import { getTableConfig, type MySqlTable } from 'drizzle-orm/mysql-core';
+import { createProductionTables } from '../helpers/production-schema.js';
 import { eq } from 'drizzle-orm';
 import { Temporal } from '@js-temporal/polyfill';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -155,21 +156,7 @@ describe.skipIf(!connection)('fulfillment lifecycle on isolated local MySQL', ()
     await admin.query(`CREATE DATABASE ${mysql.escapeId(schema)}`);
     created = true;
     await admin.changeUser({ database: schema });
-    for (const model of models) {
-      const cfg = getTableConfig(model);
-      const columns = cfg.columns.map(
-        (column) =>
-          mysql.escapeId(column.name) +
-          ' ' +
-          column.getSQLType() +
-          (column.notNull ? ' NOT NULL' : ' NULL') +
-          ('autoIncrement' in column && column.autoIncrement ? ' AUTO_INCREMENT' : '') +
-          (column.primary ? ' PRIMARY KEY' : ''),
-      );
-      await admin.query(
-        `CREATE TABLE ${mysql.escapeId(cfg.name)} (${columns.join(',')}) ENGINE=InnoDB`,
-      );
-    }
+    await createProductionTables(admin, models);
     url.pathname = '/' + schema;
     databases = createDatabases(
       readConfig({
@@ -195,9 +182,16 @@ describe.skipIf(!connection)('fulfillment lifecycle on isolated local MySQL', ()
       store_name: 'Fixture store',
       is_active: 1,
       type: 'STORE',
+      phone: '9000000001',
       slack_group_url: 'https://hooks.slack.com/services/store-1',
     });
-    await insert(Store, { id: 2, store_name: 'Other store', is_active: 1, type: 'STORE' });
+    await insert(Store, {
+      id: 2,
+      store_name: 'Other store',
+      phone: '9000000002',
+      is_active: 1,
+      type: 'STORE',
+    });
     await insert(PosUser, { id: Number(user.id), is_active: 1, role: 4, user_type: 1 });
     await insert(UserStore, { django_user_id: Number(user.id), store_id: 1 });
     await insert(Product, { id: 101, product: 'Fixture tee' });

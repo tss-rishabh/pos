@@ -314,44 +314,6 @@ describe.skipIf(!template)('pinned Django datatable and optimized native search'
     expect(result.rows.find((row) => row.fact.id === '102')!.fact.isRevert).toBe(false);
     expect(result.rows.find((row) => row.fact.id === '104')!.fact.isRevert).toBe(true);
   });
-  it('checks candidate association/provider/queue indexes with representative local EXPLAINs', async () => {
-    const proposals = [
-      [
-        'order_stores',
-        'ix_candidate_order_store',
-        '(order_id,store_id,id)',
-        'SELECT id FROM order_stores WHERE order_id=101 AND store_id=1 ORDER BY id',
-      ],
-      [
-        'orders',
-        'ix_candidate_order_date',
-        '(created_at,id)',
-        "SELECT id FROM orders WHERE created_at>='2026-11-17 00:00:00' AND created_at<'2026-11-18 00:00:00' ORDER BY created_at,id",
-      ],
-      [
-        'pos_terminal_transactions',
-        'ix_candidate_provider_order',
-        '(order_id,is_active,platform,id)',
-        "SELECT id FROM pos_terminal_transactions WHERE order_id=101 AND is_active=1 AND platform='txn_created' ORDER BY id",
-      ],
-      [
-        'hyperlocal_order_log',
-        'ix_candidate_queue',
-        '(order_id,action,is_pack,is_rto,is_refunded)',
-        "SELECT id FROM hyperlocal_order_log WHERE order_id=201 AND action='ACCEPTED' AND is_pack=0 AND is_rto=0 AND is_refunded=0",
-      ],
-    ] as const;
-    for (const [table, index, columns, query] of proposals) {
-      const [before] = await native.connection.query(query);
-      await native.connection.query(`CREATE INDEX ${index} ON ${table} ${columns}`);
-      const [after] = await native.connection.query(query);
-      expect(after).toEqual(before);
-      const [explained] = await native.connection.query(
-        `EXPLAIN SELECT * FROM (${query.replace('FROM ' + table, 'FROM ' + table + ' FORCE INDEX (' + index + ')')}) AS candidate_fixture`,
-      );
-      expect(JSON.stringify(explained)).toContain(index);
-    }
-  });
   const actor: Principal = {
     id: '1',
     role: 2,

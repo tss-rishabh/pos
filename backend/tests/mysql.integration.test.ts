@@ -5,6 +5,7 @@ import { createDatabases } from '../src/db/pools.js';
 import { draftService, type DraftMutation } from '../src/modules/drafts.js';
 import { memoryStateStore } from '../src/modules/checkout/state-store.js';
 import type { Principal } from '../src/domain/access.js';
+import { createProductionTables } from './helpers/production-schema.js';
 
 const connection = process.env.MYSQL_INTEGRATION_URL;
 describe.skipIf(!connection)('draft persistence (Redis state, MySQL counter check)', () => {
@@ -46,9 +47,10 @@ describe.skipIf(!connection)('draft persistence (Redis state, MySQL counter chec
     try {
       await admin.query('CREATE DATABASE IF NOT EXISTS pos_rewrite_integration');
       await admin.changeUser({ database: 'pos_rewrite_integration' });
-      await admin.query(
-        'CREATE TABLE IF NOT EXISTS store_counters (id BIGINT PRIMARY KEY,store_id BIGINT NOT NULL,is_active BOOLEAN NOT NULL)',
+      const [existing] = await admin.query<mysql.RowDataPacket[]>(
+        "SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA='pos_rewrite_integration' AND TABLE_NAME='store_counters'",
       );
+      if (!existing.length) await createProductionTables(admin, ['store_counters']);
       await admin.query(
         'INSERT IGNORE INTO store_counters(id,store_id,is_active) VALUES (999991,999991,1)',
       );

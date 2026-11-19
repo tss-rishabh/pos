@@ -6,6 +6,7 @@ import { Temporal } from '@js-temporal/polyfill';
 import { sql } from 'drizzle-orm';
 import { createDatabases, type Databases } from '../src/db/pools.js';
 import { readConfig } from '../src/config.js';
+import { injectWriteFailure } from './helpers/production-schema.js';
 import { verifiedMysqlFixture } from '../tools/operational-reports/verified-mysql-fixture.js';
 import {
   availableStockProjection,
@@ -75,9 +76,6 @@ describe.skipIf(!integration)(
       await connection.changeUser({ database: schema });
       fixture = verifiedMysqlFixture(connection);
       await fixture.create(tables);
-      await connection.query(
-        'ALTER TABLE product_store ADD UNIQUE KEY uq_product_store(product_id,store_id)',
-      );
       url.pathname = '/' + schema;
       db = createDatabases(
         readConfig({
@@ -98,6 +96,8 @@ describe.skipIf(!integration)(
       ] as const)
         await fixture.insert('stores', {
           id,
+          store_name: 'Store ' + id,
+          phone: '9000000' + id,
           location_code: location,
           ecom_delivery: ecom,
           ecom_threshold: threshold,
@@ -247,6 +247,8 @@ describe.skipIf(!integration)(
     it('rolls back before publishing ambiguous warehouse and overflowing audit totals', async () => {
       await fixture.insert('stores', {
         id: 4,
+        store_name: 'Store 4',
+        phone: '90000004',
         location_code: 'DWH',
         ecom_delivery: 0,
         ecom_threshold: 0,
@@ -285,9 +287,11 @@ describe.skipIf(!integration)(
       expect(await read('SELECT id FROM products_inventory_logs')).toHaveLength(0);
     });
     it('rolls the caller transaction back after a late aggregate audit failure', async () => {
-      await connection.query(
-        "CREATE TRIGGER fixture_audit_failure BEFORE INSERT ON products_inventory_logs FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Synthetic fixture failure'",
-      );
+      const removeFault = await injectWriteFailure(connection, {
+        table: 'products_inventory_logs',
+        event: 'INSERT',
+        message: 'Synthetic fixture failure',
+      });
       try {
         await expect(apply()).rejects.toThrow();
         expect((await read('SELECT stock FROM product_store WHERE store_id=1'))[0]?.stock).toBe(5);
@@ -295,7 +299,7 @@ describe.skipIf(!integration)(
         for (const table of tables.slice(-4))
           expect(await read('SELECT id FROM ' + table)).toHaveLength(0);
       } finally {
-        await connection.query('DROP TRIGGER fixture_audit_failure');
+        await removeFault();
       }
     });
     it('serializes20 concurrent changes and keeps the final aggregate identical to source queries', async () => {

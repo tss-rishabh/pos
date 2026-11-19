@@ -7,20 +7,10 @@ function check(value, code) {
 async function verify() {
   const origin = 'http://frontend:8080',
     checks = [];
-  const [{ migrationPlan }, { default: sharp }, { verifyPrivateImage }] = await Promise.all([
-    import('./dist/db/migrations.js'),
+  const [{ default: sharp }, { verifyPrivateImage }] = await Promise.all([
     import('sharp'),
     import('./dist/modules/administration/image-lifecycle/validation.js'),
   ]);
-  const plan = migrationPlan();
-  check(
-    plan.length > 0 &&
-      plan.every(
-        (migration) => migration.statements.length && /^[a-f0-9]{64}$/.test(migration.checksum),
-      ),
-    'PACKAGED_MIGRATIONS_FAILED',
-  );
-  checks.push('packaged-migration-plan');
   const { execFile } = require('node:child_process');
   const { promisify } = require('node:util');
   for (const path of [

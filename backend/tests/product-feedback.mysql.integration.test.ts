@@ -4,8 +4,6 @@ import Fastify from 'fastify';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { readConfig } from '../src/config.js';
-import { existsSync, readFileSync } from 'node:fs';
-import { migrationPaths, splitMigration } from '../src/db/migrations.js';
 import { createDatabases, type Databases } from '../src/db/pools.js';
 import { Order, PosUser, Store } from '../src/db/legacy-schema.js';
 import type { Principal } from '../src/domain/access.js';
@@ -15,13 +13,15 @@ import { bindCheckInRedis, checkInService } from '../src/modules/administration/
 import { memoryRedisPort } from '../src/redis/memory.js';
 
 import { checkoutStateSchema } from '../src/modules/checkout/contracts.js';
-import { checkoutSessions } from '../src/modules/checkout/schema.js';
+import { checkoutSessionStore } from '../src/modules/checkout/session-store.js';
+import { configuredStateStore } from '../src/modules/checkout/state-store.js';
 import { benefitCustomers } from '../src/modules/customer-insights/benefits-schema.js';
 import { productFeedbackService } from '../src/modules/product-feedback/service.js';
 import { productRatings } from '../src/modules/product-feedback/schema.js';
 import { feedbackReceiptKey } from '../src/modules/product-feedback/service.js';
 import { memoryOrderRedis } from '../src/modules/fulfillment/order-redis.js';
 import { verifiedMysqlFixture } from '../tools/operational-reports/verified-mysql-fixture.js';
+import { injectWriteFailure } from './helpers/production-schema.js';
 // Check-ins are the legacy Redis keys; bind an in-process port for this file.
 bindCheckInRedis(memoryRedisPort());
 
@@ -101,10 +101,7 @@ describe.skipIf(!integration)('native staff feedback atomicity and current scope
     });
     await connection.query(`CREATE DATABASE ${mysql.escapeId(schema)}`);
     await connection.changeUser({ database: schema });
-    fixture = verifiedMysqlFixture(connection, [
-      'evidence/mysql-product-feedback-schema.json',
-      'evidence/mysql-customer-benefit-schema.json',
-    ]);
+    fixture = verifiedMysqlFixture(connection);
     await fixture.create([
       'users',
       'pos_user',
@@ -154,10 +151,6 @@ describe.skipIf(!integration)('native staff feedback atomicity and current scope
       order_id: orderId,
       prod_id: productId,
     });
-    // Workstreams delete their module migration files ahead of the registry clean-up.
-    for (const path of migrationPaths.filter((value) => existsSync(value)))
-      for (const statement of splitMigration(readFileSync(path, 'utf8')))
-        await connection.query(statement);
     base.pathname = '/' + schema;
     config = readConfig({
       NODE_ENV: 'test',
@@ -191,7 +184,6 @@ describe.skipIf(!integration)('native staff feedback atomicity and current scope
   beforeEach(async () => {
     await connection.query('DELETE FROM product_rating_user');
     await redis.del([...redis.snapshot().keys()]);
-    await db.get('writer').delete(checkoutSessions);
     await db
       .get('writer')
       .update(Order)
@@ -204,10 +196,8 @@ describe.skipIf(!integration)('native staff feedback atomicity and current scope
       .where(eq(benefitCustomers.id, 777n));
     await db.get('writer').update(PosUser).set({ is_active: true }).where(eq(PosUser.id, 7n));
     await db.get('writer').update(Store).set({ is_active: true }).where(eq(Store.id, 1n));
-    await db
-      .get('writer')
-      .insert(checkoutSessions)
-      .values({ id: checkoutId, operatorId: '7', storeId: '1', version: 1, state: state() });
+    // The sale lives in the Redis checkout session store (memory store: no REDIS_URL).
+    await checkoutSessionStore(configuredStateStore(config)).write(state());
     await checkInService(db, config).set(user, '1', '2');
   });
   afterAll(async () => {
@@ -344,10 +334,7 @@ describe.skipIf(!integration)('native staff feedback atomicity and current scope
   });
   it('serializes different operations and separate checkouts on the same order without a legacy unique index', async () => {
     const second = randomUUID();
-    await db
-      .get('writer')
-      .insert(checkoutSessions)
-      .values({ id: second, operatorId: '7', storeId: '1', version: 1, state: state(second) });
+    await checkoutSessionStore(configuredStateStore(config)).write(state(second));
     const results = await Promise.allSettled([
       service.submit(user, scope, input()),
       service.submit(user, { ...scope, checkoutId: second }, input()),
@@ -361,13 +348,16 @@ describe.skipIf(!integration)('native staff feedback atomicity and current scope
     expect(await db.get('writer').select().from(productRatings)).toHaveLength(4);
   });
   it('rolls all four rows and the receipt back when a native final-option insert fails', async () => {
-    await connection.query(
-      "CREATE TRIGGER reject_fixture_rating BEFORE INSERT ON product_rating_user FOR EACH ROW BEGIN IF NEW.product_rating_option_id=3 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='fixture'; END IF; END",
-    );
+    const restore = await injectWriteFailure(connection, {
+      table: 'product_rating_user',
+      event: 'INSERT',
+      message: 'fixture',
+      when: { column: 'product_rating_option_id', equals: 3 },
+    });
     try {
       await expect(service.submit(user, scope, input())).rejects.toBeDefined();
     } finally {
-      await connection.query('DROP TRIGGER reject_fixture_rating');
+      await restore();
     }
     expect(await db.get('writer').select().from(productRatings)).toHaveLength(0);
     expect(redis.snapshot().size).toBe(0);
