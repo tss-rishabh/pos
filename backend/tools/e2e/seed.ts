@@ -78,6 +78,12 @@ export const e2eProducts = productNames.map((name, index) => ({
 }));
 /** Synthetic orders 6001-6008 at store 1, newest first in the default 5-day window. */
 export const e2eOrderIds = Array.from({ length: 8 }, (_, index) => BigInt(6008 - index));
+/**
+ * The two oldest seeded orders are unpaid counter orders awaiting payment, as legacy leaves them
+ * after ajax-order: payment method 14, payment status 1, order status 1, no recorded amounts
+ * (the payable check in modules/checkout/payments/repository.ts).
+ */
+export const e2eUnpaidOrderIds: readonly bigint[] = [6001n, 6002n];
 
 const loopbackHosts = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
 /** Refuses anything that is not a plain loopback MySQL URL with an owned `pos_rewrite_e2e*` schema. */
@@ -292,6 +298,7 @@ export async function seedE2e(
     })),
   );
   for (const [index, id] of e2eOrderIds.entries()) {
+    const unpaid = e2eUnpaidOrderIds.includes(id);
     const [first, last] = customers[index % 3]!,
       product = e2eProducts[index % 3]!,
       created = businessLocal(now - (index + 1) * 1_800_000, timeZone);
@@ -301,15 +308,15 @@ export async function seedE2e(
       user: BigInt(700001 + (index % 3)),
       order_amt: Number(product.price),
       pay_amt: Number(product.price),
-      payment_methods: 0n,
-      payment_statuses: 4n,
+      payment_methods: unpaid ? 14n : 0n,
+      payment_statuses: unpaid ? 1n : 4n,
       transaction_id: '',
       transaction_status: '',
       description: '',
       reward_points_cron: '0',
       shiplabel_tracking_id: '',
       referal_code_used: '',
-      order_statuses: index === 0 ? 1n : 3n,
+      order_statuses: index === 0 || unpaid ? 1n : 3n,
       ship_date: created,
       ship_flag: '0',
       order_comment: '',
@@ -342,8 +349,8 @@ export async function seedE2e(
       transaction_id: '',
       message: '',
       performance_json: '',
-      offline_payment: product.price,
-      offline_payment_recieved: product.price,
+      offline_payment: unpaid ? '0' : product.price,
+      offline_payment_recieved: unpaid ? '0' : product.price,
       online_payment: '0',
       online_other_payment: '0',
       is_offline_order: false,
