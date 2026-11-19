@@ -1,14 +1,34 @@
+// Packaged-app runtime smoke for the unsigned review build on its native OS (release/<target>).
+//
+// The packaged app refuses Chromium remote debugging and the mock keychain, and its fuses disable
+// the Node inspector, so it is not driven over CDP: a synthetic loopback workspace page reports
+// what it observes (see desktop-native-fixture.mjs). The checks:
+//   - the debugging and mock-keychain switches make the packaged app exit 1 without a profile;
+//   - the renderer has no Node access and external navigation and popups are blocked;
+//   - offline billing starts in the packaged app: the SQLCipher module loads from
+//     resources/offline-sqlite and the OS keystore (Windows DPAPI, macOS Keychain) wraps the key;
+//   - a second instance on the same profile exits and leaves the first running;
+//   - local state survives a native restart, and the shell reloads offline from its service worker;
+//   - the device database is unreadable without its key and, on Windows, opens with the key that
+//     real DPAPI releases for this user.
+// The profile path contains spaces and a non-ASCII character on purpose.
 import assert from 'node:assert/strict';
-import { spawn, execFile } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { createServer } from 'node:http';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
-import { setTimeout as delay } from 'node:timers/promises';
-import { chromium } from '@playwright/test';
+import {
+  baseEnvironment,
+  inspectOfflineDatabase,
+  launchNative,
+  quitNative,
+  startWorkspaceFixture,
+  unwrapWithWindowsDpapi,
+  waitExit,
+} from './desktop-native-fixture.mjs';
 
 const project = fileURLToPath(new URL('..', import.meta.url));
 const packageJson = JSON.parse(readFileSync(join(project, 'package.json'), 'utf8'));
@@ -19,15 +39,13 @@ const platform =
       ? 'windows'
       : process.platform;
 const architecture = process.arch;
+// Windows DPAPI needs no prompt and is per user, so it is always exercised. On macOS the real
+// login Keychain is used only on CI runners, never on a developer's machine.
+const requireKeystore = platform === 'windows' || process.env.CI === 'true';
 let stage = 'preflight';
 let failureStage = null;
-const evidenceFile = join(
-  project,
-  '..',
-  'backend',
-  'evidence',
-  `desktop-runtime-${platform}-${architecture}.json`,
-);
+const evidenceDirectory = join(project, '..', 'backend', 'evidence');
+const evidenceFile = join(evidenceDirectory, `desktop-runtime-${platform}-${architecture}.json`);
 const folder =
   platform === 'macos'
     ? architecture === 'arm64'
@@ -53,7 +71,7 @@ const executable = folder
         : [packageJson.build.productName + '.exe']),
     )
   : null;
-const emit = (passed, errorCode) =>
+const emit = (passed, errorCode, detail) =>
   process.stdout.write(
     JSON.stringify({
       module: 'desktop-build',
@@ -67,29 +85,38 @@ const emit = (passed, errorCode) =>
       passed,
       ...(!passed ? { stage: failureStage ?? stage } : {}),
       ...(errorCode ? { errorCode } : {}),
+      ...(detail ? { detail } : {}),
     }) + '\n',
   );
-const environment = () => {
-  const value = { NODE_ENV: 'development' };
-  for (const name of ['PATH', 'HOME', 'TMPDIR', 'TEMP', 'TMP', 'SYSTEMROOT', 'COMSPEC', 'LANG'])
-    if (process.env[name]) value[name] = process.env[name];
-  return value;
-};
-const listen = (server, port = 0) =>
-  new Promise((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(port, '127.0.0.1', () => {
-      server.off('error', reject);
-      const address = server.address();
-      if (!address || typeof address === 'string') reject(new Error('FIXTURE_PORT_UNAVAILABLE'));
-      else resolve(address.port);
-    });
-  });
-const closeServer = async (server) => {
-  if (!server.listening) return;
-  server.closeAllConnections();
-  await new Promise((resolve) => server.close(resolve));
-};
+
+/** Each refused switch must exit 1 before the app writes anything into its profile. */
+async function refusedSwitches() {
+  const results = [];
+  for (const args of [
+    ['--remote-debugging-port=0'],
+    ['--remote-debugging-pipe'],
+    ['--use-mock-keychain'],
+  ]) {
+    const profile = mkdtempSync(join(tmpdir(), 'pos refused ü-'));
+    try {
+      const app = launchNative(executable, args, {
+        ...baseEnvironment(),
+        POS_DESKTOP_URL: 'http://127.0.0.1:9',
+        POS_DESKTOP_PROFILE_DIR: profile,
+      });
+      const result = await waitExit(app, 20000);
+      if (!result) await quitNative(app);
+      assert.ok(result, `PACKAGE_SWITCH_NOT_REFUSED_${args[0]}`);
+      assert.equal(result.code, 1, `PACKAGE_SWITCH_EXIT_${args[0]}`);
+      const written = readdirSync(profile);
+      assert.deepEqual(written, [], `PACKAGE_SWITCH_WROTE_PROFILE_${args[0]}`);
+      results.push({ switch: args[0].replace(/=.*$/, ''), exitCode: result.code, profileFiles: 0 });
+    } finally {
+      rmSync(profile, { recursive: true, force: true });
+    }
+  }
+  return results;
+}
 
 async function main() {
   assert.equal(process.versions.node.split('.')[0], '24');
@@ -99,220 +126,149 @@ async function main() {
   stage = 'static-artifact-validation';
   await promisify(execFile)(process.execPath, [join(project, 'tools/verify-desktop-package.mjs')], {
     cwd: project,
-    env: environment(),
-    timeout: 15000,
+    env: baseEnvironment(),
+    timeout: 30000,
   });
-  const directory = mkdtempSync(join(tmpdir(), 'pos-packaged-runtime-'));
-  const nonce = randomUUID();
-  let escapeRequests = 0;
-  const escapeServer = createServer((_request, response) => {
-    escapeRequests++;
-    response.end('Untrusted local fixture.');
-  });
-  const html = '<!doctype html><title>Packaged POS fixture</title><h1>Packaged POS fixture</h1>';
-  const worker = `
-self.addEventListener('install', event => event.waitUntil((async () => {
-  const cache = await caches.open('packaged-fixture');
-  await cache.add('/');
-  await self.skipWaiting();
-})()));
-self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
-self.addEventListener('fetch', event => {
-  if (new URL(event.request.url).origin !== self.location.origin) return;
-  event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
-});`;
-  const server = createServer((request, response) => {
-    response.setHeader('Cache-Control', 'no-store');
-    response.setHeader('Content-Security-Policy', "default-src 'self'; object-src 'none'");
-    response.setHeader(
-      'Content-Type',
-      request.url === '/service-worker.js' ? 'text/javascript' : 'text/html',
-    );
-    response.end(request.url === '/service-worker.js' ? worker : html);
-  });
-  let running = null;
-  async function stop() {
-    const current = running;
-    running = null;
-    if (!current) return;
-    await current.page?.close().catch(() => {});
-    await current.browser?.close().catch(() => {});
-    if (current.child.exitCode === null && current.child.signalCode === null) {
-      await Promise.race([current.exited, delay(3000)]);
-      if (current.child.exitCode === null && current.child.signalCode === null) {
-        current.child.kill('SIGTERM');
-        await Promise.race([current.exited, delay(3000)]);
-      }
-      if (current.child.exitCode === null && current.child.signalCode === null) {
-        current.child.kill('SIGKILL');
-        await Promise.race([current.exited, delay(3000)]);
-      }
-      assert.ok(
-        current.child.exitCode !== null || current.child.signalCode !== null,
-        'PACKAGE_TEARDOWN_FAILED',
-      );
-    }
-  }
-  async function launch(origin) {
-    const reservation = createServer();
-    const port = await listen(reservation);
-    await closeServer(reservation);
-    const child = spawn(
-      executable,
-      [
-        '--remote-debugging-address=127.0.0.1',
-        `--remote-debugging-port=${port}`,
-        ...(platform === 'macos' ? ['--use-mock-keychain'] : []),
-      ],
-      {
-        cwd: project,
-        env: { ...environment(), POS_DESKTOP_URL: origin, POS_DESKTOP_PROFILE_DIR: directory },
-        stdio: 'ignore',
-      },
-    );
-    const exited = new Promise((resolve) => {
-      child.once('exit', resolve);
-      child.once('error', resolve);
-    });
-    running = { child, exited, browser: null, page: null };
-    const deadline = Date.now() + 15000;
-    while (
-      !running.browser &&
-      Date.now() < deadline &&
-      child.exitCode === null &&
-      child.signalCode === null
-    ) {
-      try {
-        running.browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, {
-          timeout: 1000,
-        });
-      } catch {
-        await delay(100);
-      }
-    }
-    assert.ok(running.browser, 'PACKAGE_RENDERER_CONNECTION_FAILED');
-    while (!running.page && Date.now() < deadline) {
-      running.page = running.browser
-        .contexts()
-        .flatMap((context) => context.pages())
-        .find((page) => page.url().startsWith(origin));
-      if (!running.page) await delay(100);
-    }
-    assert.ok(running.page, 'PACKAGE_WORKSPACE_NOT_LOADED');
-    running.page.setDefaultTimeout(10000);
-    running.page.setDefaultNavigationTimeout(10000);
-    await running.page
-      .getByRole('heading', { name: 'Packaged POS fixture', exact: true })
-      .waitFor();
-    return running.page;
-  }
+  stage = 'refused-switches';
+  const refused = await refusedSwitches();
+  const profile = mkdtempSync(join(tmpdir(), 'pos packaged runtime ü-'));
+  const fixture = await startWorkspaceFixture();
+  const environment = {
+    ...baseEnvironment(),
+    POS_DESKTOP_URL: fixture.origin,
+    POS_DESKTOP_PROFILE_DIR: profile,
+  };
+  const apps = [];
+  const launch = () => {
+    const app = launchNative(executable, [], environment);
+    apps.push(app);
+    return app;
+  };
+  const quits = [];
+  let database = null;
   try {
-    const port = await listen(server);
-    const escapePort = await listen(escapeServer);
-    const origin = `http://127.0.0.1:${port}`;
     stage = 'initial-native-launch';
-    let page = await launch(origin);
+    let mark = fixture.reports.length;
+    let app = launch();
+    const first = await fixture.waitFor('loaded', mark);
     stage = 'renderer-isolation';
     assert.deepEqual(
-      await page.evaluate(() => ({
-        require: typeof globalThis.require,
-        process: typeof globalThis.process,
-      })),
-      { require: 'undefined', process: 'undefined' },
+      { require: first.require, process: first.process, bridge: first.bridge },
+      { require: 'undefined', process: 'undefined', bridge: 'object' },
     );
-    stage = 'offline-worker-installation';
-    await page.evaluate(async (value) => {
-      let timer;
-      try {
-        await Promise.race([
-          (async () => {
-            localStorage.setItem('packaged-runtime-canary', value);
-            await navigator.serviceWorker.register('/service-worker.js');
-            await navigator.serviceWorker.ready;
-            if (!navigator.serviceWorker.controller)
-              await new Promise((resolve) =>
-                navigator.serviceWorker.addEventListener('controllerchange', resolve, {
-                  once: true,
-                }),
-              );
-          })(),
-          new Promise((_, reject) => {
-            timer = setTimeout(() => reject(new Error('FIXTURE_WORKER_TIMEOUT')), 10000);
-          }),
-        ]);
-      } finally {
-        clearTimeout(timer);
-      }
-    }, nonce);
+    assert.equal(first.canary, null, 'PROFILE_NOT_FRESH');
+    stage = 'offline-worker-and-billing';
+    const ready = await fixture.waitFor('ready', mark, 60000);
+    assert.equal(ready.worker, 'controlling', 'SERVICE_WORKER_NOT_CONTROLLING');
+    assert.equal(ready.canary, fixture.nonce);
+    assert.ok(ready.status, `OFFLINE_BRIDGE_STATUS_${ready.error ?? 'MISSING'}`);
+    if (requireKeystore)
+      assert.equal(
+        ready.status.available,
+        true,
+        `OFFLINE_BILLING_UNAVAILABLE: ${ready.status.unavailableReason}`,
+      );
     stage = 'navigation-and-popup-isolation';
-    await page.evaluate((url) => {
-      window.open(url, '_blank');
-      location.assign(url);
-    }, `http://127.0.0.1:${escapePort}/`);
-    await delay(750);
-    assert.equal(page.url(), origin + '/');
-    assert.equal(escapeRequests, 0);
-    assert.equal(running.browser.contexts().flatMap((context) => context.pages()).length, 1);
+    const stayed = await fixture.waitFor('stayed', mark);
+    assert.equal(stayed.href, fixture.origin + '/');
+    assert.equal(fixture.escapeRequests, 0);
+    stage = 'single-instance';
+    const second = launch();
+    const secondResult = await waitExit(second, 20000);
+    assert.ok(secondResult, 'SECOND_INSTANCE_DID_NOT_EXIT');
+    assert.equal(app.child.exitCode, null, 'FIRST_INSTANCE_EXITED');
+    assert.equal(
+      fixture.reports.slice(mark).filter((item) => item.kind === 'loaded').length,
+      1,
+      'SECOND_INSTANCE_OPENED_A_WINDOW',
+    );
     stage = 'initial-native-shutdown';
-    await stop();
+    quits.push(await quitNative(app));
     stage = 'native-restart';
-    page = await launch(origin);
+    mark = fixture.reports.length;
+    app = launch();
     stage = 'profile-retention';
-    assert.equal(await page.evaluate(() => localStorage.getItem('packaged-runtime-canary')), nonce);
-    await closeServer(server);
+    const restarted = await fixture.waitFor('ready', mark, 60000);
+    assert.equal(restarted.canary, fixture.nonce);
+    if (requireKeystore) assert.equal(restarted.status?.available, true);
+    quits.push(await quitNative(app));
     stage = 'offline-renderer-reload';
-    const response = await page.reload();
-    assert.equal(response?.fromServiceWorker(), true);
-    await page.getByRole('heading', { name: 'Packaged POS fixture', exact: true }).waitFor();
-    assert.equal(await page.evaluate(() => localStorage.getItem('packaged-runtime-canary')), nonce);
+    await fixture.takeOffline();
+    const before = fixture.workspaceRequests;
+    mark = fixture.reports.length;
+    app = launch();
+    const offline = await fixture.waitFor('loaded', mark, 60000);
+    assert.equal(offline.canary, fixture.nonce);
+    assert.equal(offline.controlled, true, 'OFFLINE_SHELL_NOT_FROM_SERVICE_WORKER');
+    const offlineReady = await fixture.waitFor('ready', mark, 60000);
+    assert.equal(fixture.workspaceRequests, before);
+    if (requireKeystore) assert.equal(offlineReady.status?.available, true);
+    quits.push(await quitNative(app));
+    assert.ok(
+      quits.every((quit) => quit.graceful),
+      'PACKAGE_DID_NOT_QUIT_GRACEFULLY',
+    );
+    stage = 'encrypted-offline-database';
+    if (requireKeystore) {
+      const wrapped = readFileSync(join(profile, 'offline-billing.key'));
+      const key = platform === 'windows' ? unwrapWithWindowsDpapi(profile, wrapped) : null;
+      database = inspectOfflineDatabase(profile, key);
+      if (key) {
+        assert.ok(database.opened.tables.includes('sales'), 'OFFLINE_DB_SCHEMA_MISSING');
+        assert.match(database.opened.deviceId ?? '', /^[a-f0-9]{32}$/);
+      }
+    }
     stage = 'evidence-publication';
-    const artifactPlatform = platform;
     const artifact = JSON.parse(
       readFileSync(
-        join(
-          project,
-          '..',
-          'backend',
-          'evidence',
-          `desktop-package-${artifactPlatform}-${architecture}.json`,
-        ),
+        join(evidenceDirectory, `desktop-package-${platform}-${architecture}.json`),
         'utf8',
       ),
     );
     writeFileSync(
-      join(
-        project,
-        '..',
-        'backend',
-        'evidence',
-        `desktop-runtime-${artifactPlatform}-${architecture}.json`,
-      ),
+      evidenceFile,
       JSON.stringify(
         {
           recordedAt: new Date().toISOString(),
           scope: 'packaged-native-runtime-with-controlled-local-fixture',
-          platform: artifactPlatform,
+          platform,
           architecture,
-          keychain: platform === 'macos' ? 'isolated-test-mock' : 'operating-system-default',
+          keychain: requireKeystore
+            ? platform === 'windows'
+              ? 'windows-dpapi-current-user'
+              : 'macos-login-keychain-ci-runner'
+            : 'not-exercised-on-developer-machine',
           executableSha256: artifact.executableSha256,
           asarSha256: artifact.asarSha256,
+          refusedSwitches: refused,
+          offlineDatabase: database
+            ? {
+                plaintextHeader: false,
+                opensWithoutKey: false,
+                opensWithWrongKey: false,
+                wrappedKeyPrefix: database.wrappedKeyPrefix,
+                opensWithOsReleasedKey: database.opened ? true : null,
+                tables: database.opened?.tables.length ?? null,
+              }
+            : null,
           checks: [
             'packaged-entry-load',
+            'debugging-and-mock-keychain-switches-refused',
             'renderer-node-access-absent',
             'external-navigation-and-popups-blocked',
+            ...(requireKeystore ? ['offline-billing-available-with-os-keystore'] : []),
+            'second-instance-exits',
+            'graceful-native-quit',
             'profile-keeps-local-state-across-native-restart',
             'service-worker-offline-reload',
+            ...(database?.opened ? ['offline-database-opens-only-with-dpapi-released-key'] : []),
           ],
+          profilePath: 'temporary directory with spaces and a non-ASCII character',
           passed: true,
           releaseCertified: false,
           limitations: [
             'Uses the explicit development-only loopback origin with a synthetic page; does not certify production TLS, authentication, signatures, payment integrations or physical printers.',
-            'Chromium CDP is enabled only on this owned fixture process; packaged Node Inspector and RunAsNode fuses remain disabled.',
-            ...(platform === 'macos'
-              ? [
-                  'Uses Chromium test-keychain isolation for the temporary unsigned fixture; signed production Keychain behavior requires separate native acceptance.',
-                ]
-              : []),
+            'The packaged app is observed through its own page and the file system; no debugging port is opened.',
           ],
         },
         null,
@@ -323,30 +279,15 @@ self.addEventListener('fetch', event => {
     failureStage = stage;
     throw error;
   } finally {
-    const cleanup = await Promise.allSettled([
-      stop(),
-      closeServer(server),
-      closeServer(escapeServer),
-    ]);
-    if (cleanup.some((result) => result.status === 'rejected')) {
-      failureStage = 'native-cleanup';
-      rmSync(
-        join(
-          project,
-          '..',
-          'backend',
-          'evidence',
-          `desktop-runtime-${platform}-${architecture}.json`,
-        ),
-        { force: true },
-      );
-      throw new Error('PACKAGE_TEARDOWN_FAILED');
-    }
-    rmSync(directory, { recursive: true, force: true });
+    await Promise.allSettled(apps.map((app) => quitNative(app)));
+    await fixture.close();
+    rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
   }
   emit(true);
 }
-main().catch(() => {
-  emit(false, 'DESKTOP_PACKAGE_RUNTIME_FAILED');
+main().catch((error) => {
+  // Assertion codes only: no paths, keys or page content.
+  const code = error instanceof Error ? String(error.message).split(/[\n:]/)[0].slice(0, 120) : '';
+  emit(false, 'DESKTOP_PACKAGE_RUNTIME_FAILED', code);
   process.exitCode = 1;
 });

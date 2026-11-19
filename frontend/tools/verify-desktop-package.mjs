@@ -96,6 +96,17 @@ async function verify(platform, architecture, folder) {
     const integrity = info.ElectronAsarIntegrity?.['Resources/app.asar'];
     embeddedHashMatches = integrity?.algorithm === 'SHA256' && integrity.hash === headerHash;
     if (!embeddedHashMatches) throw new Error('DESKTOP_PACKAGE_INTEGRITY_METADATA');
+  } else {
+    // Windows: electron-builder embeds the ASAR header hash as the PE resource
+    // INTEGRITY/ELECTRONASAR (JSON, stored verbatim in .rsrc); the fuse makes Electron enforce it.
+    const marker = JSON.stringify([
+      { file: 'resources\\app.asar', alg: 'SHA256', value: headerHash },
+    ]);
+    const binary = readFileSync(executable);
+    embeddedHashMatches =
+      binary.includes(Buffer.from(marker)) ||
+      binary.includes(Buffer.from(marker.replace('"SHA256"', '"sha256"')));
+    if (!embeddedHashMatches) throw new Error('DESKTOP_PACKAGE_INTEGRITY_METADATA');
   }
   const report = {
     version: 1,
@@ -121,7 +132,7 @@ async function verify(platform, architecture, folder) {
       ...(mac
         ? []
         : [
-            'Windows PE integrity-resource validation and signed runtime behavior require the native release checks.',
+            'Windows Authenticode signatures and SmartScreen reputation are not covered (unsigned review build).',
           ]),
     ],
   };

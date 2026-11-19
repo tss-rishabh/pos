@@ -5,7 +5,11 @@ import { join } from 'node:path';
 import { createServer, createConnection } from 'node:net';
 import { setTimeout } from 'node:timers/promises';
 
-/** Own a separate loopback Redis process. Never reuse or flush a developer's Redis. */
+/**
+ * Own a separate loopback Redis process. Never reuse or flush a developer's Redis.
+ * E2E_REDIS_SERVER names a Redis-7-compatible server binary that accepts the same flags (for
+ * example Memurai on Windows, which has no native redis-server); the default is redis-server.
+ */
 export async function privateRedisFixture() {
   const directory = await mkdtemp(join(tmpdir(), 'pos-handoff-redis-')),
     server = createServer();
@@ -22,7 +26,7 @@ export async function privateRedisFixture() {
     });
   });
   const child: ChildProcess = spawn(
-    'redis-server',
+    process.env.E2E_REDIS_SERVER || 'redis-server',
     [
       '--bind',
       '127.0.0.1',
