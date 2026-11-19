@@ -2,7 +2,6 @@ import { inflateRawSync } from 'node:zlib';
 import { chromium, expect } from '@playwright/test';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { randomUUID } from 'node:crypto';
 
 /** Row and first-row cell counts of the first worksheet's sheetData. */
 function worksheetShape(workbook) {
@@ -77,31 +76,6 @@ const products = Array.from({ length: 60 }, (_, index) => ({
   exclusive_price: 80,
   store_names: 'Fixture Alpha,Fixture Beta',
 }));
-const maintenance = new Map();
-function maintenanceCommand(id, kind, metadata, productIds, state = 'SUCCEEDED') {
-  const receipt = {
-    id,
-    kind,
-    state,
-    metadata,
-    localApplied: kind === 'product-troubleshoot',
-    createdAt: '2026-11-16 08:00:00.000',
-    updatedAt: '2026-11-16 08:00:00.000',
-    errorCode: state === 'UNCERTAIN' ? 'CATALOG_DELIVERY_OUTCOME_UNKNOWN' : null,
-    deliveries: [
-      {
-        id: randomUUID(),
-        ordinal: 0,
-        state: state === 'UNCERTAIN' ? 'UNCERTAIN' : 'DELIVERED',
-        errorCode: state === 'UNCERTAIN' ? 'CATALOG_DELIVERY_OUTCOME_UNKNOWN' : null,
-        updatedAt: '2026-11-16 08:00:00.000',
-        productIds,
-      },
-    ],
-  };
-  maintenance.set(id, receipt);
-  return receipt;
-}
 await page.route('**/*', async (route) => {
   const request = route.request(),
     url = new URL(request.url());
@@ -125,102 +99,27 @@ await page.route('**/*', async (route) => {
     });
   if (url.pathname === '/api/v1/catalog/inventory-pulls') {
     expect(request.headers()['x-operator-id']).toBe('1');
-    const { commandId, input } = request.postDataJSON();
-    expect(commandId).toMatch(/^[a-f0-9-]{36}$/);
+    const { input } = request.postDataJSON();
     if (input.mode === 'manual') expect(input.skus).toBe('20, 21, 20');
     else expect(input).toEqual({ mode: 'csv', filename: 'fixture-skus.csv', csv: 'sku\n20\n21\n' });
-    return json(
-      maintenanceCommand(
-        commandId,
-        'inventory-pull',
-        {
-          requestedCount: input.mode === 'manual' ? 3 : 2,
-          uniqueRequestedCount: 2,
-          matchedCount: 2,
-          mode: input.mode,
-          parentRowsChanged: 0,
-          imageReset: false,
-          barcodeRowsChanged: 0,
-        },
-        ['20', '21'],
-        input.mode === 'manual' ? 'UNCERTAIN' : 'SUCCEEDED',
-      ),
-    );
-  }
-  if (url.pathname.endsWith('/troubleshooting/preview')) {
-    expect(request.headers()['x-operator-id']).toBe('1');
-    expect(request.postDataJSON()).toEqual({});
     return json({
-      productId: '20',
-      name: 'Fixture product detail',
-      type: '1',
-      planHash: 'a'.repeat(64),
-      parentVisibility: [{ id: '10', storeId: '1', availableBefore: false, listedBefore: false }],
-      imageReset: true,
-      imageProductId: '19',
-      barcodeChanges: [{ id: '9007199254740993', productId: '21', from: '12345', to: '123450123' }],
-      syncProductIds: ['20', '21'],
+      status: 'success',
+      message:
+        input.mode === 'manual'
+          ? 'Sku(s) registered successfully. Please check inventory after sometime.'
+          : 'All SKUs processed successfully.Data may take some time to reflect.',
+      productIds: ['20', '21'],
     });
   }
   if (url.pathname.endsWith('/troubleshooting')) {
     expect(request.headers()['x-operator-id']).toBe('1');
-    const body = request.postDataJSON();
-    expect(body.expectedPlanHash).toBe('a'.repeat(64));
-    return json(
-      maintenanceCommand(
-        body.commandId,
-        'product-troubleshoot',
-        {
-          requestedCount: 1,
-          uniqueRequestedCount: 1,
-          matchedCount: 1,
-          productId: '20',
-          parentRowsChanged: 1,
-          imageReset: true,
-          barcodeRowsChanged: 1,
-        },
-        ['20', '21'],
-      ),
-    );
-  }
-  if (url.pathname === '/api/v1/catalog/maintenance-commands')
+    expect(request.postDataJSON()).toEqual({});
     return json({
-      reader: 'primary',
-      data: [...maintenance.values()]
-        .filter((row) => row.state === 'UNCERTAIN')
-        .map((row) => ({
-          id: row.id,
-          kind: row.kind,
-          state: row.state,
-          metadata: row.metadata,
-          localApplied: row.localApplied,
-          createdAt: row.createdAt,
-          updatedAt: row.updatedAt,
-          errorCode: row.errorCode,
-          ownerId: '1',
-        })),
+      status: 200,
+      message: 'Troubleshooting started for the Product, Just wait for a few seconds',
     });
-  const commandMatch =
-    /^\/api\/v1\/catalog\/maintenance-commands\/([a-f0-9-]{36})(?:\/deliveries\/([a-f0-9-]{36})\/reconciliation)?$/.exec(
-      url.pathname,
-    );
-  if (commandMatch) {
-    const receipt = maintenance.get(commandMatch[1]);
-    expect(receipt).toBeDefined();
-    if (commandMatch[2]) {
-      const body = request.postDataJSON();
-      expect(request.headers()['x-operator-id']).toBe('1');
-      expect(body.outcome).toBe('delivered');
-      expect(body.reconciliationId).toMatch(/^[a-f0-9-]{36}$/);
-      expect(receipt.deliveries[0].id).toBe(commandMatch[2]);
-      receipt.state = 'SUCCEEDED';
-      receipt.errorCode = null;
-      receipt.deliveries[0].state = 'DELIVERED';
-      receipt.deliveries[0].errorCode = null;
-      receipt.deliveries[0].updatedAt = '2026-11-16 08:01:00.000';
-    }
-    return json(receipt);
   }
+
   if (url.pathname === '/api/v1/catalog/stores')
     return json({ data: stores, selectedStoreIds: ['1'], stockManagementPath: '/inventory' });
   if (url.pathname === '/api/v1/catalog/products/search') {
@@ -406,16 +305,10 @@ try {
       page.getByRole('checkbox', { name: 'Available', exact: true }).first(),
     ).not.toBeChecked();
   });
-  await check('reviewed source repair plan and committed repair receipt', async () => {
-    await page.getByRole('button', { name: 'Inspect product', exact: true }).click();
-    await expect(page.getByText('Stock quantities are preserved.', { exact: false })).toBeVisible();
-    await expect(page.getByRole('cell', { name: '9007199254740993', exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Apply reviewed repair', exact: true }).click();
+  await check('legacy troubleshoot answers with the constant source message', async () => {
+    await page.getByRole('button', { name: 'Troubleshoot product', exact: true }).click();
     await expect(
-      page.getByRole('status').filter({ hasText: 'Acknowledged by service' }),
-    ).toBeVisible();
-    await expect(
-      page.getByText(/Local repair committed: 1 parent stock visibility row/),
+      page.getByRole('status').filter({ hasText: 'Troubleshooting started for the Product' }),
     ).toBeVisible();
     expect(stock).toBe(7);
   });
@@ -432,37 +325,23 @@ try {
     expect(file.suggestedFilename()).toBe('inventory-pull-sample.csv');
     expect(await readFile(await file.path(), 'utf8')).toBe('sku\n');
   });
-  await check(
-    'manual pull retains uncertain delivery until explicit service confirmation',
-    async () => {
-      await page.getByRole('textbox', { name: /SKU IDs/ }).fill('20, 21, 20');
-      await page.getByRole('button', { name: 'Request inventory pull' }).click();
-      await expect(
-        page.getByRole('status').filter({ hasText: 'Outcome needs confirmation' }),
-      ).toBeVisible();
-      await expect(
-        page.getByRole('button', { name: 'Confirm accepted', exact: true }),
-      ).toBeDisabled();
-      await page.getByRole('checkbox', { name: 'I checked the outcome with the service.' }).check();
-      await page.getByRole('button', { name: 'Confirm accepted', exact: true }).click();
-      await expect(
-        page.getByRole('status').filter({ hasText: 'Acknowledged by service' }),
-      ).toBeVisible();
-    },
-  );
-  await check('SKU CSV upload uses distinct source CSV mode and captured actor', async () => {
-    await page.getByRole('button', { name: 'Upload SKU CSV' }).click();
-    await page.getByLabel('CSV file', { exact: false }).setInputFiles({
+  await check('manual pull shows the source success message', async () => {
+    await page.getByRole('textbox', { name: /Sku Ids/ }).fill('20, 21, 20');
+    await page.getByRole('button', { name: 'Submit' }).click();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Sku(s) registered successfully.' }),
+    ).toBeVisible();
+  });
+  await check('SKU CSV upload uses the source CSV mode', async () => {
+    await page.getByRole('button', { name: 'Inventory Sync in Bulk' }).click();
+    await page.getByLabel('File', { exact: false }).setInputFiles({
       name: 'fixture-skus.csv',
       mimeType: 'text/csv',
       buffer: Buffer.from('sku\n20\n21\n'),
     });
-    await page.getByRole('button', { name: 'Request inventory pull' }).click();
+    await page.getByRole('button', { name: 'Submit' }).click();
     await expect(
-      page.getByText('2 SKU(s) selected from 2 submitted row(s).', { exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('status').filter({ hasText: 'Acknowledged by service' }),
+      page.getByRole('status').filter({ hasText: 'All SKUs processed successfully.' }),
     ).toBeVisible();
   });
   await page.screenshot({
