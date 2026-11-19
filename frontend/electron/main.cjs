@@ -6,6 +6,14 @@ const { readWorkspaceConfiguration } = require('./workspace-config.cjs');
 // shell/session on desktop. Production serves frontend + /api on one HTTPS origin.
 if (process.env.NODE_ENV === 'development' && process.env.POS_DESKTOP_PROFILE_DIR)
   app.setPath('userData', require('node:path').resolve(process.env.POS_DESKTOP_PROFILE_DIR));
+// Packaged builds refuse Chromium debugging and mock-keychain switches: the fuses block Node
+// inspection only, and a remote-debugging port would let any local process drive the renderer
+// (and its offline billing bridge); a mock keychain would wrap the offline database key with a
+// fixed, publicly known secret instead of the OS keystore.
+const refusedSwitches = ['remote-debugging-port', 'remote-debugging-pipe', 'use-mock-keychain'];
+if (app.isPackaged && refusedSwitches.some((name) => app.commandLine.hasSwitch(name))) {
+  app.exit(1);
+}
 app.enableSandbox();
 if (process.platform === 'win32') app.setAppUserModelId('com.thesouledstore.pos');
 if (!app.requestSingleInstanceLock()) app.quit();

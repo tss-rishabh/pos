@@ -63,6 +63,8 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
   const deviceShort = deviceShortCode(deps.deviceId);
   let clock: ClockSession | null = null,
     reachable = false,
+    /** True once the store service has been probed (or the OS reported no network). */
+    probed = false,
     syncing = false,
     lastSyncAt: number | null = null,
     lastSyncError: string | null = null,
@@ -100,13 +102,19 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
       return deny('Your session on this device has ended. Sign in online to continue.');
     if (!(await deps.hasSessionCookie()))
       return deny('You are signed out on this device. Sign in online to continue.');
-    if (!operator.checkIn || !operator.checkIn.counterId || operator.checkIn.expiresAt <= now)
-      return deny('Check in to a store counter online before billing offline.');
+    if (!operator.checkIn || operator.checkIn.expiresAt <= now)
+      return deny('Check in to your store online before billing offline.');
+    // Legacy check-ins carry a store only (core/views.py:2406-2425); the counter is the
+    // workspace selection, limited here to the checked-in store's cached active counters.
+    if (storeId && storeId !== operator.checkIn.storeId)
+      return deny('Offline billing is limited to the store you checked in to.');
+    if (!store.counters(operator.checkIn.storeId).length)
+      return deny('Connect once after checking in so this device can cache your store counters.');
     if (
-      (storeId && storeId !== operator.checkIn.storeId) ||
-      (counterId && counterId !== operator.checkIn.counterId)
+      counterId &&
+      !store.counters(operator.checkIn.storeId).some((counter) => counter.id === counterId)
     )
-      return deny('Offline billing is limited to the store counter you checked in to.');
+      return deny('Select a counter of the store you checked in to.');
     return { operator, eligible: true, message: 'Ready to bill offline.' };
   }
   function online() {
@@ -121,6 +129,7 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
       available: true,
       unavailableReason: null,
       online: online(),
+      reachabilityKnown: probed,
       lastContactAt: lastContact === null ? null : Number(lastContact),
       operator: access.operator
         ? {
@@ -133,6 +142,7 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
             message: access.message,
           }
         : null,
+      counters: access.operator?.checkIn ? store.counters(access.operator.checkIn.storeId) : [],
       limits,
       catalog: {
         storeId: catalog?.storeId ?? null,
@@ -191,7 +201,11 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
         if (!result.nextCursor) break;
         after = result.nextCursor;
       }
-      store.transaction(() => store.replaceCatalog(storeId, products, deps.now()));
+      const salespeople = await server.salespeople(traceId, operator.id, storeId);
+      store.transaction(() => {
+        store.replaceCatalog(storeId, products, deps.now());
+        store.replaceSalespeople(storeId, salespeople, deps.now());
+      });
       deps.log({
         eventId: 'offline.catalog.refreshed',
         traceId,
@@ -210,6 +224,10 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
    * check-in and limits, then upload queued sales oldest first. */
   async function heartbeat(traceId: string, options: { catalog?: boolean } = {}) {
     if (!deps.netOnline()) {
+      if (!probed) {
+        probed = true;
+        deps.changed();
+      }
       if (reachable) {
         reachable = false;
         deps.changed();
@@ -218,7 +236,10 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
     }
     const wasReachable = reachable;
     reachable = await server.reachable(traceId);
-    if (reachable !== wasReachable) deps.changed();
+    if (reachable !== wasReachable || !probed) {
+      probed = true;
+      deps.changed();
+    }
     if (!reachable) return;
     const session = await server.session(traceId).catch(() => undefined);
     if (session === undefined) return;
@@ -268,13 +289,16 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
     deps.changed();
   }
 
-  function uploadBody(sale: QueueEntry): OfflineSaleUpload {
+  function uploadBody(sale: QueueEntry & { salespersonId: string }): OfflineSaleUpload {
     const resolution =
       sale.resolution && sale.resolution.action !== 'void'
         ? {
             action: sale.resolution.action,
             managerId: sale.resolution.managerId,
             reason: sale.resolution.reason,
+            ...(sale.resolution.action === 'link-order' && sale.resolution.orderId
+              ? { orderId: sale.resolution.orderId }
+              : {}),
           }
         : null;
     return {
@@ -288,6 +312,7 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
         quantity: line.quantity,
         unitPrice: formatMoney(line.unitPricePaise),
       })),
+      salespersonId: sale.salespersonId,
       payable: formatMoney(sale.payablePaise),
       tender:
         sale.tender.mode === 'cash'
@@ -312,13 +337,26 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
           isManager(operator) ||
           sale.resolution?.managerId === operator.id;
         if (!uploader) continue;
+        const salespersonId = sale.salespersonId;
+        if (!salespersonId) {
+          store.transaction(() =>
+            store.markConflict(
+              sale.saleId,
+              'REJECTED',
+              'This sale has no salesperson. A manager must review it.',
+              deps.now(),
+            ),
+          );
+          deps.changed();
+          continue;
+        }
         store.transaction(() => store.markSyncing(sale.saleId, deps.now()));
         const outcome = await server.upload(
           traceId,
           operator.id,
           sale.storeId,
           sale.counterId,
-          uploadBody(sale),
+          uploadBody({ ...sale, salespersonId }),
         );
         const now = deps.now();
         if (outcome.kind === 'synced') {
@@ -376,6 +414,11 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
       if (!access.eligible) throw new OfflineBillingError('OFFLINE_NOT_ELIGIBLE', access.message);
       return store.search(input.storeId, input.query, input.limit);
     },
+    async salespeople(input: IpcParsedRequest<'offline:salespeople:list'>) {
+      const access = await eligibility(input.storeId);
+      if (!access.eligible) throw new OfflineBillingError('OFFLINE_NOT_ELIGIBLE', access.message);
+      return store.salespeople(input.storeId);
+    },
     async byBarcode(input: IpcParsedRequest<'offline:catalog:barcode'>) {
       const access = await eligibility(input.storeId);
       if (!access.eligible) throw new OfflineBillingError('OFFLINE_NOT_ELIGIBLE', access.message);
@@ -401,6 +444,11 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
       if (!access.eligible || !access.operator)
         throw new OfflineBillingError('OFFLINE_NOT_ELIGIBLE', access.message);
       const operator = access.operator;
+      const salesperson = store
+        .salespeople(input.storeId)
+        .find((person) => person.id === input.salespersonId);
+      if (!salesperson)
+        throw new OfflineBillingError('SALESPERSON_REQUIRED', 'Please Select The Salesperson.');
       tick();
       const created = store.transaction(() => {
         const limits = evaluateLimits(
@@ -455,6 +503,7 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
           counterId: input.counterId,
           operatorId: operator.id,
           operatorName: operator.name,
+          salespersonId: salesperson.id,
           createdAt: deps.now(),
           ...totals,
           lines,
@@ -501,6 +550,17 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
           'MANAGER_REQUIRED',
           'A store manager must be signed in on this device to resolve this sale.',
         );
+      const unknown = sale.conflict?.code === 'OUTCOME_UNKNOWN';
+      if (
+        (input.action === 'link-order' || input.action === 'recreate') !== unknown &&
+        input.action !== 'void'
+      )
+        throw new OfflineBillingError(
+          'RESOLUTION_NOT_ALLOWED',
+          unknown
+            ? 'Check Orders, then link the order you found or confirm that no order exists.'
+            : 'Linking or recreating an order applies only to an unknown sync outcome.',
+        );
       if (input.tender?.mode === 'cash' && input.tender.receivedPaise < sale.payablePaise)
         throw new OfflineBillingError(
           'INSUFFICIENT_CASH',
@@ -515,6 +575,7 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
           managerId: manager.id,
           reason: input.reason,
           resolvedAt,
+          ...(input.action === 'link-order' && input.orderId ? { orderId: input.orderId } : {}),
         });
       });
       deps.log({

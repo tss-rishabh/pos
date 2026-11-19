@@ -40,6 +40,7 @@ const upload = (overrides: Partial<OfflineSaleUpload> = {}): OfflineSaleUpload =
     billedBy: '77',
     billedAt,
     lines: [{ productId: '1001', quantity: 2, unitPrice: '499.50' }],
+    salespersonId: '4401',
     payable: '999.00',
     tender: { mode: 'cash', received: '1000.00' },
     resolution: null,
@@ -84,6 +85,18 @@ function harness(
       });
     }),
     tenderReferenceExists: vi.fn(async () => options.tenderFound ?? false),
+    linkCandidate: vi.fn(async (orderId: string) => {
+      const order = orders.get(orderId);
+      if (!order) return null;
+      return {
+        order: { ...order },
+        createdAt: '2026-11-19 15:00:00',
+        lines: [{ productId: '1001', quantity: 2 }],
+        offlineComments: comments
+          .filter((item) => item.orderId === orderId)
+          .map((item) => item.comment),
+      };
+    }),
   };
   const locks = new Map<string, string>(),
     records = new Map<string, SaleRecord>();
@@ -108,6 +121,7 @@ function harness(
       version: number;
       phase: string;
       orderId: string | null;
+      salespersonId: string | null;
       items: Map<string, number>;
       quote: Record<string, unknown> | null;
     }
@@ -119,6 +133,7 @@ function harness(
       version: s.version,
       phase: s.phase,
       orderId: s.orderId,
+      salespersonId: s.salespersonId,
       customerId: null,
       cart: {
         products: { items: [...s.items].map(([prod_id, quantity]) => ({ prod_id, quantity })) },
@@ -139,6 +154,7 @@ function harness(
         version: 0,
         phase: 'open',
         orderId: null,
+        salespersonId: null,
         items: new Map(),
         quote: null,
       });
@@ -153,6 +169,12 @@ function harness(
         return ok(id);
       },
     ),
+    salesperson: vi.fn(async (_user, _store, id: string, _input, salespersonId: string) => {
+      const s = sessions.get(id)!;
+      s.salespersonId = salespersonId;
+      s.version++;
+      return ok(id);
+    }),
     quote: vi.fn(async (_user, _store, id: string) => {
       const s = sessions.get(id)!;
       s.quote = { payable: options.payable ?? '999.00' };
@@ -335,6 +357,95 @@ describe('offline sale sync', () => {
     expect(result).toMatchObject({ status: 'created', orderId: '5001' });
     expect(h.checkout.submit).toHaveBeenCalledTimes(1);
     expect(h.comments).toHaveLength(1);
+  });
+
+  it('lets a manager link the order found in Orders, verifying it matches the sale', async () => {
+    const h = harness({
+      submit: async () => {
+        throw new AppError(502, 'CHECKOUT_OUTCOME_UNCERTAIN', 'network');
+      },
+    });
+    await expect(h.service.sync(cashier, '12', '3', upload())).rejects.toMatchObject({
+      code: 'OFFLINE_CONFLICT_OUTCOME_UNKNOWN',
+    });
+    const linked = (orderId: string) =>
+      upload({
+        resolution: { action: 'link-order', managerId: '5', reason: 'Found in Orders', orderId },
+      });
+    await expect(h.service.sync(manager, '12', '3', linked('9999'))).rejects.toMatchObject({
+      code: 'OFFLINE_CONFLICT_OUTCOME_UNKNOWN',
+    });
+    const result = await h.service.sync(manager, '12', '3', linked('5001'));
+    expect(result).toMatchObject({ status: 'existing', orderId: '5001' });
+    expect(h.checkout.submit).toHaveBeenCalledTimes(1);
+    expect(h.comments).toHaveLength(1);
+  });
+
+  it('creates the order once more only when a manager confirms that none exists', async () => {
+    let failures = 1;
+    const h = harness({
+      submit: async () => {
+        if (failures-- > 0) throw new AppError(502, 'CHECKOUT_OUTCOME_UNCERTAIN', 'network');
+        return { status: 'succeeded', state: {}, result: { orderId: '5002', invoice: null } };
+      },
+    });
+    await expect(h.service.sync(manager, '12', '3', upload())).rejects.toMatchObject({
+      code: 'OFFLINE_CONFLICT_OUTCOME_UNKNOWN',
+    });
+    // The submitting checkout knows no order; plain accept still never resubmits.
+    const record = h.records.get(reference),
+      read = h.checkout.read;
+    const submitted = record?.state === 'in-flight' ? record.checkoutId : null;
+    h.checkout.read = vi.fn(async (user: Principal, store: string, id: string) =>
+      id === submitted
+        ? {
+            id,
+            version: 3,
+            phase: 'uncertain',
+            orderId: null,
+            customerId: null,
+            cart: null,
+            quote: null,
+          }
+        : read(user, store, id),
+    );
+    await expect(
+      h.service.sync(
+        manager,
+        '12',
+        '3',
+        upload({ resolution: { action: 'accept', managerId: '5', reason: 'Retry please' } }),
+      ),
+    ).rejects.toMatchObject({ code: 'OFFLINE_CONFLICT_OUTCOME_UNKNOWN' });
+    expect(h.checkout.submit).toHaveBeenCalledTimes(1);
+    const result = await h.service.sync(
+      manager,
+      '12',
+      '3',
+      upload({ resolution: { action: 'recreate', managerId: '5', reason: 'No order in Orders' } }),
+    );
+    expect(result).toMatchObject({ status: 'created', orderId: '5002' });
+    expect(h.checkout.submit).toHaveBeenCalledTimes(2);
+  });
+
+  it('assigns the chosen salesperson and reports pre-dispatch refusals as definite conflicts', async () => {
+    const h = harness({
+      submit: async () => {
+        throw new AppError(422, 'SALESPERSON_REQUIRED', 'Please Select The Salesperson.');
+      },
+    });
+    await expect(h.service.sync(cashier, '12', '3', upload())).rejects.toMatchObject({
+      code: 'OFFLINE_CONFLICT_REJECTED',
+      message: 'Please Select The Salesperson.',
+    });
+    expect(h.checkout.salesperson).toHaveBeenCalledWith(
+      cashier,
+      '12',
+      expect.any(String),
+      expect.objectContaining({ expectedVersion: 1 }),
+      '4401',
+    );
+    expect(h.records.has(reference)).toBe(false);
   });
 
   it('refuses concurrent uploads of the same reference with a retryable lock error', async () => {

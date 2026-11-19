@@ -8,6 +8,7 @@ const channels = new Set([
   'offline:catalog:search',
   'offline:catalog:barcode',
   'offline:catalog:refresh',
+  'offline:salespeople:list',
   'offline:sale:create',
   'offline:sale:list',
   'offline:sale:reprint',

@@ -56,6 +56,15 @@ const productPageSchema = z.object({
   ),
   nextCursor: id.nullable(),
 });
+const salespersonId = z
+  .string()
+  .regex(/^[1-9]\d{0,9}$/)
+  .refine((value) => BigInt(value) <= 2147483647n);
+const salespeoplePageSchema = z.object({
+  data: z.array(z.object({ id: salespersonId, name: z.string().max(500) })).max(100),
+  nextCursor: salespersonId.nullable(),
+});
+const MAX_SALESPEOPLE_PAGES = 50;
 const listSchema = z.object({ data: z.array(z.object({ id, name: z.string().max(300) })) });
 
 export type ServerSession = z.infer<typeof sessionSchema>;
@@ -135,6 +144,33 @@ export function serverApi(http: HttpClient) {
         traceId,
       });
       return response.status === 200 ? listSchema.parse(response.body).data : [];
+    },
+    /** Active checkout salespeople of the store (the same directory the counter uses). */
+    async salespeople(traceId: string, operatorId: string, storeId: string) {
+      const people: { id: string; name: string }[] = [];
+      let after = '0';
+      for (let page = 0; page < MAX_SALESPEOPLE_PAGES; page++) {
+        const query = new URLSearchParams({
+          purpose: 'checkout',
+          active: 'true',
+          after,
+          limit: '100',
+        });
+        const response = await http.request({
+          method: 'GET',
+          path: `/api/v1/stores/${storeId}/salespeople?${query.toString()}`,
+          traceId,
+          operatorId,
+        });
+        if (response.status !== 200) throw new NetworkUnavailableError();
+        const result = salespeoplePageSchema.parse(response.body);
+        people.push(
+          ...result.data.map((person) => ({ id: person.id, name: person.name.slice(0, 200) })),
+        );
+        if (!result.nextCursor || BigInt(result.nextCursor) <= BigInt(after)) break;
+        after = result.nextCursor;
+      }
+      return people;
     },
     async catalogPage(traceId: string, storeId: string, after: string) {
       const query = new URLSearchParams({ limit: '100', after, includeOutOfStock: 'false' });

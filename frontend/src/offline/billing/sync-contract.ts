@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { identifier, provisionalReferenceSchema, tenderReference } from './contracts';
+import {
+  identifier,
+  provisionalReferenceSchema,
+  salespersonIdSchema,
+  tenderReference,
+} from './contracts';
 
 /** Device → backend upload contract for POST
  * /api/v1/stores/:storeId/counters/:counterId/offline-sales. The backend
@@ -24,6 +29,7 @@ export const offlineSaleUploadSchema = z
       )
       .min(1)
       .max(100),
+    salespersonId: salespersonIdSchema,
     payable: money,
     tender: z.discriminatedUnion('mode', [
       z.object({ mode: z.literal('cash'), received: money }).strict(),
@@ -32,9 +38,10 @@ export const offlineSaleUploadSchema = z
     ]),
     resolution: z
       .object({
-        action: z.enum(['accept', 'correct-tender']),
+        action: z.enum(['accept', 'correct-tender', 'link-order', 'recreate']),
         managerId: identifier,
         reason: z.string().min(5).max(200),
+        orderId: identifier.optional(),
       })
       .strict()
       .nullable(),

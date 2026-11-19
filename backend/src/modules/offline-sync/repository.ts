@@ -3,6 +3,7 @@ import { Temporal } from '@js-temporal/polyfill';
 import type { Databases } from '../../db/pools.js';
 import {
   Comments,
+  HasProduct,
   Order,
   OrderStore,
   PosPaytmTransaction,
@@ -16,6 +17,14 @@ export interface OfflineOrder {
   invoiceNumber: string | null;
   paid: boolean;
   payable: string;
+}
+/** An existing order a manager links to an offline sale whose outcome was unknown. */
+export interface OfflineLinkCandidate {
+  order: OfflineOrder;
+  createdAt: string;
+  lines: { productId: string; quantity: number }[];
+  /** Comment texts on the order that already carry an offline provisional reference. */
+  offlineComments: string[];
 }
 export interface OfflineReferenceComment {
   orderId: string;
@@ -45,6 +54,7 @@ export interface OfflineSyncRepository {
     to: number,
   ): Promise<OfflineOrder | null>;
   commentExists(orderId: string, reference: string): Promise<boolean>;
+  linkCandidate(orderId: string): Promise<OfflineLinkCandidate | null>;
   recordReference(input: OfflineReferenceComment): Promise<void>;
   tenderReferenceExists(storeId: string, reference: string): Promise<boolean>;
 }
@@ -120,6 +130,37 @@ export function offlineSyncRepository(db: Databases, timezone: string): OfflineS
         .limit(2);
       const orders = new Set(rows.map((row) => String(row.orderId)));
       return rows[0] && orders.size === 1 ? toOrder(rows[0]) : null;
+    },
+    async linkCandidate(orderId) {
+      const writer = db.get('writer'),
+        id = BigInt(orderId);
+      const [row] = await writer
+        .select({ ...columns, createdAt: Order.created_at })
+        .from(Order)
+        .innerJoin(OrderStore, eq(OrderStore.order, Order.id))
+        .where(eq(Order.id, id))
+        .limit(1);
+      if (!row) return null;
+      const lines = await writer
+        .select({ productId: HasProduct.product, quantity: HasProduct.qty })
+        .from(HasProduct)
+        .where(eq(HasProduct.order, id))
+        .orderBy(asc(HasProduct.id));
+      const comments = await writer
+        .select({ comment: Comments.comment })
+        .from(Comments)
+        .where(and(eq(Comments.order_id, id), like(Comments.comment, 'Offline bill %')))
+        .orderBy(asc(Comments.id))
+        .limit(10);
+      return {
+        order: toOrder(row),
+        createdAt: String(row.createdAt ?? ''),
+        lines: lines.map((line) => ({
+          productId: String(line.productId),
+          quantity: Number(line.quantity),
+        })),
+        offlineComments: comments.map((item) => item.comment),
+      };
     },
     async commentExists(orderId, reference) {
       const prefix = offlineCommentPrefix(reference).replace(/[\\%_]/g, (match) => '\\' + match);

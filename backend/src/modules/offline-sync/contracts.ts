@@ -6,6 +6,11 @@ import { identifier } from '../../domain/validation.js';
 export const PROVISIONAL_REFERENCE =
   /^OFF-([1-9]\d{0,19})-([1-9]\d{0,19})-([A-Z0-9]{8})-([1-9]\d{0,8})$/;
 const money = z.string().regex(/^\d{1,10}\.\d{2}$/);
+/** Legacy order_stores/has_products salesperson columns are signed INT. */
+const salespersonId = z
+  .string()
+  .regex(/^[1-9]\d{0,9}$/)
+  .refine((value) => BigInt(value) <= 2147483647n, 'Invalid salesperson.');
 const tenderReference = z
   .string()
   .trim()
@@ -37,19 +42,28 @@ export const offlineSaleUploadSchema = z
         (lines) => new Set(lines.map((line) => line.productId)).size === lines.length,
         'Each product may appear once.',
       ),
+    salespersonId,
     payable: money,
     tender: z.discriminatedUnion('mode', [
       z.object({ mode: z.literal('cash'), received: money }).strict(),
       z.object({ mode: z.literal('card'), reference: tenderReference }).strict(),
       z.object({ mode: z.literal('upi'), reference: tenderReference }).strict(),
     ]),
+    /** Manager decision for a conflict. For an unknown outcome the manager either links the
+     * order found in Orders ('link-order' with its ID) or confirms that Orders has no order for
+     * this sale ('recreate'); nothing is ever resubmitted without that decision. */
     resolution: z
       .object({
-        action: z.enum(['accept', 'correct-tender']),
+        action: z.enum(['accept', 'correct-tender', 'link-order', 'recreate']),
         managerId: identifier,
         reason: z.string().min(5).max(200),
+        orderId: identifier.optional(),
       })
       .strict()
+      .refine((value) => (value.action === 'link-order') === (value.orderId !== undefined), {
+        message: 'An order ID is required only when linking an order.',
+        path: ['orderId'],
+      })
       .nullable(),
   })
   .strict();
