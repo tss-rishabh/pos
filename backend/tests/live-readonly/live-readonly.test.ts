@@ -242,7 +242,8 @@ const loopbackTarget = (() => {
     return false;
   }
 })();
-describe.skipIf(!enabled)('live read-only production parity (Phase F1)', () => {
+// Each path may run many statements, each bounded by MAX_EXECUTION_TIME (≤10 s).
+describe.skipIf(!enabled)('live read-only production parity (Phase F1)', { timeout: 60_000 }, () => {
   let guarded: GuardedDatabase,
     summary: LiveSummary,
     config: Config,
