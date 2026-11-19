@@ -71,12 +71,27 @@ export function useCheckIn(user: Principal, online: boolean) {
     };
   }, [expiresAt]);
   const active = record && expiresAt > Math.max(now, Date.now()) ? record : null;
-  async function run(work: () => Promise<unknown>) {
+  async function run(work: () => Promise<z.infer<typeof checkInSchema> | null>) {
     setBusy(true);
     setError(null);
     try {
-      await work();
-      await client.invalidateQueries({ queryKey: [user.id] });
+      const confirmed = await work();
+      const key = [user.id, 'administration', 'my-check-in'];
+      // Publish the new check-in before anything else refreshes, so features that exist only for
+      // a checked-in store (notifications, expiry and day-close reminders) are switched off before
+      // a check-out could refetch them (403), or start once from the server's own record.
+      if (confirmed === null) client.setQueryData(key, { data: null });
+      else await client.refetchQueries({ queryKey: key, exact: true });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      // Then refresh the operator's other reads once; reads already started are shared.
+      await client.invalidateQueries(
+        {
+          queryKey: [user.id],
+          predicate: (query) =>
+            query.queryKey[1] !== 'administration' || query.queryKey[2] !== 'my-check-in',
+        },
+        { cancelRefetch: false },
+      );
       return true;
     } catch (failure) {
       setError(failure);
@@ -107,9 +122,10 @@ export function useCheckIn(user: Principal, online: boolean) {
         ),
       ),
     checkOut: () =>
-      run(() =>
-        request('/api/v1/operators/me/check-in', { operatorId: user.id, method: 'DELETE' }),
-      ),
+      run(async () => {
+        await request('/api/v1/operators/me/check-in', { operatorId: user.id, method: 'DELETE' });
+        return null;
+      }),
   };
 }
 export type CheckInState = ReturnType<typeof useCheckIn>;

@@ -52,11 +52,14 @@ test('sign-in without a store asks for a check-in; the header checks out, in and
   await expect(header.getByLabel('Store check-in: Not checked in', { exact: true })).toBeVisible();
   await header.getByRole('button', { name: 'Check in', exact: true }).click();
   await expect(header.getByLabel('Store check-in: Checked in', { exact: true })).toBeVisible();
-  // A reload is not a fresh sign-in: the prompt is not shown again.
+  // A reload is not a fresh sign-in: the prompt is not shown again. Reload only once the
+  // check-in refresh settled; a reload cancels in-flight reads.
+  await page.waitForLoadState('networkidle');
   await page.reload();
   await expect(page.getByRole('heading', { name: 'The counter.' })).toBeVisible();
   await expect(page.getByRole('dialog', { name: 'Check in to your store' })).toHaveCount(0);
 
+  await page.waitForLoadState('networkidle');
   await header.getByRole('button', { name: 'Log out', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Log in', exact: true })).toBeVisible();
   const writes = checkIns.filter((entry) => !entry.startsWith('GET'));
