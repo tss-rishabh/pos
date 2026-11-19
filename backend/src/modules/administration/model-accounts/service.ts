@@ -10,27 +10,29 @@ import type { Principal } from '../../../domain/access.js';
 import { AppError } from '../../../domain/errors.js';
 import { assertPasswordPolicy } from '../../../auth/password-policy.js';
 import { djangoPasswordHash } from '../../../auth/crypto.js';
-import { assertModelAdministrationPermission } from '../access-control.js';
+import { assertModelAdministrator } from '../model-administration.js';
 import { administrationAccessReceipts } from '../access-receipts.js';
-import { administrationAccessMutations } from '../access-schema.js';
+import type { EphemeralStore } from '../../../jobs/ephemeral.js';
 import { withAdministrationLock } from '../locks.js';
 import { administrationEphemeralStore } from '../ephemeral-runtime.js';
 import type { AdministrationTransaction } from '../checkins.js';
 import { modelAccountDefaults, modelAccountInput, modelAccountResult } from './domain.js';
 const resource = 'operator-model-account',
   action = 'create';
-/** A role1 default account is privilege creation: retain the established superuser guard. */
+/**
+ * Django UserAdmin._add_view requires users.add_posuser AND users.change_posuser; with the grants
+ * feature deleted only a current staff superuser holds both.
+ */
 async function authorize(tx: AdministrationTransaction, user: Principal) {
-  await assertModelAdministrationPermission(tx, user, ['users.add_posuser'], true);
-  // Django UserAdmin._add_view requires change AND add, not alternative permissions.
-  await assertModelAdministrationPermission(tx, user, ['users.change_posuser']);
+  await assertModelAdministrator(tx, user);
 }
 export function operatorModelAccountService(
   config: Config,
   db: Databases,
   clock = () => Temporal.Now.instant(),
+  ephemeral: EphemeralStore = administrationEphemeralStore(config),
 ) {
-  const receipts = administrationAccessReceipts(config);
+  const receipts = administrationAccessReceipts(config, ephemeral);
   return {
     async capabilities(user: Principal) {
       await db.get('writer').transaction((tx) => authorize(tx, user));
@@ -44,10 +46,8 @@ export function operatorModelAccountService(
           username: input.username,
           password: input.password,
         });
-      const prior = await db.get('writer').transaction(async (tx) => {
-        await authorize(tx, user);
-        return receipts.replay(tx, user, input.operationId, resource, action, hash, 'share');
-      });
+      await db.get('writer').transaction((tx) => authorize(tx, user));
+      const prior = await receipts.replay(user, input.operationId, resource, action, hash);
       if (prior) return modelAccountResult.parse(prior);
       assertPasswordPolicy(input.password, {
         username: input.username,
@@ -56,19 +56,12 @@ export function operatorModelAccountService(
         email: '',
       });
       const password = await djangoPasswordHash(input.password);
-      return withAdministrationLock(administrationEphemeralStore(config), 'operators', () =>
-        retryTransaction(() =>
+      return withAdministrationLock(ephemeral, 'operators', async () => {
+        const previous = await receipts.replay(user, input.operationId, resource, action, hash);
+        if (previous) return modelAccountResult.parse(previous);
+        const result = await retryTransaction(() =>
           db.get('writer').transaction(async (tx) => {
             await authorize(tx, user);
-            const previous = await receipts.replay(
-              tx,
-              user,
-              input.operationId,
-              resource,
-              action,
-              hash,
-            );
-            if (previous) return modelAccountResult.parse(previous);
             const [duplicate] = await tx
               .select({ id: PosUser.id })
               .from(PosUser)
@@ -131,40 +124,29 @@ export function operatorModelAccountService(
               status: 'success',
               message: 'Administrative account created.',
             });
-            await receipts.receipt(tx, user, input.operationId, resource, action, hash, result);
             return result;
           }),
-        ),
-      );
+        );
+        await receipts.save(user, input.operationId, resource, action, hash, result);
+        return result;
+      });
     },
     async read(user: Principal, operationId: string) {
       z.uuid().parse(operationId);
-      return db.get('writer').transaction(async (tx) => {
-        await authorize(tx, user);
-        const [saved] = await tx
-          .select({
-            actorId: administrationAccessMutations.actorId,
-            resource: administrationAccessMutations.resourceId,
-            action: administrationAccessMutations.action,
-            result: administrationAccessMutations.result,
-          })
-          .from(administrationAccessMutations)
-          .where(eq(administrationAccessMutations.id, operationId))
-          .limit(1)
-          .for('share');
-        if (
-          !saved ||
-          saved.actorId !== user.id ||
-          saved.resource !== resource ||
-          saved.action !== action
-        )
-          throw new AppError(
-            404,
-            'OPERATOR_MODEL_ACCOUNT_NOT_FOUND',
-            'The original account operation was not found.',
-          );
-        return modelAccountResult.parse(saved.result);
-      });
+      await db.get('writer').transaction((tx) => authorize(tx, user));
+      const saved = await receipts.read(operationId);
+      if (
+        !saved ||
+        saved.actorId !== user.id ||
+        saved.resourceId !== resource ||
+        saved.action !== action
+      )
+        throw new AppError(
+          404,
+          'OPERATOR_MODEL_ACCOUNT_NOT_FOUND',
+          'The original account operation was not found.',
+        );
+      return modelAccountResult.parse(saved.result);
     },
   };
 }

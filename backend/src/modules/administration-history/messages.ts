@@ -75,7 +75,7 @@ function pythonWhitespace(character: string) {
   return /\p{White_Space}/u.test(character) || (code >= 0x1c && code <= 0x1f);
 }
 export function administrationActorName(username: string, firstName: string, lastName: string) {
-  const fullName=sourceAdministrationFullName(firstName,lastName);
+  const fullName = sourceAdministrationFullName(firstName, lastName);
   return fullName ? `${username} (${fullName})` : username;
 }
 export function sourceAdministrationFullName(firstName: string | null, lastName: string | null) {

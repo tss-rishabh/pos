@@ -1,12 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import mysql from 'mysql2/promise';
 import Fastify from 'fastify';
 import { getTableName } from 'drizzle-orm';
 import { beforeAll, afterAll, beforeEach, describe, it, expect } from 'vitest';
 import { readConfig, type Config } from '../../src/config.js';
 import { createDatabases, type Databases } from '../../src/db/pools.js';
-import { splitMigration } from '../../src/db/migrations.js';
 import {
   PosUser,
   Store,
@@ -24,11 +22,6 @@ import {
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
 import { administrationService } from '../../src/modules/administration/service.js';
 import { documentationService } from '../../src/modules/administration/documentation.js';
-import {
-  administrationCollectionExport,
-  collectionExportScope,
-} from '../../src/modules/administration/collection-export.js';
-import { administrationCollectionExportInputSchema } from '../../src/modules/administration/collection-export-contracts.js';
 import { registerAdministrationStoreDetails } from '../../src/modules/administration/store-detail-routes.js';
 import type { Principal } from '../../src/domain/access.js';
 import { AppError } from '../../src/domain/errors.js';
@@ -86,13 +79,6 @@ describe.skipIf(!template)('native administration collection workflows', () => {
     await conn.changeUser({ database: schema });
     fixture = verifiedMysqlFixture(conn);
     await fixture.create(tables);
-    for (const path of [
-      'src/modules/administration/migration.sql',
-      'src/modules/administration/media-migration.sql',
-      'src/modules/operational-reports/migration.sql',
-    ])
-      for (const statement of splitMigration(readFileSync(path, 'utf8')))
-        await conn.query(statement);
     url.pathname = '/' + schema;
     config = readConfig({
       NODE_ENV: 'test',
@@ -199,57 +185,6 @@ describe.skipIf(!template)('native administration collection workflows', () => {
         String(r.id),
       ),
     ).toEqual(['3']);
-  });
-  it('builds all matching bounded CSV with exact selected columns, formula protection and current authority', async () => {
-    await conn.query('UPDATE stores SET store_name=? WHERE id=2', ['=HYPERLINK("synthetic")']);
-    const input = administrationCollectionExportInputSchema.parse({
-      kind: 'administration-list',
-      resource: 'stores',
-      columns: ['name', 'id'],
-      active: 'all',
-      sort: 'id',
-      direction: 'asc',
-    });
-    expect(collectionExportScope(actor, input).requiresGlobal).toBe(true);
-    const artifact = await administrationCollectionExport(config, db)(actor, input);
-    expect('bytes' in artifact).toBe(true);
-    if (!('bytes' in artifact)) throw new Error('CSV expected');
-    expect(artifact.rowCount).toBe(3);
-    expect(artifact.bytes.toString('utf8')).toContain('"Name","ID"\r\n');
-    expect(artifact.bytes.toString('utf8')).toContain("'=HYPERLINK");
-    expect(artifact.bytes.toString('utf8')).toContain('""synthetic""');
-    await conn.query('UPDATE pos_user SET role=5 WHERE id=1');
-    await expect(administrationCollectionExport(config, db)(actor, input)).rejects.toMatchObject({
-      code: 'ROLE_ACCESS_DENIED',
-    });
-  });
-  it('refuses arbitrary columns/store scopes and enforces byte limits without partial files', async () => {
-    for (const change of [
-      { columns: ['password'] },
-      { columns: ['id', 'id'] },
-      { storeIds: ['1'] },
-      { resource: 'counters', storeIds: [] },
-    ])
-      expect(
-        administrationCollectionExportInputSchema.safeParse({
-          kind: 'administration-list',
-          resource: 'stores',
-          columns: ['id'],
-          ...change,
-        }).success,
-      ).toBe(false);
-    const input = administrationCollectionExportInputSchema.parse({
-      kind: 'administration-list',
-      resource: 'stores',
-      columns: ['name'],
-    });
-    await expect(
-      administrationCollectionExport(config, db)(actor, input, {
-        jobId: randomUUID(),
-        signal: new AbortController().signal,
-        maxBytes: 8,
-      }),
-    ).rejects.toMatchObject({ code: 'EXPORT_TOO_LARGE' });
   });
   it('sorts operators and salespeople by full native names and returns readable batched assignment names', async () => {
     for (const [id, last] of [

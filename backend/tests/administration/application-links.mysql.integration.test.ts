@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { Readable } from 'node:stream';
 import mysql, { type Connection } from 'mysql2/promise';
 import { getTableConfig, type MySqlTable } from 'drizzle-orm/mysql-core';
@@ -89,16 +88,6 @@ describe.skipIf(!template)(
         names.map((name) => record[name]),
       );
     }
-    async function script(path: string) {
-      for (const statement of readFileSync(new URL(path, import.meta.url), 'utf8')
-        .split('\n')
-        .filter((line) => !line.trimStart().startsWith('--'))
-        .join('\n')
-        .split(';')
-        .map((value) => value.trim())
-        .filter(Boolean))
-        await connection.query(statement);
-    }
     async function consume(stream: Readable) {
       const chunks: Buffer[] = [];
       for await (const chunk of stream) chunks.push(Buffer.from(chunk as Uint8Array));
@@ -139,7 +128,6 @@ describe.skipIf(!template)(
       await connection.query(
         'CREATE TABLE pos_to_app_logs(id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,store_id INT NOT NULL DEFAULT 0,scanned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB',
       );
-      await script('../../src/modules/administration/migration.sql');
       url.pathname = '/' + schemaName;
       config = readConfig({
         NODE_ENV: 'test',

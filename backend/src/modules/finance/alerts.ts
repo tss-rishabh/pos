@@ -10,7 +10,7 @@ import { parseStoreRollout } from '../../domain/rollout.js';
 import type { EphemeralStore } from '../../jobs/ephemeral.js';
 import { slackText } from '../fulfillment/slack-text.js';
 import { postSlackText, type SlackPoster } from '../operational-reports/slack.js';
-import { lastExpiredDate, windowState } from './domain.js';
+import { lastExpiredDate } from './domain.js';
 
 const optional = <T extends z.ZodType>(schema: T) =>
   z.preprocess((value) => (value === '' ? undefined : value), schema.optional());
@@ -131,14 +131,9 @@ export function financePendingAlerts(
       }
       let result: PendingAlertReceipt;
       try {
-        const now = clock(),
-          selected = date || lastExpiredDate(now, config);
-        if (windowState(selected, now, config) !== 'EXPIRED')
-          throw new AppError(
-            409,
-            'DAY_CLOSE_WINDOW_ACTIVE',
-            'Pending-close alerts require an expired close window.',
-          );
+        // Legacy `DayClosePendingAlertView` (`report/views.py:2557-2581`) alerts any requested
+        // `close_date` (default: the last expired day) with no window check.
+        const selected = date || lastExpiredDate(clock(), config);
         const missing = await missingStores(selected),
           [year, month, day] = selected.split('-');
         for (const store of missing) {

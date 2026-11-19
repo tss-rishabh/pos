@@ -7,7 +7,6 @@ import { ErrorState, Loading } from '../../components/common';
 import { AdministrationEditor, type AdministrationField } from './editor';
 import { AssignmentEditor } from './assignments';
 import { OperatorMfaButton } from './mfa';
-import { OperatorAccessButton } from './access';
 import { OperatorAdministrativeButton } from './operator-administration';
 import {
   mutateAdministration,
@@ -271,13 +270,6 @@ export function OperatorAdministration({ user }: { user: Principal }) {
               <>
                 {user.role === 1 && (
                   <OperatorAdministrativeButton
-                    user={user}
-                    operatorId={target.id}
-                    operatorName={`${target.firstName} ${target.lastName}`}
-                  />
-                )}
-                {user.role === 1 && (
-                  <OperatorAccessButton
                     user={user}
                     operatorId={target.id}
                     operatorName={`${target.firstName} ${target.lastName}`}

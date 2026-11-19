@@ -12,7 +12,7 @@ import { redisImageService } from '../../auth/image-reservations.js';
 import type { RedisPort } from '../../redis/port.js';
 import type { Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
-import { assertModelAdministrationPermission } from './access-control.js';
+import { assertModelAdministrator } from './model-administration.js';
 import { administrationAccessReceipts } from './access-receipts.js';
 import type { AdministrationTransaction } from './checkins.js';
 import { withAdministrationLock } from './locks.js';
@@ -57,11 +57,7 @@ async function managedAccount(
   id: string,
   mode: 'read' | 'attach' | 'publish',
 ) {
-  const actor = await assertModelAdministrationPermission(
-    tx,
-    user,
-    mode === 'read' ? ['users.view_posuser', 'users.change_posuser'] : ['users.change_posuser'],
-  );
+  const actor = await assertModelAdministrator(tx, user);
   const [target] = await tx
     .select()
     .from(PosUser)
@@ -124,7 +120,7 @@ export function operatorAdministrationService(
   options: OperatorAdminOptions = {},
   ephemeral: EphemeralStore = administrationEphemeralStore(config),
 ) {
-  const receipts = administrationAccessReceipts(config);
+  const receipts = administrationAccessReceipts(config, ephemeral);
   const images = redisImageService(
     db,
     options.operatorImageReservations,
@@ -135,22 +131,24 @@ export function operatorAdministrationService(
   async function guard(tx: AdministrationTransaction, user: Principal, id: string) {
     return managedAccount(tx, user, id, 'publish');
   }
-  const locked = <T>(run: () => Promise<T>) =>
-    withAdministrationLock(ephemeral, 'operators', () => retryTransaction(run));
 
   return {
+    /** Whether the actor may open other operators' administrative profiles. */
+    async capabilities(user: Principal) {
+      return db.get('writer').transaction(async (tx) => {
+        try {
+          await assertModelAdministrator(tx, user);
+          return { canViewOperators: true };
+        } catch (error) {
+          if (error instanceof AppError && error.status === 403) return { canViewOperators: false };
+          throw error;
+        }
+      });
+    },
     async profile(user: Principal, id: string) {
       return db.get('writer').transaction(async (tx) => {
         const { actor, target } = await managedAccount(tx, user, id, 'read');
-        let canEdit = false;
-        if (id !== user.id && (!target.is_superuser || actor.is_superuser)) {
-          try {
-            await assertModelAdministrationPermission(tx, user, ['users.change_posuser']);
-            canEdit = true;
-          } catch (error) {
-            if (!(error instanceof AppError) || error.status !== 403) throw error;
-          }
-        }
+        const canEdit = id !== user.id && (!target.is_superuser || actor.is_superuser);
         return {
           id,
           username: target.username,
@@ -188,79 +186,72 @@ export function operatorAdministrationService(
     ) {
       const hash = receipts.inputHash({ id, input }),
         resource = `operator:${id}`;
-      return locked(() =>
-        db.get('writer').transaction(async (tx) => {
-          const { target } = await guard(tx, user, id);
-          const previous = await receipts.replay(
-            tx,
-            user,
-            input.operationId,
-            resource,
-            'operator-profile',
-            hash,
-          );
-          if (previous) return operatorAdminMutationResult.parse(previous);
-          if (operatorAdminRevision(config, target) !== input.expectedVersion) throw changed();
-          const [duplicate] = await tx
-            .select({ id: PosUser.id })
-            .from(PosUser)
-            .where(
-              and(
-                ne(PosUser.id, target.id),
-                or(
-                  eq(PosUser.username, input.username),
-                  input.email ? eq(PosUser.email, input.email) : undefined,
-                  input.phone ? eq(PosUser.phone, input.phone) : undefined,
-                  input.contactEmail ? eq(PosUser.contact_email, input.contactEmail) : undefined,
+      return withAdministrationLock(ephemeral, 'operators', async () => {
+        const previous = await receipts.replay(
+          user,
+          input.operationId,
+          resource,
+          'operator-profile',
+          hash,
+        );
+        if (previous) return operatorAdminMutationResult.parse(previous);
+        const result = await retryTransaction(() =>
+          db.get('writer').transaction(async (tx) => {
+            const { target } = await guard(tx, user, id);
+            if (operatorAdminRevision(config, target) !== input.expectedVersion) throw changed();
+            const [duplicate] = await tx
+              .select({ id: PosUser.id })
+              .from(PosUser)
+              .where(
+                and(
+                  ne(PosUser.id, target.id),
+                  or(
+                    eq(PosUser.username, input.username),
+                    input.email ? eq(PosUser.email, input.email) : undefined,
+                    input.phone ? eq(PosUser.phone, input.phone) : undefined,
+                    input.contactEmail ? eq(PosUser.contact_email, input.contactEmail) : undefined,
+                  ),
                 ),
-              ),
-            )
-            .limit(1);
-          if (duplicate)
-            throw new AppError(
-              409,
-              'OPERATOR_IDENTITY_UNAVAILABLE',
-              'This login name or contact is already assigned to another operator.',
-            );
-          const values = {
-            username: input.username,
-            first_name: input.firstName,
-            last_name: input.lastName,
-            email: input.email,
-            phone: input.phone,
-            contact_email: input.contactEmail,
-            age: input.age,
-            gender: input.gender,
-            role: input.role,
-            user_type: input.userType,
-            otp_method: input.otpMethod,
-            is_active: input.active,
-            last_login: input.lastLogin,
-            date_joined: input.dateJoined,
-          };
-          const credentialsChanged =
-            credentialVersion(target) !== credentialVersion({ ...target, ...values }) ||
-            target.is_active !== values.is_active;
-          await tx.update(PosUser).set(values).where(eq(PosUser.id, target.id));
-          if (credentialsChanged) await invalidateAuthentication(tx, id);
-          const result = {
-            id,
-            status: 'success' as const,
-            message: 'Operator administrative profile saved.',
-            credentialsChanged,
-          };
-          await receipts.receipt(
-            tx,
-            user,
-            input.operationId,
-            resource,
-            'operator-profile',
-            hash,
-            result,
-          );
-          return result;
-        }),
-      );
+              )
+              .limit(1);
+            if (duplicate)
+              throw new AppError(
+                409,
+                'OPERATOR_IDENTITY_UNAVAILABLE',
+                'This login name or contact is already assigned to another operator.',
+              );
+            const values = {
+              username: input.username,
+              first_name: input.firstName,
+              last_name: input.lastName,
+              email: input.email,
+              phone: input.phone,
+              contact_email: input.contactEmail,
+              age: input.age,
+              gender: input.gender,
+              role: input.role,
+              user_type: input.userType,
+              otp_method: input.otpMethod,
+              is_active: input.active,
+              last_login: input.lastLogin,
+              date_joined: input.dateJoined,
+            };
+            const credentialsChanged =
+              credentialVersion(target) !== credentialVersion({ ...target, ...values }) ||
+              target.is_active !== values.is_active;
+            await tx.update(PosUser).set(values).where(eq(PosUser.id, target.id));
+            if (credentialsChanged) await invalidateAuthentication(tx, id);
+            return {
+              id,
+              status: 'success' as const,
+              message: 'Operator administrative profile saved.',
+              credentialsChanged,
+            };
+          }),
+        );
+        await receipts.save(user, input.operationId, resource, 'operator-profile', hash, result);
+        return result;
+      });
     },
     async resetPassword(
       user: Principal,
@@ -278,13 +269,11 @@ export function operatorAdministrationService(
             'Password resets require a current internal superuser.',
           );
         const previous = await receipts.replay(
-          tx,
           user,
           input.operationId,
           resource,
           'operator-password',
           hash,
-          'share',
         );
         if (previous)
           return { kind: 'replay' as const, result: operatorAdminMutationResult.parse(previous) };
@@ -294,46 +283,39 @@ export function operatorAdministrationService(
       });
       if (initial.kind === 'replay') return initial.result;
       const encoded = await djangoPasswordHash(input.newPassword);
-      return locked(() =>
-        db.get('writer').transaction(async (tx) => {
-          const { actor, target } = await guard(tx, user, id);
-          if (!actor.is_superuser)
-            throw new AppError(
-              403,
-              'OPERATOR_PASSWORD_RESET_DENIED',
-              'Password resets require a current internal superuser.',
-            );
-          const previous = await receipts.replay(
-            tx,
-            user,
-            input.operationId,
-            resource,
-            'operator-password',
-            hash,
-          );
-          if (previous) return operatorAdminMutationResult.parse(previous);
-          if (operatorAdminRevision(config, target) !== input.expectedVersion) throw changed();
-          assertPasswordPolicy(input.newPassword, target);
-          await tx.update(PosUser).set({ password: encoded }).where(eq(PosUser.id, target.id));
-          await invalidateAuthentication(tx, id);
-          const result = {
-            id,
-            status: 'success' as const,
-            message: 'Operator password reset. Existing authentication was revoked.',
-            credentialsChanged: true,
-          };
-          await receipts.receipt(
-            tx,
-            user,
-            input.operationId,
-            resource,
-            'operator-password',
-            hash,
-            result,
-          );
-          return result;
-        }),
-      );
+      return withAdministrationLock(ephemeral, 'operators', async () => {
+        const previous = await receipts.replay(
+          user,
+          input.operationId,
+          resource,
+          'operator-password',
+          hash,
+        );
+        if (previous) return operatorAdminMutationResult.parse(previous);
+        const result = await retryTransaction(() =>
+          db.get('writer').transaction(async (tx) => {
+            const { actor, target } = await guard(tx, user, id);
+            if (!actor.is_superuser)
+              throw new AppError(
+                403,
+                'OPERATOR_PASSWORD_RESET_DENIED',
+                'Password resets require a current internal superuser.',
+              );
+            if (operatorAdminRevision(config, target) !== input.expectedVersion) throw changed();
+            assertPasswordPolicy(input.newPassword, target);
+            await tx.update(PosUser).set({ password: encoded }).where(eq(PosUser.id, target.id));
+            await invalidateAuthentication(tx, id);
+            return {
+              id,
+              status: 'success' as const,
+              message: 'Operator password reset. Existing authentication was revoked.',
+              credentialsChanged: true,
+            };
+          }),
+        );
+        await receipts.save(user, input.operationId, resource, 'operator-password', hash, result);
+        return result;
+      });
     },
     images: {
       reserve: (user: Principal, id: string, input: Parameters<typeof images.reserve>[1]) =>

@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { requestWithResponse } from '../../api/client';
 import { administrationIdentifier } from './api';
 
-/** Legacy `pos_csv_upload.upload_type` values with a live upload screen. */
-export type UploadType = 'PRODUCT_STOCK_CSV' | 'PRODUCT_STORE_CSV';
+/** The legacy `pos_csv_upload.upload_type` with a live upload screen (the product-store page is deleted). */
+export type UploadType = 'PRODUCT_STOCK_CSV';
 export const uploadSummarySchema = z.object({
   id: administrationIdentifier,
   uploadType: z.enum(['PRODUCT_STOCK_CSV', 'PRODUCT_STORE_CSV']),

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const historyModel = z.enum(['operator', 'store', 'group']);
+export const historyModel = z.enum(['operator', 'store']);
 const count = z
   .string()
   .regex(/^(?:0|[1-9]\d*)$/)

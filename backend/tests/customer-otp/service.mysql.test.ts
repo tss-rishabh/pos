@@ -68,10 +68,7 @@ describe.skipIf(!template)(
         ['users', 'pos_user', 'stores', 'store_counters', 'user_stores'],
         'pos_rewrite_customer_otp_test',
       );
-      for (const path of [
-        'src/modules/administration/migration.sql',
-        'migrations/0006_operator_auth_epochs.sql',
-      ])
+      for (const path of ['migrations/0006_operator_auth_epochs.sql'])
         for (const statement of readFileSync(path, 'utf8')
           .replace(/^--.*$/gm, '')
           .split(';')

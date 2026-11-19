@@ -3,12 +3,7 @@
   "productionBaseCommit": "851f620",
   "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
   "scope": "Four reversible store/operator lifecycle source declarations; scoped native/source/API/built-App proof only.",
-  "routeIds": [
-    "stores/urls.py:15",
-    "stores/urls.py:16",
-    "users/urls.py:19",
-    "users/urls.py:20"
-  ],
+  "routeIds": ["stores/urls.py:15", "stores/urls.py:16", "users/urls.py:19", "users/urls.py:20"],
   "sourceHashes": {
     "users/models.py": "c086c2b3a1de60f27dc4f3151e968b005b629d9f709f7edc700791e1d4483357",
     "stores/models.py": "f47e80368fafa5e432af96eba63a16ad031dcb8ac563cc2a73a8c9eca3493d9e",

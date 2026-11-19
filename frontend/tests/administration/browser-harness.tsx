@@ -8,7 +8,6 @@ import { ProfileImages } from '../../src/pages/profile/images';
 import { AdministrationPage, DocumentationPage } from '../../src/pages/administration';
 import { SpecialPermissionHistoryPage } from '../../src/pages/administration/permission-history';
 import { AdministrationHistoryPage } from '../../src/pages/administration/history';
-import { ModelAccessAdministration } from '../../src/pages/administration/access';
 import { GiftCardBatchesPage } from '../../src/pages/administration/gift-card-batches';
 import {
   ApplicationLinksPage,
@@ -78,8 +77,6 @@ createRoot(document.getElementById('root')!).render(
         </StrictMode>
       ) : new URLSearchParams(window.location.search).get('screen') === 'gift-card-batches' ? (
         <GiftCardBatchesPage user={user} />
-      ) : new URLSearchParams(window.location.search).get('screen') === 'group-access' ? (
-        <ModelAccessAdministration user={user} />
       ) : new URLSearchParams(window.location.search).get('screen') === 'model-history' ? (
         <AdministrationHistoryPage user={user} />
       ) : new URLSearchParams(window.location.search).get('screen') === 'permission-history' ? (

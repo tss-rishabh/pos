@@ -15,6 +15,7 @@ import { modelAccountInput } from '../../../src/modules/administration/model-acc
 import { storePublicUrl } from '../../../src/modules/administration/policies.js';
 import { modelAccountFixture } from '../../../tools/administration/model-accounts/fixture.js';
 import { goldenSpawnResult } from '../../golden/load.js';
+import { memoryEphemeralStore, type EphemeralStore } from '../../../src/jobs/ephemeral.js';
 import { fixturePlaceholders } from '../../golden/fixture-placeholders.js';
 const connection = process.env.MODEL_ACCOUNTS_MYSQL_TEST_URL;
 const actor: Principal = {
@@ -58,12 +59,21 @@ describe.skipIf(!connection)(
   'inherited model-only account defaults on isolated physical MySQL',
   () => {
     let fixture: Awaited<ReturnType<typeof modelAccountFixture>>,
-      service: ReturnType<typeof operatorModelAccountService>;
+      service: ReturnType<typeof operatorModelAccountService>,
+      ephemeral: EphemeralStore;
     beforeAll(async () => {
       fixture = await modelAccountFixture(connection!);
-      service = operatorModelAccountService(fixture.config, fixture.db, now);
     }, 20000);
-    beforeEach(async () => fixture.reset());
+    beforeEach(async () => {
+      await fixture.reset();
+      ephemeral = memoryEphemeralStore();
+      service = operatorModelAccountService(fixture.config, fixture.db, now, ephemeral);
+    });
+    /** Replay receipts moved to Redis `pos:idem:admin_access:{operationId}` (ledger). */
+    const receipts = async () =>
+      Promise.all(
+        (await ephemeral.scanKeys('pos:idem:admin_access:*')).map((key) => ephemeral.get(key)),
+      );
     afterAll(async () => fixture?.close());
     const input = (username = 'model-fixture-user') => ({
       operationId: randomUUID(),
@@ -187,19 +197,16 @@ describe.skipIf(!connection)(
         failed?.status === 'rejected' && failed.reason instanceof AppError && failed.reason.code,
       ).toBe('OPERATOR_MODEL_EMAIL_SETUP_REQUIRED');
       expect(await count('pos_user')).toBe(8);
-      expect(await count('pos_rewrite_administration_access_mutations')).toBe(1);
+      expect(await receipts()).toHaveLength(1);
     });
     it('creates and recovers one immutable original-UUID receipt under twenty concurrent requests without persisting raw credential/contact data', async () => {
       const value = input(),
         results = await Promise.all(Array.from({ length: 20 }, () => service.create(actor, value)));
       expect(new Set(results.map((row) => row.id)).size).toBe(1);
-      expect(await count('pos_rewrite_administration_access_mutations')).toBe(1);
+      expect(await receipts()).toHaveLength(1);
       expect(await count('pos_user')).toBe(8);
       expect(await service.read(actor, value.operationId)).toEqual(results[0]);
-      const [rows] = await fixture.admin.query<RowDataPacket[]>(
-        'SELECT * FROM pos_rewrite_administration_access_mutations',
-      );
-      const serialized = JSON.stringify(rows);
+      const serialized = JSON.stringify(await receipts());
       expect(serialized).not.toContain(password);
       expect(serialized).not.toContain(value.username);
       expect(serialized).not.toContain('fixture@example');
@@ -210,7 +217,7 @@ describe.skipIf(!connection)(
         service.read({ ...actor, id: '900002' }, value.operationId),
       ).rejects.toMatchObject({ code: 'OPERATOR_MODEL_ACCOUNT_NOT_FOUND' });
     }, 20000);
-    it('retains the source AND permission contract while applying the established current-superuser hardening', async () => {
+    it('retains the source AND permission contract; with grants deleted only a current staff superuser may add', async () => {
       const source = await oracle();
       expect(source.permissions.map((row) => row.sourceAllowed)).toEqual([
         false,
@@ -218,30 +225,17 @@ describe.skipIf(!connection)(
         false,
         true,
       ]);
-      await fixture.admin.query(
-        "INSERT INTO pos_rewrite_administration_direct_permissions VALUES ('900003','users.add_posuser'),('900003','users.change_posuser')",
-      );
       for (const id of ['900003', '900004', '900005', '900006', '900007'])
         await expect(
           service.create({ ...actor, id }, input('denied-' + id)),
         ).rejects.toBeInstanceOf(AppError);
       expect(await count('pos_user')).toBe(7);
-      expect(await count('pos_rewrite_administration_access_mutations')).toBe(0);
-      await fixture.admin.query(
-        "UPDATE pos_rewrite_administration_access_reconciliation SET verified=0 WHERE id='legacy'",
-      );
-      await expect(service.capabilities(actor)).rejects.toMatchObject({
-        code: 'ADMIN_ACCESS_RECONCILIATION_REQUIRED',
+      expect(await receipts()).toHaveLength(0);
+      await expect(service.capabilities({ ...actor, id: '900003' })).rejects.toMatchObject({
+        code: 'MODEL_ADMINISTRATION_DENIED',
       });
+      expect(await service.capabilities(actor)).toMatchObject({ canCreate: true });
     }, 30000);
-    it('rolls back the new account when mandatory allowlisted audit/receipt insertion fails', async () => {
-      await fixture.admin.query(
-        "CREATE TRIGGER reject_model_account_receipt BEFORE INSERT ON pos_rewrite_administration_access_mutations FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='synthetic audit failure'",
-      );
-      await expect(service.create(actor, input())).rejects.toThrow();
-      expect(await count('pos_user')).toBe(7);
-      expect(await count('pos_rewrite_administration_access_mutations')).toBe(0);
-    });
     it('keeps committed account replay independent of later target archival and refuses current actor privilege revocation', async () => {
       const value = input(),
         result = await service.create(actor, value);

@@ -1,8 +1,6 @@
-import { readFileSync } from 'node:fs';
 import { setTimeout as pause } from 'node:timers/promises';
 import mysql, { type Connection, type RowDataPacket } from 'mysql2/promise';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { splitMigration } from '../../src/db/migrations.js';
 import type { Principal } from '../../src/domain/access.js';
 import { AppError } from '../../src/domain/errors.js';
 import { operatorCreator } from '../../src/modules/administration/operator-create.js';
@@ -78,10 +76,6 @@ describe.skipIf(!database)('writer-current creator authority on owned native MyS
       'pos_franchise',
       'tss_settings',
     ]);
-    for (const statement of splitMigration(
-      readFileSync('src/modules/administration/migration.sql', 'utf8'),
-    ))
-      await native.admin.query(statement);
     const fixtureUrl = new URL(native.url);
     barrier = await mysql.createConnection({
       host: fixtureUrl.hostname,

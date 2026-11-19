@@ -80,10 +80,7 @@ function HistoryScreen({
       setError('Choose a model you can view.');
       return;
     }
-    if (
-      !objectId ||
-      (model === 'group' ? !/^[0-9a-f-]{36}$/i.test(objectId) : !/^[1-9]\d{0,18}$/.test(objectId))
-    ) {
+    if (!objectId || !/^[1-9]\d{0,18}$/.test(objectId)) {
       setError('Enter the existing object ID.');
       return;
     }
@@ -126,7 +123,6 @@ function HistoryScreen({
                   meta.data?.models || [
                     { id: 'operator', label: 'Operator' },
                     { id: 'store', label: 'Store' },
-                    { id: 'group', label: 'Group' },
                   ]
                 ).map((value) => (
                   <option key={value.id} value={value.id}>

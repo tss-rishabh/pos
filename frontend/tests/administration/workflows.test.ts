@@ -278,7 +278,6 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
             ),
           path = privateSearch ? url.pathname.replace(/\/search$/, '') : url.pathname,
           method = privateSearch ? 'GET' : request.method();
-        let filterSearch = url.searchParams.get('search') || '';
         let pageInput: {
           after: string;
           limit: number;
@@ -299,7 +298,6 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
             })
             .strict()
             .parse(request.postDataJSON() as unknown);
-          filterSearch = input.search;
           pageInput = input;
           state.collectionSearches.push({ path: url.pathname, ...input });
           state.personSearches.push({
@@ -659,84 +657,6 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
               status: 'success',
               message: 'Operator password reset. Existing authentication was revoked.',
               credentialsChanged: true,
-            });
-          }
-          if (path === '/api/v1/admin/access/groups' && method === 'POST') {
-            const input = z
-              .object({
-                operationId: z.uuid(),
-                expectedVersion: z.null(),
-                name: z.string(),
-                permissionKeys: z.array(z.string()),
-              })
-              .strict()
-              .parse(body);
-            state.accessGroups.push({
-              id: input.operationId,
-              name: input.name,
-              permissionKeys: input.permissionKeys,
-              memberCount: '0',
-              version: createHash('sha256').update(JSON.stringify(input)).digest('hex'),
-            });
-            return json(
-              { id: input.operationId, status: 'success', message: 'Group created.' },
-              201,
-            );
-          }
-          if (
-            /^\/api\/v1\/admin\/access\/groups\/[0-9a-f-]+$/.test(path) &&
-            ['PUT', 'DELETE'].includes(method)
-          ) {
-            const id = path.split('/').at(-1)!,
-              existing = state.accessGroups.find((group) => group.id === id)!;
-            const base = z
-              .object({ operationId: z.uuid(), expectedVersion: z.string() })
-              .parse(body);
-            expect(base.expectedVersion).toBe(existing.version);
-            if (method === 'DELETE') {
-              state.accessGroups = state.accessGroups.filter((group) => group.id !== id);
-              state.operatorAccess.groupIds = state.operatorAccess.groupIds.filter(
-                (groupId) => groupId !== id,
-              );
-            } else {
-              const input = z
-                .object({ name: z.string(), permissionKeys: z.array(z.string()) })
-                .parse(body);
-              existing.name = input.name;
-              existing.permissionKeys = input.permissionKeys;
-              existing.version = createHash('sha256').update(JSON.stringify(body)).digest('hex');
-            }
-            return json({
-              id,
-              status: 'success',
-              message: method === 'DELETE' ? 'Group deleted.' : 'Group updated.',
-            });
-          }
-          if (path === '/api/v1/admin/operators/4/administration-access' && method === 'PUT') {
-            const input = z
-              .object({
-                operationId: z.uuid(),
-                expectedVersion: z.string(),
-                isStaff: z.boolean(),
-                isSuperuser: z.boolean(),
-                groupIds: z.array(z.uuid()),
-                permissionKeys: z.array(z.string()),
-              })
-              .strict()
-              .parse(body);
-            expect(input.expectedVersion).toBe(state.operatorAccess.version);
-            state.operatorAccess = {
-              id: '4',
-              isStaff: input.isStaff,
-              isSuperuser: input.isSuperuser,
-              groupIds: input.groupIds,
-              permissionKeys: input.permissionKeys,
-              version: createHash('sha256').update(JSON.stringify(input)).digest('hex'),
-            };
-            return json({
-              id: '4',
-              status: 'success',
-              message: 'Operator administration access updated.',
             });
           }
           if (
@@ -1109,52 +1029,8 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
             },
           });
         }
-        if (path === '/api/v1/admin/access/capabilities')
-          return json({
-            reconciled: state.accessReconciled,
-            canManage: state.accessReconciled,
-            canViewGroups: state.accessReconciled,
-            canViewOperators: state.accessReconciled,
-            staff: true,
-            superuser: true,
-            internal: true,
-          });
-        if (path === '/api/v1/admin/access/groups')
-          return json({
-            data: state.accessGroups
-              .filter((group) => group.name.toLowerCase().includes(filterSearch.toLowerCase()))
-              .map(({ id, name }) => ({ id, name })),
-            nextCursor: null,
-          });
-        if (/^\/api\/v1\/admin\/access\/groups\/[0-9a-f-]+$/.test(path))
-          return json(state.accessGroups.find((group) => group.id === path.split('/').at(-1)));
-        if (path === '/api/v1/admin/access/permissions') {
-          const permissions = [
-            'stores.view_store',
-            'stores.change_store',
-            'users.view_posuser',
-          ].map((key) => {
-            const [appLabel, codename] = key.split('.');
-            return {
-              key,
-              appLabel,
-              codename,
-              model: codename!.split('_').at(-1),
-              name: `Fixture ${key}`,
-            };
-          });
-          return json({
-            data: permissions.filter((permission) => permission.key.includes(filterSearch)),
-            nextCursor: null,
-          });
-        }
-        if (path === '/api/v1/admin/operators/4/administration-access')
-          return json({
-            ...state.operatorAccess,
-            groups: state.accessGroups
-              .filter((group) => state.operatorAccess.groupIds.includes(group.id))
-              .map(({ id, name }) => ({ id, name })),
-          });
+        if (path === '/api/v1/admin/operator-administration/capabilities')
+          return json({ canViewOperators: state.accessReconciled });
         if (path === '/api/v1/admin/operators/4/administrative-profile')
           return json(state.operatorProfile);
         if (path === '/api/v1/operators/current/profile')
@@ -1470,7 +1346,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
       return state;
     }
 
-    it('restores active and archived collection paging, server sort, column visibility and safe exact-column CSV commands', async () => {
+    it('restores active and archived collection paging, server sort, column visibility and the visible-page CSV', async () => {
       const context = await browser.newContext(),
         page = await context.newPage();
       const state = await fixture(page);
@@ -1510,22 +1386,10 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         const csv = readFileSync(path, 'utf8');
         expect(csv).not.toContain('"Phone"');
         expect(csv).toContain("'=synthetic26@example.test");
-        await page.getByRole('button', { name: 'Queue all matching CSV', exact: true }).click();
-        await browserExpect(page.getByText('CSV export queued.', { exact: false })).toBeVisible();
-        expect(state.exportInputs.at(-1)?.input).toMatchObject({
-          kind: 'administration-list',
-          resource: 'operators',
-          storeIds: [],
-          active: 'false',
-          sort: 'name',
-          direction: 'desc',
-        });
-        const exported = z
-          .object({ columns: z.array(z.string()) })
-          .parse(state.exportInputs.at(-1)?.input);
-        expect(exported.columns).not.toContain('phone');
-        expect(exported.columns).toContain('email');
-        expect(state.exportInputs.at(-1)?.input).not.toHaveProperty('from');
+        // The rewrite-only "queue all matching CSV" export is deleted (no legacy job).
+        await browserExpect(
+          page.getByRole('button', { name: 'Queue all matching CSV', exact: true }),
+        ).toHaveCount(0);
         expect(state.collectionSearches.some((value) => value.after.startsWith('c1.'))).toBe(true);
         expect(state.collectionSearches.at(-1)).toMatchObject({
           path: '/api/v1/admin/operators/search',
@@ -1760,68 +1624,6 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         ).toBe(true);
         expect(page.url()).not.toContain('private-search-canary');
         expect(state.console.join('\n')).not.toContain('private-search-canary');
-      } finally {
-        await page.close();
-      }
-    }, 20000);
-    it('creates, searches, edits and deletes a model administration group while preserving hidden selected permissions', async () => {
-      const page = await browser.newPage();
-      try {
-        const state = await fixture(page);
-        await page.getByRole('tab', { name: 'Model access', exact: true }).click();
-        await page.getByRole('button', { name: 'Create group', exact: true }).click();
-        let dialog = page.getByRole('dialog');
-        await dialog.getByLabel('Group name', { exact: true }).fill('Fixture floor controllers');
-        await dialog.getByLabel('stores.change_store', { exact: true }).check();
-        await dialog.getByLabel('Find model permission', { exact: true }).fill('users.view');
-        await browserExpect(dialog.getByLabel('stores.change_store', { exact: true })).toHaveCount(
-          0,
-        );
-        await dialog.getByLabel('users.view_posuser', { exact: true }).check();
-        await dialog.getByRole('button', { name: 'Save group', exact: true }).click();
-        await browserExpect(dialog).toHaveCount(0);
-        const created = state.accessGroups.find(
-          (group) => group.name === 'Fixture floor controllers',
-        )!;
-        expect(created.permissionKeys).toEqual(['stores.change_store', 'users.view_posuser']);
-        const row = page.getByRole('row').filter({ hasText: 'Fixture floor controllers' });
-        await row.getByRole('button', { name: 'Edit group', exact: true }).click();
-        dialog = page.getByRole('dialog');
-        await dialog.getByLabel('Group name', { exact: true }).fill('Renamed floor controllers');
-        await dialog.getByRole('button', { name: 'Save group', exact: true }).click();
-        await browserExpect(dialog).toHaveCount(0);
-        const renamed = page.getByRole('row').filter({ hasText: 'Renamed floor controllers' });
-        await renamed.getByRole('button', { name: 'Delete group', exact: true }).click();
-        dialog = page.getByRole('dialog');
-        await browserExpect(dialog).toContainText('0 operator memberships');
-        await dialog.getByRole('button', { name: 'Delete group', exact: true }).click();
-        await browserExpect(dialog).toHaveCount(0);
-        expect(state.accessGroups.some((group) => group.id === created.id)).toBe(false);
-      } finally {
-        await page.close();
-      }
-    }, 20000);
-    it('saves staff flags, source groups and direct model permissions in one operator access action', async () => {
-      const page = await browser.newPage();
-      try {
-        const state = await fixture(page);
-        await page.getByRole('tab', { name: 'Operators', exact: true }).click();
-        await page.getByRole('button', { name: 'Administration access', exact: true }).click();
-        const dialog = page.getByRole('dialog');
-        await dialog.getByLabel('Model administration staff access', { exact: true }).check();
-        await dialog.getByLabel('Group Fixture source readers', { exact: true }).check();
-        await dialog.getByLabel('users.view_posuser', { exact: true }).check();
-        await dialog.getByRole('button', { name: 'Save access', exact: true }).click();
-        await browserExpect(dialog).toHaveCount(0);
-        expect(state.operatorAccess).toMatchObject({
-          isStaff: true,
-          isSuperuser: false,
-          groupIds: [state.accessGroups[0]!.id],
-          permissionKeys: ['users.view_posuser'],
-        });
-        expect(
-          state.mutations.filter((mutation) => mutation.path.endsWith('/administration-access')),
-        ).toHaveLength(1);
       } finally {
         await page.close();
       }

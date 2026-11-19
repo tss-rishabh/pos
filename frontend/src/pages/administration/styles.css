@@ -365,16 +365,53 @@
 .administration-access-fieldset textarea[readonly] {
   width: 100%;
 }
-.application-link-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 20px; }
-.application-link-grid > section { padding: 24px; }
-.application-link-qr { display: grid; justify-items: center; gap: 12px; margin-top: 20px; }
-.application-link-qr img { width: min(100%, 300px); height: auto; background: white; padding: 12px; border-radius: 12px; }
-.application-link-landing { min-height: 100dvh; display: grid; place-items: center; padding: 24px; }
-.application-link-landing > section { width: min(100%, 560px); padding: 32px; }
-.application-qr-expiry { border-radius: 18px; padding: 6px 12px; }
-.application-qr-expiry[data-urgency='green'] { background: #dcfae6; color: #05603a; }
-.application-qr-expiry[data-urgency='orange'] { background: #fef0c7; color: #7a2e0e; }
-.application-qr-expiry[data-urgency='red'] { background: #fee4e2; color: #912018; }
+.application-link-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 20px;
+}
+.application-link-grid > section {
+  padding: 24px;
+}
+.application-link-qr {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+.application-link-qr img {
+  width: min(100%, 300px);
+  height: auto;
+  background: white;
+  padding: 12px;
+  border-radius: 12px;
+}
+.application-link-landing {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.application-link-landing > section {
+  width: min(100%, 560px);
+  padding: 32px;
+}
+.application-qr-expiry {
+  border-radius: 18px;
+  padding: 6px 12px;
+}
+.application-qr-expiry[data-urgency='green'] {
+  background: #dcfae6;
+  color: #05603a;
+}
+.application-qr-expiry[data-urgency='orange'] {
+  background: #fef0c7;
+  color: #7a2e0e;
+}
+.application-qr-expiry[data-urgency='red'] {
+  background: #fee4e2;
+  color: #912018;
+}
 .administration-dialog .errorlist {
   margin: 0.25rem 0 0;
   padding-left: 1rem;

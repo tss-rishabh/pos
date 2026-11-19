@@ -20,16 +20,9 @@ const profiles: Record<
   PRODUCT_STOCK_CSV: {
     title: 'Inventory CSV imports',
     instructions:
-      'Columns SkuId, StoreId, IsHold, Hold/UnholdQty, IsAvailable, IsDelete. A Hold/UnholdQty with any IsHold value moves that quantity from saleable stock into hold stock. Leave both empty to change listing flags only. Remove the instruction and example rows before uploading.',
+      'Columns SkuId, StoreId, IsHold, Hold/UnholdQty, IsAvailable, IsDelete. With a Hold/UnholdQty, IsHold 1 moves that quantity from saleable stock into hold stock and IsHold 0 releases it from hold stock back into saleable stock. Leave both empty to change listing flags only. Remove the instruction and example rows before uploading.',
     fileLabel: 'Choose inventory CSV',
     templateLabel: 'Download stock template',
-  },
-  PRODUCT_STORE_CSV: {
-    title: 'Parent/store assignments',
-    instructions:
-      'Columns SkuId, StoreId, IsActive. Use parent product IDs only. IsActive 1 recreates the parent and its live variant assignments with zero stock; IsActive 0 removes them. Remove the instruction and example rows before uploading.',
-    fileLabel: 'Choose parent/store CSV',
-    templateLabel: 'Download parent/store template',
   },
 };
 const statusText = (imported: boolean) => (imported ? 'Imported' : 'Processing');
@@ -242,7 +235,4 @@ function CsvUploadAdministration({ user, type }: { user: Principal; type: Upload
 
 export function InventoryImportAdministration({ user }: { user: Principal }) {
   return <CsvUploadAdministration user={user} type="PRODUCT_STOCK_CSV" />;
-}
-export function ParentStoreImportAdministration({ user }: { user: Principal }) {
-  return <CsvUploadAdministration user={user} type="PRODUCT_STORE_CSV" />;
 }

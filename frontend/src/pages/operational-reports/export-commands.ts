@@ -112,23 +112,3 @@ export async function queueReportExport(ownerId: string, filters: ReportExportFi
     queuedSchema,
   );
 }
-
-export interface AdministrationCollectionExportFilters {
-  kind?: 'administration-list';
-  resource: 'stores' | 'operators' | 'salespeople' | 'counters' | 'storage' | 'documentation';
-  storeIds: string[];
-  search: string;
-  active: 'true' | 'false' | 'all';
-  sort: string;
-  direction: 'asc' | 'desc';
-  columns: readonly string[];
-  label?: string;
-  note?: string;
-}
-/** The administration list export was a rewrite-only feature and has been removed. */
-export function queueAdministrationCollectionExport(
-  _ownerId: string,
-  _filters: AdministrationCollectionExportFilters,
-): Promise<ReportExportRow> {
-  return Promise.reject(new Error('Administration list exports are not available.'));
-}

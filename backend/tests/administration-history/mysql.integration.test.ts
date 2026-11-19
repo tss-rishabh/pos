@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import mysql, { type Connection } from 'mysql2/promise';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { Temporal } from '@js-temporal/polyfill';
@@ -36,8 +35,6 @@ const options: AdministrationHistoryOptions = {
   BQ_ADMINISTRATION_HISTORY_MATCH_UDF: 'fixture-project.history.admin_match',
   BQ_ADMINISTRATION_HISTORY_CONTRACT: historySourceContract,
 };
-const groupId = '64f6d568-21d5-448c-87bc-e184fd4fcbdc',
-  newGroupId = '721bb2a5-8ddb-4c25-a7b2-b169b84d70cf';
 const sourceRow = z.object({
   id: z.string(),
   actorId: z.string(),
@@ -134,14 +131,6 @@ describe.skipIf(!template)('inherited model history against isolated MySQL', () 
     await connection.query(
       'CREATE TABLE django_admin_log (id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,action_time DATETIME(6) NOT NULL,object_id LONGTEXT NULL,object_repr VARCHAR(200) NOT NULL,action_flag SMALLINT UNSIGNED NOT NULL,change_message LONGTEXT NOT NULL,content_type_id INT NULL,user_id INT NOT NULL,INDEX content_type_id(content_type_id),INDEX user_id(user_id),FOREIGN KEY(content_type_id) REFERENCES django_content_type(id),FOREIGN KEY(user_id) REFERENCES auth_user(id)) CHARACTER SET latin1 COLLATE latin1_swedish_ci ENGINE=InnoDB',
     );
-    await connection.query(
-      'CREATE TABLE pos_rewrite_administration_registries (resource VARCHAR(32) PRIMARY KEY) ENGINE=InnoDB',
-    );
-    for (const statement of readFileSync('src/modules/administration/access-migration.sql', 'utf8')
-      .split(';')
-      .map((value) => value.trim())
-      .filter(Boolean))
-      await connection.query(statement);
     url.pathname = '/' + schemaName;
     databaseUrl = url.href;
     config = readConfig({
@@ -175,11 +164,6 @@ describe.skipIf(!template)('inherited model history against isolated MySQL', () 
       'django_admin_log',
       'django_content_type',
       'auth_user',
-      'pos_rewrite_administration_direct_permissions',
-      'pos_rewrite_administration_memberships',
-      'pos_rewrite_administration_group_permissions',
-      'pos_rewrite_administration_groups',
-      'pos_rewrite_administration_access_reconciliation',
       'pos_user',
       'stores',
     ])
@@ -230,14 +214,6 @@ describe.skipIf(!template)('inherited model history against isolated MySQL', () 
     );
     await connection.query(
       "INSERT INTO django_content_type VALUES(1,'users','posuser'),(2,'stores','store'),(3,'auth','group'),(4,'other','store')",
-    );
-    await connection.execute(
-      "INSERT INTO pos_rewrite_administration_access_reconciliation(id,verified,source_fingerprint,snapshot_hash,operator_id,counts,completed_at) VALUES('legacy',1,?,?,'1','{}',NOW(3))",
-      ['a'.repeat(64), 'b'.repeat(64)],
-    );
-    await connection.execute(
-      'INSERT INTO pos_rewrite_administration_groups(id,name,revision,legacy_id,updated_at) VALUES(?,?,1,48,NOW(3)),(?,?,1,NULL,NOW(3))',
-      [groupId, 'Imported source group', newGroupId, 'New rewrite group'],
     );
     const rows: unknown[][] = [];
     for (let index = 1; index <= 205; index++)
@@ -360,21 +336,7 @@ describe.skipIf(!template)('inherited model history against isolated MySQL', () 
     ])[0]!;
     expect(result.data.map((row) => row.id)).toEqual(expected.data.map((row) => row.id));
   });
-  it('maps imported group history by the verified legacy key and returns no fabricated history for new rewrite groups', async () => {
-    const service = administrationHistoryService(config, tracked(), options, undefined, clock);
-    expect(
-      (await service.search(actor, dailyInput({ model: 'group', objectId: groupId }))).data[0]!.id,
-    ).toBe('209');
-    const fresh = await service.search(
-      actor,
-      historyInput.parse({ model: 'group', objectId: newGroupId }),
-    );
-    expect(fresh.reader).toBe('none');
-    expect(fresh.total).toBe('0');
-    expect(fresh.notice).toContain('no legacy Django history');
-    expect(dailyReads).toBe(1);
-  });
-  it('checks writer-current staff/type/role/activity/reconciliation and view-or-change grants before accessing a reader', async () => {
+  it('checks writer-current staff/type/role/activity and superuser before accessing a reader', async () => {
     const service = administrationHistoryService(config, tracked(), options, undefined, clock);
     for (const mutation of [
       'UPDATE pos_user SET is_staff=0 WHERE id=1',
@@ -388,26 +350,10 @@ describe.skipIf(!template)('inherited model history against isolated MySQL', () 
         'UPDATE pos_user SET is_staff=1,user_type=1,role=1,is_active=1 WHERE id=1',
       );
     }
-    await connection.query(
-      'UPDATE pos_rewrite_administration_access_reconciliation SET verified=0',
-    );
-    await expect(service.search(actor, dailyInput())).rejects.toMatchObject({
-      code: 'ADMIN_ACCESS_RECONCILIATION_REQUIRED',
-    });
-    await connection.query(
-      'UPDATE pos_rewrite_administration_access_reconciliation SET verified=1',
-    );
+    // Groups/permissions were deleted: only a current staff superuser holds model view grants.
     await connection.query('UPDATE pos_user SET is_superuser=0 WHERE id=1');
     await expect(service.search(actor, dailyInput())).rejects.toMatchObject({ status: 403 });
     expect(dailyReads).toBe(0);
-    for (const key of ['users.view_posuser', 'users.change_posuser']) {
-      await connection.execute(
-        'INSERT INTO pos_rewrite_administration_direct_permissions(operator_id,permission_key) VALUES(1,?)',
-        [key],
-      );
-      expect((await service.search(actor, dailyInput())).total).toBe('205');
-      await connection.query('DELETE FROM pos_rewrite_administration_direct_permissions');
-    }
     expect((await service.capabilities(actor)).models).toEqual([]);
   });
   it('requires the target to exist and the explicit actor/physical source binding before daily reads', async () => {

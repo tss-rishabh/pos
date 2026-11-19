@@ -764,15 +764,17 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
       await expect(alerts.send(commandId, '2026-11-14')).rejects.toMatchObject({
         code: 'IDEMPOTENCY_CONFLICT',
       });
-      await expect(alerts.send(crypto.randomUUID(), '2026-11-16')).rejects.toMatchObject({
-        code: 'DAY_CLOSE_WINDOW_ACTIVE',
+      // No window check, as legacy: a still-open day is alerted when requested explicitly.
+      expect(await alerts.send(crypto.randomUUID(), '2026-11-16')).toMatchObject({
+        closeDate: '2026-11-16',
       });
+      posts.length = 0;
       await resources()
         .get('writer')
         .update(StoreDayClose)
         .set({ close_date: '2026-11-15', status: 'CLOSED' });
       expect(await alerts.send(crypto.randomUUID())).toMatchObject({ pending: 0 });
-      expect(posts).toHaveLength(2);
+      expect(posts).toHaveLength(0);
     } finally {
       await admin!.query('ALTER TABLE stores DROP COLUMN slack_group_url');
     }

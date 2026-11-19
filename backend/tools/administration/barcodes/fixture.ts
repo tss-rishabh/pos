@@ -82,11 +82,6 @@ export async function barcodeFixture(connection: string) {
             .join(',')})`,
         );
     }
-    for (const migration of ['src/modules/catalog-details/maintenance-migration.sql'])
-      for (const statement of readFileSync(migration, 'utf8')
-        .split(';')
-        .filter((value) => value.trim()))
-        await admin.query(statement);
     url.pathname = '/' + schema;
     const config = readConfig({
         NODE_ENV: 'test',

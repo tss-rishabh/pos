@@ -7,7 +7,6 @@ import type { Principal } from '../../api/types';
 import { ErrorState, Loading } from '../../components/common';
 import { PrivateImages } from '../../components/private-images';
 import { useOnline } from '../../hooks/use-pos';
-import { useAccessCapabilities } from './access-api';
 
 export const operatorAdministrativeProfileSchema = z.object({
   id: z.string(),
@@ -541,7 +540,16 @@ export function OperatorAdministrativeButton({
   operatorId: string;
   operatorName: string;
 }) {
-  const capabilities = useAccessCapabilities(user.id),
+  const capabilities = useQuery({
+      queryKey: [user.id, 'administration', 'operator-administration-capabilities'],
+      queryFn: ({ signal }) =>
+        request(
+          '/api/v1/admin/operator-administration/capabilities',
+          { cache: 'no-store', signal, operatorId: user.id },
+          z.object({ canViewOperators: z.boolean() }),
+        ),
+      retry: false,
+    }),
     [open, setOpen] = useState(false);
   if (!capabilities.data?.canViewOperators) return null;
   return (

@@ -7,7 +7,6 @@
   "include": [
     "collections.mysql.test.ts",
     "../../src/modules/administration/index.ts",
-    "../../src/modules/administration/collection-export.ts",
     "terminal-directory.mysql.test.ts"
   ]
 }
