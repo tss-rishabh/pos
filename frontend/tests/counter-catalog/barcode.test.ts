@@ -1,5 +1,6 @@
 import 'fake-indexeddb/auto';
 import Dexie from 'dexie';
+import { z } from 'zod';
 import { QueryClient } from '@tanstack/react-query';
 import { clearLocalIdentity } from '../../src/offline/clear-identity';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -12,6 +13,7 @@ import {
   commitScannedProduct,
   resolveBarcode,
 } from '../../src/pages/counter-catalog/barcode';
+import { goldenStdout } from '../golden/load';
 const product: Product = {
   id: '9007199254740993',
   parentId: '9',
@@ -55,6 +57,79 @@ describe('exact scanner binding', () => {
     expect(canonicalBarcode('9223372036854775807')).toBe('9223372036854775807');
     for (const input of ['', '_', '-1', '1e3', '1.0', '9223372036854775808', '0'.repeat(101)])
       expect(() => canonicalBarcode(input)).toThrow();
+  });
+  it('dispatches scanned input as the pinned AjaxCartView.post does, with documented validation divergences', () => {
+    // Pinned order/views.py:1694-1724 (78d5b63) run up to its ProductBarcode lookup; replayed from
+    // tests/golden/counter-catalog/source-barcode.json. Legacy strips "_" and calls int(); a
+    // falsy result (0) falls back to product_id; empty input asks for a barcode.
+    const scans = [
+      '000222',
+      '00_9007199254740993_',
+      '12_34',
+      ' 12 ',
+      '9223372036854775807',
+      '0',
+      '0000',
+      '_0_',
+      '',
+      '_',
+      'abc',
+      '1e3',
+      '1.0',
+      '-1',
+      '１２',
+    ];
+    const legacy = z
+      .array(
+        z.discriminatedUnion('outcome', [
+          z.object({
+            outcome: z.literal('filter'),
+            query: z.union([
+              z.object({ gtin: z.string() }).strict(),
+              z.object({ product: z.string() }).strict(),
+            ]),
+          }),
+          z.object({
+            outcome: z.literal('response'),
+            body: z.object({ status: z.literal('fail'), message: z.string() }).passthrough(),
+          }),
+          z.object({ outcome: z.literal('error'), type: z.string() }),
+        ]),
+      )
+      .parse(
+        JSON.parse(
+          goldenStdout(
+            'counter-catalog',
+            'source-barcode',
+            JSON.stringify(scans.map((barcode) => ({ barcode, productId: '0' }))),
+          ),
+        ) as unknown,
+      );
+    expect(legacy).toHaveLength(scans.length);
+    // Documented divergences (backend/parity/w15-report.md): the rewrite refuses negative GTINs and
+    // non-ASCII digits with a clear validation message instead of looking them up as legacy does.
+    const divergent = new Map([
+      ['-1', { outcome: 'filter', query: { gtin: '-1' } }],
+      ['１２', { outcome: 'filter', query: { gtin: '12' } }],
+    ]);
+    scans.forEach((scan, index) => {
+      const source = legacy[index]!;
+      const expected = divergent.get(scan);
+      if (expected) {
+        expect(source, scan).toEqual(expected);
+        expect(() => canonicalBarcode(scan), scan).toThrow('Enter a valid numeric barcode.');
+      } else if (source.outcome === 'filter' && 'gtin' in source.query) {
+        expect(canonicalBarcode(scan), scan).toBe(source.query.gtin);
+      } else if (source.outcome === 'filter') {
+        // product_id=0 fallback: the rewrite sends GTIN 0, which the backend answers
+        // BARCODE_NOT_FOUND (legacy "Product Barcode Missing.").
+        expect(source.query, scan).toEqual({ product: '0' });
+        expect(canonicalBarcode(scan), scan).toBe('0');
+      } else {
+        // "Please Provide Barcode" or a ValueError from int(): the rewrite refuses the scan.
+        expect(() => canonicalBarcode(scan), scan).toThrow('Enter a valid numeric barcode.');
+      }
+    });
   });
   it('requests the entered exact GTIN and retains the primary barcode for an alternate match', async () => {
     const fetcher = vi.fn().mockResolvedValue(response());
