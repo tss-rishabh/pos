@@ -126,6 +126,7 @@ export function MultiSelect({
                 <label title={option.label}>
                   <input
                     type="checkbox"
+                    value={option.value}
                     checked={selected.has(option.value)}
                     onChange={(event) => toggle(option.value, event.target.checked)}
                   />
