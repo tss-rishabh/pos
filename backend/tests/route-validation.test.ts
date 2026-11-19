@@ -166,7 +166,6 @@ beforeAll(async () => {
   app = await buildApp(
     readConfig({
       NODE_ENV: 'test',
-      DEMO_MODE: 'false',
       MYSQL_PRIMARY_READER_URL: 'mysql://synthetic:synthetic@127.0.0.1:9/pos_route_validation',
       MYSQL_ALLOW_LOCAL_PLAINTEXT: 'true',
       SESSION_SECRET: 'route-validation-only-fixture-key-'.repeat(2),

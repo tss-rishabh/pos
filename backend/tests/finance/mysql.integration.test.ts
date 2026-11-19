@@ -128,7 +128,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
     const service = financeService(
       readConfig({
         NODE_ENV: 'test',
-        DEMO_MODE: 'true',
+        MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
         SESSION_SECRET: 'finance-fixture-'.repeat(3),
       }),
       resources(),
@@ -162,7 +162,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
   it('requires a complete warehouse ledger for current returns and preserves original banking/refund totals', async () => {
     const cfg = readConfig({
       NODE_ENV: 'test',
-      DEMO_MODE: 'true',
+      MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
       SESSION_SECRET: 'cash-ledger-fixture-'.repeat(3),
     });
     await expect(
@@ -325,7 +325,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
         cashLedgerService(
           readConfig({
             NODE_ENV: 'test',
-            DEMO_MODE: 'true',
+            MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
             SESSION_SECRET: 'current-return-race-fixture-'.repeat(3),
           }),
           routed,
@@ -348,7 +348,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
     const service = financeService(
       readConfig({
         NODE_ENV: 'test',
-        DEMO_MODE: 'true',
+        MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
         SESSION_SECRET: 'finance-fixture-'.repeat(3),
       }),
       resources(),
@@ -445,7 +445,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
       service = cashLedgerService(
         readConfig({
           NODE_ENV: 'test',
-          DEMO_MODE: 'true',
+          MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
           SESSION_SECRET: 'fixture-history-conservation-session-'.repeat(2),
         }),
         resources(),
@@ -542,7 +542,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
     };
     const cfg = readConfig({
         NODE_ENV: 'test',
-        DEMO_MODE: 'true',
+        MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
         SESSION_SECRET: 'cash-ledger-history-fixture-'.repeat(3),
       }),
       service = cashLedgerService(cfg, database, options, warehouse, clock, corrections);
@@ -606,7 +606,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
       });
     const cfg = readConfig({
         NODE_ENV: 'test',
-        DEMO_MODE: 'true',
+        MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
         SESSION_SECRET: 'close-history-fixture-'.repeat(3),
       }),
       history = closeHistoryService(cfg, resources(), ledgerOptions({}), undefined, clock),
@@ -680,7 +680,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
   it('posts pending-close alerts synchronously per store, derives the last expired day and replays a command from Redis', async () => {
     const cfg = readConfig({
         NODE_ENV: 'test',
-        DEMO_MODE: 'true',
+        MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
         SESSION_SECRET: 'pending-alerts-fixture-'.repeat(3),
       }),
       posts: { url: string | undefined; text: string }[] = [],
@@ -745,7 +745,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
   it('denies elevated revision permission from a stale principal when the writer role is lower', async () => {
     const cfg = readConfig({
         NODE_ENV: 'test',
-        DEMO_MODE: 'true',
+        MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
         SESSION_SECRET: 'authoritative-close-role-'.repeat(3),
       }),
       service = financeService(cfg, resources(), clock, { assertCheckIn: async () => {} }),

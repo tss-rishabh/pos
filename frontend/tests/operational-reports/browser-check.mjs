@@ -151,7 +151,7 @@ try {
     if (path === '/api/v1/auth/sessions/current')
       return json({ user, sessionExpiresAt: Date.now() + 3600000 });
     if (path === '/api/v1/auth/capabilities')
-      return json({ demo: true, password: true, sso: false });
+      return json({ password: true });
     if (path === '/api/v1/stores') return json({ data: [store] });
     if (path === '/api/v1/stores/1/counters')
       return json({ data: [{ id: '1', storeId: '1', name: 'Fixture counter' }] });

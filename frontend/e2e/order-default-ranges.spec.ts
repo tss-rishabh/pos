@@ -3,6 +3,7 @@ import {
   orderSearchOptions,
   type OrderDefaultRanges,
 } from '../src/pages/order-history/search-client';
+import { signIn } from './support/login';
 
 function originalRange(generatedAt: string, timeZone: string) {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -43,7 +44,7 @@ async function enter(page: Page, path = '/orders') {
   const metadata = metadataResponse(page),
     result = searchResponse(page);
   await page.goto(path);
-  await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+  await signIn(page);
   const value = orderSearchOptions.parse((await (await metadata).json()) as unknown);
   expect(value.defaults).toBeDefined();
   const response = await result;

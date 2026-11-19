@@ -27,10 +27,8 @@ import type {
   CustomerApplicationProvider,
   StaffApplicationPackage,
 } from '../../src/modules/application-links/provider.js';
-import {
-  legacyFixtureRecord,
-  legacyFixtureTableSql,
-} from '../../tools/administration/mysql-fixture.js';
+import { legacyFixtureRecord } from '../../tools/administration/mysql-fixture.js';
+import { createProductionTables } from '../helpers/production-schema.js';
 
 const template = process.env.APPLICATION_LINK_MYSQL_TEST_URL;
 describe.skipIf(!template)(
@@ -124,11 +122,14 @@ describe.skipIf(!template)(
           ' CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci',
       );
       await connection.changeUser({ database: schemaName });
-      for (const table of [PosUser, Store, StoreCounter, UserStore])
-        await connection.query(legacyFixtureTableSql(table));
-      await connection.query(
-        'CREATE TABLE pos_to_app_logs(id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,store_id INT NOT NULL DEFAULT 0,scanned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB',
-      );
+      // Production snapshot DDL only (tests/golden/schema/production-schema.json).
+      await createProductionTables(connection, [
+        PosUser,
+        Store,
+        StoreCounter,
+        UserStore,
+        'pos_to_app_logs',
+      ]);
       url.pathname = '/' + schemaName;
       config = readConfig({
         NODE_ENV: 'test',

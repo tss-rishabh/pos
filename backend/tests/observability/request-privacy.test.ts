@@ -26,7 +26,6 @@ const event = z.object({
 function configuration(extra: NodeJS.ProcessEnv = {}) {
   return readConfig({
     NODE_ENV: 'test',
-    DEMO_MODE: 'false',
     MYSQL_PRIMARY_READER_URL: 'mysql://synthetic:synthetic@127.0.0.1:9/pos_observability_fixture',
     MYSQL_ALLOW_LOCAL_PLAINTEXT: 'true',
     SESSION_SECRET: 'request-privacy-only-fixture-key-'.repeat(2),

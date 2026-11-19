@@ -69,7 +69,7 @@ describe('private documentation media boundaries', () => {
       credentials: { accessKeyId: 'fixture', secretAccessKey: 'fixture-secret' },
     });
     const media = createScopedMediaStore(
-      { NODE_ENV: 'test', DEMO_MODE: false },
+      { NODE_ENV: 'test' },
       readDocumentationMediaOptions({ AWS_STORAGE_BUCKET_NAME: 'fixture-bucket' }),
       'uploads/users',
       { image: 'profile_image', 'cover-image': 'cover_image' },
@@ -91,7 +91,7 @@ describe('private documentation media boundaries', () => {
     expect(() => media.assertKey('uploads/other/private.png')).toThrow();
     expect(() =>
       createScopedMediaStore(
-        { NODE_ENV: 'test', DEMO_MODE: false },
+        { NODE_ENV: 'test' },
         readDocumentationMediaOptions({ AWS_STORAGE_BUCKET_NAME: 'fixture-bucket' }),
         '../users',
         { image: 'profile_image' },
@@ -184,11 +184,7 @@ describe('private documentation media boundaries', () => {
       AWS_STORAGE_BUCKET_NAME: 'fixture-bucket',
       S3_TUTORIAL_FOLDER_PATH: 'fixtures/tutorials',
     });
-    const media = createDocumentationMediaStore(
-      { NODE_ENV: 'test', DEMO_MODE: false },
-      options,
-      client,
-    )!;
+    const media = createDocumentationMediaStore({ NODE_ENV: 'test' }, options, client)!;
     try {
       const input = uploadInput.parse({
           id: randomUUID(),

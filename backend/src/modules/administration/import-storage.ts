@@ -27,11 +27,11 @@ export function alternativeName(key: string): string {
 }
 
 export function createCsvUploadStorage(
-  config: Pick<Config, 'NODE_ENV' | 'DEMO_MODE'>,
+  config: Pick<Config, 'NODE_ENV'>,
   options: PrivateS3Options,
   injectedClient?: S3Client,
 ): CsvUploadStorage | undefined {
-  if (config.DEMO_MODE || !options.AWS_STORAGE_BUCKET_NAME) return undefined;
+  if (!options.AWS_STORAGE_BUCKET_NAME) return undefined;
   const bucket = options.AWS_STORAGE_BUCKET_NAME,
     client = injectedClient || createPrivateS3Client(config, options),
     owner = options.AWS_S3_EXPECTED_BUCKET_OWNER

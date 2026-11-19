@@ -4,7 +4,6 @@ import type { Config } from '../../../config.js';
 import type { Databases } from '../../../db/pools.js';
 import { authenticated } from '../../../auth/routes.js';
 import { identifier } from '../../../domain/validation.js';
-import { AppError } from '../../../domain/errors.js';
 import { noQuery, routeSchema, transportHeaders } from '../../../domain/route-validation.js';
 import type { JobProducer } from '../../../jobs/contract.js';
 import { checkoutSessionStore, type CheckoutSessionStore } from '../session-store.js';
@@ -49,12 +48,6 @@ export function registerOrderCopy(
       }),
     },
     async (request) => {
-      if (config.DEMO_MODE)
-        throw new AppError(
-          503,
-          'ORDER_COPY_UNAVAILABLE',
-          'Order copying is unavailable in this workspace.',
-        );
       const user = authenticated(request),
         params = scope.parse(request.params),
         input = orderCopyInputSchema.parse(request.body);

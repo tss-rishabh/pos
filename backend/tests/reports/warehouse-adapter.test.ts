@@ -28,7 +28,7 @@ vi.mock('@google-cloud/bigquery', async (importOriginal) => {
 });
 const config = readConfig({
   NODE_ENV: 'test',
-  DEMO_MODE: 'true',
+  MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
   SESSION_SECRET: 'warehouse-adapter-fixture-'.repeat(3),
   BIGQUERY_PROJECT_ID: 'fixture-project',
   BIGQUERY_DAILY_ROLLUP_TABLE: 'fixture-project.pos.daily',

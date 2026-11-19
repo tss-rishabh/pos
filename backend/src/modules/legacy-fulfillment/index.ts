@@ -20,7 +20,7 @@ import type { JobProducer } from '../../jobs/contract.js';
 import { createProductSyncAdapter } from '../administration/product-sync.js';
 import { readAdministrationWorkerOptions } from '../administration/worker-options.js';
 import { notificationBus } from '../fulfillment/notification-bus.js';
-import { memoryOrderRedis, nodeOrderRedis, type OrderRedis } from '../fulfillment/order-redis.js';
+import { nodeOrderRedis, type OrderRedis } from '../fulfillment/order-redis.js';
 import { legacyFulfillmentActions, type LegacyFulfillmentActions } from './actions.js';
 import { hyperlocalGateway } from './gateway.js';
 import { credentialMatches, readLegacyFulfillmentOptions } from './options.js';
@@ -51,13 +51,13 @@ export function legacyFulfillmentDependencies(
 ): LegacyFulfillmentDependencies & { close(): Promise<void> } {
   const environment = supplied.environment ?? process.env,
     env = supplied.env ?? readLegacyFulfillmentOptions(environment),
-    redis = supplied.redis ?? (config.DEMO_MODE ? memoryOrderRedis() : nodeOrderRedis(config)),
+    redis = supplied.redis ?? nodeOrderRedis(config),
     commonRedis =
       supplied.commonRedis ??
-      (env.COMMON_REDIS_URL && !config.DEMO_MODE
+      (env.COMMON_REDIS_URL
         ? nodeOrderRedis({ REDIS_URL: env.COMMON_REDIS_URL, NODE_ENV: config.NODE_ENV })
         : undefined),
-    bus = supplied.publish || config.DEMO_MODE ? undefined : notificationBus(config),
+    bus = supplied.publish ? undefined : notificationBus(config),
     logger = supplied.logger,
     log: LifecycleLog =
       supplied.log ??
@@ -78,9 +78,7 @@ export function legacyFulfillmentDependencies(
     supplied.systemStockProcedure ?? configuredSystemStockProjection(config, environment);
   const syncProducts =
     supplied.syncProducts ??
-    (config.DEMO_MODE
-      ? undefined
-      : createProductSyncAdapter(config, readAdministrationWorkerOptions(environment)));
+    createProductSyncAdapter(config, readAdministrationWorkerOptions(environment));
   return {
     config,
     db,

@@ -58,11 +58,7 @@ export interface HyperlocalGateway {
 
 const local = (url: URL) => ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
 /** The base must be https (plain http only to loopback outside production). */
-function endpoint(
-  raw: string | undefined,
-  path: string,
-  config: Pick<Config, 'NODE_ENV' | 'DEMO_MODE'>,
-) {
+function endpoint(raw: string | undefined, path: string, config: Pick<Config, 'NODE_ENV'>) {
   if (!raw) return null;
   let url: URL;
   try {
@@ -75,17 +71,13 @@ function endpoint(
     url.password ||
     url.hash ||
     (url.protocol !== 'https:' &&
-      !(url.protocol === 'http:' && local(url) && config.NODE_ENV !== 'production')) ||
-    (config.DEMO_MODE && !local(url))
+      !(url.protocol === 'http:' && local(url) && config.NODE_ENV !== 'production'))
   )
     return null;
   return url;
 }
 /** Slack posts only to Slack webhooks (store-configured URLs must not become an SSRF vector). */
-export function slackEndpoint(
-  raw: string | null | undefined,
-  config: Pick<Config, 'NODE_ENV' | 'DEMO_MODE'>,
-) {
+export function slackEndpoint(raw: string | null | undefined, config: Pick<Config, 'NODE_ENV'>) {
   const url = endpoint(raw || undefined, '', config);
   if (!url) return null;
   if (url.hostname !== 'hooks.slack.com' && !(local(url) && config.NODE_ENV !== 'production'))
@@ -94,7 +86,7 @@ export function slackEndpoint(
 }
 
 export function hyperlocalGateway(
-  config: Pick<Config, 'NODE_ENV' | 'DEMO_MODE'>,
+  config: Pick<Config, 'NODE_ENV'>,
   options: LegacyFulfillmentEnvironment,
   fetcher: typeof fetch = tracedFetch,
   clock: () => number = Date.now,

@@ -157,7 +157,7 @@ describe('payment source parity', () => {
   it('keeps only timeouts, transport errors, 5xx and unreadable replies unknown', async () => {
     const config = readConfig({
       NODE_ENV: 'test',
-      DEMO_MODE: 'true',
+      MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
       SESSION_SECRET: 'fixture-payment-secret-'.repeat(3),
     });
     const gatewayWith = (respond: () => Promise<Response>) =>

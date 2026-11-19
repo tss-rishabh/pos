@@ -61,7 +61,26 @@ jobs:
         working-directory: frontend
       - run: npm test -- --maxWorkers=2
         working-directory: frontend
+      # Playwright runs against the real stack (backend/tools/e2e/stack.ts): a seeded loopback
+      # MySQL 8.4 schema, a private loopback redis-server and loopback fake adapters.
+      # No Windows-native redis-server is available on the runner, so these run on macOS only.
+      - name: Loopback MySQL and Redis for the e2e stack
+        if: runner.os == 'macOS'
+        run: |
+          brew install mysql@8.4 redis
+          MYSQLD="$(brew --prefix mysql@8.4)/bin/mysqld"
+          DATA="$RUNNER_TEMP/e2e-mysql"
+          "$MYSQLD" --initialize-insecure --datadir="$DATA"
+          "$MYSQLD" --datadir="$DATA" --port=33710 --bind-address=127.0.0.1 \
+            --socket="$RUNNER_TEMP/e2e-mysql.sock" --mysqlx=OFF --sql-mode='' \
+            --log-error="$RUNNER_TEMP/e2e-mysql.err" --pid-file="$RUNNER_TEMP/e2e-mysql.pid" &
+          for attempt in $(seq 1 60); do
+            "$(brew --prefix mysql@8.4)/bin/mysqladmin" -uroot -h127.0.0.1 -P33710 ping && break
+            sleep 1
+          done
+          echo "E2E_MYSQL_URL=mysql://root@127.0.0.1:33710/pos_rewrite_e2e" >> "$GITHUB_ENV"
       - name: Native Electron and offline browser checks
+        if: runner.os == 'macOS'
         run: npm run test:e2e
         working-directory: frontend
       - name: Browser sign-in, customer and order recovery

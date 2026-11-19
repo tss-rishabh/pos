@@ -21,7 +21,6 @@ const makeRedis = (url: string) =>
   });
 function commonCache(config: Config, connectionUrl: string): SettingsCache {
   const url = new URL(connectionUrl);
-  const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
   if (
     !['redis:', 'rediss:'].includes(url.protocol) ||
     url.hash ||
@@ -33,8 +32,6 @@ function commonCache(config: Config, connectionUrl: string): SettingsCache {
       'COMMON_CACHE_CONFIGURATION_INVALID',
       'Configure the approved common cache with TLS.',
     );
-  if (config.DEMO_MODE && !local)
-    throw new AppError(503, 'COMMON_CACHE_CONFIGURATION_INVALID', 'Demo cache must remain local.');
   let client: ReturnType<typeof makeRedis> | undefined;
   let ready: Promise<ReturnType<typeof makeRedis>> | undefined;
   function reset() {
@@ -132,10 +129,8 @@ export function createSettingsDelivery(
   const fetcher = injected.fetcher || fetch;
   const cache =
     injected.cache ||
-    (!config.DEMO_MODE && options.COMMON_REDIS_URL
-      ? commonCache(config, options.COMMON_REDIS_URL)
-      : undefined);
-  const webhook = !config.DEMO_MODE && options.SLACK_URL ? new URL(options.SLACK_URL) : undefined;
+    (options.COMMON_REDIS_URL ? commonCache(config, options.COMMON_REDIS_URL) : undefined);
+  const webhook = options.SLACK_URL ? new URL(options.SLACK_URL) : undefined;
   if (
     webhook &&
     (webhook.protocol !== 'https:' ||

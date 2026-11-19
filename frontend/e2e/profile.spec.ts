@@ -1,13 +1,14 @@
 import { test, expect } from '@playwright/test';
 import { z } from 'zod';
 import { sessionSchema } from '../src/api/schemas';
+import { signIn } from './support/login';
 
 test('self-service profile updates, password validation and offline restrictions', async ({
   page,
   context,
 }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+  await signIn(page);
   await expect(page.getByRole('heading', { name: 'The counter.' })).toBeVisible();
   const session = sessionSchema.parse(
     await (await page.request.get('/api/v1/auth/sessions/current')).json(),

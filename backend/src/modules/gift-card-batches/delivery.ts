@@ -1,4 +1,3 @@
-import type { Config } from '../../config.js';
 import { AppError } from '../../domain/errors.js';
 import type { GiftCardBatchDelivery } from './contracts.js';
 import type { GiftCardBatchOptions } from './options.js';
@@ -10,11 +9,10 @@ import { maxGiftCardArchiveBytes } from './generation.js';
  * then `.json()`, exceptions logged); `send` returns false instead of throwing.
  */
 export function createGiftCardBatchDelivery(
-  config: Pick<Config, 'DEMO_MODE'>,
   options: GiftCardBatchOptions,
   fetcher: typeof fetch = fetch,
 ): GiftCardBatchDelivery | undefined {
-  if (config.DEMO_MODE || !options.NETCORE_EMAIL_URL || !options.NETCORE_API_KEY) return undefined;
+  if (!options.NETCORE_EMAIL_URL || !options.NETCORE_API_KEY) return undefined;
   const endpoint = new URL(options.NETCORE_EMAIL_URL),
     apiKey = options.NETCORE_API_KEY;
   if (

@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
+import { signIn } from './support/login';
 
 // These API fixtures must own the request; offline shell behavior has separate real-worker tests.
 test.use({ serviceWorkers: 'block' });
@@ -10,7 +11,7 @@ test('multiple-store daily reporting retains all source columns and full totals 
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
-  await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+  await signIn(page);
   let requests = 0;
   const row = (index: number) => ({
     store_name: index === 0 ? '\u200b=SUM(1,2)' : `Fixture store ${String(index).padStart(2, '0')}`,

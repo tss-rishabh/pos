@@ -68,20 +68,19 @@ export async function assertPrivateBucket(
   }
 }
 export function validatePrivateS3Options(
-  config: Pick<Config, 'NODE_ENV' | 'DEMO_MODE'>,
+  config: Pick<Config, 'NODE_ENV'>,
   options: Pick<PrivateS3Options, 'AWS_S3_ENDPOINT_URL'>,
 ): void {
   const endpoint = options.AWS_S3_ENDPOINT_URL ? new URL(options.AWS_S3_ENDPOINT_URL) : undefined;
   const local = !!endpoint && ['localhost', '127.0.0.1', '[::1]'].includes(endpoint.hostname);
   if (
-    (config.DEMO_MODE && !local) ||
-    (endpoint &&
-      (endpoint.username ||
-        endpoint.password ||
-        endpoint.search ||
-        endpoint.hash ||
-        (endpoint.protocol !== 'https:' &&
-          !(config.NODE_ENV !== 'production' && local && endpoint.protocol === 'http:'))))
+    endpoint &&
+    (endpoint.username ||
+      endpoint.password ||
+      endpoint.search ||
+      endpoint.hash ||
+      (endpoint.protocol !== 'https:' &&
+        !(config.NODE_ENV !== 'production' && local && endpoint.protocol === 'http:')))
   )
     throw new AppError(
       503,
@@ -91,7 +90,7 @@ export function validatePrivateS3Options(
 }
 /** Default credential chain, bounded sockets/timeouts and no SDK request/payload logging. */
 export function createPrivateS3Client(
-  config: Pick<Config, 'NODE_ENV' | 'DEMO_MODE'>,
+  config: Pick<Config, 'NODE_ENV'>,
   options: Pick<PrivateS3Options, 'AWS_S3_REGION_NAME' | 'AWS_S3_ENDPOINT_URL'>,
 ): S3Client {
   validatePrivateS3Options(config, options);

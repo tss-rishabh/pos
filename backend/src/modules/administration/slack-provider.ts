@@ -48,12 +48,12 @@ const slackErrorCode = /^[a-z0-9_]{1,64}$/;
  * secret, as `SlackConnectView` (`stores/views.py:315-323`).
  */
 export function createSlackOAuthProvider(
-  config: Pick<Config, 'NODE_ENV' | 'DEMO_MODE' | 'WEB_ORIGIN'>,
+  config: Pick<Config, 'NODE_ENV' | 'WEB_ORIGIN'>,
   options: ReturnType<typeof readSlackOAuthOptions>,
   fetcher: typeof fetch = fetch,
 ): SlackOAuthProvider | undefined {
   const { SLACK_CLIENT_ID: clientId, SLACK_CLIENT_SECRET: secret } = options;
-  if (config.DEMO_MODE || !clientId || !secret) return undefined;
+  if (!clientId || !secret) return undefined;
   const web = new URL(config.WEB_ORIGIN),
     redirectUri = options.SLACK_OAUTH_REDIRECT_URI || new URL(slackCallbackPath, web).href,
     uri = new URL(redirectUri);

@@ -38,7 +38,7 @@ export function productSynchronizationBody(ids: string[], troubleshoot = false):
  * the inline administration callers pass `false`.
  */
 export function createProductSyncAdapter(
-  config: Pick<Config, 'NODE_ENV' | 'DEMO_MODE' | 'TSS_API_BASE_URL' | 'TSS_API_MIGRATION_V2'>,
+  config: Pick<Config, 'NODE_ENV' | 'TSS_API_BASE_URL' | 'TSS_API_MIGRATION_V2'>,
   options: AdministrationWorkerOptions,
   fetcher: typeof fetch = tracedFetch,
   { requireReplaySafe = true }: { requireReplaySafe?: boolean } = {},
@@ -64,8 +64,7 @@ export function createProductSyncAdapter(
     origin.hash ||
     target.hash ||
     (target.protocol !== 'https:' &&
-      !(config.NODE_ENV !== 'production' && local && target.protocol === 'http:')) ||
-    (config.DEMO_MODE && !local)
+      !(config.NODE_ENV !== 'production' && local && target.protocol === 'http:'))
   )
     throw new AppError(
       503,

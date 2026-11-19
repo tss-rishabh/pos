@@ -29,7 +29,7 @@ describe.skipIf(!connection)('flash-sales source SQL on verified-schema local My
   const schema = `pos_rewrite_flash_sales_test_${randomUUID().replaceAll('-', '').slice(0, 12)}`,
     config = readConfig({
       NODE_ENV: 'test',
-      DEMO_MODE: 'true',
+      MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
       SESSION_SECRET: 'flash-report-mysql-'.repeat(4),
     }),
     user: Principal = {

@@ -20,7 +20,7 @@ import { goldenStdout } from '../golden/load.js';
 
 const config = readConfig({
   NODE_ENV: 'test',
-  DEMO_MODE: 'true',
+  MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
   SESSION_SECRET: 'finance-test-session-secret-'.repeat(2),
 });
 const legacyConfig = {

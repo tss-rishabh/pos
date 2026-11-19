@@ -39,7 +39,7 @@ export function uniqueBarcodeProduct(products: readonly ProductDto[], matchedBar
 /** Exact EXISTS shares the catalog projection/eligibility, including alternate GS1 records. */
 export async function readCatalogBarcode(
   catalog: CatalogService,
-  db: Databases | null,
+  db: Databases,
   user: Principal,
   storeId: string,
   raw: string,
@@ -50,7 +50,6 @@ export async function readCatalogBarcode(
   if (barcode === '0')
     throw new AppError(404, 'BARCODE_NOT_FOUND', 'No sellable product matches this barcode.');
   async function currentAuthority() {
-    if (!db) return;
     await db.get('writer').transaction(async (tx) => {
       await assertCurrentStoreAccess(tx, user.id, storeId, [1, 2, 3, 4, 5], 'share');
       const [store] = await tx
@@ -64,18 +63,8 @@ export async function readCatalogBarcode(
     });
   }
   await currentAuthority();
-  const page = db
-    ? await catalog.products(user, storeId, '', '0', 2, false, barcode)
-    : await catalog.products(user, storeId, barcode, '0', 100, false);
-  const result = uniqueBarcodeProduct(
-    db
-      ? page.data
-      : page.data.filter((product) => {
-          const parsed = catalogBarcode.safeParse(product.barcode);
-          return parsed.success && parsed.data === barcode;
-        }),
-    barcode,
-  );
+  const page = await catalog.products(user, storeId, '', '0', 2, false, barcode);
+  const result = uniqueBarcodeProduct(page.data, barcode);
   await currentAuthority();
   return result;
 }
@@ -125,13 +114,12 @@ export function stockLocations(
 }
 
 export async function readCatalogStockLocations(
-  db: Databases | null,
+  db: Databases,
   user: Principal,
   storeId: string,
   productIds: readonly string[],
 ): Promise<{ data: CatalogStockLocation[] }> {
   requireStore(user, storeId);
-  if (!db) return { data: [] };
   const reader = db.get('primary'),
     ids = productIds.map(BigInt),
     store = BigInt(storeId);
@@ -157,7 +145,7 @@ export async function readCatalogStockLocations(
 
 const stockLocationParams = z.object({ storeId: identifier }).strict();
 /** `GET /api/v1/stores/:storeId/catalog/stock-locations?productIds=1,2` (read-only, no PII). */
-export function registerCatalogStockLocations(app: FastifyInstance, db: Databases | null) {
+export function registerCatalogStockLocations(app: FastifyInstance, db: Databases) {
   app.get(
     '/api/v1/stores/:storeId/catalog/stock-locations',
     {

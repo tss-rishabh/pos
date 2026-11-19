@@ -262,7 +262,7 @@ describe('sealed common-generation payment cash publications', () => {
       },
       config = readConfig({
         NODE_ENV: 'test',
-        DEMO_MODE: 'true',
+        MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
         SESSION_SECRET: 'fixture-historical-dsr-session-'.repeat(3),
       }),
       service = reportService(config, db, {

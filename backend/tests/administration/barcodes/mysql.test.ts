@@ -24,6 +24,7 @@ import { administrationService } from '../../../src/modules/administration/servi
 import { catalogService } from '../../../src/modules/catalog.js';
 import { catalogMaintenanceService } from '../../../src/modules/catalog-details/maintenance-service.js';
 import { barcodeFixture } from '../../../tools/administration/barcodes/fixture.js';
+import { injectWriteFailure } from '../../helpers/production-schema.js';
 import { goldenSpawnResult } from '../../golden/load.js';
 import { fixturePlaceholders } from '../../golden/fixture-placeholders.js';
 
@@ -226,15 +227,22 @@ describe.skipIf(!connection)(
     });
 
     it('keeps the barcode when the activity insert fails, as the source logger swallows its error', async () => {
-      await fixture.admin.query(
-        "CREATE TRIGGER reject_barcode_audit BEFORE INSERT ON pos_special_permission_activity_log FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Synthetic audit failure'",
-      );
+      // Test-only fault injection on the disposable schema: a SIGNAL trigger fails the audit insert.
+      const restore = await injectWriteFailure(fixture.admin, {
+        table: 'pos_special_permission_activity_log',
+        event: 'INSERT',
+        message: 'Synthetic audit failure',
+      });
       const input = { operationId: randomUUID(), productId: '11', barcode: '449' };
-      const result = await service.assign(user, input);
-      expect(result).toMatchObject({ status: 'success', auditId: null });
-      expect(await count('products_gs1')).toBe('1');
-      expect(await count('pos_special_permission_activity_log')).toBe('0');
-      await fixture.admin.query('DROP TRIGGER reject_barcode_audit');
+      let result: Awaited<ReturnType<typeof service.assign>>;
+      try {
+        result = await service.assign(user, input);
+        expect(result).toMatchObject({ status: 'success', auditId: null });
+        expect(await count('products_gs1')).toBe('1');
+        expect(await count('pos_special_permission_activity_log')).toBe('0');
+      } finally {
+        await restore();
+      }
       expect(await service.assign(user, input)).toEqual(result);
     });
     it('keeps rejected receipts immutable and rejects UUID reuse with different canonical input or another actor', async () => {
@@ -279,6 +287,7 @@ describe.skipIf(!connection)(
       expect(await count('products_gs1')).toBe('1');
     });
     it('retains full-width product/GTIN/generated IDs without $returningId or numeric rounding', async () => {
+      // Test-only on the disposable schema: bump AUTO_INCREMENT past 2^53 to prove lossless IDs.
       await fixture.admin.query('ALTER TABLE products_gs1 AUTO_INCREMENT=9007199254740993');
       await fixture.admin.query(
         'ALTER TABLE pos_special_permission_activity_log AUTO_INCREMENT=9007199254740993',

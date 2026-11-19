@@ -5,7 +5,7 @@ import { resourceRoutes } from '../src/observability/events.js';
 const app = await buildApp(
   readConfig({
     NODE_ENV: 'test',
-    DEMO_MODE: 'true',
+    MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
     SESSION_SECRET: 'manifest-only-local-tool-'.repeat(3),
   }),
 );

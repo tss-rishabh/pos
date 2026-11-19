@@ -27,7 +27,7 @@ describe.skipIf(!integration)('synchronous catalog maintenance on isolated verif
       'pos_rewrite_catalog_maintenance_test_' + randomUUID().replaceAll('-', '').slice(0, 12),
     config = readConfig({
       NODE_ENV: 'test',
-      DEMO_MODE: 'true',
+      MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
       SESSION_SECRET: 'catalog-maintenance-native-'.repeat(3),
     });
   let connection: mysql.Connection | undefined,

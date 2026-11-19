@@ -27,9 +27,7 @@ import { authEventLogger } from './auth/events.js';
 import { fixedOtpSettings, loginOtpState } from './auth/login-otp.js';
 import { pendingLogins } from './auth/login-pending.js';
 import { loginCheckIns, storeDirectory } from './auth/checkin.js';
-import { demoAccountReader } from './auth/demo-session.js';
 import { connectRedisPort, unavailableRedisPort } from './redis/node-client.js';
-import { memoryRedisPort } from './redis/memory.js';
 import type { RedisPort } from './redis/port.js';
 import { profileService } from './auth/profile.js';
 import { registerProfile } from './auth/profile-routes.js';
@@ -73,7 +71,7 @@ import {
   readSlackOAuthOptions,
 } from './modules/administration/slack-provider.js';
 import { registerCheckout } from './modules/checkout/index.js';
-import { configuredStateStore, memoryStateStore } from './modules/checkout/state-store.js';
+import { configuredStateStore } from './modules/checkout/state-store.js';
 import { checkoutSessionStore } from './modules/checkout/session-store.js';
 import { registerOfflineSync } from './modules/offline-sync/index.js';
 import {
@@ -111,9 +109,7 @@ import { registerPublicOrders } from './modules/order-history/routes.js';
 import { registerOnlineOrderDetails } from './modules/order-history/online-detail/routes.js';
 import { historicalOrderCopyFacts } from './modules/order-history/copy-adapter.js';
 import { registerOrderSearch } from './modules/order-history/search/index.js';
-import { demoOrderSearch } from './modules/order-history/search/demo.js';
 import { draftMutationSchema, draftService } from './modules/drafts.js';
-import { demoServices, demoUser } from './modules/demo.js';
 import { registerEventCatalog, requestEvent } from './observability/events.js';
 import { createModuleRuntime } from './jobs/module-runtime.js';
 import { registerRequestTrace, requestIdFor, tracedFetch } from './observability/context.js';
@@ -127,13 +123,10 @@ import {
 } from './domain/route-validation.js';
 import { mapError } from './observability/errors.js';
 import { applicationLogger } from './observability/logger.js';
-import { reportService, dailyReportRange } from './modules/reports.js';
-import { routeRead } from './domain/routing.js';
-import { mergeDailyRows, dailyTotals } from './modules/daily-report.js';
-import { scopedStores } from './domain/access.js';
+import { reportService } from './modules/reports.js';
 import { sql } from 'drizzle-orm';
 import type { JobProducer } from './jobs/contract.js';
-import { memoryOrderRedis, nodeOrderRedis } from './modules/fulfillment/order-redis.js';
+import { nodeOrderRedis } from './modules/fulfillment/order-redis.js';
 
 const id = identifier;
 const scope = z.object({ storeId: id });
@@ -179,43 +172,37 @@ export async function buildApp(
   // Legacy redis_instance database 0: sessions, login OTP state, check-in lists, mPOS QR.
   const authRedis =
     options.authRedis ??
-    (config.DEMO_MODE
-      ? memoryRedisPort()
-      : config.REDIS_URL
-        ? connectRedisPort(config.REDIS_URL, config.NODE_ENV)
-        : unavailableRedisPort());
+    (config.REDIS_URL
+      ? connectRedisPort(config.REDIS_URL, config.NODE_ENV)
+      : unavailableRedisPort());
   // Check-ins are the legacy `check_in_{uid}` / `check_in_list_{store}` keys login writes.
   bindCheckInRedis(authRedis);
   const db = createDatabases(config),
     identity = identityService(config, db, authEvents);
   /**
    * Job producer (src/jobs, phase-c-legacy-jobs.md §4) + ephemeral Redis state. `jobs` is the
-   * Redis queue producer when REDIS_URL is set outside demo mode (or `options.jobs` in tests),
+   * Redis queue producer when REDIS_URL is set (or `options.jobs` in tests),
    * otherwise `undefined`, so optional producers keep their "queue unavailable" handling.
    */
   const moduleRuntime = createModuleRuntime(config, options.jobs),
     jobs = moduleRuntime.queue;
   useAdministrationEphemeralStore(moduleRuntime.ephemeral);
   // W4: one Redis-backed store for checkout, returns and payments state, sharing the producer.
-  const posState = config.DEMO_MODE ? undefined : configuredStateStore(config),
-    checkoutShared = posState
-      ? { stateStore: posState, sessions: checkoutSessionStore(posState), jobs }
-      : { jobs };
+  const posState = configuredStateStore(config),
+    checkoutShared = { stateStore: posState, sessions: checkoutSessionStore(posState), jobs };
   app.addHook('onClose', async () => {
-    await posState?.close();
+    await posState.close();
   });
   const paymentCorrections = paymentCorrectionFinanceOptions(),
     checkoutRuntime = checkoutEnvironment(),
     reports = reportService(config, db, { paymentCorrections }),
     orderHistory = publicOrderHistory(config);
-  const services = config.DEMO_MODE
-    ? demoServices()
-    : {
-        catalog: catalogService(db),
-        orders: ordersService(db, config),
-        drafts: draftService(db, posState ?? memoryStateStore()),
-      };
-  const orderRedis = config.DEMO_MODE ? memoryOrderRedis() : nodeOrderRedis(config);
+  const services = {
+    catalog: catalogService(db),
+    orders: ordersService(db, config),
+    drafts: draftService(db, posState),
+  };
+  const orderRedis = nodeOrderRedis(config);
   app.addHook('onClose', async () => {
     await identity.close();
     await orderRedis.close();
@@ -232,48 +219,6 @@ export async function buildApp(
       const origin = request.headers.origin;
       if (origin !== new URL(config.WEB_ORIGIN).origin)
         throw new AppError(403, 'ORIGIN_DENIED', 'Request origin is not allowed.');
-    }
-    if (config.DEMO_MODE) {
-      const route = request.routeOptions.url || '';
-      const publicRoute = [
-        '/health/live',
-        '/health/ready',
-        '/api/v1/auth/capabilities',
-        '/api/v1/operators/current/device-handoffs/capabilities',
-        '/api/v1/auth/demo-sessions',
-        '/api/v1/auth/sessions/current',
-      ].includes(route);
-      const syntheticResource = [
-        '/api/v1/stores',
-        '/api/v1/stores/:storeId/counters',
-        '/api/v1/stores/:storeId/catalog/products',
-        '/api/v1/stores/:storeId/catalog/products/by-barcode/:barcode',
-        '/api/v1/stores/:storeId/catalog/stock-locations',
-        '/api/v1/stores/:storeId/orders',
-        '/api/v1/stores/:storeId/orders/:orderId',
-        '/api/v1/stores/:storeId/orders/searches',
-        '/api/v1/stores/:storeId/order-search-options',
-        '/api/v1/reports/daily-store-sales',
-        '/api/v1/reports/store-cash-balances/stores',
-        '/api/v1/stores/:storeId/cart-drafts',
-        '/api/v1/stores/:storeId/cart-drafts/:draftId',
-        '/api/v1/motivational-quotes/random',
-      ].includes(route);
-      const safeRead = ['GET', 'HEAD', 'OPTIONS'].includes(request.method);
-      if (
-        !publicRoute &&
-        !(
-          syntheticResource &&
-          (safeRead ||
-            request.routeOptions.config.trace?.resource === 'cart-draft' ||
-            (route === '/api/v1/stores/:storeId/orders/searches' && request.method === 'POST'))
-        )
-      )
-        throw new AppError(
-          403,
-          'DEMO_READ_ONLY',
-          'This action is unavailable in the demo workspace.',
-        );
     }
   });
   // Error codes for the completion event; the request object never reaches the log.
@@ -303,11 +248,7 @@ export async function buildApp(
       app.log.error(requestEvent(request, reply, mapped.logCode), 'Resource request failed');
     return reply.send(mapped.body);
   });
-  const sessions = redisSessions(
-    config,
-    config.DEMO_MODE ? demoAccountReader(demoUser) : activeAccountReader(db),
-    authRedis,
-  );
+  const sessions = redisSessions(config, activeAccountReader(db), authRedis);
   const deliveryOptions = loginDeliveryOptions(process.env, config.NODE_ENV);
   const otpDelivery = loginOtpDelivery(
     deliveryOptions.mode === 'live'
@@ -334,24 +275,20 @@ export async function buildApp(
     challenges,
     checkIns: loginCheckIn,
     log: authEvents,
-    demoUser,
   });
   app.addHook('onClose', async () => {
     await otpDelivery.drain();
     await authRedis.close();
   });
-  const profileStore = config.DEMO_MODE
-    ? undefined
-    : createScopedMediaStore(config, readPrivateS3Options(), 'uploads/users', {
-        image: 'profile_image',
-        'cover-image': 'cover_image',
-      });
+  const profileStore = createScopedMediaStore(config, readPrivateS3Options(), 'uploads/users', {
+    image: 'profile_image',
+    'cover-image': 'cover_image',
+  });
   const profiles = profileService(config, db, { imagesAvailable: Boolean(profileStore) });
   registerProfile(app, profiles, identity, sessions);
   registerProfileMedia(app, profileMediaService(config, db, profileStore, authRedis), profiles);
   const handoffOptions = deviceHandoffOptions();
   const handoffStore =
-    !config.DEMO_MODE &&
     handoffOptions.UPSTREAM_POS_DEVICE_HANDOFF_CONTRACT &&
     handoffOptions.POS_DEVICE_HANDOFF_SERVICE_KEY
       ? redisDeviceHandoffStore(authRedis)
@@ -361,25 +298,20 @@ export async function buildApp(
     deviceHandoffService(config, db, handoffOptions, handoffStore, identity),
   );
   // Legacy `Helpers.sync_pos_product`: one unretried POST after commit, failures only logged.
-  const productSyncAdapter = config.DEMO_MODE
-      ? undefined
-      : createProductSyncAdapter(config, readAdministrationWorkerOptions(), tracedFetch, {
-          requireReplaySafe: false,
-        }),
+  const productSyncAdapter = createProductSyncAdapter(
+      config,
+      readAdministrationWorkerOptions(),
+      tracedFetch,
+      { requireReplaySafe: false },
+    ),
     productSync = productSynchronizer(productSyncAdapter, (level, event, message) =>
       app.log[level](event, message),
     );
   const stockProjection = configuredStockProjection(config);
-  const mediaStore = config.DEMO_MODE
-    ? undefined
-    : createDocumentationMediaStore(config, readDocumentationMediaOptions());
-  const storeImageStore = config.DEMO_MODE
-    ? undefined
-    : createStoreImageStore(config, readPrivateS3Options());
-  const settingsOptions = config.DEMO_MODE ? undefined : readSettingsOptions();
-  const settingsDelivery = settingsOptions
-    ? createSettingsDelivery(config, db, settingsOptions)
-    : undefined;
+  const mediaStore = createDocumentationMediaStore(config, readDocumentationMediaOptions());
+  const storeImageStore = createStoreImageStore(config, readPrivateS3Options());
+  const settingsOptions = readSettingsOptions();
+  const settingsDelivery = createSettingsDelivery(config, db, settingsOptions);
   app.addHook('onClose', async () => {
     profileStore?.close();
     mediaStore?.close();
@@ -398,14 +330,14 @@ export async function buildApp(
     operatorImageStore: profileStore,
     operatorImageReservations: authRedis,
     settingsDelivery,
-    ecommerceCooldownSeconds: settingsOptions?.ECOM_DELIVERY_CHANGES_TIME,
+    ecommerceCooldownSeconds: settingsOptions.ECOM_DELIVERY_CHANGES_TIME,
   });
   const customerOtpOptions = readCustomerOtpOptions(),
     customerOtp = customerOtpService(config, db, customerOtpOptions, checkoutShared);
   registerBarcodeAssignments(app, config, db, moduleRuntime.ephemeral);
   registerOperatorModelAccounts(app, config, db);
   registerSecondaryCountrySearch(app, db);
-  const wholeOrderOptions = readWholeOrderStatusOptions(config.DEMO_MODE ? {} : process.env);
+  const wholeOrderOptions = readWholeOrderStatusOptions(process.env);
   const checkout = await registerCheckout(app, config, db, {
     ...checkoutShared,
     environment: checkoutRuntime,
@@ -439,11 +371,10 @@ export async function buildApp(
   await registerFinance(app, config, db, {
     ephemeral: moduleRuntime.ephemeral,
     paymentCorrections,
-    ...(config.DEMO_MODE ? { demoStores: services.catalog.stores } : {}),
   });
   await registerOperationalReports(app, config, db, { jobs: moduleRuntime.jobs });
   await registerCatalogDetails(app, config, db, { ephemeral: moduleRuntime.ephemeral });
-  registerCatalogStockLocations(app, config.DEMO_MODE ? null : db);
+  registerCatalogStockLocations(app, db);
   registerSpecialPermissionHistory(app, config, db, readSpecialPermissionHistoryOptions());
   registerApplicationLinks(app, config, db, moduleRuntime);
   registerMotivationalQuotes(app);
@@ -465,46 +396,13 @@ export async function buildApp(
     routeSchema({ querystring: dailyStoreSalesQuery, headers: transportHeaders }),
     async (request) => {
       const user = authenticated(request);
-      const input = dailyStoreSalesQuery.parse(request.query);
-      if (!config.DEMO_MODE) return reports.daily(user, input);
-      const storeIds = scopedStores(user, input.storeIds),
-        range = dailyReportRange(input, config.BUSINESS_TIMEZONE);
-      const data = mergeDailyRows(
-        storeIds.map((storeId) => ({
-          store_id: Number(storeId),
-          store_name: storeId === '1' ? 'Bandra Flagship' : 'Indiranagar',
-          location_code: `DEMO-${storeId}`,
-          order_date: input.from,
-          order_count: 18,
-          qty: 27,
-          revenue: 24680.5,
-          membership_purchase_orders: 2,
-          membership_orders_total: 5,
-          membership_revenue: 8100,
-          tss_money_used_total: 250,
-          tss_points_used_total: 320,
-          pg_discount_total: 480,
-          gift_voucher_total: 0,
-          district_total: 1200,
-          cash_total: 6400,
-          total_online: 17080.5,
-        })),
-        [],
-        { footfall: {}, target: {}, banking: {} },
-      );
-      return {
-        reader: routeRead({ kind: 'report', range }, undefined, config.BUSINESS_TIMEZONE),
-        range,
-        data,
-        totals: dailyTotals(data),
-      };
+      return reports.daily(user, dailyStoreSalesQuery.parse(request.query));
     },
   );
   const noInput = routeSchema({ querystring: noQuery, headers: transportHeaders });
   const health = { config: { authentication: 'public' as const }, ...noInput };
   app.get('/health/live', health, async () => ({ status: 'ok' }));
   app.get('/health/ready', health, async (_request, reply) => {
-    if (config.DEMO_MODE) return { status: 'ok', mode: 'demo' };
     const result = await Promise.allSettled([
       ...(['writer', 'primary', 'data'] as const).map(async (reader) =>
         db.get(reader).execute(sql`SELECT 1`),
@@ -589,7 +487,7 @@ export async function buildApp(
         throw new AppError(401, 'AUTH_REQUIRED', 'Sign in to continue.');
       const result = await readCatalogBarcode(
         services.catalog,
-        config.DEMO_MODE ? null : db,
+        db,
         user,
         params.storeId,
         params.barcode,
@@ -601,12 +499,7 @@ export async function buildApp(
   );
   registerPublicOrders(app, services.orders);
   registerOnlineOrderDetails(app, config, db);
-  await registerOrderSearch(
-    app,
-    config,
-    db,
-    config.DEMO_MODE ? { service: demoOrderSearch(config, services.catalog, services.orders) } : {},
-  );
+  await registerOrderSearch(app, config, db);
   app.get('/api/v1/stores/:storeId/cart-drafts', storeInput, async (request) => {
     const q = scope.parse(request.params);
     return { data: await services.drafts.list(authenticated(request), q.storeId) };

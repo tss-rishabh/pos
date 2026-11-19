@@ -23,7 +23,9 @@ own package manifest and lockfile. Use `npm ci` in each folder.
 cd backend
 cp .env.example .env
 # Replace SESSION_SECRET with a random development secret. Do not add live
-# credentials to source control. DEMO_MODE=true uses isolated sample data.
+# credentials to source control. Point the MySQL URLs at an isolated loopback
+# server seeded with synthetic data (see "End-to-end stack" in
+# backend/parity/w10-report.md), and REDIS_URL at a loopback redis-server.
 npm run dev
 ```
 
@@ -33,9 +35,10 @@ npm run dev
 ```
 
 Web: `http://localhost:5173`. Backend: `http://127.0.0.1:4410`.
-The Vite proxy keeps browser requests on the web origin. The local demo cannot
-run with `NODE_ENV=production`. A demo draft does not charge a customer or create
-a real order.
+The Vite proxy keeps browser requests on the web origin. There is no demo or
+sample-data mode: the backend always uses its configured MySQL, Redis and
+adapters. Keep local development on loopback databases with synthetic rows and
+sandbox adapters; never point it at live services.
 
 ## Verification
 

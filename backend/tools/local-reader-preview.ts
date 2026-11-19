@@ -21,7 +21,7 @@ async function start(supplied: unknown) {
   url.password = credentials.password;
   const config = readConfig({
     NODE_ENV: 'development', HOST: '127.0.0.1', PORT: '4610', WEB_ORIGIN: 'http://localhost:4273',
-    SESSION_SECRET: randomBytes(48).toString('base64url'), DEMO_MODE: 'false',
+    SESSION_SECRET: randomBytes(48).toString('base64url'),
     MYSQL_WRITER_URL: url.href, MYSQL_PRIMARY_READER_URL: url.href, MYSQL_DATA_READER_URL: url.href,
     MYSQL_TLS_CA_FILE: resolve('../../global-bundle.pem'), MYSQL_POOL_SIZE: '3',
   });

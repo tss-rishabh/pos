@@ -1,7 +1,7 @@
 import { loginCheckIns } from '../../src/auth/checkin.js';
 import { authKeys } from '../../src/auth/keys.js';
 import { bindCheckInRedis, boundCheckInRedis } from '../../src/modules/administration/checkins.js';
-import { memoryRedisPort } from '../../src/redis/memory.js';
+import { memoryRedisPort } from './memory-redis.js';
 import type { RedisPort } from '../../src/redis/port.js';
 
 /**

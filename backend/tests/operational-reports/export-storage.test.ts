@@ -60,11 +60,7 @@ describe('private immutable report files without network calls', () => {
       if (command === 'GetObjectCommand') return { Body: Readable.from(bytes) };
       throw new Error('Unexpected fixture command');
     });
-    const store = createReportExportStore(
-      { NODE_ENV: 'test', DEMO_MODE: false },
-      options(),
-      client,
-    )!;
+    const store = createReportExportStore({ NODE_ENV: 'test' }, options(), client)!;
     const key = store.keyFor('returns');
     expect(key).toMatch(/^uploads\/reports\/returns\/orders_[a-f0-9]{32}\.csv$/);
     await store.put(key, bytes, checksum);
@@ -107,11 +103,7 @@ describe('private immutable report files without network calls', () => {
       }
       throw new Error('Unexpected fixture command');
     });
-    const store = createReportExportStore(
-        { NODE_ENV: 'test', DEMO_MODE: false },
-        options(),
-        client,
-      )!,
+    const store = createReportExportStore({ NODE_ENV: 'test' }, options(), client)!,
       key = store.keyFor('orders');
     await expect(store.head(key)).rejects.toMatchObject({ code: 'REPORT_STORAGE_UNAVAILABLE' });
     publicBucket = false;
@@ -148,11 +140,7 @@ describe('private immutable report files without network calls', () => {
         };
       throw new Error('Unexpected fixture command');
     });
-    const store = createReportExportStore(
-        { NODE_ENV: 'test', DEMO_MODE: false },
-        options(),
-        client,
-      )!,
+    const store = createReportExportStore({ NODE_ENV: 'test' }, options(), client)!,
       key = store.keyFor('day_close'),
       consume = async () => {
         const file = await store.stream(key, { size: 5, checksum });
@@ -166,18 +154,13 @@ describe('private immutable report files without network calls', () => {
     });
     store.close();
   });
-  it('does not create an outbound client in demo mode or without a bucket', () => {
-    expect(
-      createReportExportStore({ NODE_ENV: 'test', DEMO_MODE: true }, options()),
-    ).toBeUndefined();
-    expect(
-      createReportExportStore({ NODE_ENV: 'test', DEMO_MODE: false }, reportExportOptions({})),
-    ).toBeUndefined();
+  it('does not create an outbound client without a bucket', () => {
+    expect(createReportExportStore({ NODE_ENV: 'test' }, reportExportOptions({}))).toBeUndefined();
     expect(() =>
       reportExportOptions({ S3_REPORT_EXPORT_FOLDER_PATH: 'uploads/../private' }),
     ).toThrow();
     const store = createReportExportStore(
-      { NODE_ENV: 'test', DEMO_MODE: false },
+      { NODE_ENV: 'test' },
       options(),
       clientFixture(async () => ({})),
     )!;

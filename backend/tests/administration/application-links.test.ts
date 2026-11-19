@@ -49,12 +49,8 @@ describe('application QR and download boundaries', () => {
     expect(applicationDigest(secret, 'qr', first)).not.toContain(first);
   });
   it('requires explicit package/provider configuration and exact trusted HTTPS destinations', () => {
-    expect(
-      createStaffApplicationPackage({ DEMO_MODE: false }, readApplicationLinkOptions({})),
-    ).toBe(undefined);
-    expect(
-      createCustomerApplicationProvider({ DEMO_MODE: false }, readApplicationLinkOptions({})),
-    ).toBe(undefined);
+    expect(createStaffApplicationPackage(readApplicationLinkOptions({}))).toBe(undefined);
+    expect(createCustomerApplicationProvider(readApplicationLinkOptions({}))).toBe(undefined);
     expect(() =>
       readApplicationLinkOptions({ APP_APK_URL: 'http://cdn.example.test/m.apk' }),
     ).toThrow();
@@ -111,20 +107,16 @@ describe('application QR and download boundaries', () => {
     const options = readApplicationLinkOptions({
       MAIN_SITE_API_V2: 'https://api.example.test/v2/',
     });
-    const provider = createCustomerApplicationProvider(
-      { DEMO_MODE: false },
-      options,
-      async (url, init) => {
-        urls.push(String(url));
-        requests.push(init!);
-        const current = cases[index++]!;
-        return Response.json(
-          'objectPresent' in current
-            ? {}
-            : { object: { shortLink: 'shortLink' in current ? current.shortLink : undefined } },
-        );
-      },
-    )!;
+    const provider = createCustomerApplicationProvider(options, async (url, init) => {
+      urls.push(String(url));
+      requests.push(init!);
+      const current = cases[index++]!;
+      return Response.json(
+        'objectPresent' in current
+          ? {}
+          : { object: { shortLink: 'shortLink' in current ? current.shortLink : undefined } },
+      );
+    })!;
     for (let i = 0; i < 3; i++) {
       expect(await provider.destination('1')).toBe(source.cases[i]!.destination);
       expect(urls[i]).toBe('https://api.example.test/v2/firebase-dynamic-link');
@@ -142,7 +134,7 @@ describe('application QR and download boundaries', () => {
       MAIN_SITE_API_V2: 'https://api.example.test/v2/',
     });
     expect(
-      await createCustomerApplicationProvider({ DEMO_MODE: false }, options, async () =>
+      await createCustomerApplicationProvider(options, async () =>
         Response.json({ object: { shortLink: 'https://attacker.example.test' } }),
       )!.destination('1'),
     ).toBe('https://www.thesouledstore.com');
@@ -151,17 +143,13 @@ describe('application QR and download boundaries', () => {
       new Response('x'.repeat(40000)),
       new Response('private@example.test', { status: 500 }),
     ]) {
-      const provider = createCustomerApplicationProvider(
-        { DEMO_MODE: false },
-        options,
-        async () => response,
-      )!;
+      const provider = createCustomerApplicationProvider(options, async () => response)!;
       await expect(provider.destination('1')).rejects.toMatchObject({
         code: 'CUSTOMER_APPLICATION_UNAVAILABLE',
         message: 'The customer application link is temporarily unavailable.',
       });
     }
-    const provider = createCustomerApplicationProvider({ DEMO_MODE: false }, options, async () => {
+    const provider = createCustomerApplicationProvider(options, async () => {
       throw new Error('private@example.test');
     })!;
     await expect(provider.destination('1')).rejects.toMatchObject({
@@ -173,7 +161,7 @@ describe('application QR and download boundaries', () => {
       APP_APK_URL: 'https://cdn.example.test/mpos.apk',
     });
     const requested: string[] = [];
-    const source = createStaffApplicationPackage({ DEMO_MODE: false }, options, async (url) => {
+    const source = createStaffApplicationPackage(options, async (url) => {
       requested.push(String(url));
       return new Response('PK\x03\x04synthetic', {
         headers: {
@@ -192,7 +180,6 @@ describe('application QR and download boundaries', () => {
     });
     expect(requested).toEqual(['https://cdn.example.test/mpos.apk']);
     const failing = createStaffApplicationPackage(
-      { DEMO_MODE: false },
       options,
       async () => new Response('missing', { status: 404 }),
     )!;

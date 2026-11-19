@@ -169,7 +169,7 @@ export interface OrderDetail {
   range?: OrderReadRange;
   fetchedAt?: string;
   publication?: OrderHistoryEvidence;
-  /** Legacy `ShowOrderDetailsView` context (`store-detail.ts`); absent in demo mode. */
+  /** Legacy `ShowOrderDetailsView` context (`store-detail.ts`). */
   orderAmount?: number;
   legacy?: StoreOrderLegacyContext;
 }

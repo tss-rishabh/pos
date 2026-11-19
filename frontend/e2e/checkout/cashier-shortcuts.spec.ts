@@ -1,9 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
 import { z } from 'zod';
+import { signIn } from '../support/login';
 
 async function counter(page: Page) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+  await signIn(page);
   await expect(page.getByRole('heading', { name: 'The counter.' })).toBeVisible();
 }
 async function bodyKeys(page: Page, key: string) {

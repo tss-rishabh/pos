@@ -42,7 +42,7 @@ export function registerOfflineSync(
   const coordinator =
     options.coordinator !== undefined
       ? options.coordinator
-      : !config.DEMO_MODE && config.REDIS_URL
+      : config.REDIS_URL
         ? redisOfflineSyncCoordinator(config, config.REDIS_URL)
         : null;
   const service = offlineSyncService({

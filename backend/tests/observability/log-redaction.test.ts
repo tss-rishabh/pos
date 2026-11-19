@@ -28,7 +28,6 @@ const line = z.object({
 function configuration() {
   return readConfig({
     NODE_ENV: 'test',
-    DEMO_MODE: 'false',
     MYSQL_PRIMARY_READER_URL: 'mysql://synthetic:synthetic@127.0.0.1:9/pos_log_redaction',
     MYSQL_ALLOW_LOCAL_PLAINTEXT: 'true',
     SESSION_SECRET: 'log-redaction-only-fixture-key-'.repeat(2),

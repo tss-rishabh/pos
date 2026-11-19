@@ -9,7 +9,7 @@ describe('finance reconciliation warehouse routing', () => {
   it('combines today DATA sales with older-sale BQ returns without changing tax/refund totals', async () => {
     const cfg = readConfig({
       NODE_ENV: 'test',
-      DEMO_MODE: 'true',
+      MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
       SESSION_SECRET: 'feed-split-fixture-'.repeat(3),
     });
     const base = {
@@ -131,7 +131,7 @@ describe('finance reconciliation warehouse routing', () => {
     };
     const cfg = readConfig({
         NODE_ENV: 'test',
-        DEMO_MODE: 'true',
+        MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
         SESSION_SECRET: 'feed-routing-fixture-'.repeat(3),
       }),
       clock = () => Temporal.Instant.from('2026-11-16T08:00:00Z');

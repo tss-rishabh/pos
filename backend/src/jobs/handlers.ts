@@ -68,11 +68,9 @@ const fulfillment: JobModuleRegistration = (registry, runtime) => {
 const legacyFulfillment: JobModuleRegistration = (registry, runtime) => {
   const { config, db } = runtime,
     redis = nodeOrderRedis(config),
-    syncProducts = config.DEMO_MODE
-      ? undefined
-      : createProductSyncAdapter(config, readAdministrationWorkerOptions(), tracedFetch, {
-          requireReplaySafe: false,
-        });
+    syncProducts = createProductSyncAdapter(config, readAdministrationWorkerOptions(), tracedFetch, {
+      requireReplaySafe: false,
+    });
   const deps = legacyFulfillmentDependencies(config, db, {
     jobs: runtime.jobs,
     redis,

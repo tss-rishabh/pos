@@ -81,7 +81,7 @@ describe('delivery settings source contracts', () => {
       '&lt;!channel&gt;',
     );
   });
-  it('uses the distinct common cache, validates webhook scope and makes no sends in demo', async () => {
+  it('uses the distinct common cache and validates webhook scope', async () => {
     const config = readConfig({
       NODE_ENV: 'test',
       SESSION_SECRET: 'fixture-settings-secret-'.repeat(3),
@@ -123,18 +123,7 @@ describe('delivery settings source contracts', () => {
         readSettingsOptions({ COMMON_REDIS_URL: 'redis://127.0.0.1:6379' }),
       ),
     ).toThrow();
-    const demo = createSettingsDelivery(
-      { ...config, DEMO_MODE: true },
-      db,
-      readSettingsOptions({
-        COMMON_REDIS_URL: 'rediss://internal.example.test',
-        SLACK_URL: 'https://hooks.slack.com/services/fixture',
-      }),
-    );
-    expect(demo.supports('setting.cache')).toBe(false);
-    expect(demo.supports('buffer.notice')).toBe(false);
     await delivery.close?.();
-    await demo.close?.();
     await db.close();
   });
 });

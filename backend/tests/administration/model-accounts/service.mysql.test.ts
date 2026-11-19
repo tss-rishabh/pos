@@ -253,6 +253,7 @@ describe.skipIf(!connection)(
       });
     });
     it('preserves generated IDs above2^53 and rejects old-password/common-password/additional privilege fields', async () => {
+      // Test-only on the disposable schema: bump AUTO_INCREMENT past 2^53 to prove lossless IDs.
       await fixture.admin.query('ALTER TABLE pos_user AUTO_INCREMENT=9007199254740993');
       const result = await service.create(actor, input());
       expect(BigInt(result.id)).toBeGreaterThanOrEqual(9007199254740993n);

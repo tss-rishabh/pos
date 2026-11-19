@@ -39,7 +39,7 @@ export function productImage(
 /**
  * Counter product row: the shared ProductDto plus the legacy `holded_stock` and `storage_stock`
  * columns (core/datatables/store_products_datatable.py:276-312). Optional in the type only so
- * other CatalogService implementations (demo) still compile; the MySQL service always sets them.
+ * injected test CatalogService fakes still compile; the MySQL service always sets them.
  */
 export type CatalogProductDto = ProductDto & { holdedStock?: number; storageStock?: string };
 /** `get_storage_stock`: one `"<storage> : <n>\n"` line per stock_storages row, in id order. */

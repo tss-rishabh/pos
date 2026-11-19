@@ -6,6 +6,7 @@ import type {
   LocalDraft,
   ReviewSnapshot,
 } from '../../src/offline/database';
+import { signIn } from '../support/login';
 
 async function localClearState(page: Page) {
   return page.evaluate(async () => {
@@ -142,7 +143,7 @@ for (const delayed of [false, true]) {
       return route.fulfill({ json: { status: 'succeeded', state: state(), result: {} } });
     });
     await page.goto('/');
-    await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+    await signIn(page);
     const add = page.getByRole('button', { name: /^Add .+ to sale$/ }).first();
     const productName = (await add.getAttribute('aria-label'))!
       .replace(/^Add /, '')
@@ -153,8 +154,8 @@ for (const delayed of [false, true]) {
     await expect(page.getByRole('button', { name: 'Get final quote' })).toBeVisible();
     const other = await context.newPage();
     await other.goto('/');
-    const demo = other.getByRole('button', { name: 'Explore demo workspace' });
-    if (await demo.isVisible()) await demo.click();
+    // The second tab shares the signed-in session cookie; sign in only if it is missing.
+    if (await other.getByLabel('Email or username').isVisible()) await signIn(other);
     await other.getByRole('button', { name: `Increase ${productName}`, exact: true }).click();
     await expect
       .poll(async () => (await localClearState(other)).drafts[0]?.lines[0]?.quantity)

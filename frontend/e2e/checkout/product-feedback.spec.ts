@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { signIn } from '../support/login';
 
 test('mounts scoped product feedback in the production app and rejects store changes and malformed IDs before reading', async ({
   page,
@@ -42,7 +43,7 @@ test('mounts scoped product feedback in the production app and rejects store cha
   const path = (store: string, customer: string) =>
     `/stores/${store}/checkout-sessions/a53b9ec4-76ce-4641-95d5-7d3f4f073ab4/customers/${customer}/orders/${orderId}/feedback`;
   await page.goto(path('1', '777'));
-  await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+  await signIn(page);
   await expect(page.getByRole('heading', { name: 'Product feedback', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Production feedback fixture' })).toBeVisible();
   await expect(

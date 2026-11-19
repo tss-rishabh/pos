@@ -156,7 +156,7 @@ export function giftCardBatchJobRegistration(
     const adaptersFor = (config: Config) =>
       (adapters ??= {
         storage: createGiftCardBatchStorage(config, options),
-        delivery: createGiftCardBatchDelivery(config, options),
+        delivery: createGiftCardBatchDelivery(options),
       });
     registry.register(giftCardBatchJobName, (args, context) =>
       generateGiftCardBatch(

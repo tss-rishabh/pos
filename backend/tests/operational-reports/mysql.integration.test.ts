@@ -56,7 +56,7 @@ describe.skipIf(!connection)('operational reports on isolated local MySQL', () =
     clock = () => Temporal.Instant.from('2026-11-16T08:00:00Z'),
     config = readConfig({
       NODE_ENV: 'test',
-      DEMO_MODE: 'true',
+      MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
       SESSION_SECRET: 'operational-reports-fixture-'.repeat(3),
     });
   let admin: mysql.Connection | undefined,

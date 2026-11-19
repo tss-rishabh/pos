@@ -5,7 +5,7 @@ import type {
   RedisScript,
   ScriptStore,
   SetOptions,
-} from './port.js';
+} from '../../src/redis/port.js';
 
 type Entry =
   | { kind: 'string'; value: string; expiresAt?: number }
@@ -30,8 +30,8 @@ const wrongType = () =>
   new Error('WRONGTYPE Operation against a key holding the wrong kind of value');
 /**
  * In-process Redis with the exact semantics of the commands in `RedisPort`.
- * Used by the isolated demo workspace and by tests when no loopback `redis-server`
- * is available. Every call is synchronous inside, so MULTI and scripts are atomic.
+ * A faithful test fake, injected by tests when no loopback `redis-server` is available.
+ * Every call is synchronous inside, so MULTI and scripts are atomic.
  */
 export function memoryRedisPort(now: () => number = Date.now): RedisPort & {
   /** Test helper: the raw value of a string key. */

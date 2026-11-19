@@ -23,12 +23,12 @@ publishes no ports, runs both containers as non-root with read-only filesystems,
 drops capabilities, and removes its own containers/network afterward. It verifies
 native Linux image decoding, proxying, static CSP,
 assets, offline-shell cache headers, synthetic login/cart
-round trips, browser-origin checks, demo isolation and log privacy canaries.
+round trips, browser-origin checks and log privacy canaries.
 It never receives live database, provider, S3 or AWS credentials. Evidence is
 written to `backend/evidence/container-smoke.json`. A failed run stores synthetic
 diagnostics under ignored `backend/evidence/private/`.
 
-Production uses `NODE_ENV=production`, `DEMO_MODE=false`, and separate writer,
+Production uses `NODE_ENV=production` and separate writer,
 primary-reader and daily-report reader MySQL URLs. Inject secrets through the
 deployment platform; do not bake `.env` files or credentials into images.
 Mount the verified MySQL CA read-only and set `MYSQL_TLS_CA_FILE` to its path.
@@ -188,7 +188,7 @@ Trusted durable actor0 stock jobs additionally require the separate
 Operational requests cannot opt into this capability through request JSON.
 
 The fulfillment plugin starts its bounded outbox/expiry loop only with
-`FULFILLMENT_WORKER_ENABLED=true`; tests/demo keep it off. Configure the distinct
+`FULFILLMENT_WORKER_ENABLED=true`; tests keep it off. Configure the distinct
 pre-order concurrency service and POS notification Redis, webhooks and mail/Slack
 adapters as described in `backend/parity/fulfillment.md`. Finance history and
 pending-close alert contracts are in `backend/parity/finance.md`.

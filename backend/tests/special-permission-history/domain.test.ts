@@ -18,7 +18,7 @@ import { historicalActivityQuery } from '../../src/modules/special-permission-hi
 
 const config = readConfig({
   NODE_ENV: 'test',
-  DEMO_MODE: 'true',
+  MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
   SESSION_SECRET: 'isolated-history-domain-fixture-secret'.repeat(2),
 });
 describe('source SpecialPermission history contracts', () => {

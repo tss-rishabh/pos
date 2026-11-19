@@ -43,10 +43,8 @@ import { profileMediaService } from '../../src/auth/profile-media.js';
 import type { Principal } from '../../src/domain/access.js';
 import { registerAdministration } from '../../src/modules/administration/index.js';
 import { catalogService } from '../../src/modules/catalog.js';
-import {
-  legacyFixtureRecord,
-  legacyFixtureTableSql,
-} from '../../tools/administration/mysql-fixture.js';
+import { legacyFixtureRecord } from '../../tools/administration/mysql-fixture.js';
+import { createProductionTables, injectWriteFailure } from '../helpers/production-schema.js';
 import type {
   DocumentationMediaStore,
   ReservedMedia,
@@ -282,19 +280,10 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     });
     await connection.query(`CREATE DATABASE ${mysql.escapeId(schemaName)}`);
     await connection.changeUser({ database: schemaName });
-    for (const table of tables) {
-      const config = describeTable(table);
-      if (config.name === 'pricelist') {
-        await connection.query(
-          'CREATE TABLE pricelist (product_id BIGINT NOT NULL,pricelist_id INT NOT NULL,location_id INT NOT NULL DEFAULT 0,price DECIMAL(10,2) NOT NULL,PRIMARY KEY(product_id,pricelist_id,location_id)) ENGINE=InnoDB',
-        );
-        continue;
-      }
-      await connection.query(legacyFixtureTableSql(table));
-    }
-    await connection.query(
-      'ALTER TABLE pos_user MODIFY last_login DATETIME(6) NULL, MODIFY date_joined DATETIME(6) NOT NULL',
-    );
+    // Production snapshot DDL only (tests/golden/schema/production-schema.json): it already has
+    // `pricelist`, `product_store.uq_product_store`, `deliverable_pincodes.pincode` and the
+    // `pos_user` timestamp columns.
+    await createProductionTables(connection, tables);
     url.pathname = '/' + schemaName;
     const config = readConfig({
       NODE_ENV: 'test',
@@ -846,9 +835,12 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     expect(mirrors[0]?.user_type).toBe('8');
   });
   it('rolls operator identity back if the required commerce mirror fails', async () => {
-    await connection.query(
-      "CREATE TRIGGER fixture_fail_staff_mirror BEFORE INSERT ON users FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Fixture mirror failure'",
-    );
+    // Test-only fault injection on the disposable schema: a SIGNAL trigger fails the mirror insert.
+    const restore = await injectWriteFailure(connection, {
+      table: 'users',
+      event: 'INSERT',
+      message: 'Fixture mirror failure',
+    });
     try {
       const response = await app.inject({
         method: 'POST',
@@ -873,7 +865,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       );
       expect(String(rows[0]?.total)).toBe('0');
     } finally {
-      await connection.query('DROP TRIGGER fixture_fail_staff_mirror');
+      await restore();
     }
   });
   it('checks route inputs and role/store scope before making changes', async () => {
@@ -1835,8 +1827,10 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       lastName: 'Operator',
       age: 42,
       gender: 'O',
-      lastLogin: '2000-02-29 23:59:58.123456',
-      dateJoined: '1999-12-31 12:13:14.654321',
+      // Production `pos_user.last_login`/`date_joined` are TIMESTAMP (whole seconds); MySQL rounds
+      // the submitted fractional seconds on store.
+      lastLogin: '2000-02-29 23:59:58',
+      dateJoined: '1999-12-31 12:13:15',
     });
     expect(await services.operatorAdministration.updateProfile(actor, '4', profile)).toMatchObject({
       credentialsChanged: false,
@@ -2037,6 +2031,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
   });
   it('returns an exact auto-generated counter ID above the JavaScript safe integer range', async () => {
     const highId = '9007199254740993';
+    // Test-only on the disposable schema: bump AUTO_INCREMENT past 2^53 to prove lossless big IDs.
     await connection.query('ALTER TABLE store_counters AUTO_INCREMENT=9007199254740993');
     try {
       const response = await app.inject({

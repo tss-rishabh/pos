@@ -58,7 +58,7 @@ describe('read-only source quote display', () => {
   it('validates configurable source credit text and preserves explicit empty text', () => {
     const config = readConfig({
       NODE_ENV: 'test',
-      DEMO_MODE: 'true',
+      MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
       SESSION_SECRET: 'quote-display-fixture-'.repeat(3),
       CASHBACK_CREDIT_MESSAGE: 'Configured source credit policy.',
     });
@@ -68,7 +68,7 @@ describe('read-only source quote display', () => {
     expect(checkoutQuoteDisplay({}, '').cashbackCreditMessage).toBe('');
     expect(() =>
       readConfig({
-        DEMO_MODE: 'true',
+        MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
         SESSION_SECRET: 'quote-display-fixture-'.repeat(3),
         CASHBACK_CREDIT_MESSAGE: 'x'.repeat(2001),
       }),

@@ -4,7 +4,6 @@ import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import { authenticated } from '../../auth/routes.js';
-import type { Principal } from '../../domain/access.js';
 import { identifier } from '../../domain/validation.js';
 import { AppError } from '../../domain/errors.js';
 import {
@@ -96,7 +95,6 @@ const trace = (resource: string, action: string) => ({
 interface RegistrationOptions {
   /** Redis: day-close and pending-alert command receipts (no rewrite tables). */
   ephemeral: EphemeralStore;
-  demoStores?: (user: Principal) => Promise<{ id: string; name: string }[]>;
   paymentCorrections?: PaymentCorrectionFinanceOptions;
   service?: FinanceService;
   feed?: ReturnType<typeof financeFeedService>;
@@ -197,11 +195,6 @@ export async function registerFinance(
     },
     async (request) => {
       const user = authenticated(request);
-      if (config.DEMO_MODE) {
-        if (!options.demoStores)
-          throw new AppError(503, 'DEMO_STORES_UNAVAILABLE', 'Demo store options are unavailable.');
-        return { data: (await options.demoStores(user)).map(({ id, name }) => ({ id, name })) };
-      }
       return ledger.stores(user);
     },
   );

@@ -80,14 +80,11 @@ export interface AuthRouteOptions {
   challenges: LoginChallengeService;
   checkIns: LoginCheckIns;
   log: AuthEventLogger;
-  /** Isolated demo workspace only (DEMO_MODE, refused in production). */
-  demoUser?: Principal;
 }
 export function registerAuth(app: FastifyInstance, options: AuthRouteOptions) {
   const { config, identity, sessions, challenges, checkIns, log } = options;
   const cookieOptions = authCookieOptions(config);
   const pendingCookie = { ...cookieOptions, path: '/api/v1/auth' };
-  const demoUser = config.DEMO_MODE ? options.demoUser : undefined;
   async function startSession(
     request: FastifyRequest,
     reply: FastifyReply,
@@ -139,8 +136,7 @@ export function registerAuth(app: FastifyInstance, options: AuthRouteOptions) {
     // session ends when the user is inactive or the password hash changed.
     const account = await sessions.resolve(token.id, token);
     if (!account) return;
-    const principal =
-      demoUser && token.id === demoUser.id ? demoUser : await identity.principal(account);
+    const principal = await identity.principal(account);
     if (!principal) return;
     request.authSessionId = token.sessionId;
     request.authSessionValid = (transaction) => sessions.valid(token.id, token, transaction);
@@ -155,7 +151,7 @@ export function registerAuth(app: FastifyInstance, options: AuthRouteOptions) {
   const publicRoute = { config: { authentication: 'public' as const } };
   app.get('/api/v1/auth/capabilities', { ...publicRoute, ...authSchema() }, async (request) => {
     validate(request);
-    return { password: !demoUser, demo: Boolean(demoUser) };
+    return { password: true };
   });
   /** Password step (legacy CustomLoginView.post). */
   const passwordRoute = { ...publicRoute, ...authSchema(passwordStep) };
@@ -169,12 +165,6 @@ export function registerAuth(app: FastifyInstance, options: AuthRouteOptions) {
       } catch {
         /* An unreadable cookie identifies no pending login. */
       }
-    if (demoUser)
-      throw new AppError(
-        404,
-        'NOT_FOUND',
-        'Password sign-in is unavailable in the demo workspace.',
-      );
     const account = await identity.authenticate(body.username, body.password);
     if (!account)
       throw new AppError(
@@ -236,18 +226,11 @@ export function registerAuth(app: FastifyInstance, options: AuthRouteOptions) {
       return { user, sessionExpiresAt, checkInStoreId: storeId };
     },
   );
-  // These two routes read no body; the clients send none.
+  // Logout reads no body; the client sends none.
   const bodyless = {
     ...publicRoute,
     ...routeSchema({ querystring: noQuery, body: noBody, headers: authHeaders }),
   };
-  app.post('/api/v1/auth/demo-sessions', bodyless, async (request, reply) => {
-    validate(request);
-    if (!demoUser) throw new AppError(404, 'NOT_FOUND', 'Not found.');
-    request.principal = demoUser;
-    const sessionExpiresAt = await startSession(request, reply, demoUser);
-    return { user: demoUser, sessionExpiresAt };
-  });
   app.get('/api/v1/auth/sessions/current', authSchema(), async (request) => {
     validate(request);
     return { user: authenticated(request), sessionExpiresAt: request.sessionExpiresAt };
@@ -259,7 +242,7 @@ export function registerAuth(app: FastifyInstance, options: AuthRouteOptions) {
     if (token) {
       const account = await sessions.resolve(token.id, token);
       await sessions.revoke(token.sessionId);
-      if (account && !demoUser)
+      if (account)
         try {
           await checkIns.leaveLists(token.id);
         } catch {

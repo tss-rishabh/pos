@@ -7,7 +7,7 @@ import {
 } from '../../jobs/ephemeral.js';
 import { connectRedis } from '../../jobs/redis.js';
 
-export type EphemeralConfig = Partial<Pick<Config, 'REDIS_URL' | 'NODE_ENV' | 'DEMO_MODE'>>;
+export type EphemeralConfig = Partial<Pick<Config, 'REDIS_URL' | 'NODE_ENV'>>;
 let shared: EphemeralStore | undefined;
 
 /** The API process hands its module-runtime Redis store here once (`src/app.ts`). */
@@ -22,7 +22,7 @@ export function useAdministrationEphemeralStore(store: EphemeralStore) {
  */
 export function administrationEphemeralStore(config: EphemeralConfig): EphemeralStore {
   if (shared) return shared;
-  if (config.REDIS_URL && !config.DEMO_MODE)
+  if (config.REDIS_URL)
     shared = redisEphemeralStore(connectRedis(config.REDIS_URL, config.NODE_ENV ?? 'production'));
   else
     shared =

@@ -103,8 +103,7 @@ recovery audit receipts; no live DDL was applied.
 In root checkout registration, select the producer with:
 
 ```ts
-rejectedInboundRepairDispatcherEnabled: !config.DEMO_MODE &&
-  wholeOrderOptions.WHOLE_ORDER_STATUS_WORKER_ENABLED;
+rejectedInboundRepairDispatcherEnabled: wholeOrderOptions.WHOLE_ORDER_STATUS_WORKER_ENABLED;
 ```
 
 `CheckoutRegistrationOptions` forwards this narrow option into `registerReturns`.

@@ -10,7 +10,7 @@ import {
 } from '../../src/modules/operational-reports/acceptance.js';
 const config = readConfig({
     NODE_ENV: 'test',
-    DEMO_MODE: 'true',
+    MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
     SESSION_SECRET: 'acceptance-report-fixture-'.repeat(3),
   }),
   user: Principal = {

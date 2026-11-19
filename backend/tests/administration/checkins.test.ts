@@ -2,7 +2,7 @@ import { Temporal } from '@js-temporal/polyfill';
 import { describe, expect, it } from 'vitest';
 import { loginCheckIns, type CheckInStoreDirectory } from '../../src/auth/checkin.js';
 import { checkInSeconds, parseCheckInValue } from '../../src/modules/administration/checkins.js';
-import { memoryRedisPort } from '../../src/redis/memory.js';
+import { memoryRedisPort } from '../helpers/memory-redis.js';
 
 /** Store names by id; every store is eligible (eligibility is covered by the auth tests). */
 const directory = (names: Record<string, string>): CheckInStoreDirectory => ({

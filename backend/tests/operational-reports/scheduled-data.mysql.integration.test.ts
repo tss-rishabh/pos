@@ -35,7 +35,7 @@ describe.skipIf(!connection)('scheduled report queries on verified-schema local 
   const schema = `pos_rewrite_scheduled_data_test_${randomUUID().replaceAll('-', '').slice(0, 12)}`,
     config = readConfig({
       NODE_ENV: 'test',
-      DEMO_MODE: 'true',
+      MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
       SESSION_SECRET: 'scheduled-query-mysql-'.repeat(3),
     }),
     clock = () => Temporal.Instant.from('2026-11-16T08:00:00Z'),

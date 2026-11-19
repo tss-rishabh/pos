@@ -8,7 +8,7 @@ import { createDatabases, type Databases } from '../src/db/pools.js';
 import { MUser, PosUser, Store, StoreCounter } from '../src/db/legacy-schema.js';
 import type { Principal } from '../src/domain/access.js';
 import { bindCheckInRedis, checkInService } from '../src/modules/administration/checkins.js';
-import { memoryRedisPort } from '../src/redis/memory.js';
+import { memoryRedisPort } from './helpers/memory-redis.js';
 
 import { checkoutStateSchema, type CheckoutState } from '../src/modules/checkout/contracts.js';
 import { checkoutSessionStore, sessionKeys } from '../src/modules/checkout/session-store.js';
@@ -184,7 +184,6 @@ describe.skipIf(!integration)(
       base.pathname = '/' + schema;
       config = readConfig({
         NODE_ENV: 'test',
-        DEMO_MODE: 'false',
         SESSION_SECRET: 'customer-profile-isolated-test-key-'.repeat(2),
         MYSQL_WRITER_URL: base.href,
         MYSQL_PRIMARY_READER_URL: base.href,

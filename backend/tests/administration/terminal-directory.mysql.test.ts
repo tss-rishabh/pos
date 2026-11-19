@@ -265,29 +265,13 @@ describe.skipIf(!template)('native terminal directory and current authority', ()
     await connection.query('UPDATE pos_user SET role=1,is_active=0 WHERE id=1');
     expect((await search()).statusCode).toBe(401);
   });
-  it('executes a mixed native charset/collation union and literal Unicode search', async () => {
-    await connection.query(
-      'ALTER TABLE pos_machines MODIFY machine_name VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL',
-    );
-    await connection.query(
-      'ALTER TABLE pos_paytm_machines MODIFY machine_name VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL',
-    );
-    try {
-      await connection.query('UPDATE pos_machines SET machine_name=? WHERE id=1', ['Éclair']);
-      await connection.query('UPDATE pos_paytm_machines SET machine_name=? WHERE id=1', [
-        'Ångström',
-      ]);
-      const response = await search({ search: 'Éclair', sort: 'name' });
-      expect(response.statusCode, response.body).toBe(200);
-      expect(result.parse(response.json()).data.map((row) => row.name)).toEqual(['Éclair']);
-    } finally {
-      await connection.query(
-        'ALTER TABLE pos_machines MODIFY machine_name VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL',
-      );
-      await connection.query(
-        'ALTER TABLE pos_paytm_machines MODIFY machine_name VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL',
-      );
-    }
+  it('executes the native two-provider union and literal accented search on production columns', async () => {
+    // Production `machine_name` columns are latin1 (snapshot DDL); both values are latin1 text.
+    await connection.query('UPDATE pos_machines SET machine_name=? WHERE id=1', ['Éclair']);
+    await connection.query('UPDATE pos_paytm_machines SET machine_name=? WHERE id=1', ['Ångström']);
+    const response = await search({ search: 'Éclair', sort: 'name' });
+    expect(response.statusCode, response.body).toBe(200);
+    expect(result.parse(response.json()).data.map((row) => row.name)).toEqual(['Éclair']);
   });
   it('rejects terminal writes using revoked actor scope and preserves existing credentials', async () => {
     const service = terminalService(config, db),
