@@ -86,6 +86,9 @@ if (flags.has('--mysql')) {
     childEnvironment[name] = fixtureUrl.href;
   }
   childEnvironment.ORDER_SEARCH_SOURCE_ROOT = resolve(workspace, '../backend-pos-web');
+  // Playwright (frontend/playwright.config.ts) seeds its own pos_rewrite_e2e schema on this server.
+  url.pathname = '/pos_rewrite_e2e';
+  childEnvironment.E2E_MYSQL_URL = url.href;
 }
 
 const directories = [
