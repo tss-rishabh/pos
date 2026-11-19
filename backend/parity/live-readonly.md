@@ -158,6 +158,13 @@ three order paths). Any other refusal fails the path.
     `planBounded` (table, access, estimate). Full scans, and filesorts or temporary tables over
     more than the limit, are still refused.
 
+  **Failed statements (W16 round 3).** Every statement that fails (plan rejection or server
+  error such as `ER_QUERY_TIMEOUT`) is listed on its non-passing path as `failedStatements`:
+  a value-free SQL template (every literal and bound value is `?`; hints and comments are
+  dropped), its 16-hex fingerprint, the error code and the gate's plan view. See
+  `tools/live-readonly/fingerprint.ts`; `assertAggregateOnly` admits a template only when
+  re-tokenising it changes nothing.
+
   This also applies when a module swallows the error: the harness reads the gate's own counters.
   The schema check's `INFORMATION_SCHEMA` metadata reads touch no data table and are exempt from
   EXPLAIN.
