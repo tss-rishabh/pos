@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { PosUser, Store, UserStore } from '../../db/legacy-schema.js';
 import { AppError } from '../../domain/errors.js';
 import type { Role } from '../../domain/access.js';
@@ -64,7 +64,7 @@ export async function assertCurrentStoreAccess(
     .select({ id: UserStore.id })
     .from(UserStore)
     .where(
-      and(eq(UserStore.django_user_id, BigInt(userId)), eq(UserStore.store_id, sql`${storeId}`)),
+      and(eq(UserStore.django_user_id, BigInt(userId)), eq(UserStore.store_id, BigInt(storeId))),
     )
     .limit(1)
     .for('share');

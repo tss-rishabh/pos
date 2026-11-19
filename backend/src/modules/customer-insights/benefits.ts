@@ -73,7 +73,13 @@ export function customerBenefitsService(
             membershipValue: benefitMemberships.value,
             membershipActive: benefitMemberships.active,
             isAppUser: benefitAddons.isAppUser,
-            vouchers: sql<string>`(SELECT CAST(COUNT(*) AS CHAR) FROM ${benefitVouchers} WHERE ${benefitVouchers.recipient} = ${original.email} AND ${benefitVouchers.active} = 1)`,
+            vouchers: sql<string>`${db
+              .get('primary')
+              .select({ count: sql<string>`CAST(COUNT(*) AS CHAR)` })
+              .from(benefitVouchers)
+              .where(
+                and(eq(benefitVouchers.recipient, original.email), eq(benefitVouchers.active, 1)),
+              )}`,
           })
           .from(benefitCustomers)
           .leftJoin(

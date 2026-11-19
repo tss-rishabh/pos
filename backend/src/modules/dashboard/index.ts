@@ -8,7 +8,14 @@ import { authenticated } from '../../auth/routes.js';
 import { noQuery, routeSchema, transportHeaders } from '../../domain/route-validation.js';
 import { dashboardAuthority, recheckDashboardAuthority } from './authority.js';
 import { dashboardBounds, dashboardCount } from './domain.js';
-import { currentDashboardQuery, dailyDashboardQuery } from './queries.js';
+import {
+  currentDashboardFields,
+  currentDashboardWhere,
+  dailyDashboardFields,
+  dailyDashboardWhere,
+} from './queries.js';
+import { eq } from 'drizzle-orm';
+import { Order, OrderStore, Store } from '../../db/legacy-schema.js';
 import { dashboardWarehouse } from './warehouse.js';
 import { readDashboardOptions, type DashboardOptions } from './options.js';
 export { readDashboardOptions } from './options.js';
@@ -28,7 +35,11 @@ export function dashboardService(
       const scope = await dashboardAuthority(db, user),
         now = clock(),
         bounds = dashboardBounds(now, config.BUSINESS_TIMEZONE),
-        raw = await db.get('primary').execute(currentDashboardQuery()),
+        raw = await db
+          .get('primary')
+          .select(currentDashboardFields)
+          .from(Store)
+          .where(currentDashboardWhere),
         [counts] = z
           .array(
             z
@@ -40,7 +51,7 @@ export function dashboardService(
               .strict(),
           )
           .length(1)
-          .parse(raw[0]);
+          .parse(raw);
       await recheckDashboardAuthority(db, user, scope);
       return {
         reader: 'primary' as const,
@@ -59,11 +70,14 @@ export function dashboardService(
         bounds = dashboardBounds(now, config.BUSINESS_TIMEZONE),
         raw = await db
           .get('data')
-          .execute(dailyDashboardQuery(scope.orderStoreIds, bounds.dayStart, bounds.dayEnd)),
+          .select(dailyDashboardFields)
+          .from(OrderStore)
+          .innerJoin(Order, eq(Order.id, OrderStore.order))
+          .where(dailyDashboardWhere(scope.orderStoreIds, bounds.dayStart, bounds.dayEnd)),
         [counts] = z
           .array(z.object({ order_count: dashboardCount }).strict())
           .length(1)
-          .parse(raw[0]);
+          .parse(raw);
       await recheckDashboardAuthority(db, user, scope);
       return {
         reader: 'data' as const,

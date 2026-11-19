@@ -199,7 +199,7 @@ export function staffPerformanceService(
           })
           .from(Order)
           .leftJoin(OrderStore, eq(OrderStore.orderId, Order.id))
-          .leftJoin(MUser, eq(MUser.id, sql`${OrderStore.adminUserId}`))
+          .leftJoin(MUser, eq(MUser.id, OrderStore.adminUserId))
           .leftJoin(HasProduct, eq(HasProduct.order, Order.id))
           .where(
             and(

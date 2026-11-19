@@ -161,7 +161,7 @@ export function orderFinalizer(
         await tx
           .update(GiftVoucher)
           .set({ status: 0 })
-          .where(sql`${GiftVoucher.order_id} = ${orderId}`);
+          .where(eq(GiftVoucher.order_id, BigInt(orderId)));
         if (orderKind === 'ordinary' && state.orderNotifications?.npsFeedback) {
           const timestamp = Temporal.Now.zonedDateTimeISO(config.BUSINESS_TIMEZONE)
             .toPlainDateTime()

@@ -319,7 +319,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
               and(
                 eq(Product.parent_prod_id, product.parentId),
                 eq(ProductStore.store, storeId),
-                or(eq(Product.is_del, 0), sql`${ProductStore.stock} > 0`),
+                or(eq(Product.is_del, 0), gt(ProductStore.stock, 0)),
               ),
             )
         : await tx
@@ -402,7 +402,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
             eq(ProductStore.product, BigInt(selection.replacementProductId)),
             eq(ProductStore.is_avail, true),
             eq(ProductStore.is_del, false),
-            or(eq(Product.is_del, 0), sql`${ProductStore.stock} > 0`),
+            or(eq(Product.is_del, 0), gt(ProductStore.stock, 0)),
           ),
         )
         .limit(1)

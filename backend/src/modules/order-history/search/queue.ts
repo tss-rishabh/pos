@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { and, eq, exists, inArray, isNull, ne, notExists, or, sql } from 'drizzle-orm';
+import { and, eq, exists, inArray, isNull, like, ne, notExists, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Databases } from '../../../db/pools.js';
 import {
@@ -117,10 +117,7 @@ export function sourceQueueRepository(db: Databases) {
                 inArray(Order.location_type, ['SW', 'NW']),
                 or(
                   eq(sql<string>`CAST(${Order.location_id} AS CHAR)`, storeId),
-                  and(
-                    eq(Order.is_transfer, 1),
-                    sql`${Order.next_location_ids} LIKE ${'%' + storeId + '%'}`,
-                  ),
+                  and(eq(Order.is_transfer, 1), like(Order.next_location_ids, '%' + storeId + '%')),
                 ),
               )
             : undefined,

@@ -120,20 +120,12 @@ export function acceptanceReportService(
             eq(HyperlocalOrderLog.action, 'ACCEPTED'),
             gte(HyperlocalOrderLog.created_at, bounds.from),
             lte(HyperlocalOrderLog.created_at, bounds.to),
-            ids.length
-              ? inArray(
-                  Order.location_id,
-                  sql`(${sql.join(
-                    ids.map((id) => sql`${id}`),
-                    sql`,`,
-                  )})`,
-                )
-              : undefined,
+            ids.length ? inArray(Order.location_id, ids.map(Number)) : undefined,
           );
         const [counted] = await reader
           .select({ count: count() })
           .from(HyperlocalOrderLog)
-          .leftJoin(Order, eq(Order.id, sql`${HyperlocalOrderLog.order_id}`))
+          .leftJoin(Order, eq(Order.id, HyperlocalOrderLog.order_id))
           .where(where);
         total = counted?.count || 0;
         totalPages = Math.ceil(total / input.pageSize);
@@ -162,7 +154,7 @@ export function acceptanceReportService(
             timeTaken,
           })
           .from(HyperlocalOrderLog)
-          .leftJoin(Order, eq(Order.id, sql`${HyperlocalOrderLog.order_id}`))
+          .leftJoin(Order, eq(Order.id, HyperlocalOrderLog.order_id))
           .leftJoin(Store, eq(Store.id, Order.location_id))
           .where(where)
           .orderBy(input.direction === 'asc' ? asc(sort) : desc(sort), asc(HyperlocalOrderLog.id))

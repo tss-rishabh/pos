@@ -212,7 +212,7 @@ export function deviceHandoffService(
         const accounts = await tx
           .select()
           .from(PosUser)
-          .where(and(sql`lower(${PosUser.email})=${email}`, eq(PosUser.is_active, true)))
+          .where(and(eq(sql<string>`lower(${PosUser.email})`, email), eq(PosUser.is_active, true)))
           .limit(2)
           .for('share');
         const account = accounts.length === 1 ? accounts[0] : undefined;

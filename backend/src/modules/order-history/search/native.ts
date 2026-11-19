@@ -74,9 +74,7 @@ function countHeader(db: Executor, scope: SourceSearchScope) {
       and(
         eq(matchedStore.order, Order.id),
         sql`${selected}`,
-        scope.selectedStores.length
-          ? inArray(matchedStore.store, scope.selectedStores.map(BigInt))
-          : sql`FALSE`,
+        inArray(matchedStore.store, scope.selectedStores.map(BigInt)),
       ),
     );
 }
@@ -141,9 +139,7 @@ function joinHeader(db: Executor, scope: SourceSearchScope, multiplicity = true)
       and(
         eq(matchedStore.order, Order.id),
         sql`${selected}`,
-        scope.selectedStores.length
-          ? inArray(matchedStore.store, scope.selectedStores.map(BigInt))
-          : sql`FALSE`,
+        inArray(matchedStore.store, scope.selectedStores.map(BigInt)),
       ),
     );
 }
@@ -169,9 +165,7 @@ function nativeScope(
   authorizedQueueIds?: readonly string[],
 ): SQL | undefined {
   if (authorizedQueueIds)
-    return authorizedQueueIds.length
-      ? inArray(Order.id, authorizedQueueIds.map(BigInt))
-      : sql`FALSE`;
+    return inArray(Order.id, authorizedQueueIds.map(BigInt));
   const ids = sourceStoreSelection(scope),
     noStore = notExists(
       db.select({ id: OrderStore.id }).from(OrderStore).where(eq(OrderStore.order, Order.id)),
@@ -194,9 +188,7 @@ function nativeScope(
             .where(
               and(
                 eq(ExpressLineItem.order, Order.id),
-                ids.length
-                  ? inArray(sql<string>`CAST(${ExpressLineItem.store_id} AS CHAR)`, ids)
-                  : sql`FALSE`,
+                inArray(sql<string>`CAST(${ExpressLineItem.store_id} AS CHAR)`, ids),
               ),
             ),
         );
@@ -206,7 +198,7 @@ function nativeScope(
   const owning = or(
     and(
       eq(Order.location_type, 'SW'),
-      ids.length ? inArray(sql<string>`CAST(${Order.location_id} AS CHAR)`, ids) : sql`FALSE`,
+      inArray(sql<string>`CAST(${Order.location_id} AS CHAR)`, ids),
     ),
     and(
       eq(Order.location_type, 'NW'),
@@ -217,9 +209,7 @@ function nativeScope(
           .where(
             and(
               eq(HyperlocalLocation.id, sql`CAST(${Order.location_id} AS SIGNED)`),
-              ids.length
-                ? inArray(sql<string>`CAST(${HyperlocalLocation.store_id} AS CHAR)`, ids)
-                : sql`FALSE`,
+              inArray(sql<string>`CAST(${HyperlocalLocation.store_id} AS CHAR)`, ids),
             ),
           ),
       ),

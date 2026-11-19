@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { Temporal } from '@js-temporal/polyfill';
 import { Decimal } from 'decimal.js';
 import { z } from 'zod';
-import { and, desc, eq, exists, gte, isNull, lt, ne, or, sql } from 'drizzle-orm';
+import { and, desc, eq, exists, gt, gte, isNotNull, isNull, lt, ne, or, sql } from 'drizzle-orm';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import {
@@ -87,7 +87,7 @@ export async function collectionSnapshot(
   const [correction] = await currentPaymentCorrectionCash(db, [storeId], date, date, corrections);
   // Exact source predicates; do not add order-status exclusions to cash collection.
   const district = and(
-    sql`${OrderStore.district_transaction_id} is not null`,
+    isNotNull(OrderStore.district_transaction_id),
     ne(OrderStore.district_transaction_id, ''),
   );
   const [collection] = await db
@@ -105,7 +105,10 @@ export async function collectionSnapshot(
         eq(OrderStore.store, BigInt(storeId)),
         gte(Order.created_at, start),
         lt(Order.created_at, end),
-        sql`(${OrderStore.offline_payment}+${OrderStore.online_payment}+${OrderStore.online_other_payment})>0`,
+        gt(
+          sql<number>`(${OrderStore.offline_payment}+${OrderStore.online_payment}+${OrderStore.online_other_payment})`,
+          0,
+        ),
       ),
     );
   const refundedLine = db

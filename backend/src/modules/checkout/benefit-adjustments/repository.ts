@@ -340,7 +340,7 @@ export function walletAdjustmentRepository(
       }),
     );
     // Legacy writes added_user 0 and '' for an empty expiry (stored as the zero date).
-    await tx.insert(table).values({
+    const [inserted] = await tx.insert(table).values({
       userId: BigInt(input.customerId),
       orderId: BigInt(input.adjustment.orderId),
       productId: BigInt(input.adjustment.productId),
@@ -356,11 +356,9 @@ export function walletAdjustmentRepository(
       expiry: input.adjustment.expiry ? input.adjustment.expiry + ' 00:00:00' : legacyZeroDateTime,
       expired: 0,
     });
-    const idResult = await tx.execute(sql`SELECT CAST(LAST_INSERT_ID() AS CHAR) AS id`);
-    const historyId = z
-      .array(z.object({ id: identifier }))
-      .length(1)
-      .parse(idResult[0])[0]!.id;
+    // The single-row insert's OK packet carries the same value LAST_INSERT_ID() returns; mysql2
+    // reports it as a number or, under bigNumberStrings, an exact decimal string.
+    const historyId = identifier.parse(String(inserted.insertId));
     for (let offset = 0; offset < planned.consumed.length; offset += 200) {
       const batch = planned.consumed.slice(offset, offset + 200),
         cases = batch.map((row) => sql`WHEN ${BigInt(row.historyId)} THEN ${row.usedAmount}`);

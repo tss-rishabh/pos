@@ -110,10 +110,7 @@ export function registerTerminalDirectory(app: FastifyInstance, db: Databases) {
             active: PosMachine.is_active,
           })
           .from(PosMachine)
-          .leftJoin(
-            Store,
-            and(eq(Store.id, sql`${PosMachine.store_id}`), eq(Store.is_active, true)),
-          )
+          .leftJoin(Store, and(eq(Store.id, PosMachine.store_id), eq(Store.is_active, true)))
           .where(
             and(
               storeIds ? inArray(PosMachine.store_id, storeIds) : undefined,
@@ -142,10 +139,7 @@ export function registerTerminalDirectory(app: FastifyInstance, db: Databases) {
             active: PosPaytmMachine.is_active,
           })
           .from(PosPaytmMachine)
-          .leftJoin(
-            Store,
-            and(eq(Store.id, sql`${PosPaytmMachine.store_id}`), eq(Store.is_active, true)),
-          )
+          .leftJoin(Store, and(eq(Store.id, PosPaytmMachine.store_id), eq(Store.is_active, true)))
           .where(
             and(
               storeIds ? inArray(PosPaytmMachine.store_id, storeIds) : undefined,

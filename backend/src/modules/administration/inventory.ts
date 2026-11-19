@@ -1,5 +1,5 @@
 import { Temporal } from '@js-temporal/polyfill';
-import { and, asc, eq, gt, inArray, like, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, gte, inArray, like, or, sql } from 'drizzle-orm';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import {
@@ -65,9 +65,13 @@ export function inventoryService(config: Config, db: Databases, options: Invento
           stock: ProductStore.stock,
           available: ProductStore.is_avail,
           archived: ProductStore.is_del,
-          barcode: sql<
-            string | null
-          >`(select ${ProductBarcode.gtin} from ${ProductBarcode} where ${ProductBarcode.product}=${Product.id} order by ${ProductBarcode.id} asc limit 1)`,
+          barcode: sql<string | null>`${db
+            .get('primary')
+            .select({ gtin: ProductBarcode.gtin })
+            .from(ProductBarcode)
+            .where(eq(ProductBarcode.product, Product.id))
+            .orderBy(asc(ProductBarcode.id))
+            .limit(1)}`,
         })
         .from(ProductStore)
         .innerJoin(Product, eq(Product.id, ProductStore.product))
@@ -277,7 +281,7 @@ export function inventoryService(config: Config, db: Databases, options: Invento
             eq(ProductInventoryLog.store_id, BigInt(storeId)),
             eq(ProductInventoryLog.product_id, BigInt(productId)),
             gt(ProductInventoryLog.id, BigInt(after)),
-            sql`${ProductInventoryLog.created_at}>=${dayStart}`,
+            gte(ProductInventoryLog.created_at, dayStart),
           ),
         )
         .orderBy(asc(ProductInventoryLog.id))
