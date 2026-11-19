@@ -78,7 +78,7 @@ export function ProductTile({
           {product.image ? (
             <img loading="lazy" src={product.image} alt="" />
           ) : (
-            <ShoppingBag size={54} strokeWidth={1} />
+            <ShoppingBag size={54} strokeWidth={1} aria-hidden="true" />
           )}
           <span className={`stock-label ${product.stock < 5 ? 'stock-low' : ''}`}>
             {product.stock === 0
@@ -87,7 +87,7 @@ export function ProductTile({
                 ? `Only ${product.stock} left`
                 : `${product.stock} in stock`}
           </span>
-          <span className="add-product">
+          <span className="add-product" aria-hidden="true">
             <Plus size={17} />
           </span>
         </div>

@@ -1,63 +1,124 @@
+/* W27: one card holds the product button, the legacy picker columns and the card links, so
+   nothing spills outside it. */
 .counter-product-card {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #e2e4d8;
+  border-radius: 8px;
+  overflow: hidden;
+  transition:
+    border-color 0.16s,
+    box-shadow 0.16s;
+}
+.counter-product-card:hover:has(> .product-tile:not(:disabled)) {
+  border-color: #9eaf96;
+  box-shadow: 0 3px 10px #28351d14;
 }
 .counter-product-card > .product-tile {
   width: 100%;
+  border: 0;
+  border-radius: 0;
+}
+.counter-product-card > .product-tile:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+.counter-product-card > .product-tile:focus-visible {
+  outline-offset: -2px;
+}
+.counter-product-card .product-copy {
+  padding-bottom: var(--space-2);
 }
 .counter-product-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  padding: 0.6rem 0.2rem;
-  font-size: 0.75rem;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  margin-top: auto;
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid #eef0e8;
+  font-size: 11px;
+  font-weight: 550;
 }
 .counter-product-actions a {
-  text-underline-offset: 0.2em;
+  color: #4f6447;
+  text-decoration: underline;
+  text-decoration-color: #c9d2bf;
+  text-underline-offset: 3px;
+}
+.counter-product-actions a:hover {
+  text-decoration-color: currentColor;
 }
 .counter-quantity-input input {
   width: 3.5rem;
+  min-height: 24px;
   text-align: center;
-  padding: 0.25rem;
+  padding: 0 0.25rem;
 }
 .counter-quantity-input small {
   display: block;
   max-width: 10rem;
 }
+/* Legacy picker columns (Barcode, Spl. Price, Ex. Price, Holded Stock, Storages Stock) as a
+   compact two-column grid inside the card. */
 .counter-product-inventory {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
-  gap: 0.35rem 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-1) var(--space-3);
   margin: 0;
-  padding: 0 0.2rem 0.4rem;
-  font-size: 0.75rem;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border-top: 1px dashed #e4e7dc;
+  font-size: 10px;
+  line-height: 1.4;
 }
 .counter-product-inventory > div {
   min-width: 0;
-  padding: 0.15rem 0.3rem;
-  border-radius: 0.3rem;
+  padding: 3px 0;
+  border-radius: 4px;
+}
+/* Highlighted cells keep their text on the grid line; the tint extends into the gutter. */
+.counter-product-inventory > .barcode-missing,
+.counter-product-inventory > .held-stock {
+  margin-left: -9px;
+  padding: 3px 6px;
+  border-left: 3px solid;
 }
 .counter-product-inventory dt {
   font-weight: 600;
+  color: #6c7564;
 }
 .counter-product-inventory dd {
   margin: 0;
+  color: #2f3a2b;
+  font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
+/* Legacy highlight colours (#e59696 missing barcode, #81e68c held stock) kept as the accent. */
 .counter-product-inventory .barcode-missing {
-  background-color: #e59696;
-  color: #1f1f1f;
+  grid-column: 1 / -1;
+  background-color: #fbe9e9;
+  border-left-color: #e59696;
+}
+.counter-product-inventory .barcode-missing dd {
+  color: #8f2f2f;
 }
 .counter-product-inventory .barcode-missing small {
   white-space: pre-line;
+  font-size: 10px;
 }
 .counter-product-inventory .held-stock {
-  background-color: #81e68c;
-  color: #1f1f1f;
+  background-color: #e3f8e5;
+  border-left-color: #81e68c;
+}
+.counter-product-inventory .storage-stock {
+  grid-column: 1 / -1;
 }
 .counter-product-inventory .storage-stock dd {
-  white-space: pre;
-  overflow-x: auto;
+  white-space: pre-line;
 }
+.counter-product-card.legacy-out-of-stock,
 .counter-product-card.legacy-out-of-stock .product-tile {
   background-color: antiquewhite;
 }
