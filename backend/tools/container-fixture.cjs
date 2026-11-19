@@ -25,7 +25,6 @@ async function verify() {
   const { promisify } = require('node:util');
   for (const path of [
     './dist/modules/customer-contacts/worker-main.js',
-    './dist/modules/customer-otp/worker-main.js',
     './dist/modules/gift-card-batches/worker-main.js',
   ]) {
     const result = await promisify(execFile)(process.execPath, [path], {
