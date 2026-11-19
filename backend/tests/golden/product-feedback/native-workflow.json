@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/product-feedback/native-workflow-source.py (d7cfa66; via capture runner runners/w15b-native-workflow.py: frozen datetime.now at stdin 'now', product_rating_user rows appended as nativeRows)",
+  "runtime": "CPython 3.10.22 (uv venv: django 4.2.5, pymysql 1.1.1); isolated loopback MySQL 8.4.11, empty server sql_mode",
+  "capturedAt": "2026-11-19T11:33:51Z",
+  "test": "tests/product-feedback-legacy.mysql.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "a40b8609796180d9db6bc0af3b61539187c424132a32154f2dccbd2c4e90e30a",
+      "args": ["tools/product-feedback/native-workflow-source.py"],
+      "status": 0,
+      "stdout": "{\"orders\": [{\"id\": \"9007199254740993\", \"orderAmount\": 125.5, \"items\": [{\"productId\": \"10\", \"name\": \"<Fixture feedback product>\", \"feedback\": []}, {\"productId\": \"10\", \"name\": \"<Fixture feedback product>\", \"feedback\": []}]}], \"mainHtml\": \"\\n    <table class=\\\"table table-bordered\\\" id=\\\"feedback-table\\\">\\n        <tr>\\n            <th>Order ID</th>\\n            <th>Order Amount</th>\\n            <th>Items</th>\\n        </tr>\\n        \\n        <tr>\\n            <td>9007199254740993</td>\\n            <td>125.5</td>\\n            <td>\\n                <table class=\\\"table table-bordered\\\">\\n                    <tr>\\n                        <th>Product Info</th>\\n                        <th>Feedback</th>\\n                    </tr>\\n                    \\n                    <tr>\\n                        <td>&lt;Fixture feedback product&gt;</td>\\n                        <td>\\n                            <table class=\\\"table table-bordered\\\">\\n                                <tr>\\n                                    <th></th>\\n                                    <th>Rating</th>\\n                                    <th>Platform</th>\\n                                </tr>\\n                                <form onsubmit=\\\"submitFeedback(9007199254740993,10)\\\">\\n                                <tr>\\n                                    <td>Overall Rating</td>\\n                                    \\n                                        <td>\\n                                            <input type=\\\"number\\\" class=\\\"form-control\\\" max=5 min=0 step=0.1 id=\\\"0-9007199254740993-10\\\" required>\\n                                        </td>\\n                                        <td>\\n                                            WEB\\n                                        </td>\\n                                    \\n                                </tr>\\n                                <tr>\\n                                    <td>Product Fit</td>\\n                                    \\n                                        <td>\\n                                            <input type=\\\"number\\\" class=\\\"form-control\\\" max=5 min=0 step=0.1 id=\\\"1-9007199254740993-10\\\">\\n                                        </td>\\n                                        <td>\\n                                            WEB\\n                                        </td>\\n                                    \\n                                </tr>\\n                                <tr>\\n                                    <td>Product Size</td>\\n                                    \\n                                        <td>\\n                                            <input type=\\\"number\\\" class=\\\"form-control\\\" max=5 min=0 step=0.1 id=\\\"2-9007199254740993-10\\\">\\n                                        </td>\\n                                        <td>\\n                                            WEB\\n                                        </td>\\n                                    \\n                                </tr>\\n                                <tr>\\n                                    <td>Product Quality</td>\\n                                    \\n                                        <td>\\n                                            <input type=\\\"number\\\" class=\\\"form-control\\\" max=5 min=0 step=0.1 id=\\\"3-9007199254740993-10\\\">\\n                                        </td>\\n                                        <td>\\n                                            WEB\\n                                        </td>\\n                                    \\n                                </tr>\\n                                <tr>\\n                                    <td>Comment</td>\\n                                    \\n                                        <td>\\n                                            <input type=\\\"text\\\" class=\\\"form-control\\\" placeholder=\\\"Add Comment\\\" maxlength=\\\"255\\\" id=\\\"4-9007199254740993-10\\\">\\n                                        </td>\\n                                        <td>\\n                                            <button type=\\\"submit\\\" class=\\\"btn btn-danger\\\">Save</button>\\n                                        </td>\\n                                    \\n                                </tr>\\n                                </form>\\n                            </table>\\n                        </td>\\n                    </tr>\\n                    \\n                    <tr>\\n                        <td>&lt;Fixture feedback product&gt;</td>\\n                        <td>\\n                            <table class=\\\"table table-bordered\\\">\\n                                <tr>\\n                                    <th></th>\\n                                    <th>Rating</th>\\n                                    <th>Platform</th>\\n                                </tr>\\n                                <form onsubmit=\\\"submitFeedback(9007199254740993,10)\\\">\\n                                <tr>\\n                                    <td>Overall Rating</td>\\n                                    \\n                                        <td>\\n                                            <input type=\\\"number\\\" class=\\\"form-control\\\" max=5 min=0 step=0.1 id=\\\"0-9007199254740993-10\\\" required>\\n                                        </td>\\n                                        <td>\\n                                            WEB\\n                                        </td>\\n                                    \\n                                </tr>\\n                                <tr>\\n                                    <td>Product Fit</td>\\n                                    \\n                                        <td>\\n                                            <input type=\\\"number\\\" class=\\\"form-control\\\" max=5 min=0 step=0.1 id=\\\"1-9007199254740993-10\\\">\\n                                        </td>\\n                                        <td>\\n                                            WEB\\n                                        </td>\\n                                    \\n                                </tr>\\n                                <tr>\\n                                    <td>Product Size</td>\\n                                    \\n                                        <td>\\n                                            <input type=\\\"number\\\" class=\\\"form-control\\\" max=5 min=0 step=0.1 id=\\\"2-9007199254740993-10\\\">\\n                                        </td>\\n                                        <td>\\n                                            WEB\\n                                        </td>\\n                                    \\n                                </tr>\\n                                <tr>\\n                                    <td>Product Quality</td>\\n                                    \\n                                        <td>\\n                                            <input type=\\\"number\\\" class=\\\"form-control\\\" max=5 min=0 step=0.1 id=\\\"3-9007199254740993-10\\\">\\n                                        </td>\\n                                        <td>\\n                                            WEB\\n                                        </td>\\n                                    \\n                                </tr>\\n                                <tr>\\n                                    <td>Comment</td>\\n                                    \\n                                        <td>\\n                                            <input type=\\\"text\\\" class=\\\"form-control\\\" placeholder=\\\"Add Comment\\\" maxlength=\\\"255\\\" id=\\\"4-9007199254740993-10\\\">\\n                                        </td>\\n                                        <td>\\n                                            <button type=\\\"submit\\\" class=\\\"btn btn-danger\\\">Save</button>\\n                                        </td>\\n                                    \\n                                </tr>\\n                                </form>\\n                            </table>\\n                        </td>\\n                    </tr>\\n                     \\n                </table>\\n            </td>\\n        </tr>\\n        \\n    </table>\\n\", \"queries\": 8, \"nativeInserts\": 0, \"sourceHashes\": {\"order/urls.py\": \"072291b1b3da04ab20ef2c1326f457337b29590f64b23322a982f7069134ce49\", \"users/urls.py\": \"871e94f26ca12ba9dc9c54cb8f705bb4fd83c476f549a8cd635ce73ed31e9c13\", \"order/models.py\": \"e406410ae79dd2383a70f6a63a6fd29a4bac392e56e4cf1e66659d7dcc7bb05d\", \"core/models.py\": \"427ff370420b5483255159aff3618d8598c175539fc5ff586141453d8f9b7512\", \"order/views.py\": \"3a91805d0f0006a90c6cebb744dc3cc742a384f449f60344469d2941875f1eea\", \"users/views.py\": \"23e3ff32bc197de469f072da53a86eb1ff1bccc669d6f060e8c7c4852ff2f9e0\", \"order/templates/order/add_order_feedback.html\": \"a7943b3198f7054989943ff49431feee37df4741cd236902f156da80977990f1\", \"static/adminlte/plugins/jquery/jquery.min.js\": \"f7f6a5894f1d19ddad6fa392b2ece2c5e578cbf7da4ea805b6885eb6985b6e3d\", \"users/templates/admin/layouts/base.html\": \"024f047571d04d2f1839837a733faf470e5ff5ba60af2e87d7ccf9d81605f55c\", \"static/js/main.js\": \"fa30fe11933958772f3ee8f4469850451c046f23d3a21ba0253e2addee8228f4\"}}\n"
+    },
+    {
+      "inputSha256": "9b71e97b021bfecb824c00395f9a8473fc7867b86b420b9c68f8a8bf60a03b4e",
+      "args": ["tools/product-feedback/native-workflow-source.py"],
+      "status": 0,
+      "output": {
+        "orders": [],
+        "mainHtml": "\n    <table class=\"table table-bordered\" id=\"feedback-table\">\n        <tr>\n            <th>Order ID</th>\n            <th>Order Amount</th>\n            <th>Items</th>\n        </tr>\n        \n    </table>\n",
+        "queries": 3,
+        "nativeInserts": 0,
+        "sourceHashes": {
+          "order/urls.py": "072291b1b3da04ab20ef2c1326f457337b29590f64b23322a982f7069134ce49",
+          "users/urls.py": "871e94f26ca12ba9dc9c54cb8f705bb4fd83c476f549a8cd635ce73ed31e9c13",
+          "order/models.py": "e406410ae79dd2383a70f6a63a6fd29a4bac392e56e4cf1e66659d7dcc7bb05d",
+          "core/models.py": "427ff370420b5483255159aff3618d8598c175539fc5ff586141453d8f9b7512",
+          "order/views.py": "3a91805d0f0006a90c6cebb744dc3cc742a384f449f60344469d2941875f1eea",
+          "users/views.py": "23e3ff32bc197de469f072da53a86eb1ff1bccc669d6f060e8c7c4852ff2f9e0",
+          "order/templates/order/add_order_feedback.html": "a7943b3198f7054989943ff49431feee37df4741cd236902f156da80977990f1",
+          "static/adminlte/plugins/jquery/jquery.min.js": "f7f6a5894f1d19ddad6fa392b2ece2c5e578cbf7da4ea805b6885eb6985b6e3d",
+          "users/templates/admin/layouts/base.html": "024f047571d04d2f1839837a733faf470e5ff5ba60af2e87d7ccf9d81605f55c",
+          "static/js/main.js": "fa30fe11933958772f3ee8f4469850451c046f23d3a21ba0253e2addee8228f4"
+        }
+      }
+    },
+    {
+      "inputSha256": "869e0cfaa8d26d1c18b9ef51eec085cce5f51702a37bc474e6ba062775360b05",
+      "args": ["tools/product-feedback/native-workflow-source.py"],
+      "status": 0,
+      "stdout": "{\"orders\": [{\"id\": \"9007199254740993\", \"orderAmount\": 125.5, \"items\": [{\"productId\": \"10\", \"name\": \"<Fixture feedback product>\", \"feedback\": [{\"optionId\": \"1\", \"rating\": 0.0, \"platform\": \"WEB\", \"comment\": null}, {\"optionId\": \"2\", \"rating\": 3.0, \"platform\": \"WEB\", \"comment\": \"\"}, {\"optionId\": \"3\", \"rating\": null, \"platform\": \"IOS\", \"comment\": \"kept\"}, {\"optionId\": \"0\", \"rating\": 4.5, \"platform\": \"ANDROID\", \"comment\": \"first\"}]}, {\"productId\": \"10\", \"name\": \"<Fixture feedback product>\", \"feedback\": [{\"optionId\": \"1\", \"rating\": 0.0, \"platform\": \"WEB\", \"comment\": null}, {\"optionId\": \"2\", \"rating\": 3.0, \"platform\": \"WEB\", \"comment\": \"\"}, {\"optionId\": \"3\", \"rating\": null, \"platform\": \"IOS\", \"comment\": \"kept\"}, {\"optionId\": \"0\", \"rating\": 4.5, \"platform\": \"ANDROID\", \"comment\": \"first\"}]}]}], \"mainHtml\": \"\\n    <table class=\\\"table table-bordered\\\" id=\\\"feedback-table\\\">\\n        <tr>\\n            <th>Order ID</th>\\n            <th>Order Amount</th>\\n            <th>Items</th>\\n        </tr>\\n        \\n        <tr>\\n            <td>9007199254740993</td>\\n            <td>125.5</td>\\n            <td>\\n                <table class=\\\"table table-bordered\\\">\\n                    <tr>\\n                        <th>Product Info</th>\\n                        <th>Feedback</th>\\n                    </tr>\\n                    \\n                    <tr>\\n                        <td>&lt;Fixture feedback product&gt;</td>\\n                        <td>\\n                            <table class=\\\"table table-bordered\\\">\\n                                <tr>\\n                                    <th></th>\\n                                    <th>Rating</th>\\n                                    <th>Platform</th>\\n                                </tr>\\n                                <form onsubmit=\\\"submitFeedback(9007199254740993,10)\\\">\\n                                <tr>\\n                                    <td>Overall Rating</td>\\n                                    \\n                                        \\n                                            \\n                                        \\n                                            \\n                                        \\n                                            \\n                                        \\n                                            \\n                                                <td>4.5</td>\\n                                                <td>ANDROID</td>\\n                                            \\n                                        \\n                                    \\n                                </tr>\\n                                <tr>\\n                                    <td>Product Fit</td>\\n                                    \\n                                        \\n                                            \\n                                                <td>0.0</td>\\n                                                <td>WEB</td>\\n                                            \\n                                        \\n                                            \\n                                        \\n                                            \\n                                        \\n                                            \\n                                        \\n                                    \\n                                </tr>\\n                                <tr>\\n                                    <td>Product Size</td>\\n                                    \\n                                        \\n                                            \\n                                        \\n                                            \\n                                                <td>3.0</td>\\n                                                <td>WEB</td>\\n                                            \\n                                        \\n                                            \\n                                        \\n                                            \\n                                        \\n                                    \\n                                </tr>\\n                                <tr>\\n                                    <td>Product Quality</td>\\n                                    \\n                                        \\n                                            \\n                                        \\n                                            \\n                                        \\n                                            \\n                                                <td>None</td>\\n                                                <td>IOS</td>\\n                                            \\n                                        \\n                                            \\n                                        \\n                                    \\n                                </tr>\\n                                <tr>\\n                                    <td>Comment</td>\\n                                    \\n                                        \\n                                            \\n                                        \\n                                            \\n                                        \\n                                            \\n                                        \\n                                            \\n                                                <td>first</td>\\n                                                <td></td>\\n                                            \\n                                        \\n                                    \\n                                </tr>\\n                                </form>\\n                            </table>\\n                        </td>\\n                    </tr>\\n                    \\n                    <tr>\\n                        <td>&lt;Fixture feedback product&gt;</td>\\n                        <td>\\n                            <table class=\\\"table table-bordered\\\">\\n                                <tr>\\n                                    <th></th>\\n                                    <th>Rating</th>\\n                                    <th>Platform</th>\\n                                </tr>\\n                                <form onsubmit=\\\"submitFeedback(9007199254740993,10)\\\">\\n                                <tr>\\n                                    <td>Overall Rating</td>\\n                                    \\n                                        \\n                                            \\n                                        \\n                                            \\n                                        \\n                                            \\n                                        \\n                                            \\n                                                <td>4.5</td>\\n                                                <td>ANDROID</td>\\n                                            \\n                                        \\n                                    \\n                                </tr>\\n                                <tr>\\n                                    <td>Product Fit</td>\\n                                    \\n                                        \\n                                            \\n                                                <td>0.0</td>\\n                                                <td>WEB</td>\\n                                            \\n                                        \\n                                            \\n                                        \\n                                            \\n                                        \\n                                            \\n                                        \\n                                    \\n                                </tr>\\n                                <tr>\\n                                    <td>Product Size</td>\\n                                    \\n                                        \\n                                            \\n                                        \\n                                            \\n                                                <td>3.0</td>\\n                                                <td>WEB</td>\\n                                            \\n                                        \\n                                            \\n                                        \\n                                            \\n                                        \\n                                    \\n                                </tr>\\n                                <tr>\\n                                    <td>Product Quality</td>\\n                                    \\n                                        \\n                                            \\n                                        \\n                                            \\n                                        \\n                                            \\n                                                <td>None</td>\\n                                                <td>IOS</td>\\n                                            \\n                                        \\n                                            \\n                                        \\n                                    \\n                                </tr>\\n                                <tr>\\n                                    <td>Comment</td>\\n                                    \\n                                        \\n                                            \\n                                        \\n                                            \\n                                        \\n                                            \\n                                        \\n                                            \\n                                                <td>first</td>\\n                                                <td></td>\\n                                            \\n                                        \\n                                    \\n                                </tr>\\n                                </form>\\n                            </table>\\n                        </td>\\n                    </tr>\\n                     \\n                </table>\\n            </td>\\n        </tr>\\n        \\n    </table>\\n\", \"queries\": 8, \"nativeInserts\": 0, \"sourceHashes\": {\"order/urls.py\": \"072291b1b3da04ab20ef2c1326f457337b29590f64b23322a982f7069134ce49\", \"users/urls.py\": \"871e94f26ca12ba9dc9c54cb8f705bb4fd83c476f549a8cd635ce73ed31e9c13\", \"order/models.py\": \"e406410ae79dd2383a70f6a63a6fd29a4bac392e56e4cf1e66659d7dcc7bb05d\", \"core/models.py\": \"427ff370420b5483255159aff3618d8598c175539fc5ff586141453d8f9b7512\", \"order/views.py\": \"3a91805d0f0006a90c6cebb744dc3cc742a384f449f60344469d2941875f1eea\", \"users/views.py\": \"23e3ff32bc197de469f072da53a86eb1ff1bccc669d6f060e8c7c4852ff2f9e0\", \"order/templates/order/add_order_feedback.html\": \"a7943b3198f7054989943ff49431feee37df4741cd236902f156da80977990f1\", \"static/adminlte/plugins/jquery/jquery.min.js\": \"f7f6a5894f1d19ddad6fa392b2ece2c5e578cbf7da4ea805b6885eb6985b6e3d\", \"users/templates/admin/layouts/base.html\": \"024f047571d04d2f1839837a733faf470e5ff5ba60af2e87d7ccf9d81605f55c\", \"static/js/main.js\": \"fa30fe11933958772f3ee8f4469850451c046f23d3a21ba0253e2addee8228f4\"}}\n"
+    },
+    {
+      "inputSha256": "2aae99f3435644004ba2e7e9b5336b35573a9c66c226ca91eb66e13ed8124cdc",
+      "args": ["tools/product-feedback/native-workflow-source.py"],
+      "status": 0,
+      "output": {
+        "responses": [
+          {
+            "message": "Added successfully",
+            "status": "200"
+          },
+          {
+            "message": "Added successfully",
+            "status": "200"
+          },
+          {
+            "message": "Added successfully",
+            "status": "200"
+          },
+          {
+            "message": "Added successfully",
+            "status": "200"
+          }
+        ],
+        "queries": 6,
+        "nativeInserts": 4,
+        "sourceHashes": {
+          "order/urls.py": "072291b1b3da04ab20ef2c1326f457337b29590f64b23322a982f7069134ce49",
+          "users/urls.py": "871e94f26ca12ba9dc9c54cb8f705bb4fd83c476f549a8cd635ce73ed31e9c13",
+          "order/models.py": "e406410ae79dd2383a70f6a63a6fd29a4bac392e56e4cf1e66659d7dcc7bb05d",
+          "core/models.py": "427ff370420b5483255159aff3618d8598c175539fc5ff586141453d8f9b7512",
+          "order/views.py": "3a91805d0f0006a90c6cebb744dc3cc742a384f449f60344469d2941875f1eea",
+          "users/views.py": "23e3ff32bc197de469f072da53a86eb1ff1bccc669d6f060e8c7c4852ff2f9e0",
+          "order/templates/order/add_order_feedback.html": "a7943b3198f7054989943ff49431feee37df4741cd236902f156da80977990f1",
+          "static/adminlte/plugins/jquery/jquery.min.js": "f7f6a5894f1d19ddad6fa392b2ece2c5e578cbf7da4ea805b6885eb6985b6e3d",
+          "users/templates/admin/layouts/base.html": "024f047571d04d2f1839837a733faf470e5ff5ba60af2e87d7ccf9d81605f55c",
+          "static/js/main.js": "fa30fe11933958772f3ee8f4469850451c046f23d3a21ba0253e2addee8228f4"
+        },
+        "nativeRows": [
+          {
+            "id": "9007199254741005",
+            "user_id": "777",
+            "order_id": "9007199254740993",
+            "prod_id": "10",
+            "parent_prod_id": "0",
+            "product_rating_option_id": "0",
+            "rating": "4.5",
+            "platform": "WEB",
+            "comment": "café € <script>private-canary</script>",
+            "is_default": "1",
+            "is_bot": "0",
+            "created_at": "2026-11-17 11:30:20",
+            "updated_at": "2026-11-17 11:30:20",
+            "has_product_id": null
+          },
+          {
+            "id": "9007199254741006",
+            "user_id": "777",
+            "order_id": "9007199254740993",
+            "prod_id": "10",
+            "parent_prod_id": "0",
+            "product_rating_option_id": "1",
+            "rating": "0",
+            "platform": "WEB",
+            "comment": "",
+            "is_default": "0",
+            "is_bot": "0",
+            "created_at": "2026-11-17 11:30:20",
+            "updated_at": "2026-11-17 11:30:20",
+            "has_product_id": null
+          },
+          {
+            "id": "9007199254741007",
+            "user_id": "777",
+            "order_id": "9007199254740993",
+            "prod_id": "10",
+            "parent_prod_id": "0",
+            "product_rating_option_id": "2",
+            "rating": "3.2",
+            "platform": "WEB",
+            "comment": "",
+            "is_default": "0",
+            "is_bot": "0",
+            "created_at": "2026-11-17 11:30:20",
+            "updated_at": "2026-11-17 11:30:20",
+            "has_product_id": null
+          },
+          {
+            "id": "9007199254741008",
+            "user_id": "777",
+            "order_id": "9007199254740993",
+            "prod_id": "10",
+            "parent_prod_id": "0",
+            "product_rating_option_id": "3",
+            "rating": "0",
+            "platform": "WEB",
+            "comment": "",
+            "is_default": "0",
+            "is_bot": "0",
+            "created_at": "2026-11-17 11:30:20",
+            "updated_at": "2026-11-17 11:30:20",
+            "has_product_id": null
+          }
+        ]
+      }
+    },
+    {
+      "inputSha256": "70e08c9c3dff0fa3a8468985cb713b046c1267cda9a2b3086c02fc30fe71ea85",
+      "args": ["tools/product-feedback/native-workflow-source.py"],
+      "status": 0,
+      "output": {
+        "status": 200,
+        "body": {
+          "message": "Invalid input",
+          "status": "400"
+        },
+        "html": null,
+        "location": null,
+        "exceptionType": null,
+        "queries": 3,
+        "nativeInserts": 0,
+        "sourceHashes": {
+          "order/urls.py": "072291b1b3da04ab20ef2c1326f457337b29590f64b23322a982f7069134ce49",
+          "users/urls.py": "871e94f26ca12ba9dc9c54cb8f705bb4fd83c476f549a8cd635ce73ed31e9c13",
+          "order/models.py": "e406410ae79dd2383a70f6a63a6fd29a4bac392e56e4cf1e66659d7dcc7bb05d",
+          "core/models.py": "427ff370420b5483255159aff3618d8598c175539fc5ff586141453d8f9b7512",
+          "order/views.py": "3a91805d0f0006a90c6cebb744dc3cc742a384f449f60344469d2941875f1eea",
+          "users/views.py": "23e3ff32bc197de469f072da53a86eb1ff1bccc669d6f060e8c7c4852ff2f9e0",
+          "order/templates/order/add_order_feedback.html": "a7943b3198f7054989943ff49431feee37df4741cd236902f156da80977990f1",
+          "static/adminlte/plugins/jquery/jquery.min.js": "f7f6a5894f1d19ddad6fa392b2ece2c5e578cbf7da4ea805b6885eb6985b6e3d",
+          "users/templates/admin/layouts/base.html": "024f047571d04d2f1839837a733faf470e5ff5ba60af2e87d7ccf9d81605f55c",
+          "static/js/main.js": "fa30fe11933958772f3ee8f4469850451c046f23d3a21ba0253e2addee8228f4"
+        }
+      }
+    },
+    {
+      "inputSha256": "17afaf814344a5b89cc5481e3f9c0967eb548b2abd0966546ddccbd474b766b7",
+      "args": ["tools/product-feedback/native-workflow-source.py"],
+      "status": 0,
+      "stdout": "{\"status\": 302, \"body\": null, \"html\": \"\", \"location\": \"/accounts/login/?next=/users/order-feedback-form/777/9007199254740993\", \"exceptionType\": null, \"queries\": 0, \"nativeInserts\": 0, \"sourceHashes\": {\"order/urls.py\": \"072291b1b3da04ab20ef2c1326f457337b29590f64b23322a982f7069134ce49\", \"users/urls.py\": \"871e94f26ca12ba9dc9c54cb8f705bb4fd83c476f549a8cd635ce73ed31e9c13\", \"order/models.py\": \"e406410ae79dd2383a70f6a63a6fd29a4bac392e56e4cf1e66659d7dcc7bb05d\", \"core/models.py\": \"427ff370420b5483255159aff3618d8598c175539fc5ff586141453d8f9b7512\", \"order/views.py\": \"3a91805d0f0006a90c6cebb744dc3cc742a384f449f60344469d2941875f1eea\", \"users/views.py\": \"23e3ff32bc197de469f072da53a86eb1ff1bccc669d6f060e8c7c4852ff2f9e0\", \"order/templates/order/add_order_feedback.html\": \"a7943b3198f7054989943ff49431feee37df4741cd236902f156da80977990f1\", \"static/adminlte/plugins/jquery/jquery.min.js\": \"f7f6a5894f1d19ddad6fa392b2ece2c5e578cbf7da4ea805b6885eb6985b6e3d\", \"users/templates/admin/layouts/base.html\": \"024f047571d04d2f1839837a733faf470e5ff5ba60af2e87d7ccf9d81605f55c\", \"static/js/main.js\": \"fa30fe11933958772f3ee8f4469850451c046f23d3a21ba0253e2addee8228f4\"}}\n"
+    },
+    {
+      "inputSha256": "e03f3601d84e4c7de5c9f4c5fc410af2cf125187ee29703cdb8300963772b561",
+      "args": ["tools/product-feedback/native-workflow-source.py"],
+      "status": 0,
+      "output": {
+        "status": 302,
+        "body": null,
+        "html": "",
+        "location": "/accounts/login/?next=/orders/ajax-add-feedback/",
+        "exceptionType": null,
+        "queries": 0,
+        "nativeInserts": 0,
+        "sourceHashes": {
+          "order/urls.py": "072291b1b3da04ab20ef2c1326f457337b29590f64b23322a982f7069134ce49",
+          "users/urls.py": "871e94f26ca12ba9dc9c54cb8f705bb4fd83c476f549a8cd635ce73ed31e9c13",
+          "order/models.py": "e406410ae79dd2383a70f6a63a6fd29a4bac392e56e4cf1e66659d7dcc7bb05d",
+          "core/models.py": "427ff370420b5483255159aff3618d8598c175539fc5ff586141453d8f9b7512",
+          "order/views.py": "3a91805d0f0006a90c6cebb744dc3cc742a384f449f60344469d2941875f1eea",
+          "users/views.py": "23e3ff32bc197de469f072da53a86eb1ff1bccc669d6f060e8c7c4852ff2f9e0",
+          "order/templates/order/add_order_feedback.html": "a7943b3198f7054989943ff49431feee37df4741cd236902f156da80977990f1",
+          "static/adminlte/plugins/jquery/jquery.min.js": "f7f6a5894f1d19ddad6fa392b2ece2c5e578cbf7da4ea805b6885eb6985b6e3d",
+          "users/templates/admin/layouts/base.html": "024f047571d04d2f1839837a733faf470e5ff5ba60af2e87d7ccf9d81605f55c",
+          "static/js/main.js": "fa30fe11933958772f3ee8f4469850451c046f23d3a21ba0253e2addee8228f4"
+        }
+      }
+    }
+  ]
+}
