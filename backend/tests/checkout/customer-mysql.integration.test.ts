@@ -138,7 +138,11 @@ describe.skipIf(!template)('customer registration in an isolated writer schema',
     await seed(ProductBarcode, { product_id: 10, gtin: '8900000000010' });
   });
   beforeEach(() => {
-    clock += 3600_001;
+    // Send budgets are counted per clock hour (`consumeSendBudget`). Start every test at the
+    // beginning of a fresh hour, at least an hour later, so a test's sends never straddle an hour
+    // boundary; the offset used to follow the wall clock at file load, so runs started in the
+    // last minutes of an hour saw the per-phone budget reset mid-test.
+    clock = (Math.floor(clock / 3600_000) + 2) * 3600_000;
     messages.length = 0;
     fallbacks.length = 0;
     smsUncertain = false;
