@@ -149,7 +149,7 @@ export function StockMatrixPage({ user, storeId }: { user: Principal; storeId: s
   ];
   return (
     <>
-      <PageTitle eyebrow="STOCK ACROSS STORES" title="Inventory matrix">
+      <PageTitle title="Inventory matrix">
         <Link className="button secondary" to="/catalog">
           Product catalog
         </Link>

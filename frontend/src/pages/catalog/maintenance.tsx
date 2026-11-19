@@ -78,7 +78,7 @@ export function InventoryPullPage({ user }: { user: Principal }) {
     });
   return (
     <>
-      <PageTitle eyebrow="PRODUCTS" title="Inventory Sync">
+      <PageTitle title="Inventory Sync">
         {user.userType === 1 && (
           <Link className="button secondary" to="/catalog/inventory">
             Inventory matrix

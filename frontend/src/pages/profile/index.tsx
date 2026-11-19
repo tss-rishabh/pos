@@ -65,7 +65,7 @@ export function ProfilePage({ user, online }: { user: Principal; online: boolean
   }
   return (
     <>
-      <PageTitle eyebrow="YOUR WORKSPACE ACCOUNT" title="Your profile" />
+      <PageTitle title="Your profile" />
       {!online && <p role="status">Reconnect to change your profile or password.</p>}
       {profile.isError ? (
         <ErrorState error={profile.error} retry={() => void profile.refetch()} />

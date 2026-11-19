@@ -18,7 +18,7 @@ export default function ReturnEntryPage(props: {
   if (selection.status === 'invalid' || selection.status === 'mismatch') {
     return (
       <>
-        <PageTitle eyebrow="CUSTOMER CARE" title="Returns" />
+        <PageTitle title="Returns" />
         <p role="alert">
           {selection.status === 'invalid'
             ? 'This return link is incomplete or invalid. Open the order again.'

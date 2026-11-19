@@ -133,7 +133,7 @@ export function SpecialPermissionHistoryPage({ user }: { user: Principal }) {
   }
   return (
     <>
-      <PageTitle eyebrow="ADMINISTRATION" title="Permission activity" />
+      <PageTitle title="Permission activity" />
       <section className="surface permission-activity-filters">
         <form
           onSubmit={(event) => {

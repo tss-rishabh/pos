@@ -173,7 +173,7 @@ function VoucherIssuer({ user, online }: { user: Principal; online: boolean }) {
     return <p role="alert">Gift voucher issuance requires an internal administrator.</p>;
   return (
     <div className="global-vouchers">
-      <PageTitle eyebrow="Administration" title="Gift vouchers">
+      <PageTitle title="Gift vouchers">
         <p>Issue a non-expiring gift voucher to a customer by email.</p>
       </PageTitle>
       {!online && <p role="status">Connect to issue a voucher or check its original outcome.</p>}

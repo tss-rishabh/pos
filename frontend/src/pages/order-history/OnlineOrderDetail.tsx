@@ -56,7 +56,7 @@ export function OnlineOrderDetailPage({ user, storeId }: { user: Principal; stor
   if (!link)
     return (
       <>
-        <PageTitle eyebrow="ORDER DETAILS" title="Order details" />
+        <PageTitle title="Order details" />
         <p role="alert">This order link is invalid. Open the order from search.</p>
         <NavLink to="/orders">Open orders</NavLink>
       </>
@@ -64,7 +64,7 @@ export function OnlineOrderDetailPage({ user, storeId }: { user: Principal; stor
   if (!bound)
     return (
       <>
-        <PageTitle eyebrow="ORDER DETAILS" title="Order details" />
+        <PageTitle title="Order details" />
         <p role="alert">
           This order link belongs to a different operator or store. Select its workspace or open the
           order from your search.
@@ -77,8 +77,8 @@ export function OnlineOrderDetailPage({ user, storeId }: { user: Principal; stor
   return (
     <>
       <PageTitle
-        eyebrow={`${types[link.type].toUpperCase()} ORDER`}
         title={value?.fact.reference || `Order ${link.orderId}`}
+        subtitle={`${types[link.type]} order`}
       >
         <NavLink className="button secondary" to="/orders">
           Order search

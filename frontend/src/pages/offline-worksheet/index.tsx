@@ -110,7 +110,7 @@ function OwnedWorksheet({ user, storeId }: { user: Principal; storeId: string })
   }
   return (
     <>
-      <PageTitle eyebrow="OFFLINE TOOLS" title="Invoice worksheet">
+      <PageTitle title="Invoice worksheet">
         <button
           className="button secondary"
           onClick={() => {

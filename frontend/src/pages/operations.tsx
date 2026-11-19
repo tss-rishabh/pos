@@ -39,7 +39,7 @@ export function InventoryPage({ user, storeId }: { user: Principal; storeId: str
   const rows = products.data?.pages.flatMap((p) => p.data) || [];
   return (
     <>
-      <PageTitle eyebrow="EVERY ITEM, ACCOUNTED FOR" title="Store inventory">
+      <PageTitle title="Store inventory">
         <NavLink className="button secondary" to="/catalog/inventory">
           Stock across stores
         </NavLink>
@@ -227,10 +227,7 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
   });
   return (
     <>
-      <PageTitle
-        eyebrow="FROM FIRST SCAN TO FINAL RECEIPT"
-        title={view === 'online' ? 'Online orders' : 'Orders'}
-      >
+      <PageTitle title={view === 'online' ? 'Online orders' : 'Orders'}>
         <button
           className="button secondary"
           onClick={() => {
@@ -512,7 +509,7 @@ export function StoresPage({
 }) {
   return (
     <>
-      <PageTitle eyebrow="CONNECTED BY THE COUNTER" title="Your stores" />
+      <PageTitle title="Your stores" />
       <div className="store-grid">
         {stores.map((store) => (
           <article key={store.id} className="store-card">

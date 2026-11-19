@@ -151,7 +151,7 @@ export function ReportView<T extends Record<string, unknown>>({
     return <ErrorState error={new Error('This report requires a permitted operator role.')} />;
   return (
     <>
-      <PageTitle eyebrow="OPERATIONS IN FOCUS" title={title}>
+      <PageTitle title={title}>
         <button
           className="button secondary"
           disabled={!report.data?.data.length || !visible.length || pageCsv.isPending}

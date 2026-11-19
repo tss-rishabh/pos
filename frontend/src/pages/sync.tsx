@@ -48,7 +48,7 @@ export function SyncPage({
   }
   return (
     <>
-      <PageTitle eyebrow="YOUR WORK STAYS WITH YOU" title="Sync center">
+      <PageTitle title="Sync center">
         <button className="button secondary" disabled={!online} onClick={() => void sync()}>
           <RefreshCw size={16} />
           Sync now

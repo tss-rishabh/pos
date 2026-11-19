@@ -99,7 +99,7 @@ function HistoryScreen({
   }
   return (
     <>
-      <PageTitle eyebrow="ADMINISTRATION" title="Model history" />
+      <PageTitle title="Model history" />
       <section className="surface permission-activity-filters">
         <p>
           View changes made through the legacy administration site. Each page contains up to100

@@ -78,7 +78,7 @@ export async function exerciseCatalogUi(fixture) {
     fixture.progress('anonymous-navigation');
     await page.goto(fixture.origin + '/catalog');
     fixture.progress('anonymous-login-heading');
-    await expect(page.getByRole('heading', { name: 'Let’s open the store.' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Log in', exact: true })).toBeVisible();
     assert.equal(await page.locator('.catalog-results').count(), 0);
     results.push('anonymous-routed-App-denied');
 

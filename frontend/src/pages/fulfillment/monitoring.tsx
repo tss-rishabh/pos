@@ -155,7 +155,7 @@ export function FulfillmentMonitoringPage({ user, storeId }: { user: Principal; 
   };
   return (
     <>
-      <PageTitle eyebrow="THE NETWORK, IN VIEW" title="Store fulfillment monitor">
+      <PageTitle title="Store fulfillment monitor">
         <button className="button secondary" onClick={() => void query.refetch()}>
           <RefreshCw size={16} />
           Refresh

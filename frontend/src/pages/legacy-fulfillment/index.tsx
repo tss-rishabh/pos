@@ -20,7 +20,7 @@ export function LegacyFulfillmentPage({ user, storeId }: { user: Principal; stor
     [error, setError] = useState<Error | null>(null);
   return (
     <>
-      <PageTitle eyebrow="COURIER FULFILLMENT" title="Local deliveries">
+      <PageTitle title="Local deliveries">
         Accept, pass or cancel a hyperlocal order, pack it, or receive its returning parcel.
       </PageTitle>
       {!storeId ? (

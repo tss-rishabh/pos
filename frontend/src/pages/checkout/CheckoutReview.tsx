@@ -43,8 +43,7 @@ import { GlobalVoucherConversion } from '../global-vouchers/conversion';
 import './CheckoutReview.css';
 import type { CheckoutClearance } from '../../api/checkout-clearance';
 import { bindReviewedCheckout } from '../../offline/review-snapshot';
-import { invokeCashierShortcut, type CashierShortcutRequest } from '../cashier-shortcuts/shortcuts';
-import { displayedMembershipBenefits } from '../cashier-shortcuts/membership';
+import { displayedMembershipBenefits } from './membership';
 import { CustomerWebsiteHandoffAction } from '../customer-website-handoff';
 import { OrderCopyPanel } from '../order-copy';
 import { checkoutOperationReference } from './operation-reference';
@@ -61,7 +60,6 @@ export interface CheckoutReviewProps {
   onPaymentConfirmed?: (receipt: ConfirmedPayment) => void;
   onCheckoutCleared?: (clearance: CheckoutClearance) => void | Promise<void>;
   recoveryNotice?: string;
-  shortcutRequest?: CashierShortcutRequest;
 }
 export function CheckoutReview({
   user,
@@ -72,10 +70,8 @@ export function CheckoutReview({
   onPaymentConfirmed,
   onCheckoutCleared,
   recoveryNotice,
-  shortcutRequest,
 }: CheckoutReviewProps) {
-  const shortcutRoot = useRef<HTMLElement>(null),
-    shortcutIntent = useRef({ id: '', consumed: false, loaded: false });
+  const dialogRoot = useRef<HTMLElement>(null);
   const [openSections, setOpenSections] = useState({ messages: false, membership: false });
   function sectionProps(name: 'messages' | 'membership') {
     return {
@@ -91,7 +87,7 @@ export function CheckoutReview({
   }
   function rememberOpenSections() {
     const snapshot = [
-      ...(shortcutRoot.current?.querySelectorAll<HTMLDetailsElement>(
+      ...(dialogRoot.current?.querySelectorAll<HTMLDetailsElement>(
         'details[data-checkout-section]',
       ) ?? []),
     ].map((element) => ({ name: element.dataset.checkoutSection, open: element.open }));
@@ -496,82 +492,11 @@ export function CheckoutReview({
       Boolean(recoveryError),
     total = checkout ? authoritativeTotal(checkout) : null,
     memberBenefits = displayedMembershipBenefits(checkout?.cart);
-  useEffect(() => {
-    const request = shortcutRequest,
-      root = shortcutRoot.current;
-    if (!request || !root) return;
-    if (shortcutIntent.current.id !== request.id)
-      shortcutIntent.current = { id: request.id, consumed: false, loaded: false };
-    const intent = shortcutIntent.current;
-    if (intent.consumed) return;
-    if (
-      Date.now() - request.requestedAt > 10000 ||
-      recoveryError ||
-      checkout?.phase === 'submitted' ||
-      checkout?.phase === 'cleared'
-    ) {
-      intent.consumed = true;
-      return;
-    }
-    if (disabled || pendingId || checkout?.busyOperationId || checkout?.phase === 'uncertain')
-      return;
-    if (!checkout && recoveryFor(draft.ownerId, draft.id)) return;
-    if (invokeCashierShortcut(root, request.action)) {
-      intent.consumed = true;
-      return;
-    }
-    // Only pricing/loading steps may continue automatically. No shortcut clicks
-    // a payment, cash completion, refund, or saved financial-operation retry.
-    if (!checkout && !intent.loaded && !recoveryFor(draft.ownerId, draft.id)) {
-      intent.loaded = true;
-      invokeCashierShortcut(root, 'quote');
-    } else if (checkout?.phase === 'quoted') intent.consumed = true;
-  }, [
-    shortcutRequest,
-    checkout,
-    disabled,
-    pendingId,
-    editable,
-    recoveryError,
-    approvalState,
-    draft.ownerId,
-    draft.id,
-  ]);
-  useEffect(() => {
-    const request = shortcutRequest,
-      root = shortcutRoot.current;
-    if (!request || !root || request.action !== 'salesperson' || disabled || pendingId) return;
-    const focus = () => {
-      if (
-        !shortcutIntent.current.consumed &&
-        shortcutIntent.current.id === request.id &&
-        Date.now() - request.requestedAt <= 10000 &&
-        invokeCashierShortcut(root, request.action)
-      )
-        shortcutIntent.current.consumed = true;
-    };
-    const observer = new MutationObserver(focus);
-    observer.observe(root, {
-      subtree: true,
-      childList: true,
-      attributes: true,
-      attributeFilter: ['disabled'],
-    });
-    const timeout = setTimeout(
-      () => observer.disconnect(),
-      Math.max(0, 10000 - (Date.now() - request.requestedAt)),
-    );
-    return () => {
-      observer.disconnect();
-      clearTimeout(timeout);
-    };
-  }, [shortcutRequest, disabled, pendingId]);
   return (
     <div className="modal-backdrop">
       <section
-        ref={shortcutRoot}
+        ref={dialogRoot}
         onClickCapture={rememberOpenSections}
-        data-cashier-shortcuts="review"
         role="dialog"
         aria-modal="true"
         aria-labelledby="checkout-title"
@@ -612,8 +537,6 @@ export function CheckoutReview({
         {checkout && (
           <button
             className="button secondary"
-            data-cashier-action="refresh"
-            aria-keyshortcuts="R"
             disabled={disabled}
             onClick={() =>
               void act(async () => {
@@ -630,7 +553,6 @@ export function CheckoutReview({
         )}
         {!checkout && (
           <button
-            data-cashier-action={recoveryFor(draft.ownerId, draft.id) ? undefined : 'proceed quote'}
             className="button primary full"
             disabled={disabled}
             onClick={() => void act(start)}
@@ -656,7 +578,6 @@ export function CheckoutReview({
             <div>
               <p>Every saved line must be confirmed before this sale can be quoted.</p>
               <button
-                data-cashier-action="proceed quote"
                 className="button primary full"
                 disabled={disabled}
                 onClick={() => void act(start)}
@@ -1089,14 +1010,7 @@ export function CheckoutReview({
                   {/* Legacy posts nps_feedback_switch from a checked, disabled box and always
                       queues the order SMS (create_order.html:76, order/views.py:2831). */}
                   <label>
-                    <input
-                      type="checkbox"
-                      checked
-                      disabled
-                      data-cashier-action="toggle-nps"
-                      aria-keyshortcuts="N"
-                      readOnly
-                    />
+                    <input type="checkbox" checked disabled readOnly />
                     NPS Feedback
                   </label>
                   <p className="caption">
@@ -1278,8 +1192,6 @@ export function CheckoutReview({
                   <label>
                     <input
                       type="checkbox"
-                      data-cashier-action="toggle-exclusive"
-                      aria-keyshortcuts="E"
                       checked={memberBenefits === true}
                       disabled={disabled || checkout.customerId !== null || memberBenefits === null}
                       onChange={(event) => {
@@ -1503,7 +1415,6 @@ export function CheckoutReview({
                 </button>
                 <button
                   className="button secondary full"
-                  data-cashier-action={checkout.phase === 'quoted' ? 'quote' : 'proceed quote'}
                   disabled={disabled}
                   onClick={() =>
                     void act(async () => {
@@ -1591,8 +1502,6 @@ export function CheckoutReview({
                 ) : (
                   <button
                     className="button primary full"
-                    data-cashier-action="proceed"
-                    aria-keyshortcuts="P"
                     disabled={
                       disabled ||
                       !editable ||

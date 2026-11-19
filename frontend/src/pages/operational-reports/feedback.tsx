@@ -90,7 +90,7 @@ export function CustomerFeedbackPage({ user, storeId }: { user: Principal; store
     setFilters((current) => ({ ...current, [key]: value }));
   return (
     <>
-      <PageTitle eyebrow="LISTEN TO THE CUSTOMER" title="Customer feedback" />
+      <PageTitle title="Customer feedback" />
       <form
         className="surface operational-report-filters"
         onSubmit={(event) => {

@@ -291,7 +291,7 @@ export function FulfillmentPage({ user, storeId }: { user: Principal; storeId: s
   }
   return (
     <>
-      <PageTitle eyebrow="EVERY ORDER, MOVING FORWARD" title="Hyperlocal progress">
+      <PageTitle title="Hyperlocal progress">
         <NavLink className="button secondary" to="/local-deliveries">
           Local deliveries
         </NavLink>

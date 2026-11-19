@@ -165,7 +165,7 @@ export function DocumentationPage({ user }: { user: Principal }) {
   }
   return (
     <>
-      <PageTitle eyebrow="STORE KNOWLEDGE" title="Documentation" />
+      <PageTitle title="Documentation" />
       <div className="administration-heading">
         <h2>Guides and tutorials</h2>
         <div className="administration-filters">

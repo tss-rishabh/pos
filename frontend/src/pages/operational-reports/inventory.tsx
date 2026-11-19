@@ -57,7 +57,7 @@ export function InventoryAssociationsPage({ user, storeId }: { user: Principal; 
   });
   return (
     <>
-      <PageTitle eyebrow="KEEP THE CATALOG CONNECTED" title="Inventory associations" />
+      <PageTitle title="Inventory associations" />
       <section className="surface inventory-association-panel">
         <h2>Make parent products available to this store</h2>
         <p>

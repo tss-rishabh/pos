@@ -178,7 +178,7 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
     }));
   return (
     <>
-      <PageTitle eyebrow="REPORTS, READY WHEN YOU ARE" title="Report exports">
+      <PageTitle title="Report exports">
         <button
           className="button secondary"
           disabled={!online || exports.isFetching}

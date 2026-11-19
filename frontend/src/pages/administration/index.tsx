@@ -10,7 +10,6 @@ import { StoreSettingsAdministration } from './support';
 import { InventoryImportAdministration } from './imports';
 import './styles.css';
 
-export { OperatorCheckIn } from './check-in';
 export { DocumentationPage } from './support';
 
 const tabs = [
@@ -36,7 +35,7 @@ export function AdministrationPage({
   if (![1, 2, 3].includes(user.role)) return <Empty title="Administration access is required" />;
   return (
     <>
-      <PageTitle eyebrow="STORE CONTROL" title="Administration" />
+      <PageTitle title="Administration" />
       <div className="administration-actions">
         <Link className="button secondary" to="/application-links">
           Application QR and downloads

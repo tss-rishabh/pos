@@ -151,7 +151,7 @@ function BarcodeForm({ user }: { user: Principal }) {
   }
   return (
     <>
-      <PageTitle eyebrow="CATALOG ADMINISTRATION" title="Add missing barcode" />
+      <PageTitle title="Add missing barcode" />
       <section className="surface" style={{ padding: 24 }}>
         <p>Assign an unused barcode to a product that has no barcode.</p>
         <form

@@ -127,8 +127,6 @@ export function FastCashCheckout({
         <button
           type="button"
           className="button secondary full"
-          data-cashier-action="fast-cash"
-          aria-keyshortcuts="F"
           disabled={disabled || !hasLines || dialog !== null}
           onClick={() => void act(open)}
         >
@@ -141,7 +139,6 @@ export function FastCashCheckout({
           role="dialog"
           aria-modal="true"
           aria-labelledby="fast-cash-title"
-          data-cashier-shortcuts="review"
         >
           <h3 id="fast-cash-title">
             Fast Checkout (Cash Only)! Cash To Be Accepted : {dialog.payable}

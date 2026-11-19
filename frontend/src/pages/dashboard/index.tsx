@@ -6,7 +6,6 @@ import type { Principal } from '../../api/types';
 import { request } from '../../api/client';
 import { ErrorState, Loading, Metric, PageTitle } from '../../components/common';
 import { useOnline } from '../../hooks/use-pos';
-import { MotivationalQuote } from '../../components/motivational-quote';
 import './styles.css';
 const count = z.string().regex(/^\d+$/),
   store = z.object({ id: z.string(), name: z.string().nullable() });
@@ -163,7 +162,7 @@ export function DashboardPage({ user }: { user: Principal }) {
     return <p role="alert">This dashboard is available to internal operators.</p>;
   return (
     <>
-      <PageTitle eyebrow="YOUR RETAIL NETWORK" title="Dashboard">
+      <PageTitle title="Dashboard">
         <button
           className="button secondary"
           disabled={!online || overview.isFetching || today.isFetching || history.isFetching}
@@ -229,7 +228,6 @@ export function DashboardPage({ user }: { user: Principal }) {
           )
         )}
       </section>
-      <MotivationalQuote user={user} online={online} rotate />
     </>
   );
 }

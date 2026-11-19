@@ -218,7 +218,7 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
   }
   return (
     <>
-      <PageTitle eyebrow="A CLEARER PICTURE OF THE DAY" title="Daily store sales">
+      <PageTitle title="Daily store sales">
         <button
           className="button secondary"
           onClick={() => download()}

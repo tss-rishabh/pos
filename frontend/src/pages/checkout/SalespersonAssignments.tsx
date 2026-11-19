@@ -37,8 +37,6 @@ export function SalespersonAssignments({
     <label key={productId ?? 'master'}>
       {label}
       <select
-        data-cashier-action={productId ? undefined : 'salesperson'}
-        aria-keyshortcuts={productId ? undefined : 'S'}
         aria-label={label}
         disabled={disabled || directory.isPending || Boolean(directory.error)}
         value={selected ?? '0'}

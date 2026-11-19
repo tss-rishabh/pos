@@ -187,7 +187,7 @@ export function GlobalBenefitAdjustmentsPage({
     );
   return (
     <>
-      <PageTitle eyebrow="Customer benefits" title="Wallet adjustments" />
+      <PageTitle title="Wallet adjustments" />
       <p>
         Review the customer, amount and earning details before applying an adjustment. Cashback is
         preserved.

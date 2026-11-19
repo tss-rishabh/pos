@@ -67,7 +67,7 @@ export function CatalogPage({ user, storeId }: { user: Principal; storeId: strin
   });
   return (
     <>
-      <PageTitle eyebrow="PRODUCTS AND INVENTORY" title="Product catalog">
+      <PageTitle title="Product catalog">
         <Link className="button secondary" to="/catalog/inventory-pulls">
           Inventory Sync
         </Link>

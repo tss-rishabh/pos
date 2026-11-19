@@ -353,7 +353,7 @@ test.describe.serial('desktop offline billing on the real stack', () => {
     await page.goto(WORKSPACE + '/');
     await page.waitForURL(WORKSPACE + '/offline-billing', { timeout: 45000 });
     await expect(page.getByRole('heading', { name: 'Working offline' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Let’s open the store.' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Log in', exact: true })).toHaveCount(0);
     await expect(page.getByLabel('Scan a barcode or search products')).toBeVisible();
     await network(false);
   });

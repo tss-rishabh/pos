@@ -10,7 +10,6 @@ import {
   Search,
   ShoppingBag,
   Trash2,
-  UserRound,
 } from 'lucide-react';
 import type { Principal, Product } from '../api/types';
 import { db, type LocalDraft, type Operation } from '../offline/database';
@@ -18,7 +17,8 @@ import { queueDraft } from '../offline/sync';
 import { useLocalDrafts, useProducts } from '../hooks/use-pos';
 import { useWorkspace } from '../state/workspace';
 import { currency, total } from '../lib/format';
-import { Empty, ErrorState, Loading, PageTitle, RequestReference } from '../components/common';
+import { Empty, ErrorState, PageTitle, RequestReference } from '../components/common';
+import { SkeletonCards } from '../components/loader';
 import {
   CheckoutReview,
   InvoiceActions,
@@ -48,17 +48,7 @@ import {
   createAutomaticInvoiceRequest,
   type AutomaticInvoiceRequest,
 } from './invoice-documents';
-import { CashierShortcutHelp } from './cashier-shortcuts/help';
-import { useCashierShortcutPreference } from './cashier-shortcuts/preference';
-import { MotivationalQuote } from '../components/motivational-quote';
 import { clearOrderCopyOrigin } from './order-copy';
-import {
-  bindCashierShortcuts,
-  cashierShortcutScope,
-  invokeCashierShortcut,
-  type CashierShortcut,
-  type CashierShortcutRequest,
-} from './cashier-shortcuts/shortcuts';
 
 const tones = ['peach', 'sage', 'blue', 'sand', 'rose', 'lilac'];
 export function ProductTile({
@@ -160,8 +150,6 @@ export function CounterPage({
   const [recoveryNotice, setRecoveryNotice] = useState<string>();
   const [lastPaid, setLastPaid] = useState<{ storeId: string; orderId: string } | null>(null);
   const [automaticInvoice, setAutomaticInvoice] = useState<AutomaticInvoiceRequest | null>(null);
-  const [shortcutsEnabled, setShortcutsEnabled] = useCashierShortcutPreference(user.id);
-  const [shortcutRequest, setShortcutRequest] = useState<CashierShortcutRequest>();
   const [, refreshCopyOrigin] = useState(0);
   useEffect(() => {
     const refresh = () => refreshCopyOrigin((value) => value + 1);
@@ -172,9 +160,7 @@ export function CounterPage({
       window.removeEventListener('pos-order-copy-marker-changed', refresh);
     };
   }, []);
-  const shortcutRoot = useRef<HTMLDivElement>(null),
-    openingReview = useRef(false),
-    shortcutAction = useRef<(action: CashierShortcut) => boolean>(() => false);
+  const openingReview = useRef(false);
   const cart = drafts.find((c) => c.id === activeId) || drafts[0];
   const cartProductLinks = useCartProductLinks(
     user.id,
@@ -203,11 +189,6 @@ export function CounterPage({
     ]),
     currentProductTimingKey = useRef(productTimingKey);
   currentProductTimingKey.current = productTimingKey;
-  useEffect(() => {
-    const root = shortcutRoot.current;
-    if (!root || !shortcutsEnabled) return;
-    return bindCashierShortcuts(root, (action) => shortcutAction.current(action));
-  }, [shortcutsEnabled, user.id, storeId, counterId, draftId]);
   useEffect(() => {
     timingAlive.current = true;
     return () => {
@@ -470,7 +451,7 @@ export function CounterPage({
       throw error;
     }
   }
-  async function openReview(action?: CashierShortcut) {
+  async function openReview() {
     if (!cart || openingReview.current || reviewOpening) return;
     const scope = `${cart.ownerId}:${cart.storeId}:${cart.counterId}`,
       signal = captureOperatorScope(cart.ownerId);
@@ -487,9 +468,6 @@ export function CounterPage({
           : undefined,
       );
       setReview(result.snapshot);
-      setShortcutRequest(
-        action ? { id: crypto.randomUUID(), action, requestedAt: Date.now() } : undefined,
-      );
       setProblem(null);
     } catch (error) {
       setProblem(error);
@@ -506,34 +484,9 @@ export function CounterPage({
     allProducts.map((p) => p.id),
   );
   const cached = products.data?.pages.some((p) => p.cached);
-  shortcutAction.current = (action) => {
-    const root = shortcutRoot.current,
-      scope = root && cashierShortcutScope(root);
-    if (!root || !scope || automaticInvoice) return false;
-    if (review) return invokeCashierShortcut(scope, action);
-    if (openingReview.current || busy) return false;
-    if (action === 'barcode' || action === 'new-sale') return invokeCashierShortcut(root, action);
-    if (action === 'refresh') {
-      void products.refetch();
-      return true;
-    }
-    if (!cart?.lines.length) return false;
-    void openReview(action).catch(setProblem);
-    return true;
-  };
   return (
-    <div ref={shortcutRoot} className="counter-workspace">
-      <PageTitle eyebrow="YOUR STORE, IN FLOW" title="The counter">
-        <CashierShortcutHelp enabled={shortcutsEnabled} onChange={setShortcutsEnabled} />
-        <div className="date-label">
-          {new Intl.DateTimeFormat('en-IN', {
-            weekday: 'short',
-            day: 'numeric',
-            month: 'short',
-          }).format(new Date())}
-          <span>Let’s make it a good one.</span>
-        </div>
-      </PageTitle>
+    <div className="counter-workspace">
+      <PageTitle title="The counter" />
       {lastPaid && (
         <section className="surface paid-sale" role="status">
           <strong>Order {lastPaid.orderId} · Payment confirmed</strong>
@@ -546,8 +499,6 @@ export function CounterPage({
             <div className="search">
               <Search size={18} />
               <input
-                data-cashier-action="barcode"
-                aria-keyshortcuts="B"
                 aria-label="Search products or scan a barcode"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -572,38 +523,36 @@ export function CounterPage({
                   }
                 }}
               />
-              <ScanBarcode size={20} />
-              <kbd>↵</kbd>
+              <ScanBarcode size={20} aria-hidden="true" />
             </div>
           </div>
           <div className="catalog-heading">
             <div>
-              <span className="pill active">Store catalog</span>
-              <label className="caption">
+              <label className="catalog-toggle">
                 <input
                   type="checkbox"
                   checked={includeOutOfStock}
                   onChange={(event) => setIncludeOutOfStock(event.target.checked)}
-                />{' '}
+                />
                 Show out of stock
               </label>
-              <span className="muted">{allProducts.length} loaded</span>
-              <InventoryReload
-                busy={products.isFetching || stockLocations.isFetching}
-                onReload={() => {
-                  void products.refetch();
-                  void stockLocations.refetch();
-                }}
-              />
+              <span className="muted">
+                {products.isPending ? 'Loading products…' : `${allProducts.length} loaded`}
+              </span>
+              {cached && (
+                <span className="badge amber">Cached catalog · confirm prices at checkout</span>
+              )}
             </div>
-            <span className="caption">
-              {cached
-                ? 'Cached catalog · confirm prices at checkout'
-                : 'Choose a product to start a sale'}
-            </span>
+            <InventoryReload
+              busy={products.isFetching || stockLocations.isFetching}
+              onReload={() => {
+                void products.refetch();
+                void stockLocations.refetch();
+              }}
+            />
           </div>
           {products.isPending ? (
-            <Loading />
+            <SkeletonCards count={6} />
           ) : products.isError ? (
             <ErrorState error={products.error} retry={() => void products.refetch()} />
           ) : allProducts.length === 0 ? (
@@ -626,17 +575,12 @@ export function CounterPage({
             <button
               className="button secondary load-more"
               disabled={products.isFetchingNextPage}
+              aria-busy={products.isFetchingNextPage}
               onClick={() => void products.fetchNextPage()}
             >
-              Load more products
+              {products.isFetchingNextPage ? 'Loading more products…' : 'Load more products'}
             </button>
           )}
-          <div className="catalog-footer">
-            <ScanBarcode size={15} />
-            <span>Barcode scanners work in the search field.</span>
-            <span>Prices confirmed at checkout</span>
-          </div>
-          <MotivationalQuote user={user} online={online} />
         </section>
         <aside className="sale-panel" data-cart-id={cart?.id}>
           <div className="sale-tabs">
@@ -653,32 +597,17 @@ export function CounterPage({
             <button
               className="new-tab"
               aria-label="New sale"
-              aria-keyshortcuts="T"
-              data-cashier-action="new-sale"
               onClick={() => void create().catch(setProblem)}
             >
               <Plus size={17} />
             </button>
           </div>
           <div className="sale-top">
-            <div>
-              <div className="eyebrow">CURRENT SALE</div>
-              <h2>A little retail therapy.</h2>
-            </div>
-            <ShoppingBag size={23} />
-          </div>
-          <div className="customer-row">
-            <span className="customer-avatar">
-              <UserRound size={18} />
-            </span>
-            <div>
-              <strong>Walk-in customer</strong>
-              <small>No customer attached</small>
-            </div>
+            <h2>Current sale</h2>
           </div>
           <div className="cart-lines">
             {!cart?.lines.length ? (
-              <Empty title="A fresh start">Add a product from the catalog to begin.</Empty>
+              <Empty title="No products in this sale">Add a product from the catalog.</Empty>
             ) : (
               cart.lines.map((line) => (
                 <div className="cart-line" key={line.productId}>
@@ -803,10 +732,11 @@ export function CounterPage({
               <span>Estimated total</span>
               <strong>{currency(total(cart?.lines || []))}</strong>
             </div>
-            <p className="price-note">Review the final total before payment.</p>
+            <p className="price-note">The final total is confirmed at review.</p>
             <button
               className="button primary full"
               disabled={!cart?.lines.length || reviewOpening}
+              aria-busy={reviewOpening}
               onClick={() => void openReview()}
             >
               Review sale
@@ -815,14 +745,12 @@ export function CounterPage({
             <button
               className="button secondary full"
               disabled={!cart?.lines.length || busy || !!pending}
+              aria-busy={busy}
               onClick={() => void save()}
             >
-              <CloudUpload size={16} />
+              {!busy && <CloudUpload size={16} />}
               {busy ? 'Saving…' : online ? 'Save sale' : 'Save on this device'}
             </button>
-            <div className="safe-local">
-              <span className="status-dot" /> Cart changes are saved on this device
-            </div>
           </div>
         </aside>
       </div>
@@ -833,7 +761,6 @@ export function CounterPage({
           draft={review}
           online={online}
           recoveryNotice={recoveryNotice}
-          shortcutRequest={shortcutRequest}
           onClose={() => setReview(null)}
           onPaymentConfirmed={(receipt) => void paymentConfirmed(review, receipt)}
           onCheckoutCleared={(clearance) => checkoutCleared(review, clearance)}

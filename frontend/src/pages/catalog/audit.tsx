@@ -94,7 +94,7 @@ export function InventoryAuditPage({
   }, [initialKind]);
   return (
     <>
-      <PageTitle eyebrow="INVENTORY HISTORY" title={`Product ${productId} inventory logs`}>
+      <PageTitle title={`Product ${productId} inventory logs`}>
         <Link className="button secondary" to={`/catalog/products/${productId}`}>
           Product details
         </Link>

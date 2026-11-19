@@ -67,7 +67,7 @@ export default function OfflineBillingPage() {
   if (!client)
     return (
       <>
-        <PageTitle eyebrow="DESKTOP ONLY" title="Offline billing" />
+        <PageTitle title="Offline billing" />
         <Empty title="Offline billing needs the desktop app">
           Web browsers need an internet connection to bill. Use the Souled POS desktop app to keep
           billing during an outage.
@@ -123,7 +123,7 @@ function OfflineBilling({ client }: { client: OfflineBillingClient }) {
   );
   return (
     <>
-      <PageTitle eyebrow="DESKTOP OFFLINE BILLING" title="Offline billing">
+      <PageTitle title="Offline billing">
         <button
           className="button secondary"
           disabled={busy || !status?.online}

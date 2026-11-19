@@ -57,7 +57,7 @@ function CountrySearch({ user }: { user: Principal }) {
   }
   return (
     <>
-      <PageTitle eyebrow="REFERENCE DIRECTORY" title="Secondary country lookup" />
+      <PageTitle title="Secondary country lookup" />
       <section className="surface" style={{ padding: 24 }}>
         <form
           className="form-grid"

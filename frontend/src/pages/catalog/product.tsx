@@ -179,7 +179,7 @@ export function CatalogProductPage({ user, productId }: { user: Principal; produ
   };
   return (
     <>
-      <PageTitle eyebrow="PRODUCT DETAILS" title={`${product.name} [${product.id}]`}>
+      <PageTitle title={`${product.name} [${product.id}]`}>
         <Link className="button secondary" to="/catalog">
           Catalog
         </Link>

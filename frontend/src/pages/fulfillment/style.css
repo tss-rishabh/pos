@@ -226,7 +226,6 @@
 .notification-trigger {
   position: relative;
 }
-.notification-sound-control,
 .notification-queue-indicator {
   display: inline-flex;
   align-items: center;
@@ -238,13 +237,6 @@
   background: white;
   font-size: 10px;
   white-space: nowrap;
-}
-.notification-sound-control {
-  cursor: pointer;
-}
-.notification-sound-control:disabled {
-  cursor: default;
-  color: var(--muted);
 }
 .notification-queue-indicator {
   background: #fff3d8;
@@ -309,7 +301,6 @@
   color: #526b48;
 }
 @media (max-width: 900px) {
-  .notification-sound-control > span,
   .notification-queue-indicator > span {
     display: none;
   }

@@ -134,7 +134,7 @@ function ApplicationLinkWorkspace({ user, storeId = '' }: ApplicationLinksProps)
   if (![1, 2, 3, 4, 5].includes(user.role)) return <Empty title="Operator access is required" />;
   return (
     <>
-      <PageTitle eyebrow="APPLICATION HANDOFF" title="Application links" />
+      <PageTitle title="Application links" />
       {meta.isError && <ErrorState error={meta.error} retry={() => void meta.refetch()} />}
       {error !== undefined && <ErrorState error={error} />}
       {!online && <p>Reconnect to generate or open application links.</p>}

@@ -119,7 +119,7 @@ function GiftCardBatchWorkspace({ user }: { user: Principal }) {
   if (!allowed) return <Empty title="Permission denied" />;
   return (
     <>
-      <PageTitle eyebrow="ADMINISTRATION" title="Gift Card Management" />
+      <PageTitle title="Gift Card Management" />
       {!online && <p role="status">Reconnect to generate or change gift card collections.</p>}
       {error !== undefined && !confirmation && <ErrorState error={error} />}
       {notice && (

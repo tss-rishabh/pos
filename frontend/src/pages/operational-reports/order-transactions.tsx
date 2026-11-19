@@ -128,7 +128,7 @@ export function OrderTransactionsPage({ user, storeId }: { user: Principal; stor
     setFilters((current) => ({ ...current, [key]: value }));
   return (
     <>
-      <PageTitle eyebrow="EVERY LINE, ACCOUNTED FOR" title="Order transactions">
+      <PageTitle title="Order transactions">
         <button
           className="button secondary"
           disabled={!report.data?.data.length || !visible.length || pageCsv.isPending}
