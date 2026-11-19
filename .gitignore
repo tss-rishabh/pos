@@ -1,6 +1,8 @@
 node_modules
 dist/
 release/
+release-smoke/
+release-upgrade/
 coverage/
 .env
 .env.*

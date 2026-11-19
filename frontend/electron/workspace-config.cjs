@@ -114,8 +114,9 @@ function readBundledWorkspace(filename = path.join(__dirname, 'workspace.json'))
 /** Explicit OS environment provisioning remains supported. Otherwise normal
  * Finder/Start-menu launches use the configuration protected by signed ASAR.
  * Environment and bundled allowlists are never implicitly merged. */
-function readWorkspaceConfiguration(env = process.env, filename) {
-  if (env.POS_DESKTOP_URL) return workspaceFromEnvironment(env, env.NODE_ENV === 'development');
+function readWorkspaceConfiguration(env = process.env, filename, allowLoopbackHttp = false) {
+  // allowLoopbackHttp comes from runtime-mode.cjs: never from NODE_ENV in a packaged build.
+  if (env.POS_DESKTOP_URL) return workspaceFromEnvironment(env, allowLoopbackHttp === true);
   return readBundledWorkspace(filename);
 }
 module.exports = { workspaceFromEnvironment, readWorkspaceConfiguration };

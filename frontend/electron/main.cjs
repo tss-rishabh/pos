@@ -1,11 +1,25 @@
-const { app, BrowserWindow, session, dialog, shell } = require('electron');
+const { app, BrowserWindow, Menu, session, dialog, shell } = require('electron');
 const path = require('node:path');
 const { readWorkspaceConfiguration } = require('./workspace-config.cjs');
+const { runtimeMode } = require('./runtime-mode.cjs');
 
+function packageMetadata() {
+  try {
+    return require('../package.json');
+  } catch {
+    return null;
+  }
+}
+// Packaged builds ignore NODE_ENV entirely (runtime-mode.cjs): DevTools, a loopback http origin
+// and the profile override exist only for unpackaged development and the CI native-smoke flavour.
+const mode = runtimeMode({
+  isPackaged: app.isPackaged,
+  env: process.env,
+  packageMetadata: packageMetadata(),
+});
 // One web application and persistent Chromium profile provide the same offline
 // shell/session on desktop. Production serves frontend + /api on one HTTPS origin.
-if (process.env.NODE_ENV === 'development' && process.env.POS_DESKTOP_PROFILE_DIR)
-  app.setPath('userData', require('node:path').resolve(process.env.POS_DESKTOP_PROFILE_DIR));
+if (mode.profileDirectory) app.setPath('userData', mode.profileDirectory);
 // Packaged builds refuse Chromium debugging and mock-keychain switches: the fuses block Node
 // inspection only, and a remote-debugging port would let any local process drive the renderer
 // (and its offline billing bridge); a mock keychain would wrap the offline database key with a
@@ -23,7 +37,7 @@ else
     .then(() => {
       let url, workspace;
       try {
-        workspace = readWorkspaceConfiguration();
+        workspace = readWorkspaceConfiguration(process.env, undefined, mode.allowLoopbackHttp);
         url = new URL(workspace.url);
       } catch (error) {
         dialog.showErrorBox('Workspace configuration', error.message);
@@ -37,6 +51,7 @@ else
       const profile = session.fromPartition(partition);
       profile.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
       profile.setPermissionCheckHandler(() => false);
+      installMenu();
       const window = new BrowserWindow({
         width: 1440,
         height: 960,
@@ -45,6 +60,8 @@ else
         backgroundColor: '#f6f5f1',
         title: 'Souled POS',
         show: false,
+        // Windows/Linux: no menu bar, and Alt does not reveal it (see installMenu).
+        autoHideMenuBar: false,
         webPreferences: {
           partition,
           preload: path.join(__dirname, 'preload.cjs'),
@@ -53,7 +70,7 @@ else
           nodeIntegration: false,
           webSecurity: true,
           allowRunningInsecureContent: false,
-          devTools: process.env.NODE_ENV === 'development',
+          devTools: mode.devTools,
         },
       });
       function openApplicationLink(destination) {
@@ -147,6 +164,7 @@ else
         restrictNavigation(event, destination),
       );
       window.webContents.on('will-attach-webview', (event) => event.preventDefault());
+      if (process.platform !== 'darwin') window.setMenuBarVisibility(false);
       window.once('ready-to-show', () => window.show());
       // Desktop offline billing (encrypted SQLite, main process only). A
       // failure here never blocks the online workspace.
@@ -174,3 +192,41 @@ else
       app.quit();
     });
 app.on('window-all-closed', () => app.quit());
+
+/**
+ * macOS keeps Electron's standard application menu in the system menu bar. Windows (and Linux)
+ * show no menu bar in the POS window: the menu below is never visible, but its roles keep the
+ * editing and zoom shortcuts working (Ctrl+Z/Y, Ctrl+X/C/V, Ctrl+A, Ctrl+0/+/=/-). Reload,
+ * DevTools, close-window and external help links are deliberately absent.
+ */
+function installMenu() {
+  if (process.platform === 'darwin') return;
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      {
+        label: 'Edit',
+        submenu: [
+          { role: 'undo' },
+          { role: 'redo' },
+          { role: 'redo', accelerator: 'CommandOrControl+Shift+Z' },
+          { type: 'separator' },
+          { role: 'cut' },
+          { role: 'copy' },
+          { role: 'paste' },
+          { role: 'delete' },
+          { type: 'separator' },
+          { role: 'selectAll' },
+        ],
+      },
+      {
+        label: 'View',
+        submenu: [
+          { role: 'resetZoom' },
+          { role: 'zoomIn' },
+          { role: 'zoomIn', accelerator: 'CommandOrControl+=' },
+          { role: 'zoomOut' },
+        ],
+      },
+    ]),
+  );
+}
