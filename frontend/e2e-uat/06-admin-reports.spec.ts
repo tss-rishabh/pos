@@ -66,10 +66,14 @@ test('export through the job queue: order transactions, store 7, today', async (
   await page
     .getByRole('combobox', { name: 'Report', exact: true })
     .selectOption('order-transactions');
+  // W27: the store list is a searchable multi-select.
+  await page.getByRole('button', { name: 'Stores', exact: true }).click();
   await page
-    .getByLabel('Stores')
-    .selectOption('7')
+    .getByRole('group', { name: 'Stores' })
+    .locator('input[type="checkbox"][value="7"]')
+    .check()
     .catch(() => undefined);
+  await page.keyboard.press('Escape');
   const created: { status: number; id?: string }[] = [];
   page.on('response', (response) => {
     if (
