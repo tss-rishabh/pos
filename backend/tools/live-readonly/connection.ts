@@ -51,6 +51,13 @@ export const liveEnvSchema = z.object({
     .default(maxExecutionTimeLimit),
   POS_PROD_RO_PLAN_ROW_LIMIT: z.coerce.number().int().min(1).max(100_000).default(100_000),
   POS_PROD_RO_LOCKING_READS: z.enum(['downgrade', 'refuse']).default('downgrade'),
+  /**
+   * How read-only is proven. `session` (default) requires @@SESSION.transaction_read_only = 1.
+   * `grants` is for servers behind a proxy that does not keep transaction_read_only (for
+   * example ProxySQL): the session flag may read 0, and the account's privileges in
+   * information_schema must be SELECT/USAGE only, or the run is refused.
+   */
+  POS_PROD_RO_READONLY_PROOF: z.enum(['session', 'grants']).default('session'),
 });
 export type LiveEnv = z.infer<typeof liveEnvSchema>;
 
@@ -352,7 +359,7 @@ export async function openGuardedDatabase(env: LiveEnv): Promise<GuardedDatabase
         if (
           error ||
           !parsed.success ||
-          parsed.data[0]!.ro !== 1 ||
+          (env.POS_PROD_RO_READONLY_PROOF === 'session' && parsed.data[0]!.ro !== 1) ||
           parsed.data[0]!.met !== maxExecutionMs
         ) {
           broken.add(connection);
@@ -417,8 +424,28 @@ export async function openGuardedDatabase(env: LiveEnv): Promise<GuardedDatabase
   }
   try {
     const state = await sessionState();
-    if (!state.readOnly || state.maxExecutionMs !== maxExecutionMs)
+    if (
+      (env.POS_PROD_RO_READONLY_PROOF === 'session' && !state.readOnly) ||
+      state.maxExecutionMs !== maxExecutionMs
+    )
       throw new ReadOnlyGuardError('RO_GUARD_STATEMENT', 'Session settings were not applied.');
+    if (env.POS_PROD_RO_READONLY_PROOF === 'grants' && !state.readOnly) {
+      // The account itself must be unable to write: only SELECT/USAGE privileges, anywhere.
+      const privileges: string[] = [];
+      for (const view of ['USER_PRIVILEGES', 'SCHEMA_PRIVILEGES', 'TABLE_PRIVILEGES', 'COLUMN_PRIVILEGES']) {
+        const [rows] = (await guardedPool.query(
+          `SELECT PRIVILEGE_TYPE AS privilege FROM information_schema.${view}`,
+        )) as [unknown, unknown];
+        privileges.push(
+          ...z.array(z.object({ privilege: z.string() })).parse(rows).map((row) => row.privilege),
+        );
+      }
+      if (privileges.length === 0 || privileges.some((p) => p !== 'SELECT' && p !== 'USAGE'))
+        throw new ReadOnlyGuardError(
+          'RO_GUARD_STATEMENT',
+          'Account has privileges beyond SELECT/USAGE; refusing without a read-only session.',
+        );
+    }
     const [rows] = (await guardedPool.query(
       'SELECT TABLE_NAME AS name, TABLE_ROWS AS tableRows FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?',
       [database],

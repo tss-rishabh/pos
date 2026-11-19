@@ -479,7 +479,10 @@ describe.skipIf(!enabled)('live read-only production parity (Phase F1)', () => {
 
   it('runs every statement in a verified READ ONLY session with a bounded statement time', async () => {
     const state = await guarded.sessionState();
-    expect(state.readOnly).toBe(true);
+    // Behind a proxy that drops transaction_read_only, the grants proof (SELECT/USAGE only,
+    // checked in openGuardedDatabase) replaces the session flag.
+    if (liveEnvSchema.parse(process.env).POS_PROD_RO_READONLY_PROOF === 'session')
+      expect(state.readOnly).toBe(true);
     expect(state.maxExecutionMs).toBeGreaterThan(0);
     expect(state.maxExecutionMs).toBeLessThanOrEqual(10_000);
     expect(guarded.stats.verifiedConnections).toBeGreaterThan(0);
