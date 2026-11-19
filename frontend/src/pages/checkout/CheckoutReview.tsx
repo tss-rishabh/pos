@@ -9,7 +9,6 @@ import {
   authoritativeTotal,
   assertCheckoutDraft,
   createCheckout,
-  lookupCustomers,
   mutateCheckout,
   readCheckout,
   readCheckoutPaymentOptions,
@@ -20,11 +19,11 @@ import {
   registrationSchema,
   type Checkout,
   type CheckoutFlags,
-  type Customer,
 } from './client';
 import { PaymentPanel, type ConfirmedPayment } from './PaymentPanel';
 import { FastCashCheckout } from './FastCashCheckout';
 import { WalletControls } from './WalletControls';
+import { CustomerLookup } from './CustomerLookup';
 import { SalespersonAssignments } from './SalespersonAssignments';
 import { confirmedPaymentSchema } from './receipts';
 import { InvoiceActions } from './InvoiceActions';
@@ -108,8 +107,6 @@ export function CheckoutReview({
     [problem, setProblem] = useState(''),
     [notice, setNotice] = useState(''),
     [pendingId, setPendingId] = useState<string | null>(null),
-    [query, setQuery] = useState(''),
-    [customers, setCustomers] = useState<Customer[]>([]),
     [otp, setOtp] = useState(''),
     [coupon, setCoupon] = useState(''),
     [giftCode, setGiftCode] = useState(''),
@@ -1084,49 +1081,15 @@ export function CheckoutReview({
                 </details>
                 <details>
                   <summary>Customer and verification</summary>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void act(async () => {
-                        const result = await lookupCustomers(
-                          draft.storeId,
-                          draft.counterId,
-                          query.trim(),
-                          draft.ownerId,
-                        );
-                        setCustomers(result.data);
-                      });
-                    }}
-                  >
-                    <label>
-                      Email or phone
-                      <input
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        required
-                        maxLength={254}
-                      />
-                    </label>
-                    <button className="button secondary" disabled={disabled}>
-                      Find customer
-                    </button>
-                  </form>
-                  {customers.map((customer) => (
-                    <button
-                      key={customer.id}
-                      className="button secondary"
-                      disabled={disabled}
-                      onClick={() =>
-                        void act(async () => {
-                          await mutate('customer', 'PUT', { customerId: customer.id });
-                          setCustomers([]);
-                          setQuery('');
-                        })
-                      }
-                    >
-                      {customer.firstName} {customer.lastName} · {customer.telephone}
-                    </button>
-                  ))}
+                  <CustomerLookup
+                    storeId={draft.storeId}
+                    counterId={draft.counterId}
+                    operatorId={draft.ownerId}
+                    connectedCustomerId={checkout.customerId}
+                    disabled={disabled}
+                    act={act}
+                    mutate={mutate}
+                  />
                   {checkout.customerId && (
                     <>
                       <p className="caption">
@@ -1140,8 +1103,6 @@ export function CheckoutReview({
                           void act(async () => {
                             await mutate('customer-detachments', 'POST');
                             setOtp('');
-                            setCustomers([]);
-                            setQuery('');
                             setNotice('The customer is detached and the checkout is empty.');
                           })
                         }

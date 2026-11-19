@@ -48,6 +48,8 @@ import type { DiscountApprovals } from './discounts/contracts.js';
 import type { CustomerRegistrations, RegistrationDetails } from './customers/contracts.js';
 import { discountMetadataSchema } from './discounts/policy.js';
 import type { PaymentInput } from './payments/contracts.js';
+import type { CustomerLookupBody, CustomerLookupService } from './customers/lookup.js';
+import { switchedCustomerState } from './customers/switch.js';
 import { validatePaymentSplit } from './payments/repository.js';
 import {
   assertGiftCardValues,
@@ -98,6 +100,8 @@ export interface CheckoutServiceOptions {
   /** `has_products.salesperson_id` per line, right after pos/order (order/views.py:2779-2795). */
   recordLineSalespersons?(state: CheckoutState, orderId: string): Promise<void>;
   registrations?: CustomerRegistrations;
+  /** Legacy `ajax_user_details` via API-v2 `check-user-exclusive` (users/views.py:612-664). */
+  customerLookup?: CustomerLookupService;
   customerOtp?: CustomerVerificationClient;
   discounts?: DiscountApprovals;
   businessTimezone?: string;
@@ -737,18 +741,21 @@ export function checkoutService(
         };
       });
     },
-    async lookup(user: Principal, storeId: string, counterId: string, query: string) {
+    async lookup(
+      user: Principal,
+      storeId: string,
+      counterId: string,
+      body: Pick<CustomerLookupBody, 'telephone' | 'email'>,
+    ) {
       requireStore(user, storeId);
       await options.assertCheckIn(user.id, storeId, counterId);
-      return (await repository.findCustomer(query))
-        .filter((customer) => customer.active)
-        .map(({ id, firstName, lastName, email, telephone }) => ({
-          id,
-          firstName,
-          lastName,
-          email,
-          telephone,
-        }));
+      if (!options.customerLookup)
+        throw new AppError(
+          503,
+          'CUSTOMER_LOOKUP_UNAVAILABLE',
+          'Unable to fetch user details. Please try again.',
+        );
+      return options.customerLookup.lookup(body);
     },
     attachCustomer(
       user: Principal,
@@ -762,12 +769,27 @@ export function checkoutService(
         const customer = await repository.customer(customerId, 'writer');
         if (!customer || !customer.active)
           throw new AppError(404, 'CUSTOMER_NOT_FOUND', 'Customer was not found.');
-        if (state.customerId && state.customerId !== customerId)
-          throw new AppError(
-            409,
-            'CUSTOMER_ALREADY_ATTACHED',
-            'Start another sale to change the customer.',
-          );
+        if (state.customerId && state.customerId !== customerId) {
+          // Legacy "Connect the User" with a customer already connected (is_cart_sync = 0,
+          // order/views.py:1994-2019): re-point the sale, no cart sync or clear.
+          const previous = state.customerId;
+          await repository.acquireCustomer(id, customerId);
+          const switched = switchedCustomerState(state, customerId, null, null, now());
+          await repository.checkpoint(switched, input.operationId);
+          await repository.releaseCustomer(id, previous);
+          const cart = await readCart(switched);
+          return {
+            state: { ...switched, cart },
+            result: {
+              customer: {
+                id: customer.id,
+                firstName: customer.firstName,
+                lastName: customer.lastName,
+              },
+              cart: publicCart(cart),
+            },
+          };
+        }
         if (state.customerId === customerId)
           return {
             state,
@@ -905,6 +927,36 @@ export function checkoutService(
           return {
             state,
             result: { registration: await options.registrations.verify(state, code) },
+          };
+        },
+      );
+    },
+    /** S36: legacy "Self Verify (Without OTP)" (`order/views.py:2429-2448`) with the OTP-sent guard. */
+    selfVerifyRegistration(
+      user: Principal,
+      storeId: string,
+      id: string,
+      input: MutationInput,
+      telephone: string,
+    ) {
+      return mutate(
+        user,
+        storeId,
+        id,
+        input,
+        'customer.registration.self-verify',
+        { telephone },
+        async (state) => {
+          editable(state);
+          if (!options.registrations)
+            throw new AppError(
+              503,
+              'CUSTOMER_REGISTRATION_UNAVAILABLE',
+              'Customer registration is not configured.',
+            );
+          return {
+            state,
+            result: { registration: await options.registrations.selfVerify(state, telephone) },
           };
         },
       );

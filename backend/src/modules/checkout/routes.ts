@@ -35,6 +35,13 @@ import {
 import { returnReadService } from './returns.js';
 import { registerPayments } from './payments/routes.js';
 import { paymentInputSchema } from './payments/contracts.js';
+import {
+  checkUserExclusiveAdapter,
+  customerLookupBodySchema,
+  customerLookupService,
+  type CustomerLookupService,
+} from './customers/lookup.js';
+import { appCashbackCampaign } from '../customer-insights/benefits-gateway.js';
 import { AppError } from '../../domain/errors.js';
 import type { PaymentGateway } from './payments/contracts.js';
 import { registerReturns } from './return-workflow/routes.js';
@@ -96,6 +103,7 @@ export interface CheckoutRegistrationOptions {
   sessions?: CheckoutSessionStore;
   jobs?: JobProducer;
   checkoutFlags?: ReturnType<typeof checkoutFlagsReader>;
+  customerLookup?: CustomerLookupService;
 }
 export function registerCheckout(
   app: FastifyInstance,
@@ -133,8 +141,14 @@ export function registerCheckout(
         registrationEnvironment(),
         phoneOtpDelivery(),
         config.BUSINESS_TIMEZONE,
-        shared,
+        { ...shared, log: app.log },
       ),
+    customerLookup:
+      overrides.customerLookup ||
+      customerLookupService(db, config, {
+        adapter: checkUserExclusiveAdapter(config),
+        campaign: appCashbackCampaign(config),
+      }),
     finalizeOrder:
       overrides.finalizeOrder || orderFinalizer(db, config, 'ordinary', overrides.jobs),
     recordLineSalespersons: orderLineSalespersons(db),
@@ -246,14 +260,8 @@ export function registerCheckout(
     async (request) => {
       const user = authenticated(request),
         p = storeScope.parse(request.params),
-        body = z
-          .object({
-            query: z.union([z.email().max(254), z.string().regex(/^\d{10,15}$/)]),
-            counterId: identifier,
-          })
-          .strict()
-          .parse(request.body);
-      return { data: await service.lookup(user, p.storeId, body.counterId, body.query) };
+        body = customerLookupBodySchema.parse(request.body);
+      return { data: await service.lookup(user, p.storeId, body.counterId, body) };
     },
   );
   app.put(session + '/customer', trace('checkout-customer', 'attach'), async (request) => {
@@ -286,6 +294,27 @@ export function registerCheckout(
           .parse(request.body);
       return response(
         await service.requestRegistration(user, p.storeId, p.checkoutId, body, body.details),
+      );
+    },
+  );
+  app.post(
+    session + '/customer-registration-challenges/self-verifications',
+    trace('customer-registration-challenge', 'self-verify'),
+    async (request) => {
+      const user = authenticated(request),
+        p = sessionScope.parse(request.params),
+        body = mutationSchema
+          .extend({ telephone: z.string().regex(/^[6-9]\d{9}$/) })
+          .strict()
+          .parse(request.body);
+      return response(
+        await service.selfVerifyRegistration(
+          user,
+          p.storeId,
+          p.checkoutId,
+          { operationId: body.operationId, expectedVersion: body.expectedVersion },
+          body.telephone,
+        ),
       );
     },
   );
