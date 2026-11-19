@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:live-readonly": "vitest run tests/live-readonly",
     "parity:gate": "tsx tools/parity-gate.ts",
     "verify:mysql": "node tools/verify-mysql.cjs",
     "lint": "eslint src tests tools",
