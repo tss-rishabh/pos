@@ -397,7 +397,7 @@ export async function buildApp(
     ...(config.DEMO_MODE ? { demoStores: services.catalog.stores } : {}),
   });
   await registerOperationalReports(app, config, db);
-  await registerCatalogDetails(app, config, db);
+  await registerCatalogDetails(app, config, db, { ephemeral: moduleRuntime.ephemeral });
   registerSpecialPermissionHistory(app, config, db, readSpecialPermissionHistoryOptions());
   registerApplicationLinks(app, config, db, moduleRuntime);
   registerMotivationalQuotes(app);

@@ -1,13 +1,8 @@
-import { createHash } from 'node:crypto';
 import { parse } from 'csv-parse/sync';
 import { z } from 'zod';
 import { identifier } from '../../domain/validation.js';
 import { AppError } from '../../domain/errors.js';
 
-export const maintenanceKind = z.enum(['inventory-pull', 'product-troubleshoot']);
-export type MaintenanceKind = z.infer<typeof maintenanceKind>;
-export const maintenanceState = z.enum(['PENDING', 'RUNNING', 'SUCCEEDED', 'UNCERTAIN', 'FAILED']);
-export const deliveryState = z.enum(['PENDING', 'SENDING', 'DELIVERED', 'UNCERTAIN', 'FAILED']);
 export const inventoryPullInput = z.discriminatedUnion('mode', [
   z.object({ mode: z.literal('manual'), skus: z.string().max(4096) }).strict(),
   z
@@ -100,22 +95,6 @@ export const maintenancePayload = z.discriminatedUnion('kind', [
     .strict(),
 ]);
 export type MaintenancePayload = z.infer<typeof maintenancePayload>;
-export const commandMetadata = z
-  .object({
-    requestedCount: z.number().int().nonnegative(),
-    uniqueRequestedCount: z.number().int().nonnegative(),
-    matchedCount: z.number().int().nonnegative(),
-    mode: z.enum(['manual', 'csv']).optional(),
-    productId: identifier.optional(),
-    parentRowsChanged: z.number().int().nonnegative().default(0),
-    imageReset: z.boolean().default(false),
-    barcodeRowsChanged: z.number().int().nonnegative().default(0),
-  })
-  .strict();
-export type CommandMetadata = z.infer<typeof commandMetadata>;
-export function maintenanceHash(value: unknown) {
-  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
-}
 /** Numeric JSON tokens match Python int serialization without unsafe JavaScript Number conversion. */
 export function inventoryPullBody(value: MaintenancePayload) {
   const input = maintenancePayload.parse(value);

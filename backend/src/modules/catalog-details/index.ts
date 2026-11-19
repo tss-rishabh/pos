@@ -9,7 +9,7 @@ import { catalogDetailsService } from './service.js';
 import { inventoryAuditService } from './audit.js';
 import { catalogSnapshotService } from './snapshot.js';
 import { inventoryMatrixService, inventoryMatrixInput } from './matrix.js';
-import { AppError } from '../../domain/errors.js';
+import type { EphemeralStore } from '../../jobs/ephemeral.js';
 import {
   catalogMaintenanceOptions,
   type CatalogMaintenanceOptions,
@@ -19,9 +19,10 @@ import {
   type MaintenanceTransports,
 } from './maintenance-transports.js';
 import { catalogMaintenanceService } from './maintenance-service.js';
-import { catalogMaintenanceWorker } from './maintenance-worker.js';
 import { registerCatalogMaintenanceRoutes } from './maintenance-routes.js';
 interface CatalogRegistrationOptions {
+  /** Redis state for `pos:lock:catalog:*` (src/jobs/module-runtime.ts). */
+  ephemeral: EphemeralStore;
   maintenanceOptions?: CatalogMaintenanceOptions;
   maintenanceTransports?: MaintenanceTransports;
 }
@@ -30,7 +31,7 @@ export async function registerCatalogDetails(
   app: FastifyInstance,
   config: Config,
   db: Databases,
-  options: CatalogRegistrationOptions = {},
+  options: CatalogRegistrationOptions,
 ) {
   const catalog = catalogDetailsService(config, db),
     audit = inventoryAuditService(config, db),
@@ -80,22 +81,12 @@ export async function registerCatalogDetails(
     transports =
       options.maintenanceTransports ||
       createCatalogMaintenanceTransports(config, maintenanceOptions),
-    maintenance = catalogMaintenanceService(db, maintenanceOptions, transports),
-    worker = catalogMaintenanceWorker(maintenance, maintenanceOptions, (level, event, message) =>
-      app.log[level](event, message),
-    );
-  if (
-    maintenanceOptions.CATALOG_MAINTENANCE_WORKER_ENABLED &&
-    !transports.inventory &&
-    !transports.products
-  )
-    throw new AppError(
-      503,
-      'CATALOG_MAINTENANCE_WORKER_UNCONFIGURED',
-      'Configure a maintenance delivery service before starting its worker.',
+    maintenance = catalogMaintenanceService(
+      db,
+      transports,
+      options.ephemeral,
+      (level, event, message) => app.log[level](event, message),
     );
   await registerCatalogMaintenanceRoutes(app, maintenance);
-  app.addHook('onClose', () => worker.stop());
-  if (maintenanceOptions.CATALOG_MAINTENANCE_WORKER_ENABLED) worker.start();
-  return { catalog, audit, snapshot, matrix, maintenance, maintenanceWorker: worker };
+  return { catalog, audit, snapshot, matrix, maintenance };
 }
