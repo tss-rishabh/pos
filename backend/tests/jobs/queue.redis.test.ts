@@ -230,7 +230,13 @@ describe.skipIf(!hasRedis)('Redis job queue (private loopback redis-server)', ()
     expect(seen).toEqual([
       {
         args: { upload_id: '1' },
-        trace: { requestId: 'req-ok', userId: '7', module: 'jobs', resource: 'job' },
+        trace: {
+          traceId: 'req-ok',
+          requestId: 'req-ok',
+          userId: '7',
+          module: 'jobs',
+          resource: 'job',
+        },
         context: { requestId: 'req-ok', userId: '7' },
       },
     ]);

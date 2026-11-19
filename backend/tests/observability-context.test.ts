@@ -18,7 +18,10 @@ describe('durable job request correlation', () => {
         }),
       ),
     );
-    expect(results).toEqual([first, second]);
+    expect(results).toEqual([
+      { ...first, traceId: first.requestId },
+      { ...second, traceId: second.requestId },
+    ]);
     expect(currentRequestTrace()).toBeNull();
   });
   it('copies only allowed identifiers and prevents later caller mutation from changing a job trace', async () => {
@@ -35,6 +38,7 @@ describe('durable job request correlation', () => {
     });
     trace.requestId = 'changed-request';
     expect(await pending).toEqual({
+      traceId: 'original-request',
       requestId: 'original-request',
       userId: '1',
       module: 'administration',

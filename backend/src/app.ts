@@ -3,7 +3,7 @@ import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
-import { z, ZodError } from 'zod';
+import { z } from 'zod';
 import type { Config } from './config.js';
 import { createDatabases } from './db/pools.js';
 import { configuredStockProjection } from './db/stock-projection/options.js';
@@ -116,8 +116,17 @@ import { draftMutationSchema, draftService } from './modules/drafts.js';
 import { demoServices, demoUser } from './modules/demo.js';
 import { registerEventCatalog, requestEvent } from './observability/events.js';
 import { createModuleRuntime } from './jobs/module-runtime.js';
-import { registerRequestTrace } from './observability/context.js';
+import { registerRequestTrace, requestIdFor } from './observability/context.js';
 import { identifier, cursor } from './domain/validation.js';
+import {
+  noQuery,
+  operatorHeaders,
+  registerRouteValidation,
+  routeSchema,
+  transportHeaders,
+} from './domain/route-validation.js';
+import { mapError } from './observability/errors.js';
+import { applicationLogger } from './observability/logger.js';
 import { reportService, dailyReportRange } from './modules/reports.js';
 import { routeRead } from './domain/routing.js';
 import { mergeDailyRows, dailyTotals } from './modules/daily-report.js';
@@ -143,33 +152,18 @@ export async function buildApp(
   } = {},
 ) {
   const logger = options.logger
-    ? ({
-        ...(typeof options.logger === 'object' ? options.logger : {}),
-        base: null,
-        mixin: () => ({
-          module: 'runtime',
-          resource: 'server',
-          eventId: 'runtime.server.lifecycle',
-          eventInstanceId: crypto.randomUUID(),
-          requestId: null,
-          userId: null,
-        }),
-        serializers: {
-          req: () => ({}),
-          res: (reply) => ({ statusCode: reply.statusCode }),
-          err: () => ({ type: 'InternalError', message: 'Request failed', stack: '' }),
-        },
-      } satisfies Exclude<FastifyServerOptions['logger'], boolean | undefined>)
+    ? applicationLogger(typeof options.logger === 'object' ? options.logger : {})
     : false;
   const app = Fastify({
     logger,
     bodyLimit: 256_000,
     requestTimeout: 15000,
     connectionTimeout: 10000,
-    genReqId: () => crypto.randomUUID(),
+    genReqId: requestIdFor,
     logController: new PrivateLogController(),
     trustProxy: config.TRUSTED_PROXY_CIDRS.length ? config.TRUSTED_PROXY_CIDRS : false,
   });
+  registerRouteValidation(app);
   registerEventCatalog(app);
   registerRequestTrace(app);
   await app.register(cookie);
@@ -277,44 +271,32 @@ export async function buildApp(
         );
     }
   });
+  // Error codes for the completion event; the request object never reaches the log.
+  const errorCodes = new WeakMap<object, string>();
   app.addHook('onResponse', async (request, reply) => {
-    app.log.info(requestEvent(request, reply), 'Resource request completed');
+    app.log.info(
+      requestEvent(request, reply, errorCodes.get(request)),
+      'Resource request completed',
+    );
   });
-  app.setErrorHandler((error, request, reply) => {
-    if (error instanceof ZodError)
-      return reply.code(400).send({
-        error: {
-          code: 'INVALID_REQUEST',
-          message: 'Check the request fields.',
-          requestId: request.id,
-          fields: error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
-        },
-      });
-    if (error instanceof AppError)
-      return reply
-        .code(error.status)
-        .send({ error: { code: error.code, message: error.message, requestId: request.id } });
-    const status =
-      typeof error === 'object' && error !== null && 'statusCode' in error
-        ? Number(error.statusCode)
-        : 500;
-    if (status >= 400 && status < 500)
-      return reply.code(status).send({
-        error: {
-          code: 'REQUEST_REJECTED',
-          message: status === 429 ? 'Too many requests. Try again shortly.' : 'Request rejected.',
-          requestId: request.id,
-        },
-      });
-    reply.code(500);
-    app.log.error(requestEvent(request, reply, 'INTERNAL_ERROR'), 'Resource request failed');
-    return reply.code(500).send({
+  // Fastify's default 404 body echoes the method and URL (query values included).
+  app.setNotFoundHandler(async (request, reply) => {
+    errorCodes.set(request, 'NOT_FOUND');
+    return reply.code(404).send({
       error: {
-        code: 'INTERNAL_ERROR',
-        message: 'The request could not be completed.',
+        code: 'NOT_FOUND',
+        message: 'The requested resource was not found.',
         requestId: request.id,
       },
     });
+  });
+  app.setErrorHandler((error, request, reply) => {
+    const mapped = mapError(error, request.id);
+    errorCodes.set(request, mapped.logCode);
+    reply.code(mapped.status);
+    if (mapped.unexpected)
+      app.log.error(requestEvent(request, reply, mapped.logCode), 'Resource request failed');
+    return reply.send(mapped.body);
   });
   const sessions = redisSessions(
     config,
@@ -463,54 +445,59 @@ export async function buildApp(
   registerDashboard(app, config, db);
   registerGiftCardBatches(app, config, db, readGiftCardBatchOptions(), moduleRuntime);
   registerAdministrationHistory(app, config, db, readAdministrationHistoryOptions());
-  app.get('/api/v1/reports/daily-store-sales', async (request) => {
-    const user = authenticated(request);
-    const input = z
-      .object({
-        storeIds: z
-          .string()
-          .max(10000)
-          .transform((value) => z.array(identifier).min(1).max(500).parse(value.split(','))),
-        from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-        to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-      })
-      .strict()
-      .parse(request.query);
-    if (!config.DEMO_MODE) return reports.daily(user, input);
-    const storeIds = scopedStores(user, input.storeIds),
-      range = dailyReportRange(input, config.BUSINESS_TIMEZONE);
-    const data = mergeDailyRows(
-      storeIds.map((storeId) => ({
-        store_id: Number(storeId),
-        store_name: storeId === '1' ? 'Bandra Flagship' : 'Indiranagar',
-        location_code: `DEMO-${storeId}`,
-        order_date: input.from,
-        order_count: 18,
-        qty: 27,
-        revenue: 24680.5,
-        membership_purchase_orders: 2,
-        membership_orders_total: 5,
-        membership_revenue: 8100,
-        tss_money_used_total: 250,
-        tss_points_used_total: 320,
-        pg_discount_total: 480,
-        gift_voucher_total: 0,
-        district_total: 1200,
-        cash_total: 6400,
-        total_online: 17080.5,
-      })),
-      [],
-      { footfall: {}, target: {}, banking: {} },
-    );
-    return {
-      reader: routeRead({ kind: 'report', range }, undefined, config.BUSINESS_TIMEZONE),
-      range,
-      data,
-      totals: dailyTotals(data),
-    };
-  });
-  app.get('/health/live', async () => ({ status: 'ok' }));
-  app.get('/health/ready', async (_request, reply) => {
+  const dailyStoreSalesQuery = z
+    .object({
+      storeIds: z
+        .string()
+        .max(10000)
+        .transform((value) => z.array(identifier).min(1).max(500).parse(value.split(','))),
+      from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    })
+    .strict();
+  app.get(
+    '/api/v1/reports/daily-store-sales',
+    routeSchema({ querystring: dailyStoreSalesQuery, headers: transportHeaders }),
+    async (request) => {
+      const user = authenticated(request);
+      const input = dailyStoreSalesQuery.parse(request.query);
+      if (!config.DEMO_MODE) return reports.daily(user, input);
+      const storeIds = scopedStores(user, input.storeIds),
+        range = dailyReportRange(input, config.BUSINESS_TIMEZONE);
+      const data = mergeDailyRows(
+        storeIds.map((storeId) => ({
+          store_id: Number(storeId),
+          store_name: storeId === '1' ? 'Bandra Flagship' : 'Indiranagar',
+          location_code: `DEMO-${storeId}`,
+          order_date: input.from,
+          order_count: 18,
+          qty: 27,
+          revenue: 24680.5,
+          membership_purchase_orders: 2,
+          membership_orders_total: 5,
+          membership_revenue: 8100,
+          tss_money_used_total: 250,
+          tss_points_used_total: 320,
+          pg_discount_total: 480,
+          gift_voucher_total: 0,
+          district_total: 1200,
+          cash_total: 6400,
+          total_online: 17080.5,
+        })),
+        [],
+        { footfall: {}, target: {}, banking: {} },
+      );
+      return {
+        reader: routeRead({ kind: 'report', range }, undefined, config.BUSINESS_TIMEZONE),
+        range,
+        data,
+        totals: dailyTotals(data),
+      };
+    },
+  );
+  const noInput = routeSchema({ querystring: noQuery, headers: transportHeaders });
+  app.get('/health/live', noInput, async () => ({ status: 'ok' }));
+  app.get('/health/ready', noInput, async (_request, reply) => {
     if (config.DEMO_MODE) return { status: 'ok', mode: 'demo' };
     const result = await Promise.allSettled([
       ...(['writer', 'primary', 'data'] as const).map(async (reader) =>
@@ -529,39 +516,59 @@ export async function buildApp(
       ),
     });
   });
-  app.get('/api/v1/stores', async (request) => ({
+  app.get('/api/v1/stores', noInput, async (request) => ({
     data: await services.catalog.stores(authenticated(request)),
   }));
-  app.get('/api/v1/stores/:storeId/counters', async (request) => {
+  const storeInput = routeSchema({
+    params: scope.strict(),
+    querystring: noQuery,
+    headers: transportHeaders,
+  });
+  app.get('/api/v1/stores/:storeId/counters', storeInput, async (request) => {
     const q = scope.parse(request.params);
     return { data: await services.catalog.counters(authenticated(request), q.storeId) };
   });
-  app.get('/api/v1/stores/:storeId/catalog/products', async (request) => {
-    const { storeId } = scope.parse(request.params);
-    const q = z
-      .object({
-        search: z.string().max(100).default(''),
-        after: cursor.default('0'),
-        limit: z.coerce.number().int().min(1).max(100).default(30),
-        includeOutOfStock: z
-          .enum(['true', 'false'])
-          .default('false')
-          .transform((value) => value === 'true'),
-      })
-      .strict()
-      .parse(request.query);
-    return services.catalog.products(
-      authenticated(request),
-      storeId,
-      q.search,
-      q.after,
-      q.limit,
-      q.includeOutOfStock,
-    );
-  });
+  const catalogProductsQuery = z
+    .object({
+      search: z.string().max(100).default(''),
+      after: cursor.default('0'),
+      limit: z.coerce.number().int().min(1).max(100).default(30),
+      includeOutOfStock: z
+        .enum(['true', 'false'])
+        .default('false')
+        .transform((value) => value === 'true'),
+    })
+    .strict();
+  app.get(
+    '/api/v1/stores/:storeId/catalog/products',
+    routeSchema({
+      params: scope.strict(),
+      querystring: catalogProductsQuery,
+      headers: transportHeaders,
+    }),
+    async (request) => {
+      const { storeId } = scope.parse(request.params);
+      const q = catalogProductsQuery.parse(request.query);
+      return services.catalog.products(
+        authenticated(request),
+        storeId,
+        q.search,
+        q.after,
+        q.limit,
+        q.includeOutOfStock,
+      );
+    },
+  );
   app.get(
     '/api/v1/stores/:storeId/catalog/products/by-barcode/:barcode',
-    { config: { trace: { module: 'catalog', resource: 'barcode-product', action: 'read' } } },
+    {
+      config: { trace: { module: 'catalog', resource: 'barcode-product', action: 'read' } },
+      ...routeSchema({
+        params: scope.extend({ barcode: catalogBarcode }).strict(),
+        querystring: noQuery,
+        headers: operatorHeaders,
+      }),
+    },
     async (request, reply) => {
       const user = authenticated(request);
       const params = scope.extend({ barcode: catalogBarcode }).strict().parse(request.params);
@@ -594,23 +601,32 @@ export async function buildApp(
     db,
     config.DEMO_MODE ? { service: demoOrderSearch(config, services.catalog, services.orders) } : {},
   );
-  app.get('/api/v1/stores/:storeId/cart-drafts', async (request) => {
+  app.get('/api/v1/stores/:storeId/cart-drafts', storeInput, async (request) => {
     const q = scope.parse(request.params);
     return { data: await services.drafts.list(authenticated(request), q.storeId) };
   });
-  app.put('/api/v1/stores/:storeId/cart-drafts/:draftId', async (request) => {
-    const user = authenticated(request);
-    if (request.headers['x-operator-id'] !== user.id)
-      throw new AppError(
-        409,
-        'OPERATOR_CHANGED',
-        'The signed-in operator changed. Sign back in before syncing this sale.',
-      );
-    const params = scope.extend({ draftId: z.uuid() }).parse(request.params);
-    const input = draftMutationSchema.parse(request.body);
-    if (params.storeId !== input.draft.storeId || params.draftId !== input.draft.id)
-      throw new AppError(400, 'SCOPE_MISMATCH', 'Cart identity must match its resource path.');
-    return services.drafts.save(user, input);
-  });
+  app.put(
+    '/api/v1/stores/:storeId/cart-drafts/:draftId',
+    routeSchema({
+      params: scope.extend({ draftId: z.uuid() }).strict(),
+      querystring: noQuery,
+      body: draftMutationSchema,
+      headers: operatorHeaders,
+    }),
+    async (request) => {
+      const user = authenticated(request);
+      if (request.headers['x-operator-id'] !== user.id)
+        throw new AppError(
+          409,
+          'OPERATOR_CHANGED',
+          'The signed-in operator changed. Sign back in before syncing this sale.',
+        );
+      const params = scope.extend({ draftId: z.uuid() }).parse(request.params);
+      const input = draftMutationSchema.parse(request.body);
+      if (params.storeId !== input.draft.storeId || params.draftId !== input.draft.id)
+        throw new AppError(400, 'SCOPE_MISMATCH', 'Cart identity must match its resource path.');
+      return services.drafts.save(user, input);
+    },
+  );
   return app;
 }
