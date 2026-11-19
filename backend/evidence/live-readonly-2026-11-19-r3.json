@@ -1,0 +1,349 @@
+{
+  "suite": "pos-live-readonly-v1",
+  "startedAt": "2026-11-19T11:50:50.583Z",
+  "settings": {
+    "sessionReadOnly": false,
+    "maxExecutionMs": 10000,
+    "planRowLimit": 100000,
+    "lockingReads": "refuse",
+    "multipleStatements": false
+  },
+  "paths": [
+    {
+      "path": "sampling",
+      "status": "pass",
+      "rows": 1,
+      "checks": [],
+      "statements": 8,
+      "explains": 8,
+      "downgradedLocks": 0,
+      "downgradedUpdateLocks": 0,
+      "refused": 0,
+      "planRejected": [],
+      "planBounded": [],
+      "durationMs": 0
+    },
+    {
+      "path": "schema",
+      "status": "pass",
+      "rows": 99,
+      "checks": [
+        "information_schema.columns",
+        "show-create-table"
+      ],
+      "statements": 100,
+      "explains": 0,
+      "downgradedLocks": 0,
+      "downgradedUpdateLocks": 0,
+      "refused": 0,
+      "planRejected": [],
+      "planBounded": [],
+      "durationMs": 1227
+    },
+    {
+      "path": "operators-stores-counters",
+      "status": "pass",
+      "rows": 145,
+      "checks": [
+        "zod:StoreDto",
+        "zod:CounterDto",
+        "order:counter-id-asc",
+        "types:pos_user"
+      ],
+      "statements": 5,
+      "explains": 5,
+      "downgradedLocks": 0,
+      "downgradedUpdateLocks": 0,
+      "refused": 0,
+      "planRejected": [],
+      "planBounded": [],
+      "durationMs": 110
+    },
+    {
+      "path": "checkout-quote-inputs",
+      "status": "pass",
+      "rows": 16,
+      "checks": [
+        "zod:cartProduct",
+        "counter:active",
+        "zod:CustomerIdentity",
+        "pricelist:exclusive-price",
+        "stock:product_store+hold+storage"
+      ],
+      "statements": 11,
+      "explains": 11,
+      "downgradedLocks": 0,
+      "downgradedUpdateLocks": 0,
+      "refused": 0,
+      "planRejected": [],
+      "planBounded": [
+        {
+          "table": "products",
+          "access": "range",
+          "estimate": 181046
+        }
+      ],
+      "durationMs": 481
+    },
+    {
+      "path": "inventory-list",
+      "status": "pass",
+      "rows": 20,
+      "checks": [
+        "types:inventory-row",
+        "order:id-asc"
+      ],
+      "statements": 1,
+      "explains": 1,
+      "downgradedLocks": 0,
+      "downgradedUpdateLocks": 0,
+      "refused": 0,
+      "planRejected": [],
+      "planBounded": [
+        {
+          "table": "products",
+          "access": "range",
+          "estimate": 181046
+        }
+      ],
+      "durationMs": 45
+    },
+    {
+      "path": "customer-by-id",
+      "status": "pass",
+      "rows": 1,
+      "checks": [
+        "zod:currentOrderCustomer",
+        "binding:customer-id"
+      ],
+      "statements": 5,
+      "explains": 2,
+      "downgradedLocks": 0,
+      "downgradedUpdateLocks": 0,
+      "refused": 0,
+      "planRejected": [],
+      "planBounded": [],
+      "durationMs": 98
+    },
+    {
+      "path": "orders-store-list-detail",
+      "status": "pass",
+      "rows": 26,
+      "checks": [
+        "zod:OrderDto",
+        "zod:StoreOrderDetail",
+        "order:id-desc",
+        "window:business-day"
+      ],
+      "statements": 33,
+      "explains": 24,
+      "downgradedLocks": 0,
+      "downgradedUpdateLocks": 0,
+      "refused": 0,
+      "planRejected": [],
+      "planBounded": [],
+      "durationMs": 788
+    },
+    {
+      "path": "orders-search-store",
+      "status": "pass",
+      "rows": 20,
+      "checks": [
+        "zod:sourceRowSchema",
+        "order:id-desc",
+        "search:explicit-id",
+        "search:options"
+      ],
+      "statements": 70,
+      "explains": 46,
+      "downgradedLocks": 0,
+      "downgradedUpdateLocks": 0,
+      "refused": 0,
+      "planRejected": [],
+      "planBounded": [],
+      "durationMs": 2214
+    },
+    {
+      "path": "catalog-product-barcode",
+      "status": "fail",
+      "reason": "ER_QUERY_TIMEOUT",
+      "rows": 0,
+      "checks": [],
+      "statements": 193,
+      "explains": 130,
+      "downgradedLocks": 0,
+      "downgradedUpdateLocks": 0,
+      "refused": 0,
+      "planRejected": [],
+      "planBounded": [
+        {
+          "table": "products",
+          "access": "range",
+          "estimate": 181046
+        },
+        {
+          "table": "products",
+          "access": "range",
+          "estimate": 181046
+        },
+        {
+          "table": "products",
+          "access": "range",
+          "estimate": 181046
+        }
+      ],
+      "durationMs": 10026
+    },
+    {
+      "path": "orders-online-search-detail",
+      "status": "pass",
+      "rows": 2,
+      "checks": [
+        "zod:sourceRowSchema",
+        "zod:onlineOrderDetail",
+        "binding:customer"
+      ],
+      "statements": 72,
+      "explains": 45,
+      "downgradedLocks": 0,
+      "downgradedUpdateLocks": 0,
+      "refused": 0,
+      "planRejected": [],
+      "planBounded": [],
+      "durationMs": 1396
+    },
+    {
+      "path": "reports-daily-today",
+      "status": "pass",
+      "rows": 1,
+      "checks": [
+        "zod:rollupSchema",
+        "routing:data-reader"
+      ],
+      "statements": 7,
+      "explains": 4,
+      "downgradedLocks": 0,
+      "downgradedUpdateLocks": 0,
+      "refused": 0,
+      "planRejected": [],
+      "planBounded": [],
+      "durationMs": 855
+    },
+    {
+      "path": "reports-legacy-daily-sql",
+      "status": "pass",
+      "rows": 2,
+      "checks": [
+        "zod:rollupSchema",
+        "legacy-sql:excludedProducts",
+        "legacy-sql:storeOrders",
+        "legacy-sql:onlineOrders"
+      ],
+      "statements": 6,
+      "explains": 3,
+      "downgradedLocks": 0,
+      "downgradedUpdateLocks": 0,
+      "refused": 0,
+      "planRejected": [],
+      "planBounded": [],
+      "durationMs": 263
+    },
+    {
+      "path": "reports-scheduled-hour",
+      "status": "pass",
+      "rows": 0,
+      "checks": [
+        "parity:timing",
+        "parity:summary",
+        "parity:availability",
+        "parity:platform",
+        "parity:delays",
+        "parity:cancellations",
+        "parity:tickets"
+      ],
+      "statements": 14,
+      "explains": 14,
+      "downgradedLocks": 0,
+      "downgradedUpdateLocks": 0,
+      "refused": 0,
+      "planRejected": [],
+      "planBounded": [],
+      "durationMs": 338
+    },
+    {
+      "path": "reports-order-transactions-today",
+      "status": "pass",
+      "rows": 29,
+      "checks": [
+        "zod:orderReportLineSchema",
+        "routing:data-reader",
+        "source:store+online"
+      ],
+      "statements": 4,
+      "explains": 4,
+      "downgradedLocks": 0,
+      "downgradedUpdateLocks": 0,
+      "refused": 0,
+      "planRejected": [],
+      "planBounded": [],
+      "durationMs": 792
+    },
+    {
+      "path": "reports-flash-sales-today",
+      "status": "pass",
+      "rows": 1,
+      "checks": [
+        "zod:flashSalesSourceRowSchema",
+        "routing:data-reader"
+      ],
+      "statements": 1,
+      "explains": 1,
+      "downgradedLocks": 0,
+      "downgradedUpdateLocks": 0,
+      "refused": 0,
+      "planRejected": [],
+      "planBounded": [],
+      "durationMs": 160
+    },
+    {
+      "path": "finance-cash",
+      "status": "pass",
+      "rows": 132,
+      "checks": [
+        "types:collection-snapshot",
+        "ledger:stores",
+        "ledger:today-needs-warehouse",
+        "zod:feedSaleLineSchema"
+      ],
+      "statements": 10,
+      "explains": 7,
+      "downgradedLocks": 0,
+      "downgradedUpdateLocks": 0,
+      "refused": 0,
+      "planRejected": [],
+      "planBounded": [],
+      "durationMs": 1296
+    }
+  ],
+  "totals": {
+    "pass": 15,
+    "fail": 1,
+    "skip": 0,
+    "statements": 540,
+    "explains": 305,
+    "downgradedLocks": 0,
+    "downgradedUpdateLocks": 0,
+    "refused": 0,
+    "planRejected": 0,
+    "planBounded": 5
+  },
+  "serverVersion": "8.0.39",
+  "schema": {
+    "ddlComparison": "exact",
+    "snapshotServerVersion": "8.0.39",
+    "tablesChecked": 99,
+    "tablesMatching": 99,
+    "drift": []
+  },
+  "finishedAt": "2026-11-19T11:51:05.935Z"
+}
