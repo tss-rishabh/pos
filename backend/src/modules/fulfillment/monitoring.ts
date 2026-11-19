@@ -366,7 +366,7 @@ export function fulfillmentMonitoring(
         .leftJoin(Order, eq(Order.id, ExpressLineItem.order))
         .leftJoin(PaymentStatus, eq(PaymentStatus.id, Order.payment_statuses))
         .leftJoin(OrderStatus, eq(OrderStatus.id, Order.order_statuses))
-        .leftJoin(Store, eq(Store.id, sql`${ExpressLineItem.store_id}`))
+        .leftJoin(Store, eq(Store.id, ExpressLineItem.store_id))
         .where(and(condition, inArray(ExpressLineItem.order, ids)))
         .orderBy(asc(ExpressLineItem.id));
       const lines = z

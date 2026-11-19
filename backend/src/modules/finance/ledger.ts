@@ -1,6 +1,6 @@
 import { Temporal } from '@js-temporal/polyfill';
 import { Decimal } from 'decimal.js';
-import { and, asc, eq, gte, inArray, lt, lte, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, gte, inArray, lt, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
@@ -291,7 +291,10 @@ async function currentCashWithoutReturns(
         inArray(OrderStore.store, storeIds.map(BigInt)),
         gte(Order.created_at, start),
         lt(Order.created_at, end),
-        sql`(${OrderStore.offline_payment}+${OrderStore.online_payment}+${OrderStore.online_other_payment})>0`,
+        gt(
+          sql<number>`(${OrderStore.offline_payment}+${OrderStore.online_payment}+${OrderStore.online_other_payment})`,
+          0,
+        ),
       ),
     )
     .groupBy(OrderStore.store);

@@ -1,5 +1,5 @@
 import { Decimal } from 'decimal.js';
-import { sql, type SQL } from 'drizzle-orm';
+import { inArray, type SQL } from 'drizzle-orm';
 import { AppError } from '../domain/errors.js';
 import type { PaymentCorrectionCashDetails } from './checkout/payment-reversals/cash-projection.js';
 import type { Rollup } from './daily-report.js';
@@ -45,17 +45,14 @@ export function matchedPaymentCorrectionOrder(
   orderId: SQL,
   verifiedOrderIds: readonly string[],
 ): SQL {
-  if (!verifiedOrderIds.length) return sql`false`;
   if (verifiedOrderIds.length > 1000)
     throw new AppError(
       503,
       'PAYMENT_CORRECTION_EVIDENCE_INVALID',
       'A payment cash partition requires reconciliation.',
     );
-  return sql`${orderId} in (${sql.join(
-    verifiedOrderIds.map((id) => sql`${BigInt(id)}`),
-    sql`,`,
-  )})`;
+  // An empty list renders `false`, exactly as before.
+  return inArray(orderId, verifiedOrderIds.map(BigInt));
 }
 export function addDailyPaymentCorrections(
   source: readonly Rollup[],

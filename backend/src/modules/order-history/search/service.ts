@@ -70,7 +70,7 @@ export async function hyperlocalTabCounts(
         and(
           eq(ExpressLineItem.store_id, Number(storeId)),
           inArray(ExpressLineItem.status, statuses),
-          sql`DATE(${column}) = ${today}`,
+          eq(sql<string>`DATE(${column})`, today),
         ),
       );
     return Number(row?.count ?? '0');

@@ -779,7 +779,7 @@ export function administrationService(
         .get('primary')
         .select({ ...getTableColumns(StoreCounter), storeName: Store.store_name })
         .from(StoreCounter)
-        .innerJoin(Store, eq(Store.id, sql`${StoreCounter.store}`))
+        .innerJoin(Store, eq(Store.id, StoreCounter.store))
         .where(
           and(
             scoped ? inArray(StoreCounter.store, user.storeIds.map(BigInt)) : undefined,
@@ -821,7 +821,7 @@ export function administrationService(
         .get('primary')
         .select({ ...getTableColumns(StoreStorage), storeName: Store.store_name })
         .from(StoreStorage)
-        .innerJoin(Store, eq(Store.id, sql`${StoreStorage.store}`))
+        .innerJoin(Store, eq(Store.id, StoreStorage.store))
         .where(
           and(
             scoped ? inArray(StoreStorage.store, user.storeIds.map(BigInt)) : undefined,
@@ -1513,7 +1513,7 @@ export function administrationService(
               storeName: Store.store_name,
             })
             .from(UserStore)
-            .leftJoin(Store, eq(Store.id, sql`${UserStore.store_id}`))
+            .leftJoin(Store, eq(Store.id, UserStore.store_id))
             .where(inArray(UserStore.django_user_id, ids))
         : [];
       return {

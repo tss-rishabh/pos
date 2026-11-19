@@ -1,5 +1,5 @@
 import { Temporal } from '@js-temporal/polyfill';
-import { and, asc, eq, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, like, ne } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   Product,
@@ -134,7 +134,7 @@ function stockProjection(
           and(
             eq(HasOptions.prod_id, productId),
             ne(HasOptions.attr_val, ''),
-            sql`${Attributes.attr} like ${'%size%'}`,
+            like(Attributes.attr, '%size%'),
           ),
         )
         .orderBy(asc(HasOptions.id))

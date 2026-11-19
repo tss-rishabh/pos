@@ -1,5 +1,5 @@
 import { generatedId } from '../../db/generated-id.js';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import { Temporal } from '@js-temporal/polyfill';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
@@ -89,7 +89,7 @@ export function supportService(config: Config, db: Databases) {
             active: PosMachine.is_active,
           })
           .from(PosMachine)
-          .where(eq(PosMachine.store_id, sql`${storeId}`))
+          .where(eq(PosMachine.store_id, Number(storeId)))
           .orderBy(asc(PosMachine.id)),
         database
           .select({
@@ -102,7 +102,7 @@ export function supportService(config: Config, db: Databases) {
             active: PosPaytmMachine.is_active,
           })
           .from(PosPaytmMachine)
-          .where(eq(PosPaytmMachine.store_id, sql`${storeId}`))
+          .where(eq(PosPaytmMachine.store_id, Number(storeId)))
           .orderBy(asc(PosPaytmMachine.id)),
       ]);
       return [

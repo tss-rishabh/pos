@@ -1,5 +1,5 @@
 import { Temporal } from '@js-temporal/polyfill';
-import { and, asc, eq, gt, inArray, like, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, gte, inArray, like, or, sql } from 'drizzle-orm';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import {
@@ -277,7 +277,7 @@ export function inventoryService(config: Config, db: Databases, options: Invento
             eq(ProductInventoryLog.store_id, BigInt(storeId)),
             eq(ProductInventoryLog.product_id, BigInt(productId)),
             gt(ProductInventoryLog.id, BigInt(after)),
-            sql`${ProductInventoryLog.created_at}>=${dayStart}`,
+            gte(ProductInventoryLog.created_at, dayStart),
           ),
         )
         .orderBy(asc(ProductInventoryLog.id))

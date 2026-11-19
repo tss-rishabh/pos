@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { Secret, TOTP } from 'otpauth';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
@@ -164,7 +164,7 @@ export function operatorMfaService(
       const assignments = await transaction
         .select({ userId: UserStore.django_user_id, storeId: Store.id })
         .from(UserStore)
-        .innerJoin(Store, eq(Store.id, sql`${UserStore.store_id}`))
+        .innerJoin(Store, eq(Store.id, UserStore.store_id))
         .where(
           and(inArray(UserStore.django_user_id, [actor.id, target.id]), eq(Store.is_active, true)),
         )

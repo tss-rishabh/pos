@@ -830,14 +830,14 @@ export function fulfillmentService(
           createdAt: Notification.created_at,
         })
         .from(UsersNotification)
-        .innerJoin(Notification, eq(UsersNotification.notification, sql`${Notification.id}`))
+        .innerJoin(Notification, eq(UsersNotification.notification, Notification.id))
         .where(and(where, after !== '0' ? gt(Notification.id, BigInt(after)) : undefined))
         .orderBy(desc(Notification.id))
         .limit(limit + 1);
       const [count] = await db
         .select({ count: sql<number>`count(*)` })
         .from(UsersNotification)
-        .innerJoin(Notification, eq(UsersNotification.notification, sql`${Notification.id}`))
+        .innerJoin(Notification, eq(UsersNotification.notification, Notification.id))
         .where(and(where, eq(UsersNotification.is_viewed, 0)));
       return {
         data: rows.slice(0, limit).map((row) => ({

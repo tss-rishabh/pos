@@ -1,4 +1,4 @@
-import { asc, count, inArray, sql } from 'drizzle-orm';
+import { asc, count, gt, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { PosUser } from '../../db/legacy-schema.js';
 import { identifier } from '../../domain/validation.js';
@@ -75,7 +75,7 @@ export async function resolveDefaultStoreOperatorIds(
         ),
       )
       .groupBy(PosUser.contact_email)
-      .having(sql`count(*) > 1`)
+      .having(gt(count(), 1))
       .limit(1);
     if (ambiguous)
       throw new AppError(
