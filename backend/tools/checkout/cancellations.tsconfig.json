@@ -6,7 +6,6 @@
     "../../src/modules/checkout/payments/paytmchecksum.d.ts",
     "../../src/observability/events.ts",
     "../../tests/checkout/pending-cancellation-source.test.ts",
-    "../../tests/checkout/payments.test.ts",
-    "./membership-native-bridge.ts"
+    "../../tests/checkout/payments.test.ts"
   ]
 }

@@ -36,7 +36,6 @@ beforeEach(() => {
   service = checkoutService(repository, gateway, signingEnvironment, {
     migrationV2: true,
     startPayment: async (_user, _store, orderId) => ({ orderId, status: 'paid' }),
-    verifyRefundAllocations: async () => {},
     now: () => now,
     businessTimezone: 'Asia/Kolkata',
     assertCheckIn: async () => {},
