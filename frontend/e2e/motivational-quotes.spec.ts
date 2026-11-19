@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { z } from 'zod';
+import { signIn } from './support/login';
 
 test('the signed-in counter displays and refreshes the real backend quote', async ({ page }) => {
   const responseSchema = z.object({ text: z.string().min(1).max(2000) }).strict();
@@ -9,7 +10,7 @@ test('the signed-in counter displays and refreshes the real backend quote', asyn
       response.request().method() === 'GET',
   );
   await page.goto('/');
-  await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+  await signIn(page);
   const initial = await firstReply;
   expect(initial.status()).toBe(200);
   const initialBody: unknown = await initial.json();
@@ -49,7 +50,7 @@ test('thoughts refresh asynchronously, render as text and remain readable offlin
     });
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+  await signIn(page);
   const card = page.getByRole('complementary', { name: 'Customer service thought' });
   await expect(card).toContainText('Original shift thought.');
   const refresh = card.getByRole('button', { name: 'Refresh thought' });

@@ -7,6 +7,9 @@ const { resolve } = require('node:path');
 const run = promisify(execFile),
   suffix = randomUUID().slice(0, 8),
   network = 'pos-rewrite-verify-' + suffix,
+  seedNetwork = 'pos-rewrite-seed-' + suffix,
+  mysql = 'pos-rewrite-mysql-' + suffix,
+  redis = 'pos-rewrite-redis-' + suffix,
   backend = 'pos-rewrite-backend-' + suffix,
   frontend = 'pos-rewrite-frontend-' + suffix,
   secret = randomBytes(48).toString('base64url');
@@ -32,6 +35,76 @@ async function main() {
       'application=pos-rewrite-verification',
       network,
     ]);
+    // Real dependencies replace the former demo backend. MySQL is first reachable from this
+    // host on a loopback-only port of a temporary seed network, so the TypeScript seed
+    // (tools/e2e/seed.ts: production snapshot schema + synthetic rows) can run; it is then
+    // detached so the stack only sees the internal network. The backend and Redis share the
+    // MySQL container's network namespace, so both dependencies are plain loopback for the
+    // backend (MYSQL_ALLOW_LOCAL_PLAINTEXT applies only to loopback) and `backend` resolves to it.
+    await docker([
+      'network',
+      'create',
+      '--label',
+      'application=pos-rewrite-verification',
+      seedNetwork,
+    ]);
+    await docker([
+      'run',
+      '--detach',
+      '--name',
+      mysql,
+      '--network',
+      seedNetwork,
+      '--publish',
+      '127.0.0.1::3306',
+      '--tmpfs',
+      '/var/lib/mysql:rw,size=512m',
+      '--env',
+      'MYSQL_ALLOW_EMPTY_PASSWORD=yes',
+      process.env.POS_MYSQL_TEST_IMAGE || 'mysql:8.4',
+      '--sql-mode=',
+      '--bind-address=0.0.0.0',
+      '--mysqlx=OFF',
+    ]);
+    await docker(['network', 'connect', '--alias', 'backend', network, mysql]);
+    const published = (await docker(['port', mysql, '3306/tcp'])).stdout.trim().split(':').pop();
+    let seeded = false;
+    for (let attempt = 0; attempt < 90 && !seeded; attempt++) {
+      const logs = await docker(['logs', mysql]).catch(() => ({ stdout: '', stderr: '' }));
+      if (/ready for connections.*port: 3306/.test(logs.stdout + logs.stderr))
+        seeded = await run(process.execPath, ['--import', 'tsx', 'tools/e2e/seed.ts'], {
+          cwd: resolve(__dirname, '..'),
+          env: {
+            PATH: process.env.PATH,
+            E2E_MYSQL_URL: 'mysql://root@127.0.0.1:' + published + '/pos_rewrite_e2e',
+          },
+          timeout: 120000,
+        }).then(
+          () => true,
+          () => false,
+        );
+      if (!seeded) await new Promise((done) => setTimeout(done, 1000));
+    }
+    check(seeded, 'SYNTHETIC_SEED_FAILED');
+    await docker(['network', 'disconnect', seedNetwork, mysql]);
+    await docker([
+      'run',
+      '--detach',
+      '--name',
+      redis,
+      '--network',
+      'container:' + mysql,
+      process.env.POS_REDIS_TEST_IMAGE || 'redis:7',
+      'redis-server',
+      '--bind',
+      '127.0.0.1',
+      '--save',
+      '',
+      '--appendonly',
+      'no',
+      '--maxmemory-policy',
+      'noeviction',
+    ]);
     const safety = [
       '--network',
       network,
@@ -49,17 +122,29 @@ async function main() {
         '--detach',
         '--name',
         backend,
-        '--network-alias',
-        'backend',
-        ...safety,
+        ...safety.map((value) => (value === network ? 'container:' + mysql : value)),
         '--env',
         'NODE_ENV=test',
-        '--env',
-        'DEMO_MODE=true',
         '--env',
         'SESSION_SECRET',
         '--env',
         'WEB_ORIGIN=http://frontend:8080',
+        ...['MYSQL_WRITER_URL', 'MYSQL_PRIMARY_READER_URL', 'MYSQL_DATA_READER_URL'].flatMap(
+          (name) => ['--env', name + '=mysql://root@127.0.0.1:3306/pos_rewrite_e2e'],
+        ),
+        '--env',
+        'MYSQL_ALLOW_LOCAL_PLAINTEXT=true',
+        '--env',
+        'REDIS_URL=redis://127.0.0.1:6379/0',
+        // Sandbox OTP transport plus the legacy fixed OTP for the seeded synthetic operator only.
+        '--env',
+        'LOGIN_OTP_DELIVERY=sandbox',
+        '--env',
+        'LOGIN_FIXED_OTP_ENABLED=1',
+        '--env',
+        'LOGIN_FIXED_OTP=246810',
+        '--env',
+        'LOGIN_FIXED_OTP_USER_IDS=900001',
         process.env.POS_BACKEND_TEST_IMAGE || 'pos-rewrite-backend:verification',
       ],
       { SESSION_SECRET: secret },
@@ -170,9 +255,12 @@ async function main() {
       );
     }
     await Promise.all(
-      [backend, frontend].map((name) => docker(['rm', '--force', name]).catch(() => undefined)),
+      [backend, frontend, redis, mysql].map((name) =>
+        docker(['rm', '--force', name]).catch(() => undefined),
+      ),
     );
     await docker(['network', 'rm', network]).catch(() => undefined);
+    await docker(['network', 'rm', seedNetwork]).catch(() => undefined);
   }
 }
 main().catch((error) => {

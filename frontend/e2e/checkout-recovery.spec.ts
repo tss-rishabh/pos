@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { signIn } from './support/login';
 
 async function localSales(page: Page) {
   return page.evaluate(async () => {
@@ -173,7 +174,7 @@ for (const interrupted of [false, true]) {
       route.fulfill({ json: { data: [] } }),
     );
     await page.goto('/');
-    await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+    await signIn(page);
     const add = page.getByRole('button', { name: /^Add .+ to sale$/ }).first();
     const productName = (await add.getAttribute('aria-label'))!
       .replace(/^Add /, '')

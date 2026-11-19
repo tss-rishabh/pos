@@ -6,6 +6,7 @@ import {
 import { sanitizeInvoiceHtml } from '../../../backend/src/modules/checkout/invoices';
 import { test, expect } from '@playwright/test';
 import { exchangeRecoverySchema, returnEligibilitySchema } from '../../src/pages/returns/client';
+import { signIn } from '../support/login';
 
 test('exchange preserves stored picks after rejection and reload without retrying an uncertain child', async ({
   page,
@@ -202,7 +203,7 @@ test('exchange preserves stored picks after rejection and reload without retryin
     return route.continue();
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+  await signIn(page);
   await page.getByRole('link', { name: 'Returns', exact: true }).click();
   await page.getByRole('button', { name: 'Exchange', exact: true }).click();
   await page.getByLabel('Return order ID').fill('8802');

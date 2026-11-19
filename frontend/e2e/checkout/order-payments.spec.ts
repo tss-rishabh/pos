@@ -9,6 +9,7 @@ import {
   recordedLegacyInputSchema,
   recordedPaymentInputSchema,
 } from '../../src/pages/checkout/payment-recovery';
+import { signIn } from '../support/login';
 const id = '9007199254740993',
   base = `/api/v1/stores/1/orders/${id}`;
 for (const mode of ['cash', 'legacy'] as const) {
@@ -150,7 +151,7 @@ for (const mode of ['cash', 'legacy'] as const) {
       throw new Error('Unexpected order payment fixture request: ' + method + ' ' + path);
     });
     await page.goto('/orders?orderId=' + id);
-    await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+    await signIn(page);
     await expect(
       page.getByRole('heading', { name: 'EXISTING-PAYMENT-ORDER', exact: true }),
     ).toBeVisible();

@@ -6,6 +6,7 @@ import {
   invoicePreviewHtml,
   invoicePreviewPolicy,
 } from '../../../backend/src/modules/invoice-documents/presentation';
+import { signIn } from '../support/login';
 
 test('production invoice frame uses its own restrictive policy and supports in-app print/download', async ({
   page,
@@ -63,7 +64,7 @@ test('production invoice frame uses its own restrictive policy and supports in-a
     });
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+  await signIn(page);
   await page.getByRole('link', { name: 'Orders', exact: true }).click();
   await page.getByRole('button', { name: 'View order 6008', exact: true }).click();
   await page.getByRole('button', { name: 'Tax invoice', exact: true }).click();

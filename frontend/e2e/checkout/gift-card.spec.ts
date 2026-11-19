@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { signIn } from '../support/login';
 
 test('physical cards keep individual serials and dates through custom value replacement and recovery', async ({
   page,
@@ -128,7 +129,7 @@ test('physical cards keep individual serials and dates through custom value repl
     return route.fulfill({ json: { status: 'succeeded', state: state(), result: {} } });
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+  await signIn(page);
   await page.getByRole('button', { name: 'Add Fixture gift card to sale' }).click();
   await page.getByRole('button', { name: 'Increase Fixture gift card' }).click();
   await page.getByRole('button', { name: 'Review sale', exact: true }).click();

@@ -86,17 +86,28 @@ async function verify() {
     'WORKER_CACHE_POLICY_FAILED',
   );
   checks.push('offline-shell-cache-policy');
-  const login = await fetch(origin + '/api/v1/auth/demo-sessions', {
-    method: 'POST',
-    headers: { Origin: origin },
-  });
-  check(login.status === 200, 'SYNTHETIC_LOGIN_FAILED');
-  const cookie = login.headers
+  // Real login of the synthetic operator seeded by tools/e2e/seed.ts: password step, then the
+  // legacy fixed OTP that the smoke stack enables for this user id only.
+  const cookies = (response) =>
+    response.headers
       .getSetCookie()
       .map((value) => value.split(';')[0])
-      .join('; '),
+      .join('; ');
+  const challenge = await fetch(origin + '/api/v1/auth/sessions', {
+    method: 'POST',
+    headers: { Origin: origin, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'e2e-operator', password: 'Synthetic-e2e-password-2026' }),
+  });
+  check(challenge.status === 202, 'SYNTHETIC_LOGIN_FAILED');
+  const login = await fetch(origin + '/api/v1/auth/challenges/current/verifications', {
+    method: 'POST',
+    headers: { Origin: origin, 'Content-Type': 'application/json', Cookie: cookies(challenge) },
+    body: JSON.stringify({ code: '246810', factor: 'otp', storeId: '1' }),
+  });
+  check(login.status === 200, 'SYNTHETIC_LOGIN_FAILED');
+  const cookie = cookies(login),
     session = await login.json();
-  check(session.user.id === '900001', 'UNEXPECTED_DEMO_IDENTITY');
+  check(session.user.id === '900001', 'UNEXPECTED_SYNTHETIC_IDENTITY');
   const headers = {
       Cookie: cookie,
       Origin: origin,
@@ -135,18 +146,19 @@ async function verify() {
   checks.push('synthetic-login-catalog-and-draft');
   check(
     (await fetch(origin + '/api/v1/admin/stores', { headers })).status === 403,
-    'DEMO_ISOLATION_FAILED',
+    'ROLE_ISOLATION_FAILED',
   );
   check(
     (
-      await fetch(origin + '/api/v1/auth/demo-sessions', {
+      await fetch(origin + '/api/v1/auth/sessions', {
         method: 'POST',
-        headers: { Origin: 'https://canary.invalid' },
+        headers: { Origin: 'https://canary.invalid', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'e2e-operator', password: 'canary' }),
       })
     ).status === 403,
     'ORIGIN_ISOLATION_FAILED',
   );
-  checks.push('demo-and-origin-isolation');
+  checks.push('role-and-origin-isolation');
   return { checks, passed: true };
 }
 verify()

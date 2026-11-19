@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { e2eOperator } from './support/login';
 
 for (const restoration of ['absent', 'late', 'existing'] as const) {
   test(`password proof remains outside the workspace until OTP and store confirmation succeed (${restoration} restoration)`, async ({
@@ -35,8 +36,7 @@ for (const restoration of ['absent', 'late', 'existing'] as const) {
     await page.route('**/api/v1/auth/**', async (route) => {
       const request = route.request(),
         path = new URL(request.url()).pathname;
-      if (path.endsWith('/capabilities'))
-        await route.fulfill({ json: { password: true, sso: false, demo: true } });
+      if (path.endsWith('/capabilities')) await route.fulfill({ json: { password: true } });
       else if (path.endsWith('/sessions/current'))
         await route.fulfill(
           signedIn
@@ -56,9 +56,16 @@ for (const restoration of ['absent', 'late', 'existing'] as const) {
       } else if (path.endsWith('/challenges/current/verifications')) {
         verifications++;
         expect(request.postDataJSON()).toEqual({ code: '908172', factor: 'otp', storeId: '1' });
+        // Issue a real session for the seeded operator: the real password step sets the
+        // pending-login cookie, then this verification is forwarded with the real fixed OTP.
+        const origin = new URL(request.url()).origin;
+        const realChallenge = await page.request.post('/api/v1/auth/sessions', {
+          headers: { origin },
+          data: { username: e2eOperator.username, password: e2eOperator.password },
+        });
+        expect(realChallenge.status()).toBe(202);
         const fixtureSession = await route.fetch({
-          url: new URL('/api/v1/auth/demo-sessions', request.url()).href,
-          method: 'POST',
+          postData: JSON.stringify({ code: e2eOperator.otp, factor: 'otp', storeId: '1' }),
         });
         expect(fixtureSession.ok()).toBe(true);
         signedIn = true;

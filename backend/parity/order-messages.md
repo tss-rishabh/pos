@@ -24,7 +24,7 @@ GUPSHUP_SMS_USER_ID=<provider-secret>
 GUPSHUP_SMS_PASSWORD=<provider-secret>
 ```
 
-Both configured customer JWT keys are required for key-reuse checks. Feedback signing also rejects equality with configured private invoice/projection/message keys. `DEMO_MODE` prevents actual local delivery. Leave delivery mode disabled until provider/form/template acceptance and the purpose-only receiver are certified. The separately gated private-HTTP adapter is retained as an explicit alternative; selecting both adapters is a configuration error. The old `omnichannel-sms` URL is never silently used as a fallback.
+Both configured customer JWT keys are required for key-reuse checks. Feedback signing also rejects equality with configured private invoice/projection/message keys. Demo mode, which used to prevent actual local delivery, was removed (W10); local runs rely on sandbox adapters. Leave delivery mode disabled until provider/form/template acceptance and the purpose-only receiver are certified. The separately gated private-HTTP adapter is retained as an explicit alternative; selecting both adapters is a configuration error. The old `omnichannel-sms` URL is never silently used as a fallback.
 
 Migration `src/modules/checkout/order-messages/migration.sql` adds the ordered pending-work index. The exact query/index and response-equivalence limits are in root `improve-query.md`; no legacy DDL or SQL-mode change is used.
 

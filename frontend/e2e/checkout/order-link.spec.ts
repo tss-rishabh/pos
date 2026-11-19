@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { signIn } from '../support/login';
 
 test('opens exact order links in the current store and clears selection before a store transition', async ({
   page,
@@ -65,7 +66,7 @@ test('opens exact order links in the current store and clears selection before a
     });
   });
   await page.goto('/orders?orderId=' + id);
-  await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+  await signIn(page);
   await expect(
     page.getByRole('heading', { name: 'EXACT-LINK-FIXTURE', exact: true }),
   ).toBeVisible();

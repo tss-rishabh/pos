@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { signIn } from '../support/login';
 
 test('manager approval is restored safely and a changed final quote requires approval again', async ({
   page,
@@ -125,7 +126,7 @@ test('manager approval is restored safely and a changed final quote requires app
     route.fulfill({ json: { data: [] } }),
   );
   await page.goto('/');
-  await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+  await signIn(page);
   await page
     .getByRole('button', { name: /^Add .+ to sale$/ })
     .first()

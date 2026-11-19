@@ -132,8 +132,8 @@ Backend: tsc, eslint clean; vitest 173 files passed, 66 skipped (MySQL-gated). F
    them. Legacy has no such gate. Production values are not verified.
 4. `hla_store_ids` session data (hyperlocal filter) not implemented; owner: hyperlocal dashboard.
 5. Cut-over: legacy `django_session` sessions and plaintext `login_otp:*` codes are not honoured; staff sign in again.
-6. DEMO_MODE login (`/api/v1/auth/demo-sessions`, `demo-session.ts`, in-process Redis) is kept only because six test
-   files and `tools/container-fixture.cjs` depend on it; delete with DEMO_MODE.
+6. The demo login (`demo-sessions` route, `demo-session.ts`, in-process Redis) was kept only for tests and
+   `tools/container-fixture.cjs`; W10 removed demo mode entirely (see `w10-report.md`).
 7. Owner rewrites needed (MySQL-gated, currently skipped here): epoch-based cases in
    `tests/administration/mysql.integration.test.ts`, `checkin-lock-order.mysql.test.ts`,
    `application-links.mysql.integration.test.ts` ("does not revive … after disable and restoration"),

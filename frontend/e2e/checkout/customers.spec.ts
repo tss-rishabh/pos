@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { CheckoutClearance } from '../../src/api/checkout-clearance';
+import { signIn } from '../support/login';
 
 for (const interrupted of [false, true]) {
   test(`customer lookup, ${interrupted ? 'interrupted' : 'verified'} registration, connection and detachment preserve the cart contract`, async ({
@@ -198,7 +199,7 @@ for (const interrupted of [false, true]) {
       });
     });
     await page.goto('/');
-    await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+    await signIn(page);
     await page
       .getByRole('button', { name: /^Add .+ to sale$/ })
       .first()

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { signIn } from './support/login';
 
 test('desktop web flow: search, durable cart, offline reload, replay, and order details', async ({
   page,
@@ -7,7 +8,7 @@ test('desktop web flow: search, durable cart, offline reload, replay, and order 
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
-  await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+  await signIn(page);
   await expect(page.getByRole('heading', { name: 'The counter.' })).toBeVisible();
   await page.getByRole('button', { name: 'Add Classic: Oversized T-shirt to sale' }).click();
   await page.getByRole('button', { name: 'Increase Classic: Oversized T-shirt' }).click();
@@ -43,20 +44,32 @@ test('desktop web flow: search, durable cart, offline reload, replay, and order 
 
 test('operator logout retains drafts but removes identity and cached catalog', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+  await signIn(page);
   await page.getByRole('button', { name: 'Add Classic: Oversized T-shirt to sale' }).click();
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page.getByRole('heading', { name: 'Let’s open the store.' })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Let’s open the store.' })).toBeVisible();
-  await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+  await signIn(page);
   await expect(page.getByText('₹999.00').last()).toBeVisible();
 });
 
-test('daily reports validate dates and render totals through the versioned resource',async({page})=>{
-  await page.goto('/');await page.getByRole('button',{name:'Explore demo workspace'}).click();
-  await page.getByRole('link',{name:'Reports',exact:true}).click();
-  await page.getByRole('button',{name:'View report'}).click();
-  await expect(page.getByRole('heading',{name:'Daily breakdown'})).toBeVisible();
-  await expect(page.getByText('₹24,680.50')).toBeVisible();
+// Report rendering and totals are covered with fixture responses in daily-report.spec.ts. The e2e
+// stack limits the legacy day-close rollout (DAY_CLOSE_ENABLED_STORE_IDS) to an unseeded store,
+// so the real resource refuses daily reporting for the checked-in store.
+test('daily reports call the versioned resource and respect the day-close rollout', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await signIn(page);
+  await page.getByRole('link', { name: 'Reports', exact: true }).click();
+  const response = page.waitForResponse((value) =>
+    new URL(value.url()).pathname.endsWith('/api/v1/reports/daily-store-sales'),
+  );
+  await page.getByRole('button', { name: 'View report' }).click();
+  expect((await response).status()).toBe(403);
+  await expect(
+    page.getByText('Daily reporting is not enabled for your checked-in store.'),
+  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Daily breakdown' })).toHaveCount(0);
 });

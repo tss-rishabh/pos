@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
+import { signIn } from './support/login';
 
 test('native desktop shell loads the shared UI with a sandboxed, isolated renderer', async () => {
   const profile = await mkdtemp(join(tmpdir(), 'souled-pos-electron-'));
@@ -17,7 +18,7 @@ test('native desktop shell loads the shared UI with a sandboxed, isolated render
   });
   try {
     const window = await app.firstWindow();
-    await window.getByRole('button', { name: 'Explore demo workspace' }).click();
+    await signIn(window);
     await expect(window.getByRole('heading', { name: 'The counter.' })).toBeVisible();
     const preferences = await app.evaluate(({ BrowserWindow }) => {
       const window = BrowserWindow.getAllWindows()[0];

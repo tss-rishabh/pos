@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 import { z } from 'zod';
+import { signIn } from './support/login';
 
 test.use({ serviceWorkers: 'block' });
 
@@ -14,7 +15,7 @@ test('device QR credentials remain ephemeral, bind revocation and disappear offl
     code = '731492',
     revision = 'b'.repeat(64);
   await page.goto('/');
-  await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+  await signIn(page);
   await page.route('**/api/v1/operators/current/profile', (route) =>
     route.fulfill({
       json: {
