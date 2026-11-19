@@ -16,7 +16,12 @@ import { registeredRoutes, type RegisteredRoute } from '../src/domain/route-vali
  */
 const bodyMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 /** Documented exceptions, `METHOD /url` → reason. Keep empty unless legacy requires passthrough. */
-const exceptions: Record<string, string> = {};
+const exceptions: Record<string, string> = {
+  'GET /user_to_app':
+    'Printed customer QR codes are opened by third-party scanners that may append parameters; ' +
+    'legacy UserToApp (core/views.py:3150-3179) reads only store_id and ignores the rest. ' +
+    'store_id itself is strictly validated; other keys are stripped.',
+};
 
 type Def = {
   type: string;

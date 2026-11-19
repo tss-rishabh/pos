@@ -8,6 +8,13 @@ import type { Databases } from '../../db/pools.js';
 import { authenticated } from '../../auth/routes.js';
 import { identifier } from '../../domain/validation.js';
 import { AppError } from '../../domain/errors.js';
+import {
+  noBody,
+  noQuery,
+  requestHeaders,
+  routeSchema,
+  transportHeaders,
+} from '../../domain/route-validation.js';
 import { sourceAdministrationFullName } from '../administration-history/messages.js';
 import {
   assignmentInput,
@@ -78,6 +85,16 @@ const salespersonScope = z.object({ salespersonId: identifier }).strict();
 const operatorScope = z.object({ operatorId: identifier }).strict();
 const personPageQuery = administrationCollectionPageQuery.omit({ search: true });
 const terminalScope = scope.extend({ provider: terminalProvider, terminalId: identifier });
+const slotScope = scope.extend({ slotId: identifier });
+const documentScope = z.object({ documentId: identifier }).strict();
+const uploadScope = z.object({ uploadId: z.uuid() }).strict();
+const assetScope = z.object({ documentId: identifier, assetId: assetReference }).strict();
+const rangeHeader = z.string().max(80);
+const assetContentHeaders = requestHeaders({ range: rangeHeader.optional() });
+const terminalProviderQuery = z.object({ provider: terminalProvider }).strict();
+const salespersonPurpose = { purpose: z.literal('checkout').optional() };
+const storeSalespersonQuery = personPageQuery.extend(salespersonPurpose);
+const storeSalespersonSearch = administrationCollectionPageQuery.extend(salespersonPurpose);
 const trace = (resource: string, action: string) => ({
   config: { trace: { module: 'administration', resource, action } },
 });
@@ -138,25 +155,43 @@ export function registerAdministration(
     support = supportService(config, db);
   const createOperator = operatorCreator(config, db);
   // Sorted cursors can contain contact/text values; the application keeps them in private POST bodies.
-  const emptyQuery = z.object({}).strict();
-  app.post('/api/v1/admin/stores/search', trace('store', 'search'), async (request, reply) => {
-    emptyQuery.parse(request.query);
-    return reply
-      .header('Cache-Control', 'private, no-store')
-      .send(
-        wire(
-          await service.stores(
-            authenticated(request),
-            administrationCollectionPageQuery.parse(request.body),
+  app.post(
+    '/api/v1/admin/stores/search',
+    {
+      ...trace('store', 'search'),
+      ...routeSchema({
+        querystring: noQuery,
+        body: administrationCollectionPageQuery,
+        headers: transportHeaders,
+      }),
+    },
+    async (request, reply) => {
+      noQuery.parse(request.query);
+      return reply
+        .header('Cache-Control', 'private, no-store')
+        .send(
+          wire(
+            await service.stores(
+              authenticated(request),
+              administrationCollectionPageQuery.parse(request.body),
+            ),
           ),
-        ),
-      );
-  });
+        );
+    },
+  );
   app.post(
     '/api/v1/admin/stores/:storeId/counters/search',
-    trace('counter', 'search'),
+    {
+      ...trace('counter', 'search'),
+      ...routeSchema({
+        params: scope,
+        querystring: noQuery,
+        body: administrationCollectionPageQuery,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) => {
-      emptyQuery.parse(request.query);
+      noQuery.parse(request.query);
       return reply
         .header('Cache-Control', 'private, no-store')
         .send(
@@ -172,9 +207,17 @@ export function registerAdministration(
   );
   app.post(
     '/api/v1/admin/stores/:storeId/storages/search',
-    trace('storage', 'search'),
+    {
+      ...trace('storage', 'search'),
+      ...routeSchema({
+        params: scope,
+        querystring: noQuery,
+        body: administrationCollectionPageQuery,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) => {
-      emptyQuery.parse(request.query);
+      noQuery.parse(request.query);
       return reply
         .header('Cache-Control', 'private, no-store')
         .send(
@@ -204,9 +247,16 @@ export function registerAdministration(
   );
   app.post(
     '/api/v1/documentation/search',
-    trace('documentation', 'search'),
+    {
+      ...trace('documentation', 'search'),
+      ...routeSchema({
+        querystring: noQuery,
+        body: documentationPageQuery,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) => {
-      emptyQuery.parse(request.query);
+      noQuery.parse(request.query);
       return reply
         .header('Cache-Control', 'private, no-store')
         .send(
@@ -237,7 +287,10 @@ export function registerAdministration(
   const enrollmentScope = operatorScope.extend({ enrollmentId: z.uuid() });
   app.get(
     '/api/v1/admin/operators/:operatorId/mfa',
-    trace('operator-mfa', 'read'),
+    {
+      ...trace('operator-mfa', 'read'),
+      ...routeSchema({ params: operatorScope, querystring: noQuery, headers: transportHeaders }),
+    },
     async (request, reply) =>
       reply
         .header('Cache-Control', 'no-store')
@@ -247,7 +300,15 @@ export function registerAdministration(
   );
   app.post(
     '/api/v1/admin/operators/:operatorId/mfa-enrollments',
-    trace('operator-mfa-enrollment', 'create'),
+    {
+      ...trace('operator-mfa-enrollment', 'create'),
+      ...routeSchema({
+        params: operatorScope,
+        querystring: noQuery,
+        body: mfaEnrollmentInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) =>
       reply
         .code(201)
@@ -262,7 +323,15 @@ export function registerAdministration(
   );
   app.post(
     '/api/v1/admin/operators/:operatorId/mfa-enrollments/:enrollmentId/verification',
-    trace('operator-mfa-enrollment', 'verify'),
+    {
+      ...trace('operator-mfa-enrollment', 'verify'),
+      ...routeSchema({
+        params: enrollmentScope,
+        querystring: noQuery,
+        body: mfaVerificationInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) => {
       const params = enrollmentScope.parse(request.params);
       return reply
@@ -279,7 +348,15 @@ export function registerAdministration(
   );
   app.delete(
     '/api/v1/admin/operators/:operatorId/mfa-enrollments/:enrollmentId',
-    trace('operator-mfa-enrollment', 'cancel'),
+    {
+      ...trace('operator-mfa-enrollment', 'cancel'),
+      ...routeSchema({
+        params: enrollmentScope,
+        querystring: noQuery,
+        body: noBody,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) => {
       const params = enrollmentScope.parse(request.params);
       return reply
@@ -289,7 +366,15 @@ export function registerAdministration(
   );
   app.put(
     '/api/v1/admin/operators/:operatorId/mfa',
-    trace('operator-mfa', 'update'),
+    {
+      ...trace('operator-mfa', 'update'),
+      ...routeSchema({
+        params: operatorScope,
+        querystring: noQuery,
+        body: mfaControlInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) =>
       reply
         .header('Cache-Control', 'no-store')
@@ -304,15 +389,21 @@ export function registerAdministration(
   const imports = inventoryImportService(config, db, options);
   app.get(
     '/api/v1/admin/inventory-imports/capabilities',
-    trace('inventory-import', 'capabilities'),
+    {
+      ...trace('inventory-import', 'capabilities'),
+      ...routeSchema({ querystring: noQuery, headers: transportHeaders }),
+    },
     async (request) => {
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       return imports.capabilities(authenticated(request));
     },
   );
   app.get(
     '/api/v1/admin/inventory-imports/template',
-    trace('inventory-import', 'download-template'),
+    {
+      ...trace('inventory-import', 'download-template'),
+      ...routeSchema({ querystring: templateInput, headers: transportHeaders }),
+    },
     async (request, reply) => {
       const { type } = templateInput.parse(request.query);
       const file = imports.template(authenticated(request), type);
@@ -325,60 +416,110 @@ export function registerAdministration(
   );
   app.post(
     '/api/v1/admin/inventory-imports',
-    trace('inventory-import', 'create'),
+    {
+      ...trace('inventory-import', 'create'),
+      ...routeSchema({ querystring: noQuery, body: csvUploadInput, headers: transportHeaders }),
+    },
     async (request, reply) => {
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       return reply
         .code(201)
         .send(await imports.upload(authenticated(request), csvUploadInput.parse(request.body)));
     },
   );
-  app.get('/api/v1/admin/inventory-imports', trace('inventory-import', 'list'), async (request) =>
-    imports.list(authenticated(request), uploadListInput.parse(request.query)),
+  app.get(
+    '/api/v1/admin/inventory-imports',
+    {
+      ...trace('inventory-import', 'list'),
+      ...routeSchema({ querystring: uploadListInput, headers: transportHeaders }),
+    },
+    async (request) => imports.list(authenticated(request), uploadListInput.parse(request.query)),
   );
   app.get(
     '/api/v1/admin/inventory-imports/:uploadId',
-    trace('inventory-import', 'read'),
+    {
+      ...trace('inventory-import', 'read'),
+      ...routeSchema({ params: uploadIdInput, querystring: noQuery, headers: transportHeaders }),
+    },
     async (request) => {
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       return imports.detail(authenticated(request), uploadIdInput.parse(request.params).uploadId);
     },
   );
-  app.get('/api/v1/admin/stores', trace('store', 'list'), async (request) =>
-    wire(
-      await service.stores(
-        authenticated(request),
-        administrationCollectionPageQuery.parse(request.query),
+  app.get(
+    '/api/v1/admin/stores',
+    {
+      ...trace('store', 'list'),
+      ...routeSchema({ querystring: administrationCollectionPageQuery, headers: transportHeaders }),
+    },
+    async (request) =>
+      wire(
+        await service.stores(
+          authenticated(request),
+          administrationCollectionPageQuery.parse(request.query),
+        ),
       ),
-    ),
   );
-  app.get('/api/v1/admin/stores/:storeId', trace('store', 'read'), async (request) =>
-    wire(await service.store(authenticated(request), scope.parse(request.params).storeId)),
+  app.get(
+    '/api/v1/admin/stores/:storeId',
+    {
+      ...trace('store', 'read'),
+      ...routeSchema({ params: scope, querystring: noQuery, headers: transportHeaders }),
+    },
+    async (request) =>
+      wire(await service.store(authenticated(request), scope.parse(request.params).storeId)),
   );
-  app.post('/api/v1/admin/stores', trace('store', 'create'), async (request, reply) =>
-    sendForm(reply, 201, () =>
-      service.createStore(authenticated(request), storeFormInput.parse(request.body)),
-    ),
-  );
-  app.put('/api/v1/admin/stores/:storeId', trace('store', 'update'), async (request, reply) =>
-    sendForm(reply, 200, () =>
-      service.updateStore(
-        authenticated(request),
-        scope.parse(request.params).storeId,
-        storeFormInput.parse(request.body),
+  app.post(
+    '/api/v1/admin/stores',
+    {
+      ...trace('store', 'create'),
+      ...routeSchema({ querystring: noQuery, body: storeFormInput, headers: transportHeaders }),
+    },
+    async (request, reply) =>
+      sendForm(reply, 201, () =>
+        service.createStore(authenticated(request), storeFormInput.parse(request.body)),
       ),
-    ),
+  );
+  app.put(
+    '/api/v1/admin/stores/:storeId',
+    {
+      ...trace('store', 'update'),
+      ...routeSchema({
+        params: scope,
+        querystring: noQuery,
+        body: storeFormInput,
+        headers: transportHeaders,
+      }),
+    },
+    async (request, reply) =>
+      sendForm(reply, 200, () =>
+        service.updateStore(
+          authenticated(request),
+          scope.parse(request.params).storeId,
+          storeFormInput.parse(request.body),
+        ),
+      ),
   );
   app.get(
     '/api/v1/admin/resource-stores',
-    trace('store', 'list-resource-stores'),
+    {
+      ...trace('store', 'list-resource-stores'),
+      ...routeSchema({ querystring: noQuery, headers: transportHeaders }),
+    },
     async (request) => wire({ data: await service.resourceStores(authenticated(request)) }),
   );
   app.post(
     '/api/v1/admin/counters/search',
-    trace('counter', 'search-all'),
+    {
+      ...trace('counter', 'search-all'),
+      ...routeSchema({
+        querystring: noQuery,
+        body: administrationCollectionPageQuery,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) => {
-      emptyQuery.parse(request.query);
+      noQuery.parse(request.query);
       return reply
         .header('Cache-Control', 'private, no-store')
         .send(
@@ -393,9 +534,16 @@ export function registerAdministration(
   );
   app.post(
     '/api/v1/admin/storages/search',
-    trace('storage', 'search-all'),
+    {
+      ...trace('storage', 'search-all'),
+      ...routeSchema({
+        querystring: noQuery,
+        body: administrationCollectionPageQuery,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) => {
-      emptyQuery.parse(request.query);
+      noQuery.parse(request.query);
       return reply
         .header('Cache-Control', 'private, no-store')
         .send(
@@ -408,39 +556,79 @@ export function registerAdministration(
         );
     },
   );
-  app.patch('/api/v1/admin/stores/:storeId/status', trace('store', 'set-status'), async (request) =>
-    service.setStoreStatus(
-      authenticated(request),
-      scope.parse(request.params).storeId,
-      statusInput.parse(request.body).active,
-    ),
+  app.patch(
+    '/api/v1/admin/stores/:storeId/status',
+    {
+      ...trace('store', 'set-status'),
+      ...routeSchema({
+        params: scope,
+        querystring: noQuery,
+        body: statusInput,
+        headers: transportHeaders,
+      }),
+    },
+    async (request) =>
+      service.setStoreStatus(
+        authenticated(request),
+        scope.parse(request.params).storeId,
+        statusInput.parse(request.body).active,
+      ),
   );
-  app.get('/api/v1/admin/countries', trace('country', 'list'), async (request) =>
-    wire({ data: await service.countries(authenticated(request)) }),
+  app.get(
+    '/api/v1/admin/countries',
+    {
+      ...trace('country', 'list'),
+      ...routeSchema({ querystring: noQuery, headers: transportHeaders }),
+    },
+    async (request) => wire({ data: await service.countries(authenticated(request)) }),
   );
   app.get(
     '/api/v1/admin/store-location-codes',
-    trace('store-location', 'list'),
+    {
+      ...trace('store-location', 'list'),
+      ...routeSchema({ querystring: noQuery, headers: transportHeaders }),
+    },
     async (request) => ({ data: await service.locations(authenticated(request)) }),
   );
   app.post(
     '/api/v1/admin/store-location-codes',
-    trace('store-location', 'create'),
+    {
+      ...trace('store-location', 'create'),
+      ...routeSchema({ querystring: noQuery, body: locationCodeInput, headers: transportHeaders }),
+    },
     async (request) =>
       service.addLocationCode(authenticated(request), locationCodeInput.parse(request.body).code),
   );
-  app.get('/api/v1/admin/stores/:storeId/counters', trace('counter', 'list'), async (request) =>
-    wire(
-      await service.counters(
-        authenticated(request),
-        scope.parse(request.params).storeId,
-        administrationCollectionPageQuery.parse(request.query),
+  app.get(
+    '/api/v1/admin/stores/:storeId/counters',
+    {
+      ...trace('counter', 'list'),
+      ...routeSchema({
+        params: scope,
+        querystring: administrationCollectionPageQuery,
+        headers: transportHeaders,
+      }),
+    },
+    async (request) =>
+      wire(
+        await service.counters(
+          authenticated(request),
+          scope.parse(request.params).storeId,
+          administrationCollectionPageQuery.parse(request.query),
+        ),
       ),
-    ),
   );
   app.post(
     '/api/v1/admin/stores/:storeId/counters',
-    trace('counter', 'create'),
+    {
+      ...trace('counter', 'create'),
+      ...routeSchema({
+        params: scope,
+        querystring: noQuery,
+        body: counterInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) =>
       reply
         .code(201)
@@ -454,7 +642,15 @@ export function registerAdministration(
   );
   app.patch(
     '/api/v1/admin/stores/:storeId/counters/:counterId/status',
-    trace('counter', 'set-status'),
+    {
+      ...trace('counter', 'set-status'),
+      ...routeSchema({
+        params: counterScope,
+        querystring: noQuery,
+        body: statusInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request) => {
       const params = counterScope.parse(request.params);
       return service.setCounterStatus(
@@ -465,18 +661,36 @@ export function registerAdministration(
       );
     },
   );
-  app.get('/api/v1/admin/stores/:storeId/storages', trace('storage', 'list'), async (request) =>
-    wire(
-      await service.storages(
-        authenticated(request),
-        scope.parse(request.params).storeId,
-        administrationCollectionPageQuery.parse(request.query),
+  app.get(
+    '/api/v1/admin/stores/:storeId/storages',
+    {
+      ...trace('storage', 'list'),
+      ...routeSchema({
+        params: scope,
+        querystring: administrationCollectionPageQuery,
+        headers: transportHeaders,
+      }),
+    },
+    async (request) =>
+      wire(
+        await service.storages(
+          authenticated(request),
+          scope.parse(request.params).storeId,
+          administrationCollectionPageQuery.parse(request.query),
+        ),
       ),
-    ),
   );
   app.post(
     '/api/v1/admin/stores/:storeId/storages',
-    trace('storage', 'create'),
+    {
+      ...trace('storage', 'create'),
+      ...routeSchema({
+        params: scope,
+        querystring: noQuery,
+        body: storageFormInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) =>
       sendForm(reply, 201, () =>
         service.createStorage(
@@ -488,7 +702,10 @@ export function registerAdministration(
   );
   app.get(
     '/api/v1/admin/stores/:storeId/storages/:storageId',
-    trace('storage', 'read'),
+    {
+      ...trace('storage', 'read'),
+      ...routeSchema({ params: storageScope, querystring: noQuery, headers: transportHeaders }),
+    },
     async (request) => {
       const params = storageScope.parse(request.params);
       return wire(await service.storage(authenticated(request), params.storeId, params.storageId));
@@ -496,7 +713,15 @@ export function registerAdministration(
   );
   app.put(
     '/api/v1/admin/stores/:storeId/storages/:storageId',
-    trace('storage', 'update'),
+    {
+      ...trace('storage', 'update'),
+      ...routeSchema({
+        params: storageScope,
+        querystring: noQuery,
+        body: storageFormInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) => {
       const params = storageScope.parse(request.params);
       return sendForm(reply, 200, () =>
@@ -511,7 +736,15 @@ export function registerAdministration(
   );
   app.patch(
     '/api/v1/admin/stores/:storeId/storages/:storageId/status',
-    trace('storage', 'set-status'),
+    {
+      ...trace('storage', 'set-status'),
+      ...routeSchema({
+        params: storageScope,
+        querystring: noQuery,
+        body: statusInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request) => {
       const params = storageScope.parse(request.params);
       return service.setStorageStatus(
@@ -522,21 +755,34 @@ export function registerAdministration(
       );
     },
   );
-  app.get('/api/v1/admin/salespeople', trace('salesperson', 'list'), async (request, reply) =>
-    reply.header('Cache-Control', 'private, no-store').send(
-      wire(
-        await service.salespeople(authenticated(request), {
-          ...personPageQuery.parse(request.query),
-          search: '',
-        }),
+  app.get(
+    '/api/v1/admin/salespeople',
+    {
+      ...trace('salesperson', 'list'),
+      ...routeSchema({ querystring: personPageQuery, headers: transportHeaders }),
+    },
+    async (request, reply) =>
+      reply.header('Cache-Control', 'private, no-store').send(
+        wire(
+          await service.salespeople(authenticated(request), {
+            ...personPageQuery.parse(request.query),
+            search: '',
+          }),
+        ),
       ),
-    ),
   );
   app.post(
     '/api/v1/admin/salespeople/search',
-    trace('salesperson', 'search'),
+    {
+      ...trace('salesperson', 'search'),
+      ...routeSchema({
+        querystring: noQuery,
+        body: administrationCollectionPageQuery,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) => {
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       return reply
         .header('Cache-Control', 'private, no-store')
         .send(
@@ -551,11 +797,16 @@ export function registerAdministration(
   );
   app.get(
     '/api/v1/stores/:storeId/salespeople',
-    trace('store-salesperson', 'list'),
+    {
+      ...trace('store-salesperson', 'list'),
+      ...routeSchema({
+        params: scope,
+        querystring: storeSalespersonQuery,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) => {
-      const { purpose, ...query } = personPageQuery
-        .extend({ purpose: z.literal('checkout').optional() })
-        .parse(request.query);
+      const { purpose, ...query } = storeSalespersonQuery.parse(request.query);
       if (purpose && query.active !== 'true')
         throw new AppError(
           400,
@@ -585,12 +836,18 @@ export function registerAdministration(
   );
   app.post(
     '/api/v1/stores/:storeId/salespeople/search',
-    trace('store-salesperson', 'search'),
+    {
+      ...trace('store-salesperson', 'search'),
+      ...routeSchema({
+        params: scope,
+        querystring: noQuery,
+        body: storeSalespersonSearch,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) => {
-      z.object({}).strict().parse(request.query);
-      const { purpose, ...page } = administrationCollectionPageQuery
-        .extend({ purpose: z.literal('checkout').optional() })
-        .parse(request.body);
+      noQuery.parse(request.query);
+      const { purpose, ...page } = storeSalespersonSearch.parse(request.body);
       if (purpose && page.active !== 'true')
         throw new AppError(
           400,
@@ -618,19 +875,33 @@ export function registerAdministration(
       );
     },
   );
-  app.post('/api/v1/admin/salespeople', trace('salesperson', 'create'), async (request, reply) =>
-    reply
-      .code(201)
-      .send(
-        await service.createSalesperson(
-          authenticated(request),
-          salespersonInput.parse(request.body),
+  app.post(
+    '/api/v1/admin/salespeople',
+    {
+      ...trace('salesperson', 'create'),
+      ...routeSchema({ querystring: noQuery, body: salespersonInput, headers: transportHeaders }),
+    },
+    async (request, reply) =>
+      reply
+        .code(201)
+        .send(
+          await service.createSalesperson(
+            authenticated(request),
+            salespersonInput.parse(request.body),
+          ),
         ),
-      ),
   );
   app.put(
     '/api/v1/admin/salespeople/:salespersonId',
-    trace('salesperson', 'update'),
+    {
+      ...trace('salesperson', 'update'),
+      ...routeSchema({
+        params: salespersonScope,
+        querystring: noQuery,
+        body: salespersonInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request) =>
       service.updateSalesperson(
         authenticated(request),
@@ -640,7 +911,15 @@ export function registerAdministration(
   );
   app.patch(
     '/api/v1/admin/salespeople/:salespersonId/status',
-    trace('salesperson', 'set-status'),
+    {
+      ...trace('salesperson', 'set-status'),
+      ...routeSchema({
+        params: salespersonScope,
+        querystring: noQuery,
+        body: statusInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request) =>
       service.setSalespersonStatus(
         authenticated(request),
@@ -650,7 +929,15 @@ export function registerAdministration(
   );
   app.put(
     '/api/v1/admin/salespeople/:salespersonId/stores',
-    trace('salesperson-assignment', 'replace'),
+    {
+      ...trace('salesperson-assignment', 'replace'),
+      ...routeSchema({
+        params: salespersonScope,
+        querystring: noQuery,
+        body: salespersonAssignmentInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request) => {
       const body = salespersonAssignmentInput.parse(request.body);
       return service.assignSalespersonStores(
@@ -661,21 +948,34 @@ export function registerAdministration(
       );
     },
   );
-  app.get('/api/v1/admin/operators', trace('operator', 'list'), async (request, reply) =>
-    reply.header('Cache-Control', 'private, no-store').send(
-      wire(
-        await service.operators(authenticated(request), {
-          ...personPageQuery.parse(request.query),
-          search: '',
-        }),
+  app.get(
+    '/api/v1/admin/operators',
+    {
+      ...trace('operator', 'list'),
+      ...routeSchema({ querystring: personPageQuery, headers: transportHeaders }),
+    },
+    async (request, reply) =>
+      reply.header('Cache-Control', 'private, no-store').send(
+        wire(
+          await service.operators(authenticated(request), {
+            ...personPageQuery.parse(request.query),
+            search: '',
+          }),
+        ),
       ),
-    ),
   );
   app.post(
     '/api/v1/admin/operators/search',
-    trace('operator', 'search'),
+    {
+      ...trace('operator', 'search'),
+      ...routeSchema({
+        querystring: noQuery,
+        body: administrationCollectionPageQuery,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) => {
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       return reply
         .header('Cache-Control', 'private, no-store')
         .send(
@@ -688,21 +988,52 @@ export function registerAdministration(
         );
     },
   );
-  app.post('/api/v1/admin/operators', trace('operator', 'create'), async (request, reply) =>
-    reply
-      .code(201)
-      .send(await createOperator(authenticated(request), operatorCreateInput.parse(request.body))),
+  app.post(
+    '/api/v1/admin/operators',
+    {
+      ...trace('operator', 'create'),
+      ...routeSchema({
+        querystring: noQuery,
+        body: operatorCreateInput,
+        headers: transportHeaders,
+      }),
+    },
+    async (request, reply) =>
+      reply
+        .code(201)
+        .send(
+          await createOperator(authenticated(request), operatorCreateInput.parse(request.body)),
+        ),
   );
-  app.put('/api/v1/admin/operators/:operatorId', trace('operator', 'update'), async (request) =>
-    service.updateOperator(
-      authenticated(request),
-      operatorScope.parse(request.params).operatorId,
-      operatorInput.parse(request.body),
-    ),
+  app.put(
+    '/api/v1/admin/operators/:operatorId',
+    {
+      ...trace('operator', 'update'),
+      ...routeSchema({
+        params: operatorScope,
+        querystring: noQuery,
+        body: operatorInput,
+        headers: transportHeaders,
+      }),
+    },
+    async (request) =>
+      service.updateOperator(
+        authenticated(request),
+        operatorScope.parse(request.params).operatorId,
+        operatorInput.parse(request.body),
+      ),
   );
   app.patch(
     '/api/v1/admin/operators/:operatorId/status',
-    trace('operator', 'set-status'),
+    {
+      ...trace('operator', 'set-status'),
+      ...routeSchema({
+        params: operatorScope,
+        querystring: noQuery,
+        body: statusInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request) =>
       service.setOperatorStatus(
         authenticated(request),
@@ -712,7 +1043,15 @@ export function registerAdministration(
   );
   app.put(
     '/api/v1/admin/operators/:operatorId/stores',
-    trace('operator-assignment', 'replace'),
+    {
+      ...trace('operator-assignment', 'replace'),
+      ...routeSchema({
+        params: operatorScope,
+        querystring: noQuery,
+        body: assignmentInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request) =>
       service.assignOperatorStores(
         authenticated(request),
@@ -720,16 +1059,33 @@ export function registerAdministration(
         assignmentInput.parse(request.body).storeIds,
       ),
   );
-  app.get('/api/v1/operators/me/check-in', trace('operator-checkin', 'read'), async (request) => ({
-    data: await checkins.current(authenticated(request)),
-  }));
-  app.put('/api/v1/operators/me/check-in', trace('operator-checkin', 'set'), async (request) => {
-    const body = checkInInput.parse(request.body);
-    return checkins.set(authenticated(request), body.storeId, body.counterId);
-  });
+  app.get(
+    '/api/v1/operators/me/check-in',
+    {
+      ...trace('operator-checkin', 'read'),
+      ...routeSchema({ querystring: noQuery, headers: transportHeaders }),
+    },
+    async (request) => ({
+      data: await checkins.current(authenticated(request)),
+    }),
+  );
+  app.put(
+    '/api/v1/operators/me/check-in',
+    {
+      ...trace('operator-checkin', 'set'),
+      ...routeSchema({ querystring: noQuery, body: checkInInput, headers: transportHeaders }),
+    },
+    async (request) => {
+      const body = checkInInput.parse(request.body);
+      return checkins.set(authenticated(request), body.storeId, body.counterId);
+    },
+  );
   app.delete(
     '/api/v1/operators/me/check-in',
-    trace('operator-checkin', 'clear'),
+    {
+      ...trace('operator-checkin', 'clear'),
+      ...routeSchema({ querystring: noQuery, body: noBody, headers: transportHeaders }),
+    },
     async (request, reply) => {
       await checkins.clear(authenticated(request));
       return reply.code(204).send();
@@ -737,7 +1093,10 @@ export function registerAdministration(
   );
   app.get(
     '/api/v1/admin/stores/:storeId/inventory',
-    trace('store-inventory', 'list'),
+    {
+      ...trace('store-inventory', 'list'),
+      ...routeSchema({ params: scope, querystring: pageQuery, headers: transportHeaders }),
+    },
     async (request) =>
       wire(
         await inventory.list(
@@ -749,7 +1108,15 @@ export function registerAdministration(
   );
   app.put(
     '/api/v1/admin/stores/:storeId/inventory/:productId/stock',
-    trace('store-inventory', 'set-stock'),
+    {
+      ...trace('store-inventory', 'set-stock'),
+      ...routeSchema({
+        params: productScope,
+        querystring: noQuery,
+        body: stockInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request) => {
       const params = productScope.parse(request.params),
         body = stockInput.parse(request.body);
@@ -764,7 +1131,15 @@ export function registerAdministration(
   );
   app.patch(
     '/api/v1/admin/stores/:storeId/inventory/:productId/visibility',
-    trace('store-inventory', 'set-visibility'),
+    {
+      ...trace('store-inventory', 'set-visibility'),
+      ...routeSchema({
+        params: productScope,
+        querystring: noQuery,
+        body: visibilityInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request) => {
       const params = productScope.parse(request.params),
         body = visibilityInput.parse(request.body);
@@ -780,7 +1155,10 @@ export function registerAdministration(
   );
   app.get(
     '/api/v1/admin/stores/:storeId/inventory/:productId/logs',
-    trace('inventory-history', 'list'),
+    {
+      ...trace('inventory-history', 'list'),
+      ...routeSchema({ params: productScope, querystring: pageQuery, headers: transportHeaders }),
+    },
     async (request) => {
       const params = productScope.parse(request.params),
         page = pageQuery.parse(request.query);
@@ -797,7 +1175,10 @@ export function registerAdministration(
   );
   app.get(
     '/api/v1/admin/stores/:storeId/delivery-slots',
-    trace('delivery-slot', 'list'),
+    {
+      ...trace('delivery-slot', 'list'),
+      ...routeSchema({ params: scope, querystring: noQuery, headers: transportHeaders }),
+    },
     async (request) =>
       wire({
         data: await settings.deliverySlots(
@@ -808,7 +1189,15 @@ export function registerAdministration(
   );
   app.post(
     '/api/v1/admin/stores/:storeId/delivery-slots',
-    trace('delivery-slot', 'create'),
+    {
+      ...trace('delivery-slot', 'create'),
+      ...routeSchema({
+        params: scope,
+        querystring: noQuery,
+        body: deliverySlotInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) =>
       reply
         .code(201)
@@ -822,9 +1211,17 @@ export function registerAdministration(
   );
   app.put(
     '/api/v1/admin/stores/:storeId/delivery-slots/:slotId',
-    trace('delivery-slot', 'update'),
+    {
+      ...trace('delivery-slot', 'update'),
+      ...routeSchema({
+        params: slotScope,
+        querystring: noQuery,
+        body: deliverySlotUpdateInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request) => {
-      const params = scope.extend({ slotId: identifier }).parse(request.params);
+      const params = slotScope.parse(request.params);
       return settings.updateDeliverySlot(
         authenticated(request),
         params.storeId,
@@ -835,9 +1232,17 @@ export function registerAdministration(
   );
   app.patch(
     '/api/v1/admin/stores/:storeId/delivery-slots/:slotId/availability',
-    trace('delivery-slot', 'set-availability'),
+    {
+      ...trace('delivery-slot', 'set-availability'),
+      ...routeSchema({
+        params: slotScope,
+        querystring: noQuery,
+        body: deliveryAvailabilityInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request) => {
-      const params = scope.extend({ slotId: identifier }).parse(request.params);
+      const params = slotScope.parse(request.params);
       return settings.setDeliveryAvailability(
         authenticated(request),
         params.storeId,
@@ -848,7 +1253,15 @@ export function registerAdministration(
   );
   app.patch(
     '/api/v1/admin/stores/:storeId/delivery-slots/availability',
-    trace('delivery-slot', 'set-all-availability'),
+    {
+      ...trace('delivery-slot', 'set-all-availability'),
+      ...routeSchema({
+        params: scope,
+        querystring: noQuery,
+        body: allDeliveryAvailabilityInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request) =>
       settings.setAllDeliveryAvailability(
         authenticated(request),
@@ -858,7 +1271,10 @@ export function registerAdministration(
   );
   app.get(
     '/api/v1/admin/stores/:storeId/payment-terminals',
-    trace('payment-terminal', 'list'),
+    {
+      ...trace('payment-terminal', 'list'),
+      ...routeSchema({ params: scope, querystring: noQuery, headers: transportHeaders }),
+    },
     async (request) =>
       wire({
         data: await support.paymentTerminals(
@@ -867,30 +1283,54 @@ export function registerAdministration(
         ),
       }),
   );
-  app.get('/api/v1/admin/general-settings', trace('general-setting', 'read'), async (request) => ({
-    data: await settings.generalSettings(authenticated(request)),
-  }));
+  app.get(
+    '/api/v1/admin/general-settings',
+    {
+      ...trace('general-setting', 'read'),
+      ...routeSchema({ querystring: noQuery, headers: transportHeaders }),
+    },
+    async (request) => ({
+      data: await settings.generalSettings(authenticated(request)),
+    }),
+  );
   app.put(
     '/api/v1/admin/general-settings/delivery-stock-threshold',
-    trace('general-setting', 'update-stock-threshold'),
+    {
+      ...trace('general-setting', 'update-stock-threshold'),
+      ...routeSchema({ querystring: noQuery, body: thresholdInput, headers: transportHeaders }),
+    },
     async (request) =>
       settings.updateThreshold(authenticated(request), thresholdInput.parse(request.body)),
   );
   app.put(
     '/api/v1/admin/general-settings/order-creation-buffer',
-    trace('general-setting', 'update-order-buffer'),
+    {
+      ...trace('general-setting', 'update-order-buffer'),
+      ...routeSchema({ querystring: noQuery, body: orderBufferInput, headers: transportHeaders }),
+    },
     async (request) =>
       settings.updateOrderBuffer(authenticated(request), orderBufferInput.parse(request.body)),
   );
   app.get(
     '/api/v1/admin/stores/:storeId/ecommerce-settings',
-    trace('ecommerce-setting', 'read'),
+    {
+      ...trace('ecommerce-setting', 'read'),
+      ...routeSchema({ params: scope, querystring: noQuery, headers: transportHeaders }),
+    },
     async (request) =>
       settings.ecommerceSettings(authenticated(request), scope.parse(request.params).storeId),
   );
   app.put(
     '/api/v1/admin/stores/:storeId/ecommerce-settings',
-    trace('ecommerce-setting', 'update'),
+    {
+      ...trace('ecommerce-setting', 'update'),
+      ...routeSchema({
+        params: scope,
+        querystring: noQuery,
+        body: ecommerceInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request) =>
       settings.updateEcommerce(
         authenticated(request),
@@ -898,25 +1338,43 @@ export function registerAdministration(
         ecommerceInput.parse(request.body),
       ),
   );
-  app.get('/api/v1/documentation', trace('documentation', 'list'), async (request) =>
-    wire(
-      await documentation.list(authenticated(request), documentationPageQuery.parse(request.query)),
-    ),
+  app.get(
+    '/api/v1/documentation',
+    {
+      ...trace('documentation', 'list'),
+      ...routeSchema({ querystring: documentationPageQuery, headers: transportHeaders }),
+    },
+    async (request) =>
+      wire(
+        await documentation.list(
+          authenticated(request),
+          documentationPageQuery.parse(request.query),
+        ),
+      ),
   );
   app.get(
     '/api/v1/admin/documentation/media-capabilities',
-    trace('documentation-media', 'capabilities'),
+    {
+      ...trace('documentation-media', 'capabilities'),
+      ...routeSchema({ querystring: noQuery, headers: transportHeaders }),
+    },
     async (request) => documentation.capabilities(authenticated(request)),
   );
-  app.get('/api/v1/documentation/:documentId', trace('documentation', 'read'), async (request) =>
-    documentation.detail(
-      authenticated(request),
-      z.object({ documentId: identifier }).strict().parse(request.params).documentId,
-    ),
+  app.get(
+    '/api/v1/documentation/:documentId',
+    {
+      ...trace('documentation', 'read'),
+      ...routeSchema({ params: documentScope, querystring: noQuery, headers: transportHeaders }),
+    },
+    async (request) =>
+      documentation.detail(authenticated(request), documentScope.parse(request.params).documentId),
   );
   app.post(
     '/api/v1/admin/documentation',
-    trace('documentation', 'create'),
+    {
+      ...trace('documentation', 'create'),
+      ...routeSchema({ querystring: noQuery, body: documentationInput, headers: transportHeaders }),
+    },
     async (request, reply) =>
       reply
         .code(201)
@@ -926,17 +1384,28 @@ export function registerAdministration(
   );
   app.put(
     '/api/v1/admin/documentation/:documentId',
-    trace('documentation', 'update'),
+    {
+      ...trace('documentation', 'update'),
+      ...routeSchema({
+        params: documentScope,
+        querystring: noQuery,
+        body: documentationInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request) =>
       documentation.save(
         authenticated(request),
         documentationInput.parse(request.body),
-        z.object({ documentId: identifier }).strict().parse(request.params).documentId,
+        documentScope.parse(request.params).documentId,
       ),
   );
   app.post(
     '/api/v1/admin/documentation/uploads',
-    trace('documentation-media', 'reserve-upload'),
+    {
+      ...trace('documentation-media', 'reserve-upload'),
+      ...routeSchema({ querystring: noQuery, body: uploadInput, headers: transportHeaders }),
+    },
     async (request, reply) =>
       reply
         .code(201)
@@ -944,38 +1413,49 @@ export function registerAdministration(
   );
   app.post(
     '/api/v1/admin/documentation/uploads/:uploadId/complete',
-    trace('documentation-media', 'complete-upload'),
+    {
+      ...trace('documentation-media', 'complete-upload'),
+      ...routeSchema({
+        params: uploadScope,
+        querystring: noQuery,
+        body: noBody,
+        headers: transportHeaders,
+      }),
+    },
     async (request) => {
-      z.object({})
-        .strict()
-        .parse(request.body === undefined ? {} : request.body);
+      noBody.parse(request.body ?? null);
       return documentation.complete(
         authenticated(request),
-        z.object({ uploadId: z.uuid() }).strict().parse(request.params).uploadId,
+        uploadScope.parse(request.params).uploadId,
       );
     },
   );
   app.delete(
     '/api/v1/admin/documentation/uploads/:uploadId',
-    trace('documentation-media', 'cancel-upload'),
+    {
+      ...trace('documentation-media', 'cancel-upload'),
+      ...routeSchema({
+        params: uploadScope,
+        querystring: noQuery,
+        body: noBody,
+        headers: transportHeaders,
+      }),
+    },
     async (request) =>
-      documentation.cancel(
-        authenticated(request),
-        z.object({ uploadId: z.uuid() }).strict().parse(request.params).uploadId,
-      ),
+      documentation.cancel(authenticated(request), uploadScope.parse(request.params).uploadId),
   );
   app.get(
     '/api/v1/documentation/:documentId/assets/:assetId/content',
-    trace('documentation-media', 'stream'),
+    {
+      ...trace('documentation-media', 'stream'),
+      ...routeSchema({ params: assetScope, querystring: noQuery, headers: assetContentHeaders }),
+    },
     async (request, reply) => {
-      const params = z
-          .object({ documentId: identifier, assetId: assetReference })
-          .strict()
-          .parse(request.params),
+      const params = assetScope.parse(request.params),
         range =
           request.headers.range === undefined
             ? undefined
-            : z.string().max(80).parse(request.headers.range),
+            : rangeHeader.parse(request.headers.range),
         abort = new AbortController();
       request.raw.once('aborted', () => abort.abort());
       reply.raw.once('close', () => abort.abort());
@@ -1012,27 +1492,50 @@ export function registerAdministration(
   );
   app.patch(
     '/api/v1/admin/documentation/:documentId/status',
-    trace('documentation', 'set-status'),
+    {
+      ...trace('documentation', 'set-status'),
+      ...routeSchema({
+        params: documentScope,
+        querystring: noQuery,
+        body: statusInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request) =>
       documentation.setStatus(
         authenticated(request),
-        z.object({ documentId: identifier }).strict().parse(request.params).documentId,
+        documentScope.parse(request.params).documentId,
         statusInput.parse(request.body).active,
       ),
   );
   app.get(
     '/api/v1/admin/stores/:storeId/payment-terminals/next-name',
-    trace('payment-terminal', 'next-name'),
+    {
+      ...trace('payment-terminal', 'next-name'),
+      ...routeSchema({
+        params: scope,
+        querystring: terminalProviderQuery,
+        headers: transportHeaders,
+      }),
+    },
     async (request) =>
       terminals.nextName(
         authenticated(request),
         scope.parse(request.params).storeId,
-        z.object({ provider: terminalProvider }).strict().parse(request.query).provider,
+        terminalProviderQuery.parse(request.query).provider,
       ),
   );
   app.post(
     '/api/v1/admin/stores/:storeId/payment-terminals',
-    trace('payment-terminal', 'create'),
+    {
+      ...trace('payment-terminal', 'create'),
+      ...routeSchema({
+        params: scope,
+        querystring: noQuery,
+        body: terminalInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request, reply) =>
       reply
         .code(201)
@@ -1046,7 +1549,10 @@ export function registerAdministration(
   );
   app.get(
     '/api/v1/admin/stores/:storeId/payment-terminals/:provider/:terminalId',
-    trace('payment-terminal', 'read'),
+    {
+      ...trace('payment-terminal', 'read'),
+      ...routeSchema({ params: terminalScope, querystring: noQuery, headers: transportHeaders }),
+    },
     async (request) => {
       const params = terminalScope.parse(request.params);
       return wire(
@@ -1061,7 +1567,15 @@ export function registerAdministration(
   );
   app.put(
     '/api/v1/admin/stores/:storeId/payment-terminals/:provider/:terminalId',
-    trace('payment-terminal', 'update'),
+    {
+      ...trace('payment-terminal', 'update'),
+      ...routeSchema({
+        params: terminalScope,
+        querystring: noQuery,
+        body: terminalInput,
+        headers: transportHeaders,
+      }),
+    },
     async (request) => {
       const params = terminalScope.parse(request.params),
         input = terminalInput.parse(request.body);
@@ -1076,7 +1590,15 @@ export function registerAdministration(
   );
   app.delete(
     '/api/v1/admin/stores/:storeId/payment-terminals/:provider/:terminalId',
-    trace('payment-terminal', 'delete'),
+    {
+      ...trace('payment-terminal', 'delete'),
+      ...routeSchema({
+        params: terminalScope,
+        querystring: noQuery,
+        body: noBody,
+        headers: transportHeaders,
+      }),
+    },
     async (request) => {
       const params = terminalScope.parse(request.params);
       return terminals.remove(

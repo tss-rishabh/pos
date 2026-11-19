@@ -1,3 +1,4 @@
+import { registerRouteValidation } from '../../src/domain/route-validation.js';
 import { randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
 import mysql, { type Connection } from 'mysql2/promise';
@@ -151,6 +152,7 @@ describe.skipIf(!template)(
       );
       app = Fastify({ logger: false });
       app.decorateRequest('principal', null);
+      registerRouteValidation(app);
       app.addHook('preHandler', async (request) => {
         if (!request.routeOptions.url?.startsWith('/api/v1/auth/'))
           request.principal = request.headers['x-fixture-actor'] === '2' ? franchise : actor;

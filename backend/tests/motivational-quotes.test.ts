@@ -1,3 +1,4 @@
+import { registerRouteValidation } from '../src/domain/route-validation.js';
 import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
 import { z, ZodError } from 'zod';
@@ -19,6 +20,7 @@ describe('source customer-service thoughts', () => {
     const app = Fastify();
     registerEventCatalog(app);
     app.decorateRequest('principal', null);
+    registerRouteValidation(app);
     app.addHook('preHandler', async (request) => {
       if (request.headers['x-fixture-operator'] === 'signed-in') request.principal = demoUser;
     });

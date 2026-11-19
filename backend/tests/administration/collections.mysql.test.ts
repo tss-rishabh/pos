@@ -1,3 +1,4 @@
+import { registerRouteValidation } from '../../src/domain/route-validation.js';
 import { randomUUID } from 'node:crypto';
 import mysql from 'mysql2/promise';
 import Fastify from 'fastify';
@@ -315,6 +316,7 @@ describe.skipIf(!template)('native administration collection workflows', () => {
   it('serves the selected native store detail and PNG QR, without requiring or changing check-in', async () => {
     const app = Fastify({ logger: false });
     app.decorateRequest('principal', null);
+    registerRouteValidation(app);
     app.addHook('preHandler', async (request) => {
       request.principal = actor;
     });

@@ -1,3 +1,4 @@
+import { registerRouteValidation } from '../../src/domain/route-validation.js';
 import { randomUUID } from 'node:crypto';
 import mysql, { type Connection } from 'mysql2/promise';
 import Fastify, { type FastifyInstance } from 'fastify';
@@ -138,6 +139,7 @@ describe.skipIf(!template)('inherited model history against isolated MySQL', () 
     db = createDatabases(config);
     app = Fastify({ logger: false });
     app.decorateRequest('principal', null);
+    registerRouteValidation(app);
     app.addHook('preHandler', async (request) => {
       request.principal = actor;
     });

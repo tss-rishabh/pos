@@ -6,6 +6,13 @@ import { authenticated } from '../../auth/routes.js';
 import { AppError } from '../../domain/errors.js';
 import type { EphemeralStore } from '../../jobs/ephemeral.js';
 import {
+  noBody,
+  noQuery,
+  requestHeaders,
+  routeSchema,
+  transportHeaders,
+} from '../../domain/route-validation.js';
+import {
   operation,
   staffActivation,
   staffContent,
@@ -25,6 +32,8 @@ import { applicationLinkService } from './service.js';
 export { readApplicationLinkOptions } from './contracts.js';
 export { createCustomerApplicationProvider, createStaffApplicationPackage } from './provider.js';
 export { applicationLinkService, pruneApplicationLinks } from './service.js';
+/** Public proof routes compare `Origin` with the web origin before the handler runs. */
+const publicProofHeaders = requestHeaders({ origin: z.string().max(2048).optional() });
 export function registerApplicationLinks(
   app: FastifyInstance,
   config: Config,
@@ -53,14 +62,13 @@ export function registerApplicationLinks(
           throw new AppError(403, 'ORIGIN_DENIED', 'Request origin is not allowed.');
       },
     }),
-    empty = (value: unknown) =>
-      z
-        .object({})
-        .strict()
-        .parse(value ?? {});
+    empty = (value: unknown) => noQuery.parse(value ?? {});
   app.get(
     '/api/v1/operators/current/application-links/capabilities',
-    trace('application-link', 'read'),
+    {
+      ...trace('application-link', 'read'),
+      ...routeSchema({ querystring: noQuery, headers: transportHeaders }),
+    },
     async (request) => {
       empty(request.query);
       return service.capabilities(authenticated(request));
@@ -68,7 +76,10 @@ export function registerApplicationLinks(
   );
   app.post(
     '/api/v1/operators/current/application-links/staff-qr',
-    trace('staff-download', 'create'),
+    {
+      ...trace('staff-download', 'create'),
+      ...routeSchema({ querystring: noQuery, body: operation, headers: transportHeaders }),
+    },
     async (request) => {
       empty(request.query);
       return service.issueStaff(authenticated(request), operation.parse(request.body));
@@ -76,7 +87,10 @@ export function registerApplicationLinks(
   );
   app.post(
     '/api/v1/operators/current/application-links/customer-qr',
-    trace('customer-application-link', 'create'),
+    {
+      ...trace('customer-application-link', 'create'),
+      ...routeSchema({ querystring: noQuery, body: noBody, headers: transportHeaders }),
+    },
     async (request) => {
       empty(request.query);
       empty(request.body);
@@ -85,7 +99,10 @@ export function registerApplicationLinks(
   );
   app.post(
     '/api/v1/auth/application-links/staff-download-activations',
-    trace('staff-download-activation', 'create', 12, true),
+    {
+      ...trace('staff-download-activation', 'create', 12, true),
+      ...routeSchema({ querystring: noQuery, body: staffActivation, headers: publicProofHeaders }),
+    },
     async (request) => {
       empty(request.query);
       return service.activateStaff(staffActivation.parse(request.body));
@@ -93,7 +110,10 @@ export function registerApplicationLinks(
   );
   app.post(
     '/api/v1/auth/application-links/staff-download-content',
-    trace('staff-download-content', 'download', 12, true),
+    {
+      ...trace('staff-download-content', 'download', 12, true),
+      ...routeSchema({ querystring: noQuery, body: staffContent, headers: publicProofHeaders }),
+    },
     async (request, reply) => {
       empty(request.query);
       const controller = new AbortController();
@@ -116,7 +136,10 @@ export function registerApplicationLinks(
   );
   app.post(
     '/api/v1/auth/application-links/customer-scans',
-    trace('customer-application-scan', 'create', 30, true),
+    {
+      ...trace('customer-application-scan', 'create', 30, true),
+      ...routeSchema({ querystring: noQuery, body: customerScan, headers: publicProofHeaders }),
+    },
     async (request) => {
       empty(request.query);
       return service.scanCustomer(customerScan.parse(request.body));
@@ -138,6 +161,7 @@ export function registerApplicationLinks(
         },
         rateLimit: { max: 30, timeWindow: '1 minute' },
       },
+      ...routeSchema({ querystring: legacyCustomerScan, headers: transportHeaders }),
     },
     async (request, reply) => {
       const input = legacyCustomerScan.parse(request.query);

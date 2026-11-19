@@ -6,6 +6,7 @@ import type { Databases } from '../../db/pools.js';
 import { Country } from '../../db/legacy-schema.js';
 import type { Principal } from '../../domain/access.js';
 import { requireRole } from '../../domain/access.js';
+import { noQuery, routeSchema, transportHeaders } from '../../domain/route-validation.js';
 import { deliverablePincodes, locationZones } from './location-schema.js';
 import { sourceCityTitle } from './location-title.js';
 
@@ -65,9 +66,10 @@ export function registerLocationLookups(
         trace: { module: 'administration', resource: 'postal-code-location', action: 'read' },
         rateLimit: { max: 60, timeWindow: '1 minute' },
       },
+      ...routeSchema({ querystring: noQuery, body: postalLookupInput, headers: transportHeaders }),
     },
     async (request, reply) => {
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       return reply
         .header('Cache-Control', 'private, no-store')
         .send(await service.find(authenticated(request), postalLookupInput.parse(request.body)));

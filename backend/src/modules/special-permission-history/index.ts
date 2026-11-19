@@ -1,9 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import type { Temporal } from '@js-temporal/polyfill';
-import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import { authenticated } from '../../auth/routes.js';
+import { noQuery, routeSchema, transportHeaders } from '../../domain/route-validation.js';
 import { activitySearchInput, type SpecialPermissionHistoryOptions } from './contracts.js';
 import { specialPermissionHistoryService, type ActivityWarehouse } from './service.js';
 
@@ -30,19 +30,32 @@ export function registerSpecialPermissionHistory(
     };
   app.get(
     '/api/v1/admin/special-permission-activity/capabilities',
-    trace,
+    { ...trace, ...routeSchema({ querystring: noQuery, headers: transportHeaders }) },
     async (request, reply) => {
-      z.object({}).strict().parse(request.query);
+      noQuery.parse(request.query);
       return reply
         .header('Cache-Control', 'private, no-store')
         .send(await service.capabilities(authenticated(request)));
     },
   );
-  app.post('/api/v1/admin/special-permission-activity/search', trace, async (request, reply) => {
-    z.object({}).strict().parse(request.query);
-    return reply
-      .header('Cache-Control', 'private, no-store')
-      .send(await service.search(authenticated(request), activitySearchInput.parse(request.body)));
-  });
+  app.post(
+    '/api/v1/admin/special-permission-activity/search',
+    {
+      ...trace,
+      ...routeSchema({
+        querystring: noQuery,
+        body: activitySearchInput,
+        headers: transportHeaders,
+      }),
+    },
+    async (request, reply) => {
+      noQuery.parse(request.query);
+      return reply
+        .header('Cache-Control', 'private, no-store')
+        .send(
+          await service.search(authenticated(request), activitySearchInput.parse(request.body)),
+        );
+    },
+  );
   return service;
 }

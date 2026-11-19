@@ -1,4 +1,4 @@
-import type { FastifyInstance, RouteOptions } from 'fastify';
+import type { FastifyInstance, FastifySchemaCompiler, RouteOptions } from 'fastify';
 import { z } from 'zod';
 
 /**
@@ -37,9 +37,31 @@ export const operatorHeaders = requestHeaders({
     .optional(),
 });
 
-/** Route options fragment: `{ ...trace(...), ...routeSchema({ params, querystring, body, headers }) }`. */
-export function routeSchema(schema: RouteSchema): { schema: RouteSchema } {
-  return { schema };
+/** Fastify validator compiler for zod schemas; the handler still receives the original value. */
+export const zodValidatorCompiler: FastifySchemaCompiler<unknown> = ({
+  schema,
+  method,
+  url,
+  httpPart,
+}) => {
+  if (!(schema instanceof z.ZodType))
+    throw new Error(`Route ${method} ${url} declares a non-zod ${httpPart ?? 'request'} schema.`);
+  return (data: unknown) => {
+    const result = schema.safeParse(data);
+    return result.success ? { value: data } : { error: result.error };
+  };
+};
+
+/**
+ * Route options fragment: `{ ...trace(...), ...routeSchema({ params, querystring, body, headers }) }`.
+ * It carries the zod compiler itself, so a route validates the same way in the application and in
+ * a bare Fastify instance (module tests).
+ */
+export function routeSchema(schema: RouteSchema): {
+  schema: RouteSchema;
+  validatorCompiler: FastifySchemaCompiler<unknown>;
+} {
+  return { schema, validatorCompiler: zodValidatorCompiler };
 }
 
 export interface RegisteredRoute {
@@ -55,7 +77,7 @@ export function registeredRoutes(app: FastifyInstance): RegisteredRoute[] {
   return [...(registries.get(app) || [])];
 }
 
-/** Validate with the declared zod schema; the handler still receives the original value. */
+/** Record every route for the coverage test and validate declared zod schemas app-wide. */
 export function registerRouteValidation(app: FastifyInstance) {
   const registry: RegisteredRoute[] = [];
   registries.set(app, registry);
@@ -70,14 +92,7 @@ export function registerRouteValidation(app: FastifyInstance) {
         authentication: route.config?.authentication || 'session',
       });
   });
-  app.setValidatorCompiler(({ schema, method, url, httpPart }) => {
-    if (!(schema instanceof z.ZodType))
-      throw new Error(`Route ${method} ${url} declares a non-zod ${httpPart ?? 'request'} schema.`);
-    return (data: unknown) => {
-      const result = schema.safeParse(data);
-      return result.success ? { value: data } : { error: result.error };
-    };
-  });
+  app.setValidatorCompiler(zodValidatorCompiler);
 }
 
 const safeSegment = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/;

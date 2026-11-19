@@ -43,6 +43,12 @@ import {
 } from './customers/lookup.js';
 import { appCashbackCampaign } from '../customer-insights/benefits-gateway.js';
 import { AppError } from '../../domain/errors.js';
+import {
+  noQuery,
+  routeSchema,
+  transportHeaders,
+  type RouteSchema,
+} from '../../domain/route-validation.js';
 import type { PaymentGateway } from './payments/contracts.js';
 import { registerReturns } from './return-workflow/routes.js';
 import type { ReturnGateway } from './return-workflow/contracts.js';
@@ -75,13 +81,129 @@ import { checkoutSessionStore, type CheckoutSessionStore } from './session-store
 import type { JobProducer } from '../../jobs/contract.js';
 import type { ProductSyncAdapter } from '../administration/product-sync.js';
 
-const storeScope = z.object({ storeId: identifier });
+const storeScope = z.object({ storeId: identifier }).strict();
 const sessionScope = storeScope.extend({ checkoutId: z.uuid() });
 const base = '/api/v1/stores/:storeId/checkout-sessions';
 const session = base + '/:checkoutId';
-const trace = (resource: string, action: string) => ({
+const trace = (resource: string, action: string, schema: RouteSchema) => ({
   config: { trace: { module: 'checkout', resource, action } },
+  ...routeSchema(schema),
 });
+/** Checkout routes read no query string and no request header of their own. */
+const input = (params: z.ZodType, body?: z.ZodType): RouteSchema => ({
+  params,
+  querystring: noQuery,
+  ...(body ? { body } : {}),
+  headers: transportHeaders,
+});
+const mutationBody = mutationSchema.strict();
+const createBody = z
+  .object({
+    counterId: identifier,
+    draftId: z.uuid(),
+    draftVersion: z.number().int().nonnegative(),
+    lineItems: draftLineItemsSchema,
+  })
+  .strict();
+const notificationsBody = mutationSchema
+  .extend({ sendSms: z.boolean(), npsFeedback: z.boolean() })
+  .strict();
+const customerBody = mutationSchema.extend({ customerId: identifier }).strict();
+const registrationChallengeBody = mutationSchema
+  .extend({ details: registrationDetailsSchema })
+  .strict();
+const selfVerificationBody = mutationSchema
+  .extend({ telephone: z.string().regex(/^[6-9]\d{9}$/) })
+  .strict();
+const registrationVerificationBody = mutationSchema
+  .extend({ code: z.string().regex(/^\d{6}$/) })
+  .strict();
+const lineParams = sessionScope.extend({ productId: identifier });
+const lineBody = mutationSchema.extend({ quantity: z.number().int().min(0).max(999) }).strict();
+const couponBody = mutationSchema.extend({ code: z.string().min(1).max(100) }).strict();
+const walletBody = mutationSchema
+  .extend({
+    money: z.boolean(),
+    points: z.boolean(),
+    appliedMoney: amountSchema,
+    custom: z.boolean(),
+  })
+  .strict();
+const giftVoucherBody = mutationSchema
+  // Legacy applies with gc_pin 0 and asks for the PIN only when API-v2 answers
+  // is_pin_required (create_order.html:3433-3557).
+  .extend({
+    code: z.string().min(1).max(100),
+    pin: z
+      .string()
+      .regex(/^[\d_]{1,20}$/)
+      .default('0'),
+  })
+  .strict();
+const membershipBody = mutationSchema.extend({ enabled: z.boolean() }).strict();
+const giftParams = sessionScope.extend({ giftId: identifier });
+const giftCardMetadataBody = mutationSchema
+  .extend({
+    number: z.string().regex(/^[\d_]{6,40}$/),
+    // Legacy dates are optional: "" means "Today's" / "No Expiry" (create_order.html:205-206).
+    startDate: z.union([z.iso.date(), z.literal('')]),
+    endDate: z.union([z.iso.date(), z.literal('')]),
+  })
+  .strict();
+const giftCardAddBody = mutationSchema
+  .extend({
+    productId: identifier,
+    customValue: z.number().int().min(1).max(10000).optional(),
+  })
+  .strict();
+const giftCardValueBody = mutationSchema
+  .extend({ customValue: z.number().int().min(1).max(10000).nullable() })
+  .strict();
+const discountBody = mutationSchema
+  .extend({
+    kind: z.enum(['pg', 'store']),
+    amount: amountSchema,
+    apply: z.boolean(),
+    // Old-PG remark has no legacy maximum; store-PG remark keeps the legacy 35 characters.
+    remark: z.string().max(255).optional(),
+    reason: z.enum(storeDiscountReasons).optional(),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      !value.apply ||
+      (value.kind === 'pg'
+        ? pgDiscountRemark.safeParse(value.remark).success
+        : discountRemark.safeParse(value.remark).success),
+    { message: 'Enter a meaningful discount remark.' },
+  )
+  .refine(
+    (value) => !value.apply || Boolean(value.remark && (value.kind === 'pg' || value.reason)),
+    { message: 'A discount remark and store discount reason are required.' },
+  );
+const discountConfirmationBody = mutationSchema
+  .extend({ code: z.string().regex(/^[1-9]{6}$/) })
+  .strict();
+const salespersonBody = mutationSchema
+  // 0 is the legacy "Not Selected" option (removal).
+  .extend({
+    salespersonId: z.union([identifier, z.literal('0')]),
+    productId: identifier.optional(),
+  })
+  .strict();
+const settlementNoteBody = mutationSchema
+  .extend({ message: settlementMessageSchema, cashReceived: amountSchema })
+  .strict();
+const verificationConfirmationBody = mutationSchema
+  // Legacy customer OTP is 4 digits (order/views.py:2536-2597, create_order.html:4758).
+  .extend({ otp: z.string().regex(/^\d{4}$/) })
+  .strict();
+const submissionBody = mutationSchema.extend({ payment: paymentInputSchema.optional() }).strict();
+const operationParams = sessionScope.extend({ operationId: z.uuid() });
+const subReasonParams = storeScope.extend({ productId: identifier, reasonId: identifier });
+const exchangeReasonParams = storeScope.extend({ productId: identifier });
+const exchangeSizeParams = storeScope.extend({ parentId: identifier });
+const refundPreviewParams = storeScope.extend({ orderId: identifier, lineId: identifier });
 export interface CheckoutRegistrationOptions {
   orderCopy?: OrderCopyOptions;
   repository?: CheckoutRepository;
@@ -175,42 +297,40 @@ export function registerCheckout(
   const returns = returnReadService(db, gateway, assertCheckIn);
   const flags = overrides.checkoutFlags || checkoutFlagsReader(db, config);
   /** Legacy payment form options for the sale's counter, before the order exists. */
-  app.get(session + '/payment-options', trace('payment-option', 'list'), async (request) => {
-    const user = authenticated(request),
-      p = sessionScope.parse(request.params);
-    z.object({})
-      .strict()
-      .parse(request.query ?? {});
-    const state = await service.read(user, p.storeId, p.checkoutId);
-    if (!late.payments)
-      throw new AppError(503, 'PAYMENT_UNAVAILABLE', 'Counter payments are not configured.');
-    return {
-      counterId: state.counterId,
-      options: await late.payments.counterOptions(user, p.storeId, state.counterId),
-    };
-  });
+  app.get(
+    session + '/payment-options',
+    trace('payment-option', 'list', input(sessionScope)),
+    async (request) => {
+      const user = authenticated(request),
+        p = sessionScope.parse(request.params);
+      noQuery.parse(request.query ?? {});
+      const state = await service.read(user, p.storeId, p.checkoutId);
+      if (!late.payments)
+        throw new AppError(503, 'PAYMENT_UNAVAILABLE', 'Counter payments are not configured.');
+      return {
+        counterId: state.counterId,
+        options: await late.payments.counterOptions(user, p.storeId, state.counterId),
+      };
+    },
+  );
   function response(result: MutationReply) {
     return { ...result, state: publicState(result.state, config.CASHBACK_CREDIT_MESSAGE) };
   }
-  app.post(base, trace('checkout-session', 'create'), async (request, reply) => {
-    const user = authenticated(request),
-      { storeId } = storeScope.parse(request.params),
-      body = z
-        .object({
-          counterId: identifier,
-          draftId: z.uuid(),
-          draftVersion: z.number().int().nonnegative(),
-          lineItems: draftLineItemsSchema,
-        })
-        .strict()
-        .parse(request.body);
-    const created = await service.create(user, storeId, body.counterId, body.draftId, {
-      version: body.draftVersion,
-      lineItems: body.lineItems,
-    });
-    return reply.code(201).send({ ...created, flags: await flags(user, storeId) });
-  });
-  app.get(session, trace('checkout-session', 'read'), async (request) => {
+  app.post(
+    base,
+    trace('checkout-session', 'create', input(storeScope, createBody)),
+    async (request, reply) => {
+      const user = authenticated(request),
+        { storeId } = storeScope.parse(request.params),
+        body = createBody.parse(request.body);
+      const created = await service.create(user, storeId, body.counterId, body.draftId, {
+        version: body.draftVersion,
+        lineItems: body.lineItems,
+      });
+      return reply.code(201).send({ ...created, flags: await flags(user, storeId) });
+    },
+  );
+  app.get(session, trace('checkout-session', 'read', input(sessionScope)), async (request) => {
     const user = authenticated(request),
       p = sessionScope.parse(request.params);
     return {
@@ -220,24 +340,21 @@ export function registerCheckout(
   });
   app.post(
     session + '/confirmation-reconciliations',
-    trace('checkout-confirmation', 'reconcile'),
+    trace('checkout-confirmation', 'reconcile', input(sessionScope, mutationBody)),
     async (request) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema.strict().parse(request.body);
+        body = mutationBody.parse(request.body);
       return response(await service.reconcileConfirmation(user, p.storeId, p.checkoutId, body));
     },
   );
   app.put(
     session + '/order-notifications',
-    trace('order-notification', 'configure'),
+    trace('order-notification', 'configure', input(sessionScope, notificationsBody)),
     async (request) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema
-          .extend({ sendSms: z.boolean(), npsFeedback: z.boolean() })
-          .strict()
-          .parse(request.body);
+        body = notificationsBody.parse(request.body);
       const preferences = orderNotificationsSchema.parse({
         sendSms: body.sendSms,
         npsFeedback: body.npsFeedback,
@@ -249,17 +366,17 @@ export function registerCheckout(
   );
   app.post(
     session + '/draft-initializations',
-    trace('checkout-draft', 'initialize'),
+    trace('checkout-draft', 'initialize', input(sessionScope, mutationBody)),
     async (request) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema.strict().parse(request.body);
+        body = mutationBody.parse(request.body);
       return response(await service.initializeDraft(user, p.storeId, p.checkoutId, body));
     },
   );
   app.post(
     '/api/v1/stores/:storeId/customer-lookups',
-    trace('customer-lookup', 'create'),
+    trace('customer-lookup', 'create', input(storeScope, customerLookupBodySchema)),
     async (request) => {
       const user = authenticated(request),
         p = storeScope.parse(request.params),
@@ -267,34 +384,39 @@ export function registerCheckout(
       return { data: await service.lookup(user, p.storeId, body.counterId, body) };
     },
   );
-  app.put(session + '/customer', trace('checkout-customer', 'attach'), async (request) => {
-    const user = authenticated(request),
-      p = sessionScope.parse(request.params),
-      body = mutationSchema.extend({ customerId: identifier }).strict().parse(request.body);
-    return response(
-      await service.attachCustomer(user, p.storeId, p.checkoutId, body, body.customerId),
-    );
-  });
-  app.post(
-    session + '/customer-detachments',
-    trace('checkout-customer', 'detach'),
+  app.put(
+    session + '/customer',
+    trace('checkout-customer', 'attach', input(sessionScope, customerBody)),
     async (request) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema.strict().parse(request.body);
+        body = customerBody.parse(request.body);
+      return response(
+        await service.attachCustomer(user, p.storeId, p.checkoutId, body, body.customerId),
+      );
+    },
+  );
+  app.post(
+    session + '/customer-detachments',
+    trace('checkout-customer', 'detach', input(sessionScope, mutationBody)),
+    async (request) => {
+      const user = authenticated(request),
+        p = sessionScope.parse(request.params),
+        body = mutationBody.parse(request.body);
       return response(await service.detachCustomer(user, p.storeId, p.checkoutId, body));
     },
   );
   app.post(
     session + '/customer-registration-challenges',
-    trace('customer-registration-challenge', 'create'),
+    trace(
+      'customer-registration-challenge',
+      'create',
+      input(sessionScope, registrationChallengeBody),
+    ),
     async (request) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema
-          .extend({ details: registrationDetailsSchema })
-          .strict()
-          .parse(request.body);
+        body = registrationChallengeBody.parse(request.body);
       return response(
         await service.requestRegistration(user, p.storeId, p.checkoutId, body, body.details),
       );
@@ -302,14 +424,15 @@ export function registerCheckout(
   );
   app.post(
     session + '/customer-registration-challenges/self-verifications',
-    trace('customer-registration-challenge', 'self-verify'),
+    trace(
+      'customer-registration-challenge',
+      'self-verify',
+      input(sessionScope, selfVerificationBody),
+    ),
     async (request) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema
-          .extend({ telephone: z.string().regex(/^[6-9]\d{9}$/) })
-          .strict()
-          .parse(request.body);
+        body = selfVerificationBody.parse(request.body);
       return response(
         await service.selfVerifyRegistration(
           user,
@@ -323,14 +446,15 @@ export function registerCheckout(
   );
   app.post(
     session + '/customer-registration-challenges/verifications',
-    trace('customer-registration-challenge', 'verify'),
+    trace(
+      'customer-registration-challenge',
+      'verify',
+      input(sessionScope, registrationVerificationBody),
+    ),
     async (request) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema
-          .extend({ code: z.string().regex(/^\d{6}$/) })
-          .strict()
-          .parse(request.body);
+        body = registrationVerificationBody.parse(request.body);
       return response(
         await service.verifyRegistration(user, p.storeId, p.checkoutId, body, body.code),
       );
@@ -338,151 +462,142 @@ export function registerCheckout(
   );
   app.post(
     session + '/customer-registration-challenges/resends',
-    trace('customer-registration-challenge', 'resend'),
+    trace('customer-registration-challenge', 'resend', input(sessionScope, mutationBody)),
     async (request) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema.strict().parse(request.body);
+        body = mutationBody.parse(request.body);
       return response(await service.resendRegistration(user, p.storeId, p.checkoutId, body));
     },
   );
   app.post(
     session + '/customer-registrations',
-    trace('customer-registration', 'create'),
+    trace('customer-registration', 'create', input(sessionScope, mutationBody)),
     async (request) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema.strict().parse(request.body);
+        body = mutationBody.parse(request.body);
       return response(await service.registerCustomer(user, p.storeId, p.checkoutId, body));
     },
   );
   app.post(
     session + '/customer-registration-reconciliations',
-    trace('customer-registration', 'reconcile'),
+    trace('customer-registration', 'reconcile', input(sessionScope, mutationBody)),
     async (request) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema.strict().parse(request.body);
+        body = mutationBody.parse(request.body);
       return response(await service.reconcileRegistration(user, p.storeId, p.checkoutId, body));
     },
   );
   app.post(
     session + '/customer-registration-cancellations',
-    trace('customer-registration', 'cancel'),
+    trace('customer-registration', 'cancel', input(sessionScope, mutationBody)),
     async (request) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema.strict().parse(request.body);
+        body = mutationBody.parse(request.body);
       return response(await service.cancelRegistration(user, p.storeId, p.checkoutId, body));
     },
   );
   app.post(
     session + '/customer-registration-request-reconciliations',
-    trace('customer-registration-request', 'reconcile'),
+    trace('customer-registration-request', 'reconcile', input(sessionScope, mutationBody)),
     async (request) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema.strict().parse(request.body);
+        body = mutationBody.parse(request.body);
       return response(
         await service.recoverRegistrationRequest(user, p.storeId, p.checkoutId, body),
       );
     },
   );
-  app.put(session + '/line-items/:productId', trace('cart-line', 'set'), async (request) => {
-    const user = authenticated(request),
-      p = sessionScope.extend({ productId: identifier }).parse(request.params),
-      body = mutationSchema
-        .extend({ quantity: z.number().int().min(0).max(999) })
-        .strict()
-        .parse(request.body);
-    return response(
-      await service.setLine(user, p.storeId, p.checkoutId, body, p.productId, body.quantity),
-    );
-  });
-  app.post(session + '/clear', trace('checkout-cart', 'clear'), async (request) => {
-    const user = authenticated(request),
-      p = sessionScope.parse(request.params),
-      body = mutationSchema.strict().parse(request.body);
-    return response(await service.clear(user, p.storeId, p.checkoutId, body));
-  });
-  app.put(session + '/coupon', trace('checkout-coupon', 'apply'), async (request) => {
-    const user = authenticated(request),
-      p = sessionScope.parse(request.params),
-      body = mutationSchema
-        .extend({ code: z.string().min(1).max(100) })
-        .strict()
-        .parse(request.body);
-    return response(await service.coupon(user, p.storeId, p.checkoutId, body, body.code));
-  });
-  for (const kind of ['coupon', 'gift-voucher'] as const)
-    app.post(
-      session + (kind === 'coupon' ? '/coupon/removals' : '/gift-vouchers/removals'),
-      trace(kind === 'coupon' ? 'checkout-coupon' : 'checkout-gift-voucher', 'remove'),
-      async (request) => {
-        const user = authenticated(request),
-          p = sessionScope.parse(request.params),
-          body = mutationSchema.strict().parse(request.body);
-        return response(await service.removeBenefit(user, p.storeId, p.checkoutId, body, kind));
-      },
-    );
-  app.put(session + '/wallet', trace('checkout-wallet', 'update'), async (request) => {
-    const user = authenticated(request),
-      p = sessionScope.parse(request.params),
-      body = mutationSchema
-        .extend({
-          money: z.boolean(),
-          points: z.boolean(),
-          appliedMoney: amountSchema,
-          custom: z.boolean(),
-        })
-        .strict()
-        .parse(request.body);
-    return response(await service.wallet(user, p.storeId, p.checkoutId, body, body));
-  });
-  app.post(session + '/gift-vouchers', trace('checkout-gift-voucher', 'apply'), async (request) => {
-    const user = authenticated(request),
-      p = sessionScope.parse(request.params),
-      body = mutationSchema
-        // Legacy applies with gc_pin 0 and asks for the PIN only when API-v2 answers
-        // is_pin_required (create_order.html:3433-3557).
-        .extend({
-          code: z.string().min(1).max(100),
-          pin: z
-            .string()
-            .regex(/^[\d_]{1,20}$/)
-            .default('0'),
-        })
-        .strict()
-        .parse(request.body);
-    return response(
-      await service.giftVoucher(user, p.storeId, p.checkoutId, body, body.code, body.pin),
-    );
-  });
   app.put(
-    session + '/membership-benefits',
-    trace('checkout-membership', 'update'),
+    session + '/line-items/:productId',
+    trace('cart-line', 'set', input(lineParams, lineBody)),
+    async (request) => {
+      const user = authenticated(request),
+        p = lineParams.parse(request.params),
+        body = lineBody.parse(request.body);
+      return response(
+        await service.setLine(user, p.storeId, p.checkoutId, body, p.productId, body.quantity),
+      );
+    },
+  );
+  app.post(
+    session + '/clear',
+    trace('checkout-cart', 'clear', input(sessionScope, mutationBody)),
     async (request) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema.extend({ enabled: z.boolean() }).strict().parse(request.body);
+        body = mutationBody.parse(request.body);
+      return response(await service.clear(user, p.storeId, p.checkoutId, body));
+    },
+  );
+  app.put(
+    session + '/coupon',
+    trace('checkout-coupon', 'apply', input(sessionScope, couponBody)),
+    async (request) => {
+      const user = authenticated(request),
+        p = sessionScope.parse(request.params),
+        body = couponBody.parse(request.body);
+      return response(await service.coupon(user, p.storeId, p.checkoutId, body, body.code));
+    },
+  );
+  for (const kind of ['coupon', 'gift-voucher'] as const)
+    app.post(
+      session + (kind === 'coupon' ? '/coupon/removals' : '/gift-vouchers/removals'),
+      trace(
+        kind === 'coupon' ? 'checkout-coupon' : 'checkout-gift-voucher',
+        'remove',
+        input(sessionScope, mutationBody),
+      ),
+      async (request) => {
+        const user = authenticated(request),
+          p = sessionScope.parse(request.params),
+          body = mutationBody.parse(request.body);
+        return response(await service.removeBenefit(user, p.storeId, p.checkoutId, body, kind));
+      },
+    );
+  app.put(
+    session + '/wallet',
+    trace('checkout-wallet', 'update', input(sessionScope, walletBody)),
+    async (request) => {
+      const user = authenticated(request),
+        p = sessionScope.parse(request.params),
+        body = walletBody.parse(request.body);
+      return response(await service.wallet(user, p.storeId, p.checkoutId, body, body));
+    },
+  );
+  app.post(
+    session + '/gift-vouchers',
+    trace('checkout-gift-voucher', 'apply', input(sessionScope, giftVoucherBody)),
+    async (request) => {
+      const user = authenticated(request),
+        p = sessionScope.parse(request.params),
+        body = giftVoucherBody.parse(request.body);
+      return response(
+        await service.giftVoucher(user, p.storeId, p.checkoutId, body, body.code, body.pin),
+      );
+    },
+  );
+  app.put(
+    session + '/membership-benefits',
+    trace('checkout-membership', 'update', input(sessionScope, membershipBody)),
+    async (request) => {
+      const user = authenticated(request),
+        p = sessionScope.parse(request.params),
+        body = membershipBody.parse(request.body);
       return response(await service.exclusive(user, p.storeId, p.checkoutId, body, body.enabled));
     },
   );
   app.put(
     session + '/gift-card-items/:giftId',
-    trace('checkout-gift-card', 'save'),
+    trace('checkout-gift-card', 'save', input(giftParams, giftCardMetadataBody)),
     async (request) => {
       const user = authenticated(request),
-        p = sessionScope.extend({ giftId: identifier }).parse(request.params),
-        body = mutationSchema
-          .extend({
-            number: z.string().regex(/^[\d_]{6,40}$/),
-            // Legacy dates are optional: "" means "Today's" / "No Expiry" (create_order.html:205-206).
-            startDate: z.union([z.iso.date(), z.literal('')]),
-            endDate: z.union([z.iso.date(), z.literal('')]),
-          })
-          .strict()
-          .parse(request.body);
+        p = giftParams.parse(request.params),
+        body = giftCardMetadataBody.parse(request.body);
       return response(
         await service.giftCardMetadata(user, p.storeId, p.checkoutId, body, p.giftId, body),
       );
@@ -490,45 +605,40 @@ export function registerCheckout(
   );
   app.post(
     session + '/gift-card-items/:giftId/removals',
-    trace('checkout-gift-card', 'remove'),
+    trace('checkout-gift-card', 'remove', input(giftParams, mutationBody)),
     async (request) => {
       const user = authenticated(request),
-        p = sessionScope.extend({ giftId: identifier }).parse(request.params),
-        body = mutationSchema.strict().parse(request.body);
+        p = giftParams.parse(request.params),
+        body = mutationBody.parse(request.body);
       return response(await service.removeGiftCard(user, p.storeId, p.checkoutId, body, p.giftId));
     },
   );
-  app.post(session + '/gift-card-items', trace('checkout-gift-card', 'add'), async (request) => {
-    const user = authenticated(request),
-      p = sessionScope.parse(request.params),
-      body = mutationSchema
-        .extend({
-          productId: identifier,
-          customValue: z.number().int().min(1).max(10000).optional(),
-        })
-        .strict()
-        .parse(request.body);
-    return response(
-      await service.addGiftCard(
-        user,
-        p.storeId,
-        p.checkoutId,
-        body,
-        body.productId,
-        body.customValue,
-      ),
-    );
-  });
-  app.put(
-    session + '/gift-card-items/:giftId/value',
-    trace('checkout-gift-card', 'value'),
+  app.post(
+    session + '/gift-card-items',
+    trace('checkout-gift-card', 'add', input(sessionScope, giftCardAddBody)),
     async (request) => {
       const user = authenticated(request),
-        p = sessionScope.extend({ giftId: identifier }).parse(request.params),
-        body = mutationSchema
-          .extend({ customValue: z.number().int().min(1).max(10000).nullable() })
-          .strict()
-          .parse(request.body);
+        p = sessionScope.parse(request.params),
+        body = giftCardAddBody.parse(request.body);
+      return response(
+        await service.addGiftCard(
+          user,
+          p.storeId,
+          p.checkoutId,
+          body,
+          body.productId,
+          body.customValue,
+        ),
+      );
+    },
+  );
+  app.put(
+    session + '/gift-card-items/:giftId/value',
+    trace('checkout-gift-card', 'value', input(giftParams, giftCardValueBody)),
+    async (request) => {
+      const user = authenticated(request),
+        p = giftParams.parse(request.params),
+        body = giftCardValueBody.parse(request.body);
       return response(
         await service.giftCardValue(
           user,
@@ -541,89 +651,69 @@ export function registerCheckout(
       );
     },
   );
-  app.put(session + '/discount', trace('checkout-discount', 'update'), async (request) => {
-    const user = authenticated(request),
-      p = sessionScope.parse(request.params),
-      body = mutationSchema
-        .extend({
-          kind: z.enum(['pg', 'store']),
-          amount: amountSchema,
-          apply: z.boolean(),
-          // Old-PG remark has no legacy maximum; store-PG remark keeps the legacy 35 characters.
-          remark: z.string().max(255).optional(),
-          reason: z.enum(storeDiscountReasons).optional(),
-        })
-        .strict()
-        .refine(
-          (value) =>
-            !value.apply ||
-            (value.kind === 'pg'
-              ? pgDiscountRemark.safeParse(value.remark).success
-              : discountRemark.safeParse(value.remark).success),
-          { message: 'Enter a meaningful discount remark.' },
-        )
-        .refine(
-          (value) => !value.apply || Boolean(value.remark && (value.kind === 'pg' || value.reason)),
-          { message: 'A discount remark and store discount reason are required.' },
-        )
-        .parse(request.body);
-    return response(await service.discount(user, p.storeId, p.checkoutId, body, body));
-  });
-  app.get(session + '/discount-approval', trace('discount-approval', 'read'), async (request) => {
-    const user = authenticated(request),
-      p = sessionScope.parse(request.params);
-    return service.discountApproval(user, p.storeId, p.checkoutId);
-  });
-  app.post(
-    session + '/discount-approval/challenges',
-    trace('discount-approval', 'request'),
+  app.put(
+    session + '/discount',
+    trace('checkout-discount', 'update', input(sessionScope, discountBody)),
     async (request) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema.strict().parse(request.body);
+        body = discountBody.parse(request.body);
+      return response(await service.discount(user, p.storeId, p.checkoutId, body, body));
+    },
+  );
+  app.get(
+    session + '/discount-approval',
+    trace('discount-approval', 'read', input(sessionScope)),
+    async (request) => {
+      const user = authenticated(request),
+        p = sessionScope.parse(request.params);
+      return service.discountApproval(user, p.storeId, p.checkoutId);
+    },
+  );
+  app.post(
+    session + '/discount-approval/challenges',
+    trace('discount-approval', 'request', input(sessionScope, mutationBody)),
+    async (request) => {
+      const user = authenticated(request),
+        p = sessionScope.parse(request.params),
+        body = mutationBody.parse(request.body);
       return response(await service.requestDiscountApproval(user, p.storeId, p.checkoutId, body));
     },
   );
   app.post(
     session + '/discount-approval/confirmations',
-    trace('discount-approval', 'confirm'),
+    trace('discount-approval', 'confirm', input(sessionScope, discountConfirmationBody)),
     async (request) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema
-          .extend({ code: z.string().regex(/^[1-9]{6}$/) })
-          .strict()
-          .parse(request.body);
+        body = discountConfirmationBody.parse(request.body);
       return response(
         await service.confirmDiscountApproval(user, p.storeId, p.checkoutId, body, body.code),
       );
     },
   );
-  app.put(session + '/salesperson', trace('checkout-salesperson', 'assign'), async (request) => {
-    const user = authenticated(request),
-      p = sessionScope.parse(request.params),
-      body = mutationSchema
-        // 0 is the legacy "Not Selected" option (removal).
-        .extend({
-          salespersonId: z.union([identifier, z.literal('0')]),
-          productId: identifier.optional(),
-        })
-        .strict()
-        .parse(request.body);
-    return response(
-      await service.salesperson(
-        user,
-        p.storeId,
-        p.checkoutId,
-        body,
-        body.salespersonId,
-        body.productId,
-      ),
-    );
-  });
+  app.put(
+    session + '/salesperson',
+    trace('checkout-salesperson', 'assign', input(sessionScope, salespersonBody)),
+    async (request) => {
+      const user = authenticated(request),
+        p = sessionScope.parse(request.params),
+        body = salespersonBody.parse(request.body);
+      return response(
+        await service.salesperson(
+          user,
+          p.storeId,
+          p.checkoutId,
+          body,
+          body.salespersonId,
+          body.productId,
+        ),
+      );
+    },
+  );
   app.get(
     session + '/settlement-note',
-    trace('checkout-settlement-note', 'read'),
+    trace('checkout-settlement-note', 'read', input(sessionScope)),
     async (request) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params);
@@ -632,14 +722,11 @@ export function registerCheckout(
   );
   app.put(
     session + '/settlement-note',
-    trace('checkout-settlement-note', 'update'),
+    trace('checkout-settlement-note', 'update', input(sessionScope, settlementNoteBody)),
     async (request) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema
-          .extend({ message: settlementMessageSchema, cashReceived: amountSchema })
-          .strict()
-          .parse(request.body);
+        body = settlementNoteBody.parse(request.body);
       return response(
         await service.settlementNote(
           user,
@@ -654,54 +741,51 @@ export function registerCheckout(
   );
   app.post(
     session + '/customer-verification/challenges',
-    trace('customer-verification', 'send'),
+    trace('customer-verification', 'send', input(sessionScope, mutationBody)),
     async (request) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema.strict().parse(request.body);
+        body = mutationBody.parse(request.body);
       return response(await service.sendVerification(user, p.storeId, p.checkoutId, body));
     },
   );
   app.post(
     session + '/customer-verification/confirmations',
-    trace('customer-verification', 'confirm'),
+    trace('customer-verification', 'confirm', input(sessionScope, verificationConfirmationBody)),
     async (request) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema
-          // Legacy customer OTP is 4 digits (order/views.py:2536-2597, create_order.html:4758).
-          .extend({ otp: z.string().regex(/^\d{4}$/) })
-          .strict()
-          .parse(request.body);
+        body = verificationConfirmationBody.parse(request.body);
       return response(await service.verify(user, p.storeId, p.checkoutId, body, body.otp));
     },
   );
   app.post(
     session + '/customer-verification/reconciliations',
-    trace('customer-verification', 'reconcile'),
+    trace('customer-verification', 'reconcile', input(sessionScope, mutationBody)),
     async (request) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema.strict().parse(request.body);
+        body = mutationBody.parse(request.body);
       return response(await service.reconcileVerification(user, p.storeId, p.checkoutId, body));
     },
   );
-  app.post(session + '/quotes', trace('checkout-quote', 'create'), async (request) => {
-    const user = authenticated(request),
-      p = sessionScope.parse(request.params),
-      body = mutationSchema.strict().parse(request.body);
-    return response(await service.quote(user, p.storeId, p.checkoutId, body));
-  });
+  app.post(
+    session + '/quotes',
+    trace('checkout-quote', 'create', input(sessionScope, mutationBody)),
+    async (request) => {
+      const user = authenticated(request),
+        p = sessionScope.parse(request.params),
+        body = mutationBody.parse(request.body);
+      return response(await service.quote(user, p.storeId, p.checkoutId, body));
+    },
+  );
   app.post(
     session + '/order-submissions',
-    trace('checkout-order', 'create'),
+    trace('checkout-order', 'create', input(sessionScope, submissionBody)),
     async (request, reply) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema
-          .extend({ payment: paymentInputSchema.optional() })
-          .strict()
-          .parse(request.body);
+        body = submissionBody.parse(request.body);
       const result = await service.submit(
         user,
         p.storeId,
@@ -714,27 +798,27 @@ export function registerCheckout(
   );
   app.get(
     session + '/operations/:operationId',
-    trace('checkout-operation', 'read'),
+    trace('checkout-operation', 'read', input(operationParams)),
     async (request) => {
       const user = authenticated(request),
-        p = sessionScope.extend({ operationId: z.uuid() }).parse(request.params);
+        p = operationParams.parse(request.params);
       return service.operation(user, p.storeId, p.checkoutId, p.operationId);
     },
   );
   app.post(
     session + '/order-finalizations',
-    trace('checkout-order', 'finalize'),
+    trace('checkout-order', 'finalize', input(sessionScope, mutationBody)),
     async (request, reply) => {
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
-        body = mutationSchema.strict().parse(request.body),
+        body = mutationBody.parse(request.body),
         result = await service.finalize(user, p.storeId, p.checkoutId, body);
       return reply.code(result.status === 'succeeded' ? 200 : 202).send(response(result));
     },
   );
   app.get(
     '/api/v1/stores/:storeId/return-reasons',
-    trace('return-reason', 'list'),
+    trace('return-reason', 'list', input(storeScope)),
     async (request) => {
       const user = authenticated(request),
         p = storeScope.parse(request.params);
@@ -743,39 +827,37 @@ export function registerCheckout(
   );
   app.get(
     '/api/v1/stores/:storeId/products/:productId/return-reasons/:reasonId/sub-reasons',
-    trace('return-sub-reason', 'list'),
+    trace('return-sub-reason', 'list', input(subReasonParams)),
     async (request) => {
       const user = authenticated(request),
-        p = storeScope
-          .extend({ productId: identifier, reasonId: identifier })
-          .parse(request.params);
+        p = subReasonParams.parse(request.params);
       return { data: await returns.subReasons(user, p.storeId, p.productId, p.reasonId) };
     },
   );
   app.get(
     '/api/v1/stores/:storeId/products/:productId/exchange-reasons',
-    trace('exchange-reason', 'list'),
+    trace('exchange-reason', 'list', input(exchangeReasonParams)),
     async (request) => {
       const user = authenticated(request),
-        p = storeScope.extend({ productId: identifier }).parse(request.params);
+        p = exchangeReasonParams.parse(request.params);
       return { data: await returns.exchangeReasons(user, p.storeId, p.productId) };
     },
   );
   app.get(
     '/api/v1/stores/:storeId/products/:parentId/exchange-sizes',
-    trace('exchange-size', 'list'),
+    trace('exchange-size', 'list', input(exchangeSizeParams)),
     async (request) => {
       const user = authenticated(request),
-        p = storeScope.extend({ parentId: identifier }).parse(request.params);
+        p = exchangeSizeParams.parse(request.params);
       return { data: await returns.sizes(user, p.storeId, p.parentId) };
     },
   );
   app.get(
     '/api/v1/stores/:storeId/orders/:orderId/line-items/:lineId/refund-preview',
-    trace('refund-preview', 'read'),
+    trace('refund-preview', 'read', input(refundPreviewParams)),
     async (request) => {
       const user = authenticated(request),
-        p = storeScope.extend({ orderId: identifier, lineId: identifier }).parse(request.params);
+        p = refundPreviewParams.parse(request.params);
       return returns.refund(user, p.storeId, p.orderId, p.lineId);
     },
   );

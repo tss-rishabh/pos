@@ -1,3 +1,4 @@
+import { registerRouteValidation } from '../../../src/domain/route-validation.js';
 import { randomUUID } from 'node:crypto';
 import { Temporal } from '@js-temporal/polyfill';
 import Fastify from 'fastify';
@@ -285,6 +286,7 @@ describe.skipIf(!connection)(
       const app = Fastify(),
         traces: unknown[] = [];
       app.decorateRequest('principal', null);
+      registerRouteValidation(app);
       app.addHook('preHandler', async (request) => {
         request.principal = actor;
       });

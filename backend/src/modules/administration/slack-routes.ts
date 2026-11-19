@@ -3,6 +3,7 @@ import { createHash, createHmac } from 'node:crypto';
 import type { Config } from '../../config.js';
 import { authenticated } from '../../auth/routes.js';
 import { AppError } from '../../domain/errors.js';
+import { routeSchema, transportHeaders } from '../../domain/route-validation.js';
 import {
   slackBroadcastChannel,
   slackCallbackInput,
@@ -10,6 +11,9 @@ import {
   type SlackConnectResult,
   type slackConnectionService,
 } from './slack-connections.js';
+
+/** Slack's OAuth redirect carries only `code`, `state` and `error` (legacy view reads no other key). */
+const slackCallbackQuery = slackCallbackInput.strict();
 
 /**
  * Popup script of legacy `stores/templates/stores/slack_callback.html:30-38`: post the result to
@@ -118,7 +122,10 @@ export function registerSlackConnections(
     };
   app.get(
     '/api/v1/admin/slack/connect',
-    trace('start'),
+    {
+      ...trace('start'),
+      ...routeSchema({ querystring: slackConnectInput, headers: transportHeaders }),
+    },
     guarded(async (request, reply) => {
       const outcome = await service.start(
         authenticated(request),
@@ -134,7 +141,10 @@ export function registerSlackConnections(
   );
   app.get(
     '/api/v1/admin/slack/oauth/callback',
-    trace('complete'),
+    {
+      ...trace('complete'),
+      ...routeSchema({ querystring: slackCallbackQuery, headers: transportHeaders }),
+    },
     guarded(async (request, reply) => {
       const controller = new AbortController();
       reply.raw.once('close', () => controller.abort());
@@ -142,7 +152,7 @@ export function registerSlackConnections(
         reply,
         await service.complete(
           authenticated(request),
-          slackCallbackInput.parse(request.query),
+          slackCallbackQuery.parse(request.query),
           binding(request),
           controller.signal,
         ),
