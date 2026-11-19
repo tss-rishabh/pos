@@ -19,6 +19,12 @@ import {
   UserStore,
 } from '../../src/db/legacy-schema.js';
 import {
+  legacyHasProductDefaults,
+  legacyOrderDefaults,
+  legacyProductDefaults,
+  legacyUserDefaults,
+} from './legacy-row-defaults.js';
+import {
   createProductionTables,
   productionTableNames,
 } from '../../tests/helpers/production-schema.js';
@@ -127,7 +133,8 @@ export async function seedE2e(
     now = options.now ?? Date.now(),
     stamp = businessLocal(now, timeZone),
     db = drizzle(connection);
-  // Production runs with an empty sql_mode; omitted NOT NULL columns take implicit defaults.
+  // Production runs with an empty sql_mode. The inserts write the stored NOT NULL defaults
+  // explicitly (legacy-row-defaults.ts), so the rows are the same in any mode.
   await connection.query("SET SESSION sql_mode = ''");
   await db.insert(Store).values(
     [...e2eStores, e2eUnassignedStore].map((store, index) => ({
@@ -193,6 +200,7 @@ export async function seedE2e(
   );
   await db.insert(Product).values(
     e2eProducts.map((product) => ({
+      ...legacyProductDefaults,
       id: product.id,
       product: product.name,
       erp_product: product.erp,
@@ -276,12 +284,10 @@ export async function seedE2e(
     created_at: stamp,
     updated_at: stamp,
   });
-  await db
-    .insert(PaymentStatus)
-    .values([
-      { id: 1n, payment_status: 'Pending', created_at: stamp, updated_at: stamp },
-      { id: 4n, payment_status: 'Paid', created_at: stamp, updated_at: stamp },
-    ]);
+  await db.insert(PaymentStatus).values([
+    { id: 1n, payment_status: 'Pending', created_at: stamp, updated_at: stamp },
+    { id: 4n, payment_status: 'Paid', created_at: stamp, updated_at: stamp },
+  ]);
   const customers = [
     ['Walk-in', 'customer'],
     ['Alex', 'Morgan'],
@@ -289,6 +295,7 @@ export async function seedE2e(
   ] as const;
   await db.insert(MUser).values(
     customers.map(([first, last], index) => ({
+      ...legacyUserDefaults,
       id: BigInt(700001 + index),
       firstname: first,
       lastname: last,
@@ -318,6 +325,7 @@ export async function seedE2e(
       product = e2eProducts[index % 3]!,
       created = businessLocal(now - (index + 1) * 1_800_000, timeZone);
     await db.insert(Order).values({
+      ...legacyOrderDefaults,
       id,
       order_ref_no: `SYN-${id}`,
       user: BigInt(700001 + (index % 3)),
@@ -372,6 +380,7 @@ export async function seedE2e(
       is_shopify_order: false,
     });
     await db.insert(HasProduct).values({
+      ...legacyHasProductDefaults,
       order: id,
       product: product.id,
       sub_prod_id: 0n,

@@ -10,6 +10,7 @@ import {
   SalesPerson,
   StoreSalesPerson,
 } from '../../src/db/legacy-schema.js';
+import { legacyUserDefaults } from './legacy-row-defaults.js';
 import { privateRedisFixture } from '../../tests/helpers/private-redis.js';
 import { startFakeAdapters } from './fakes.js';
 import { startOrderApiFake } from './order-api.js';
@@ -69,6 +70,7 @@ try {
   // account (legacy user_type 8 linked by pos_admin_id), active salespeople for both stores
   // (legacy requires one on every order) and the operator-recorded "Others" terminal mode.
   await db.insert(MUser).values({
+    ...legacyUserDefaults,
     id: 700100n,
     firstname: 'Synthetic',
     lastname: 'operator account',

@@ -11,6 +11,7 @@ import {
   ProductBarcode,
   ProductStore,
 } from '../../src/db/legacy-schema.js';
+import { legacyHasProductDefaults, legacyOrderDefaults } from './legacy-row-defaults.js';
 
 /**
  * Stateful loopback stand-in for the API-v2 cart/order endpoints and the payment-order
@@ -179,6 +180,7 @@ export async function startOrderApiFake(connection: mysql.Connection, timeZone =
         stamp = localStamp(now, timeZone),
         payable = view(lines).meta.items[0]!.total;
       const [inserted] = await db.insert(Order).values({
+        ...legacyOrderDefaults,
         order_ref_no: '',
         user: BigInt(String(payload.admin_user_id ?? '0')),
         order_amt: payable,
@@ -240,6 +242,7 @@ export async function startOrderApiFake(connection: mysql.Connection, timeZone =
       });
       for (const line of lines) {
         await db.insert(HasProduct).values({
+          ...legacyHasProductDefaults,
           order: orderId,
           product: BigInt(line.prod_id),
           sub_prod_id: 0n,

@@ -17,6 +17,7 @@ import {
   SalesPerson,
   StoreSalesPerson,
 } from '../../src/db/legacy-schema.js';
+import { legacyUserDefaults } from './legacy-row-defaults.js';
 import { privateRedisFixture } from '../../tests/helpers/private-redis.js';
 import { startFakeAdapters } from './fakes.js';
 import { startOrderApiFake } from './order-api.js';
@@ -77,6 +78,7 @@ try {
   const db = drizzle(connection);
   // The operator's checkout account (legacy user_type 8 linked by pos_admin_id).
   await db.insert(MUser).values({
+    ...legacyUserDefaults,
     id: 700100n,
     firstname: 'Synthetic',
     lastname: 'operator account',

@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/mysql2';
 import mysql from 'mysql2/promise';
 import { HasProduct, Order, OrderStore } from '../../src/db/legacy-schema.js';
+import { legacyHasProductDefaults, legacyOrderDefaults } from './legacy-row-defaults.js';
 import { e2eDatabaseUrl, e2eProducts } from './seed.js';
 
 /** Naive business-local `YYYY-MM-DD HH:MM:SS` (legacy USE_TZ=False datetimes). */
@@ -45,6 +46,7 @@ export async function createUnpaidCounterOrder(
       created = businessLocal(Date.now() - 60_000, timeZone);
     return await db.transaction(async (tx) => {
       const [inserted] = await tx.insert(Order).values({
+        ...legacyOrderDefaults,
         order_ref_no: '',
         user: 700001n,
         order_amt: Number(product.price),
@@ -103,6 +105,7 @@ export async function createUnpaidCounterOrder(
         is_shopify_order: false,
       });
       await tx.insert(HasProduct).values({
+        ...legacyHasProductDefaults,
         order: id,
         product: product.id,
         sub_prod_id: 0n,

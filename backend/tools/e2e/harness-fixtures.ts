@@ -10,6 +10,7 @@ import {
   PosOnlineOrder,
   PosTerminalTransaction,
 } from '../../src/db/legacy-schema.js';
+import { legacyHasProductDefaults, legacyOrderDefaults } from './legacy-row-defaults.js';
 import { e2eDatabaseUrl } from './seed.js';
 
 /**
@@ -59,6 +60,7 @@ interface FixtureOrder {
 const database = (connection: mysql.Connection) => drizzle(connection);
 async function insertOrder(db: ReturnType<typeof database>, order: FixtureOrder) {
   await db.insert(Order).values({
+    ...legacyOrderDefaults,
     id: order.id,
     order_ref_no: order.reference,
     user: order.customer,
@@ -115,6 +117,7 @@ async function insertOrder(db: ReturnType<typeof database>, order: FixtureOrder)
       is_shopify_order: false,
     });
   await db.insert(HasProduct).values({
+    ...legacyHasProductDefaults,
     order: order.id,
     product: order.line.product,
     sub_prod_id: 0n,

@@ -259,6 +259,12 @@ const checks: Check[] = [
     args: ['node_modules/eslint/bin/eslint.js', 'src', 'tests', 'tools', 'vitest.config.ts'],
   },
   {
+    // The e2e/harness seed tooling (backend/tools/e2e) is outside tsconfig.json's src-only build.
+    id: 'e2e-tooling-typecheck',
+    directory: 'backend',
+    args: ['node_modules/typescript/bin/tsc', '--noEmit', '-p', 'tools/e2e/tsconfig.json'],
+  },
+  {
     id: 'shipping-fixture-typecheck',
     directory: 'backend',
     args: [
