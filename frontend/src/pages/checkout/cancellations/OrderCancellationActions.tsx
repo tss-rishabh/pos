@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { captureOperatorScope, post, request } from '../../../api/client';
+import { RequestReference, useProblem } from '../../../components/common';
 import { useOnline } from '../../../hooks/use-pos';
 import {
   cancellationContextSchema,
@@ -17,7 +18,7 @@ interface Props {
 export function OrderCancellationActions({ ownerId, storeId, orderId, onCancelled }: Props) {
   const online = useOnline(),
     [context, setContext] = useState<CancellationContext | null>(null),
-    [problem, setProblem] = useState(''),
+    [problem, setProblem, problemCause, reportProblem] = useProblem(),
     [busy, setBusy] = useState(false),
     [confirming, setConfirming] = useState(false),
     [done, setDone] = useState('');
@@ -36,8 +37,7 @@ export function OrderCancellationActions({ ownerId, storeId, orderId, onCancelle
         setContext(value);
       })
       .catch((error: unknown) => {
-        if (!signal.aborted)
-          setProblem(error instanceof Error ? error.message : 'Cancellation state is unavailable.');
+        if (!signal.aborted) reportProblem(error, 'Cancellation state is unavailable.');
       });
   }, [online, base, ownerId, storeId, orderId]);
   async function cancel() {
@@ -56,8 +56,7 @@ export function OrderCancellationActions({ ownerId, storeId, orderId, onCancelle
       setConfirming(false);
       callback.current();
     } catch (error) {
-      if (!signal.aborted)
-        setProblem(error instanceof Error ? error.message : 'Something went wrong.');
+      if (!signal.aborted) reportProblem(error, 'Something went wrong.');
     } finally {
       lock.current = false;
       if (!signal.aborted) setBusy(false);
@@ -70,6 +69,7 @@ export function OrderCancellationActions({ ownerId, storeId, orderId, onCancelle
           {problem}
         </p>
       )}
+      {problem && <RequestReference error={problemCause} />}
       {done ? (
         <p role="status">{done}</p>
       ) : context?.eligible ? (

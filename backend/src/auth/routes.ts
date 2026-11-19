@@ -114,8 +114,25 @@ export function registerAuth(app: FastifyInstance, options: AuthRouteOptions) {
   app.decorateRequest('authSessionId', null);
   app.decorateRequest('authSessionValid', null);
   app.decorateRequest('auditUserId', null);
-  app.addHook('preHandler', async (request) => {
-    if (request.routeOptions.config.authentication === 'service') return;
+  /**
+   * S50: the session is resolved in `onRequest`, before body parsing and zod validation, and a
+   * route that requires a session (the default) answers 401 here. Unauthenticated callers never
+   * reach the schema, so they never see a shape error. `public` routes (login, health) resolve a
+   * session when present and validate first; `service` routes check their own secret.
+   */
+  app.addHook('onRequest', async (request) => {
+    const mode = request.routeOptions.config.authentication ?? 'session';
+    if (mode === 'service') return;
+    await resolveSession(request);
+    if (
+      mode === 'session' &&
+      !request.principal &&
+      request.routeOptions.url !== undefined &&
+      request.method !== 'OPTIONS'
+    )
+      throw new AppError(401, 'AUTH_REQUIRED', 'Sign in to continue.');
+  });
+  async function resolveSession(request: FastifyRequest) {
     const token = readSessionToken(request, config);
     if (!token) return;
     // Legacy AuthenticationMiddleware: the user row is re-read on every request and the
@@ -129,17 +146,20 @@ export function registerAuth(app: FastifyInstance, options: AuthRouteOptions) {
     request.authSessionValid = (transaction) => sessions.valid(token.id, token, transaction);
     request.principal = principal;
     request.sessionExpiresAt = token.expires;
-  });
+  }
+  // Login-challenge routes run before a session exists.
   const trace = (resource: string, action: string, body?: z.ZodType) => ({
-    config: { trace: { module: 'identity', resource, action } },
+    config: { trace: { module: 'identity', resource, action }, authentication: 'public' as const },
     ...authSchema(body),
   });
-  app.get('/api/v1/auth/capabilities', authSchema(), async (request) => {
+  const publicRoute = { config: { authentication: 'public' as const } };
+  app.get('/api/v1/auth/capabilities', { ...publicRoute, ...authSchema() }, async (request) => {
     validate(request);
     return { password: !demoUser, demo: Boolean(demoUser) };
   });
   /** Password step (legacy CustomLoginView.post). */
-  app.post('/api/v1/auth/sessions', authSchema(passwordStep), async (request, reply) => {
+  const passwordRoute = { ...publicRoute, ...authSchema(passwordStep) };
+  app.post('/api/v1/auth/sessions', passwordRoute, async (request, reply) => {
     const body = validate(request, passwordStep) as z.infer<typeof passwordStep>;
     const previous = request.cookies[pendingCookieName];
     reply.clearCookie(pendingCookieName, pendingCookie);
@@ -217,7 +237,10 @@ export function registerAuth(app: FastifyInstance, options: AuthRouteOptions) {
     },
   );
   // These two routes read no body; the clients send none.
-  const bodyless = routeSchema({ querystring: noQuery, body: noBody, headers: authHeaders });
+  const bodyless = {
+    ...publicRoute,
+    ...routeSchema({ querystring: noQuery, body: noBody, headers: authHeaders }),
+  };
   app.post('/api/v1/auth/demo-sessions', bodyless, async (request, reply) => {
     validate(request);
     if (!demoUser) throw new AppError(404, 'NOT_FOUND', 'Not found.');

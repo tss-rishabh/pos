@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { X } from 'lucide-react';
 import { request } from '../../api/client';
+import { RequestReference, useProblem } from '../../components/common';
 import '../administration/styles.css';
 
 const base = '/api/v1/operators/current/device-handoffs';
@@ -53,7 +54,7 @@ function DeviceHandoffDialog({
     offset = useRef(0),
     [code, setCode] = useState<Code | null>(null),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState(''),
+    [error, setError, errorCause, reportError] = useProblem(),
     [message, setMessage] = useState(''),
     [clock, setClock] = useState(Date.now());
   async function issue() {
@@ -81,10 +82,7 @@ function DeviceHandoffDialog({
       setClock(Date.now());
       setCode(result);
     } catch (failure) {
-      if (!controller.signal.aborted)
-        setError(
-          failure instanceof Error ? failure.message : 'The device code could not be loaded.',
-        );
+      if (!controller.signal.aborted) reportError(failure, 'The device code could not be loaded.');
     } finally {
       if (!controller.signal.aborted) setBusy(false);
     }
@@ -164,6 +162,7 @@ function DeviceHandoffDialog({
       {!online && <p role="status">Reconnect to generate a device code.</p>}
       {busy && <p role="status">Confirming device code…</p>}
       {error && <p role="alert">{error}</p>}
+      {error && <RequestReference error={errorCause} />}
       {message && <p role="status">{message}</p>}
       {code && remaining > 0 && (
         <div className="profile-device-code">

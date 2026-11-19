@@ -29,9 +29,9 @@ Mechanics:
 - The validator returns the original value, so handler behaviour does not change. Handlers keep
   parsing with the same hoisted schema constants, which keeps transforms and defaults where they
   were.
-- Validation runs in Fastify's validation phase: after `onRequest` (origin check, trace),
-  **before** the session `preHandler`. An unauthenticated request with an invalid shape therefore
-  gets 400, not 401. The response never echoes values (§2).
+- Validation runs in Fastify's validation phase. Since the follow-up (S50, §10), session routes
+  authenticate in `onRequest` first, so an unauthenticated request gets 401 before any schema
+  check. The response never echoes values (§3).
 
 ## 2. Exceptions
 
@@ -211,19 +211,70 @@ Tests:
   - Offline billing: 48 tests passed.
 
 ## 9. Leftovers and candidate security decisions
-- About 42 inline error renderings in page files outside W12 ownership still show
-  `error.message` without the reference. `ErrorState` and checkout review show it. These pages can
-  adopt `<RequestReference error={…} />`.
+- Resolved in the follow-up (§10): the request reference on page errors, `lookupCustomers`, and
+  candidate (a), which became S50 and was reversed so authentication now runs first.
 - The MySQL-gated suites were not run in this phase. Sub-workers added only setup lines to them.
-- BigQuery receives no trace. Query job `labels` could carry `request_id`, which needs a warehouse
-  change (W11 area).
-- `frontend/src/pages/checkout/client.ts` `lookupCustomers` sends `{ query, counterId }`. The
-  backend rejected this before W12 too, and the call looks unused; flagged for the checkout owner.
-- **Candidate decisions for `security-decisions.md`:** these are for the primary agent to number;
-  W12 did not edit that file.
-  - (a) Validation precedes authentication, so the schema shape is visible to unauthenticated
-    callers and no values are echoed.
-  - (b) An inbound `X-Request-Id` is honoured only when it is a UUID.
-  - (c) The default 404 body no longer echoes the URL.
-  - (d) MySQL driver errors are mapped to 409/423/503 with no SQL text.
-  - (e) `X-Request-Id` is withheld from third-party providers.
+- BigQuery receives no trace. Query job `labels` could carry `request_id`; this is deferred until
+  W11 finishes the warehouse queries.
+- The candidate decisions were recorded by the primary agent as S50–S54.
+
+## 10. Follow-up (after merge at `a857e52c`)
+
+### S50: authentication before validation
+- `src/auth/routes.ts` resolves the session in an `onRequest` hook (previously `preHandler`).
+  Routes default to `authentication: 'session'`; for those, an unauthenticated call is answered
+  `401 AUTH_REQUIRED` there, before body parsing and zod validation. No per-route code is involved.
+- Modes (`FastifyContextConfig.authentication`):
+  - `public`: the session is read if present but not required, and validation runs first. This
+    covers `GET /health/live`, `GET /health/ready`, `GET /api/v1/auth/capabilities`,
+    `POST /api/v1/auth/sessions`, `GET /api/v1/auth/challenges/current`, the challenge resends
+    and verifications, `DELETE /api/v1/auth/sessions/current` and the demo session route (W10
+    removes it).
+  - `service`: no session is read, and the route's own secret or proof guard decides. Examples are
+    the webhooks with API-key guards, `/user_to_app`, application-link proofs and the device-handoff
+    verification. Validation still precedes the handler.
+  - Unknown URLs (404) and CORS preflights are not gated.
+- Origin checking (403) still runs first, as before.
+- Tests in `tests/route-validation.test.ts`:
+  - The set of public routes is asserted exactly, so no route becomes public by accident.
+  - Unauthenticated calls with bad params, an unknown query key with a phone-like value, an unknown
+    body key, or malformed JSON all get 401 `AUTH_REQUIRED`, with no `fields` and no echoed value.
+  - The login route still gets a 400 `INVALID_REQUEST` for a bad shape, `/user_to_app` gets a 400
+    for a bad `store_id`, and the day-close webhook is answered by its own API-key guard rather
+    than the session gate.
+- Also dropped an `undefined` GET body schema in `order-history/search/index.ts` that made Fastify
+  print `FSTWRN001`.
+
+### Request reference on error pages
+- `src/components/common.tsx` adds `useProblem()`. It returns `[message, setMessage, cause,
+  report]`; `report(error, fallback, { apiOnly })` keeps the failure so the page can render
+  `<RequestReference error={cause} />` next to the message.
+- 39 inline error sites in 24 page files now show "Reference `<uuid>`" for API failures:
+  - checkout: review, payment, birthday, membership email, benefit adjustments, cancellations
+  - counter and counter catalog, sync
+  - order status and order copy
+  - invoices
+  - payment reversals and vouchers
+  - customer insights, contacts and website handoff
+  - device handoff
+  - administration: editor, MFA, assignments, documentation, store form (its `window.alert`
+    appends `(Reference …)`)
+- Left unchanged on purpose. None of these involve a server request:
+  - `TerminalStatus.tsx`: legacy status text `Status :Failed, Check Status Again`.
+  - `offline/sync.ts`: a stored queue record, not rendered.
+  - Offline billing: IPC errors.
+  - The checkout review's local snapshot check.
+
+### `lookupCustomers`
+Deleted from `frontend/src/pages/checkout/client.ts`. It had no callers, and its body
+`{ query, counterId }` never matched the contract. `CustomerLookup.tsx` calls the same endpoint
+correctly.
+
+### Results
+- Backend:
+  - `tsc` and `eslint .` are clean.
+  - `vitest`: 156 files passed, 45 skipped. 671 tests passed, 386 skipped. route-validation:
+    335/335.
+- Frontend:
+  - `tsc` (app and electron) and `eslint .` are clean.
+  - `vitest`: 57 files passed, 15 skipped. 294 tests passed.

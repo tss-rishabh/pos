@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { AlertCircle, ArrowUpRight, LoaderCircle, PackageOpen } from 'lucide-react';
-import { errorRequestId } from '../api/client';
+import { ApiError, errorRequestId } from '../api/client';
 
 export function Loading() {
   return (
@@ -23,6 +23,31 @@ export function ErrorState({ error, retry }: { error: unknown; retry?: () => voi
       )}
     </div>
   );
+}
+/**
+ * Problem-message state that remembers the failure behind it, so the message can be shown with
+ * `<RequestReference error={cause} />`. `setMessage` sets a plain message (and forgets the cause);
+ * `report(error, fallback)` shows the error's message, or the fallback for non-Error values (or
+ * for non-API errors when `apiOnly`), and keeps the error for its request reference.
+ */
+export function useProblem(initial = '') {
+  const [state, setState] = useState<{ message: string; cause: unknown }>({
+    message: initial,
+    cause: null,
+  });
+  const setMessage = useCallback((message: string) => setState({ message, cause: null }), []);
+  const report = useCallback(
+    (error: unknown, fallback: string, options: { apiOnly?: boolean } = {}) =>
+      setState({
+        message:
+          error instanceof Error && (!options.apiOnly || error instanceof ApiError)
+            ? error.message
+            : fallback,
+        cause: error,
+      }),
+    [],
+  );
+  return [state.message, setMessage, state.cause, report] as const;
 }
 /** The server request ID of a failed call, for support to look up the request's logs. */
 export function RequestReference({ error }: { error: unknown }) {

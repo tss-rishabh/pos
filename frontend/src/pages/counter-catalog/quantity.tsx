@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { RequestReference, useProblem } from '../../components/common';
 import { db } from '../../offline/database';
 import type { ScanScope } from './barcode';
 
@@ -50,7 +51,7 @@ export function DraftQuantity({
   onCommit: (quantity: number) => Promise<void>;
 }) {
   const [value, setValue] = useState(String(quantity)),
-    [error, setError] = useState(''),
+    [error, setError, errorCause, reportError] = useProblem(),
     [pending, setPending] = useState(false);
   useEffect(() => {
     setValue(String(quantity));
@@ -74,7 +75,7 @@ export function DraftQuantity({
       await onCommit(next);
       setError('');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not update quantity.');
+      reportError(cause, 'Could not update quantity.');
     } finally {
       setPending(false);
     }
@@ -100,6 +101,7 @@ export function DraftQuantity({
         }}
       />
       {error && <small role="alert">{error}</small>}
+      {error && <RequestReference error={errorCause} />}
     </span>
   );
 }

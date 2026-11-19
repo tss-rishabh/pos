@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '../../api/client';
+import { RequestReference, useProblem } from '../../components/common';
 import { currency } from '../../lib/format';
 import type { ConfirmedPayment } from './receipts';
 import {
@@ -77,7 +78,7 @@ export function PaymentPanel({
     [phase, setPhase] = useState<Phase>('form'),
     [recovery, setRecovery] = useState<PaymentRecovery | null>(null),
     [notice, setNotice] = useState(''),
-    [problem, setProblem] = useState(''),
+    [problem, setProblem, problemCause, reportProblem] = useProblem(),
     [busy, setBusy] = useState(false);
   const lock = useRef(false),
     notified = useRef<string | null>(null),
@@ -147,8 +148,7 @@ export function PaymentPanel({
         setForm(initial);
         setMessage(paymentMessage(initial));
       } catch (error) {
-        if (active)
-          setProblem(error instanceof Error ? error.message : 'Payment options are unavailable.');
+        if (active) reportProblem(error, 'Payment options are unavailable.');
       }
     })();
     return () => {
@@ -162,7 +162,7 @@ export function PaymentPanel({
     try {
       saved = readPaymentRecovery(storageKey);
     } catch (error) {
-      setProblem(error instanceof Error ? error.message : 'Payment recovery is unavailable.');
+      reportProblem(error, 'Payment recovery is unavailable.');
     }
     setRecovery(saved);
     void (async () => {
@@ -195,8 +195,7 @@ export function PaymentPanel({
           setRecovery(null);
         }
       } catch (error) {
-        if (active)
-          setProblem(error instanceof Error ? error.message : 'Payment status is unavailable.');
+        if (active) reportProblem(error, 'Payment status is unavailable.');
       }
     })();
     return () => {
@@ -212,7 +211,7 @@ export function PaymentPanel({
     try {
       await task();
     } catch (error) {
-      setProblem(error instanceof Error ? error.message : 'Failed');
+      reportProblem(error, 'Failed');
     } finally {
       lock.current = false;
       setBusy(false);
@@ -307,6 +306,7 @@ export function PaymentPanel({
           {problem}
         </p>
       )}
+      {problem && <RequestReference error={problemCause} />}
       {notice && <p role="status">{notice}</p>}
       {!online && <p>Reconnect to confirm payment. Products remain pending delivery.</p>}
       {online && !context && !problem && <p role="status">Loading the payment state…</p>}
@@ -326,9 +326,7 @@ export function PaymentPanel({
           onSettled={(result, text) => {
             setNotice(text);
             if (result?.status === 'paid') confirm(result, 'action');
-            void reload().catch((error) =>
-              setProblem(error instanceof Error ? error.message : 'Payment status is unavailable.'),
-            );
+            void reload().catch((error) => reportProblem(error, 'Payment status is unavailable.'));
           }}
         />
       ) : recovery?.intent ? (

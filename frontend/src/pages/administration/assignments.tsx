@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { request } from '../../api/client';
 import { commonStoreSchema } from './api';
-import { Loading, ErrorState } from '../../components/common';
+import { Loading, ErrorState, RequestReference, useProblem } from '../../components/common';
 
 export function AssignmentEditor({
   ownerId,
@@ -24,7 +24,7 @@ export function AssignmentEditor({
     [selected, setSelected] = useState(new Set(initialIds)),
     [active, setActive] = useState(initialActiveStoreId || ''),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState('');
+    [error, setError, errorCause, reportError] = useProblem();
   const stores = useQuery({
     queryKey: [ownerId, 'administration', 'assignable-stores'],
     queryFn: () => request('/api/v1/stores', {}, z.object({ data: z.array(commonStoreSchema) })),
@@ -64,11 +64,7 @@ export function AssignmentEditor({
               .map((store) => store.id);
             void onSave(ids, active && ids.includes(active) ? active : null)
               .then(onClose)
-              .catch((failure: unknown) =>
-                setError(
-                  failure instanceof Error ? failure.message : 'Store access could not be saved.',
-                ),
-              )
+              .catch((failure: unknown) => reportError(failure, 'Store access could not be saved.'))
               .finally(() => setBusy(false));
           }}
         >
@@ -112,6 +108,7 @@ export function AssignmentEditor({
           {error && (
             <div className="inline-error" role="alert">
               {error}
+              <RequestReference error={errorCause} />
             </div>
           )}
           <div className="administration-dialog-actions">

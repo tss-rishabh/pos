@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 import { ApiError, captureOperatorScope, request } from '../../api/client';
+import { RequestReference, useProblem } from '../../components/common';
 import type { Checkout } from '../checkout/client';
 import {
   checkVoucher,
@@ -51,7 +52,7 @@ function ScopedVoucherConversion({
     [intent, setIntent] = useState<VoucherIntent | null>(null),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState(''),
-    [problem, setProblem] = useState('');
+    [problem, setProblem, problemCause, reportProblem] = useProblem();
   const journal = useRef(
       voucherJournal(
         `pos-voucher-conversion:${user.id}:${state.storeId}:${state.counterId}:${state.id}:${state.customerId}`,
@@ -117,7 +118,7 @@ function ScopedVoucherConversion({
         (error.code === 'GIFT_CARD_PIN_REQUIRED' || error.code === 'GIFT_CARD_PIN_INVALID')
       )
         return;
-      setProblem(error instanceof Error ? error.message : 'The voucher request failed.');
+      reportProblem(error, 'The voucher request failed.');
     } finally {
       active.current = false;
       if (!signal.aborted) setBusy(false);
@@ -242,6 +243,7 @@ function ScopedVoucherConversion({
           {problem}
         </p>
       )}
+      {problem && <RequestReference error={problemCause} />}
       {notice && <p role="status">{notice}</p>}
       {intent && !pinStep && (
         <>

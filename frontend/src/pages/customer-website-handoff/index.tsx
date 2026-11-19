@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Principal } from '../../api/types';
-import { ApiError, captureOperatorScope } from '../../api/client';
+import { captureOperatorScope } from '../../api/client';
+import { RequestReference, useProblem } from '../../components/common';
 import { issueWebsiteHandoff, websiteHandoffUrl } from './api';
 
 export interface CustomerWebsiteHandoffProps {
@@ -22,7 +23,7 @@ export function CustomerWebsiteHandoffAction(props: CustomerWebsiteHandoffProps)
   const { user, storeId, checkoutId, checkoutVersion, online, disabled = false, onOpen } = props;
   const controller = useRef(new AbortController());
   const [busy, setBusy] = useState(false),
-    [message, setMessage] = useState(''),
+    [message, setMessage, messageCause, reportMessage] = useProblem(),
     [minutes, setMinutes] = useState<number | null>(null);
   useEffect(() => {
     controller.current.abort();
@@ -43,11 +44,7 @@ export function CustomerWebsiteHandoffAction(props: CustomerWebsiteHandoffProps)
       await onOpen(websiteHandoffUrl(result.webUrl));
     } catch (error) {
       if (signal.aborted) return;
-      setMessage(
-        error instanceof ApiError
-          ? error.message
-          : 'Could not open the customer website. Try again.',
-      );
+      reportMessage(error, 'Could not open the customer website. Try again.', { apiOnly: true });
     } finally {
       if (!signal.aborted) setBusy(false);
     }
@@ -72,6 +69,7 @@ export function CustomerWebsiteHandoffAction(props: CustomerWebsiteHandoffProps)
           : '.'}
       </small>
       {message && <p role="status">{message}</p>}
+      {message && <RequestReference error={messageCause} />}
     </section>
   );
 }

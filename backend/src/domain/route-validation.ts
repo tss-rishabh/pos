@@ -69,7 +69,7 @@ export interface RegisteredRoute {
   url: string;
   schema: RouteSchema | undefined;
   handler: RouteOptions['handler'];
-  authentication: 'session' | 'service';
+  authentication: 'session' | 'service' | 'public';
 }
 const registries = new WeakMap<FastifyInstance, RegisteredRoute[]>();
 /** Every route registered on the app, with its declared schemas (route-validation test). */

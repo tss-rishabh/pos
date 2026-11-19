@@ -23,7 +23,12 @@ export async function registerOrderSearch(
     empty = z.object({}).strict();
   const trace = (resource: string, body?: z.ZodType) => ({
     config: { trace: { module: 'orders', resource, action: 'read' } },
-    ...routeSchema({ params, querystring: empty, body, headers: transportHeaders }),
+    ...routeSchema({
+      params,
+      querystring: empty,
+      headers: transportHeaders,
+      ...(body ? { body } : {}),
+    }),
   });
   async function checked<T>(request: FastifyRequest, work: () => Promise<T>) {
     authenticated(request);

@@ -1,5 +1,5 @@
 import { CloudCheck, CloudOff, RefreshCw } from 'lucide-react';
-import { Empty, PageTitle } from '../components/common';
+import { Empty, PageTitle, RequestReference, useProblem } from '../components/common';
 import type { Operation } from '../offline/database';
 import { useState } from 'react';
 import { db } from '../offline/database';
@@ -19,7 +19,7 @@ export function SyncPage({
   sync: () => Promise<void>;
 }) {
   const [review, setReview] = useState<{ operation: Operation; remote: Draft } | null>(null),
-    [error, setError] = useState('');
+    [error, setError, errorCause, reportError] = useProblem();
   async function loadConflict(operation: Operation) {
     try {
       const result = await request(
@@ -33,7 +33,7 @@ export function SyncPage({
       setReview({ operation, remote });
       setError('');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load the server sale.');
+      reportError(e, 'Could not load the server sale.');
     }
   }
   async function choose(choice: 'local' | 'server') {
@@ -43,7 +43,7 @@ export function SyncPage({
       setReview(null);
       await sync();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not resolve this sale.');
+      reportError(e, 'Could not resolve this sale.');
     }
   }
   return (
@@ -68,6 +68,7 @@ export function SyncPage({
       {error && (
         <div role="alert" className="inline-error">
           {error}
+          <RequestReference error={errorCause} />
         </div>
       )}
       <section className="surface">

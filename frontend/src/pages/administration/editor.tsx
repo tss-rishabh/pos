@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
+import { RequestReference, useProblem } from '../../components/common';
 import { useOnline } from '../../hooks/use-pos';
 
 export interface AdministrationField {
@@ -42,7 +43,7 @@ export function AdministrationEditor({
     [values, setValues] = useState(initialValues),
     [busy, setBusy] = useState(false),
     [actionBusy, setActionBusy] = useState<string | null>(null),
-    [error, setError] = useState('');
+    [error, setError, errorCause, reportError] = useProblem();
   const online = useOnline();
   useEffect(() => {
     const element = dialog.current;
@@ -79,11 +80,7 @@ export function AdministrationEditor({
           setError('');
           void onSave(values)
             .then(onClose)
-            .catch((failure: unknown) =>
-              setError(
-                failure instanceof Error ? failure.message : 'The change could not be saved.',
-              ),
-            )
+            .catch((failure: unknown) => reportError(failure, 'The change could not be saved.'))
             .finally(() => setBusy(false));
         }}
       >
@@ -172,11 +169,7 @@ export function AdministrationEditor({
                           })
                           .catch((failure: unknown) => {
                             if (!controller.signal.aborted)
-                              setError(
-                                failure instanceof Error
-                                  ? failure.message
-                                  : 'This field could not be updated.',
-                              );
+                              reportError(failure, 'This field could not be updated.');
                           })
                           .finally(() => {
                             if (!controller.signal.aborted) {
@@ -196,6 +189,7 @@ export function AdministrationEditor({
         {error && (
           <div className="inline-error" role="alert">
             {error}
+            <RequestReference error={errorCause} />
           </div>
         )}
         <div className="administration-dialog-actions">

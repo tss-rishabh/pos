@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { RequestReference, useProblem } from '../../components/common';
 import { updatePaymentStatus, type CorrectionReceipt, type PaymentStatusInput } from './client';
 
 export type { CorrectionReceipt } from './client';
@@ -34,7 +35,7 @@ function PaymentStatusForm({ user, storeId, orderId, online, onCorrected }: Prop
     [confirming, setConfirming] = useState(false),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState(''),
-    [problem, setProblem] = useState('');
+    [problem, setProblem, problemCause, reportProblem] = useProblem();
   const lock = useRef(false);
   function validate(): string | null {
     if (!payType) return null;
@@ -73,7 +74,7 @@ function PaymentStatusForm({ user, storeId, orderId, online, onCorrected }: Prop
       setConfirming(false);
       await onCorrected?.(receipt);
     } catch (error) {
-      setProblem(error instanceof Error ? error.message : 'Failed');
+      reportProblem(error, 'Failed');
     } finally {
       lock.current = false;
       setBusy(false);
@@ -86,6 +87,7 @@ function PaymentStatusForm({ user, storeId, orderId, online, onCorrected }: Prop
           {problem}
         </p>
       )}
+      {problem && <RequestReference error={problemCause} />}
       {notice && <p role="status">{notice}</p>}
       <label>
         Action
