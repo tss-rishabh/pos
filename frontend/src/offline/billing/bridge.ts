@@ -66,3 +66,11 @@ export function offlineBillingClient(bridge: DesktopOfflineBridge) {
   };
 }
 export type OfflineBillingClient = ReturnType<typeof offlineBillingClient>;
+
+/** Desktop only: a 5xx without the API error envelope comes from the web server or proxy in
+ * front of the store service (nginx 502/504, a dev proxy 500), so the store service itself is
+ * unreachable. The desktop treats that like a lost connection: cached session, offline shell
+ * and offline billing. Web clients keep reporting the error. */
+export function desktopStoreServiceUnreachable(status: number, enveloped: boolean): boolean {
+  return status >= 500 && !enveloped && desktopOfflineBridge() !== null;
+}

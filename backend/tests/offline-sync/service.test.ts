@@ -12,6 +12,8 @@ import {
   offlineComment,
   offlineCommentPrefix,
   payableText,
+  reconciliationComment,
+  reconciliationPrefix,
   type OfflineOrder,
   type OfflineSyncRepository,
 } from '../../src/modules/offline-sync/repository.js';
@@ -84,7 +86,25 @@ function harness(
         userId: input.userId,
       });
     }),
-    tenderReferenceExists: vi.fn(async () => options.tenderFound ?? false),
+    tenderMatch: vi.fn(async () =>
+      options.tenderFound === undefined
+        ? ('missing' as const)
+        : options.tenderFound
+          ? ('matched' as const)
+          : ('mismatch' as const),
+    ),
+    reconciliationFlagged: vi.fn(async (orderId: string, ref: string) =>
+      comments.some(
+        (item) => item.orderId === orderId && item.comment.startsWith(reconciliationPrefix(ref)),
+      ),
+    ),
+    flagReconciliation: vi.fn(async (flag) => {
+      comments.push({
+        orderId: flag.orderId,
+        comment: reconciliationComment(flag),
+        userId: flag.userId,
+      });
+    }),
     linkCandidate: vi.fn(async (orderId: string) => {
       const order = orders.get(orderId);
       if (!order) return null;
@@ -458,7 +478,7 @@ describe('offline sale sync', () => {
     expect(h.checkout.create).not.toHaveBeenCalled();
   });
 
-  it('returns conflicts for price change, stock shortfall, unknown tender reference and revoked operator', async () => {
+  it('returns conflicts for price change, stock shortfall and revoked operator', async () => {
     const price = harness({ payable: '1099.00' });
     await expect(price.service.sync(cashier, '12', '3', upload())).rejects.toMatchObject({
       status: 409,
@@ -468,16 +488,12 @@ describe('offline sale sync', () => {
     await expect(
       harness({ stockCap: 1 }).service.sync(cashier, '12', '3', upload()),
     ).rejects.toMatchObject({ code: 'OFFLINE_CONFLICT_STOCK_SHORTFALL' });
-    const card = upload({ tender: { mode: 'card', reference: 'RRN12345' } });
-    await expect(harness().service.sync(cashier, '12', '3', card)).rejects.toMatchObject({
-      code: 'OFFLINE_CONFLICT_TENDER_REFERENCE_NOT_FOUND',
-    });
     await expect(
       harness().service.sync(manager, '12', '3', upload({ billedBy: '404' })),
     ).rejects.toMatchObject({ code: 'OFFLINE_CONFLICT_OPERATOR_REVOKED' });
   });
 
-  it('records a matched card/UPI reference as an operator-recorded online tender', async () => {
+  it('records a matched card/UPI reference as a legacy Others payment message, unflagged', async () => {
     const h = harness({ tenderFound: true });
     await h.service.sync(
       cashier,
@@ -493,9 +509,27 @@ describe('offline sale sync', () => {
         channel: 'other',
         onlineAmount: '999.00',
         cashAmount: '0.00',
-        externalReference: 'UPI-REF-1',
+        message: 'UPI-REF-1',
       }),
     );
+    expect(h.comments.map((item) => item.comment)).toEqual([
+      expect.stringMatching(/^Offline bill OFF-12-3-ABCDEF01-1 billed at /),
+    ]);
+  });
+
+  it('accepts an unmatched standalone-terminal reference and flags it once for finance', async () => {
+    const h = harness();
+    const card = upload({ tender: { mode: 'card', reference: 'RRN12345' } });
+    const result = await h.service.sync(cashier, '12', '3', card);
+    expect(result).toMatchObject({ status: 'created', orderId: '5001' });
+    await h.service.sync(cashier, '12', '3', card);
+    expect(h.comments.map((item) => item.comment)).toEqual([
+      expect.stringMatching(/^Offline bill OFF-12-3-ABCDEF01-1 billed at /),
+      'Offline bill OFF-12-3-ABCDEF01-1 reconciliation: CARD reference RRN12345 has no matching terminal transaction. Finance to reconcile.',
+    ]);
+    const mismatch = harness({ tenderFound: false });
+    await mismatch.service.sync(cashier, '12', '3', card);
+    expect(mismatch.comments[1]!.comment).toContain('does not match the terminal transaction');
   });
 
   it('accepts a manager price resolution and charges the authoritative payable', async () => {

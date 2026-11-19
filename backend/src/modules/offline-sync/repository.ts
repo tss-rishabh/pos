@@ -18,6 +18,33 @@ export interface OfflineOrder {
   paid: boolean;
   payable: string;
 }
+/** matched: a terminal row for this store and reference with the same amount, unattached or
+ * attached to this order. mismatch: rows exist but none qualifies. missing: no row. */
+export type TenderMatch = 'matched' | 'mismatch' | 'missing';
+export interface ReconciliationFlag {
+  orderId: string;
+  reference: string;
+  mode: 'card' | 'upi';
+  tenderReference: string;
+  match: Exclude<TenderMatch, 'matched'>;
+  userId: string;
+}
+/** Legacy-style comment that flags a manually entered card/UPI reference for finance. The
+ * prefix differs from the billing comment ('... billed at '), so neither matches the other. */
+export function reconciliationPrefix(reference: string): string {
+  return `Offline bill ${reference} reconciliation: `;
+}
+export function reconciliationComment(
+  flag: Omit<ReconciliationFlag, 'orderId' | 'userId'>,
+): string {
+  return (
+    reconciliationPrefix(flag.reference) +
+    `${flag.mode.toUpperCase()} reference ${flag.tenderReference} ` +
+    (flag.match === 'missing'
+      ? 'has no matching terminal transaction. Finance to reconcile.'
+      : 'does not match the terminal transaction amount or order. Finance to reconcile.')
+  );
+}
 /** An existing order a manager links to an offline sale whose outcome was unknown. */
 export interface OfflineLinkCandidate {
   order: OfflineOrder;
@@ -56,7 +83,15 @@ export interface OfflineSyncRepository {
   commentExists(orderId: string, reference: string): Promise<boolean>;
   linkCandidate(orderId: string): Promise<OfflineLinkCandidate | null>;
   recordReference(input: OfflineReferenceComment): Promise<void>;
-  tenderReferenceExists(storeId: string, reference: string): Promise<boolean>;
+  /** Terminal-table check of a manually entered card/UPI reference (finance reconciliation). */
+  tenderMatch(input: {
+    storeId: string;
+    orderId: string;
+    reference: string;
+    amount: string;
+  }): Promise<TenderMatch>;
+  reconciliationFlagged(orderId: string, reference: string): Promise<boolean>;
+  flagReconciliation(input: ReconciliationFlag): Promise<void>;
 }
 
 /** pay_amt is a MySQL double; render it to exactly two decimals without
@@ -201,30 +236,61 @@ export function offlineSyncRepository(db: Databases, timezone: string): OfflineS
           .where(eq(OrderStore.order, BigInt(input.orderId)));
       });
     },
-    async tenderReferenceExists(storeId, reference) {
+    async tenderMatch({ storeId, orderId, reference, amount }) {
       const writer = db.get('writer');
-      const [terminal] = await writer
-        .select({ id: PosTerminalTransaction.id })
-        .from(PosTerminalTransaction)
-        .where(
-          and(
-            eq(PosTerminalTransaction.store_id, BigInt(storeId)),
-            eq(PosTerminalTransaction.transaction_id, reference),
-          ),
-        )
+      const select = (table: typeof PosTerminalTransaction | typeof PosPaytmTransaction) =>
+        writer
+          .select({ orderId: table.order_id, amount: table.amount })
+          .from(table)
+          .where(and(eq(table.store_id, BigInt(storeId)), eq(table.transaction_id, reference)))
+          .limit(20);
+      const rows = [
+        ...(await select(PosTerminalTransaction)),
+        ...(await select(PosPaytmTransaction)),
+      ];
+      if (!rows.length) return 'missing';
+      const expected = Math.round(Number(amount) * 100);
+      return rows.some(
+        (row) =>
+          Math.round(Number(row.amount) * 100) === expected &&
+          (row.orderId === 0n || String(row.orderId) === orderId),
+      )
+        ? 'matched'
+        : 'mismatch';
+    },
+    async reconciliationFlagged(orderId, reference) {
+      const prefix = reconciliationPrefix(reference).replace(/[\\%_]/g, (match) => '\\' + match);
+      const [row] = await db
+        .get('writer')
+        .select({ id: Comments.id })
+        .from(Comments)
+        .where(and(eq(Comments.order_id, BigInt(orderId)), like(Comments.comment, `${prefix}%`)))
         .limit(1);
-      if (terminal) return true;
-      const [paytm] = await writer
-        .select({ id: PosPaytmTransaction.id })
-        .from(PosPaytmTransaction)
-        .where(
-          and(
-            eq(PosPaytmTransaction.store_id, BigInt(storeId)),
-            eq(PosPaytmTransaction.transaction_id, reference),
-          ),
-        )
-        .limit(1);
-      return Boolean(paytm);
+      return Boolean(row);
+    },
+    async flagReconciliation(flag) {
+      const timestamp = local(Date.now());
+      await db.get('writer').transaction(async (tx) => {
+        const [order] = await tx
+          .select({ status: Order.order_statuses })
+          .from(Order)
+          .where(eq(Order.id, BigInt(flag.orderId)))
+          .limit(1)
+          .for('update');
+        if (!order) throw new RangeError('The created order was not found.');
+        await tx.insert(Comments).values({
+          order_id: BigInt(flag.orderId),
+          status_id: order.status ?? 0n,
+          comment: reconciliationComment(flag),
+          notify: 0,
+          user_id: BigInt(flag.userId),
+          package_details: '',
+          has_product_id: 0n,
+          prod_id: 0n,
+          created_at: timestamp,
+          updated_at: timestamp,
+        });
+      });
     },
   };
 }

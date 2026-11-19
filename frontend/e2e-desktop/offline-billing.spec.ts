@@ -31,9 +31,14 @@ interface OfflineOrderRow {
   storeId: string;
   counterId: string;
   paymentStatus: string | null;
+  paymentMessage: string;
+  transactionId: string;
+  manuallyPaid: boolean | number;
+  onlineOther: string;
 }
 interface ControlOrders {
   rows: OfflineOrderRow[];
+  flags: { orderId: string; comment: string }[];
   orders: { id: string; orderRefNo: string; invoice: string | null }[];
 }
 async function control<T>(path: string, body?: unknown): Promise<T> {
@@ -226,6 +231,17 @@ test.describe.serial('desktop offline billing on the real stack', () => {
     await expect(page.getByRole('cell', { name: before[0]! })).toBeVisible();
   });
 
+  test('a reload while only the store service is down opens offline billing, not login', async () => {
+    // The web server answers again; the store service behind it does not (nginx 502 shape).
+    await network(true, { backend: false });
+    await page.goto(WORKSPACE + '/');
+    await page.waitForURL(WORKSPACE + '/offline-billing', { timeout: 45000 });
+    await expect(page.getByRole('heading', { name: 'Working offline' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Let’s open the store.' })).toHaveCount(0);
+    await expect(page.getByLabel('Scan a barcode or search products')).toBeVisible();
+    await network(false);
+  });
+
   test('stores the sales in a file that cannot be read without the device key', async () => {
     const filename = join(profile, 'offline-billing.db');
     const header = (await readFile(filename)).subarray(0, 16).toString('latin1');
@@ -251,12 +267,7 @@ test.describe.serial('desktop offline billing on the real stack', () => {
   });
 
   test('syncs automatically on reconnect into real orders with invoice numbers', async () => {
-    // The standalone terminal's card transaction is known to the store service.
-    await control('/terminal-transaction', {
-      storeId: STORE,
-      reference: 'RRN-SYN-0001',
-      amount: '1899.00',
-    });
+    // The card sale came from a standalone terminal: no terminal-table row exists for it.
     await goOnlineAndSync();
     const synced = await sales();
     expect(synced.map((sale) => [sale.status, sale.conflict?.message ?? null])).toEqual([
@@ -279,6 +290,22 @@ test.describe.serial('desktop offline billing on the real stack', () => {
       expect(row.orderRefNo).toBe(`API2-${row.orderId}`);
       expect([row.storeId, row.counterId]).toEqual([STORE, COUNTER]);
     }
+    // Card reference: a legacy "Others" settlement with the typed reference as the payment
+    // message, and one finance reconciliation flag because no terminal row matched.
+    const card = synced.find((sale) => sale.tender.mode === 'card')!;
+    const cardRow = rows.find((item) => item.orderId === card.orderId)!;
+    expect(cardRow.paymentMessage).toBe('RRN-SYN-0001');
+    expect(Number(cardRow.manuallyPaid)).toBe(1);
+    expect(Number(cardRow.onlineOther)).toBe(1899);
+    expect(cardRow.transactionId).not.toBe('RRN-SYN-0001');
+    expect(Number(cardRow.paymentStatus)).toBe(4);
+    const { flags } = await control<ControlOrders>('/offline-orders');
+    expect(flags).toEqual([
+      {
+        orderId: card.orderId,
+        comment: `Offline bill ${card.provisionalRef} reconciliation: CARD reference RRN-SYN-0001 has no matching terminal transaction. Finance to reconcile.`,
+      },
+    ]);
     expect(await posOrderCalls()).toBe(2);
   });
 
@@ -347,6 +374,12 @@ test.describe.serial('desktop offline billing on the real stack', () => {
     expect(await posOrderCalls()).toBe(calls + 1);
     const { rows } = await control<ControlOrders>('/offline-orders');
     const row = rows.find((item) => item.orderId === created.id)!;
+    // The linked order never reached the finalizer through its lost reply; it now has its
+    // real invoice number, shown on the device.
+    expect(sale.invoiceNumber).toMatch(/INV\d{5}$/);
+    expect(row.invoice).toBe(sale.invoiceNumber);
+    await page.goto(WORKSPACE + '/offline-billing');
+    await expect(page.getByRole('cell', { name: sale.invoiceNumber! })).toBeVisible();
     expect(row.comment.startsWith(`Offline bill ${sale.provisionalRef} billed at `)).toBe(true);
     expect(Number(row.isOfflineOrder)).toBe(1);
     expect(row.orderRefNo).toBe(`API2-${created.id}`);

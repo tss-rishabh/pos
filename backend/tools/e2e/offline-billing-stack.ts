@@ -223,19 +223,22 @@ try {
   // refuses and drops connections on both, as a device that lost its network sees it.
   // "dropSaleResponses" lets the next N offline-sale uploads reach the backend but drops the
   // connection instead of returning the reply: the device sees a lost response and re-uploads.
+  // "backendUp: false" with the network up cuts only the store service: the web server still
+  // answers and proxies /api and /health to a dead upstream (nginx 502 in production).
   let up = true,
+    backendUp = true,
     dropSaleResponses = 0,
     droppedSaleResponses = 0;
-  const sockets = new Set<Socket>();
+  const sockets = new Map<Socket, boolean>();
   async function openGate(listenPort: number, targetPort: number, inspectSales: boolean) {
     const gate = createServer((client) => {
-      if (!up) {
+      if (!up || (inspectSales && !backendUp)) {
         client.destroy();
         return;
       }
       const upstream = createConnection({ host: '127.0.0.1', port: targetPort });
-      sockets.add(client);
-      sockets.add(upstream);
+      sockets.set(client, inspectSales);
+      sockets.set(upstream, inspectSales);
       const drop = () => {
         client.destroy();
         upstream.destroy();
@@ -273,7 +276,7 @@ try {
     cleanups.push(
       () =>
         new Promise<void>((done) => {
-          for (const socket of sockets) socket.destroy();
+          for (const socket of sockets.keys()) socket.destroy();
           gate.close(() => done());
         }),
     );
@@ -300,10 +303,12 @@ try {
         if (target.pathname === '/ready') return json(response, server ? 200 : 503, { up });
         if (target.pathname === '/network' && request.method === 'POST') {
           up = input.up === true;
+          backendUp = input.backend !== false;
           if (typeof input.dropSaleResponses === 'number')
             dropSaleResponses = input.dropSaleResponses;
-          if (!up) for (const socket of sockets) socket.destroy();
-          return json(response, 200, { up, dropSaleResponses, droppedSaleResponses });
+          for (const [socket, backendSocket] of sockets)
+            if (!up || (backendSocket && !backendUp)) socket.destroy();
+          return json(response, 200, { up, backendUp, dropSaleResponses, droppedSaleResponses });
         }
         if (target.pathname === '/backend/restart' && request.method === 'POST') {
           limits = {
@@ -356,13 +361,22 @@ try {
               paymentStatus: Order.payment_statuses,
               invoice: OrderStore.order_invoice,
               isOfflineOrder: OrderStore.is_offline_order,
+              paymentMessage: OrderStore.message,
+              transactionId: OrderStore.transaction_id,
+              manuallyPaid: OrderStore.is_manually_paid,
+              onlineOther: OrderStore.online_other_payment,
               storeId: OrderStore.store,
               counterId: OrderStore.counter,
             })
             .from(Comments)
             .innerJoin(Order, eq(Order.id, Comments.order_id))
             .innerJoin(OrderStore, eq(OrderStore.order, Order.id))
-            .where(and(like(Comments.comment, 'Offline bill %')))
+            .where(and(like(Comments.comment, 'Offline bill % billed at %')))
+            .orderBy(asc(Comments.id));
+          const flags = await db
+            .select({ orderId: Comments.order_id, comment: Comments.comment })
+            .from(Comments)
+            .where(like(Comments.comment, 'Offline bill % reconciliation: %'))
             .orderBy(asc(Comments.id));
           const all = await db
             .select({
@@ -373,7 +387,7 @@ try {
             .from(Order)
             .innerJoin(OrderStore, eq(OrderStore.order, Order.id))
             .orderBy(asc(Order.id));
-          return json(response, 200, { rows, orders: all });
+          return json(response, 200, { rows, flags, orders: all });
         }
         return json(response, 404, { error: 'unknown control path' });
       } catch (error) {

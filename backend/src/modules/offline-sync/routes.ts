@@ -7,6 +7,7 @@ import { noQuery, operatorHeaders, routeSchema } from '../../domain/route-valida
 import type { Principal } from '../../domain/access.js';
 import type { CheckoutEnvironment } from '../checkout/gateway.js';
 import { quotePayable } from '../checkout/service.js';
+import { orderFinalizer, orderLineSalespersons } from '../checkout/finalizer.js';
 import { paymentService } from '../checkout/payments/service.js';
 import { paymentRepository } from '../checkout/payments/repository.js';
 import { paymentEnvironment, terminalGateway } from '../checkout/payments/gateway.js';
@@ -45,6 +46,8 @@ export function registerOfflineSync(
       : config.REDIS_URL
         ? redisOfflineSyncCoordinator(config, config.REDIS_URL)
         : null;
+  const finalize = orderFinalizer(db, config),
+    lineSalespersons = orderLineSalespersons(db);
   const service = offlineSyncService({
     repository: offlineSyncRepository(db, config.BUSINESS_TIMEZONE),
     limits: readOfflineBillingOptions(),
@@ -60,6 +63,21 @@ export function registerOfflineSync(
     operators: options.identity,
     operationSecret: config.SESSION_SECRET,
     quotePayable,
+    finalizeOrder: async ({ orderId, storeId, counterId, salespersonId }) => {
+      const state = {
+        storeId,
+        counterId,
+        customerId: null,
+        operatorCustomerId: '0',
+        lineSalespersons: {},
+        salespersonId,
+      };
+      // Legacy order flow after pos/order: line salespersons (order/views.py:2779-2795), then
+      // the invoice number, generated even without a confirmed payment-order call (2799-2809).
+      // Unconfirmed: no gift-card, NPS or SMS side effects.
+      await lineSalespersons(state, orderId);
+      return (await finalize(state, orderId, { confirmed: false })).invoice;
+    },
   });
   app.addHook('onClose', async () => {
     await coordinator?.close();
