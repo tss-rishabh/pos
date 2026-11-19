@@ -20,7 +20,8 @@ import {
   administrationMemberships,
 } from './access-schema.js';
 import { administrationAccessReceipts } from './access-receipts.js';
-import { lockAdministrationRegistry } from './locks.js';
+import { withAdministrationLock } from './locks.js';
+import type { EphemeralStore } from '../../jobs/ephemeral.js';
 
 type Authorize = (
   tx: AdministrationTransaction,
@@ -47,13 +48,19 @@ const conflict = () =>
     'Access changed. Reload the deletion preview before confirming again.',
   );
 /** The reconciled rewrite Group/M2M graph only. This never deletes operators, stores, or legacy auth tables. */
-export function administrationGroupDeletions(config: Config, db: Databases, authorize: Authorize) {
+export function administrationGroupDeletions(
+  config: Config,
+  db: Databases,
+  authorize: Authorize,
+  ephemeral: EphemeralStore,
+) {
   const receipts = administrationAccessReceipts(config);
-  async function lock(tx: AdministrationTransaction, user: Principal) {
-    await lockAdministrationRegistry(tx, 'operators');
-    await lockAdministrationRegistry(tx, 'access-control');
-    await authorize(tx, user, ['auth.delete_group'], true);
-  }
+  const locked = <T>(run: () => Promise<T>) =>
+    withAdministrationLock(ephemeral, 'operators', () =>
+      withAdministrationLock(ephemeral, 'access-control', () => retryTransaction(run)),
+    );
+  const lock = (tx: AdministrationTransaction, user: Principal) =>
+    authorize(tx, user, ['auth.delete_group'], true);
   async function snapshots(tx: AdministrationTransaction, ids: readonly string[]) {
     const groups = await tx
       .select()
@@ -165,7 +172,7 @@ export function administrationGroupDeletions(config: Config, db: Databases, auth
         ids = groups.map((group) => group.id),
         hash = receipts.inputHash({ groups }),
         resource = 'group-selection';
-      return retryTransaction(() =>
+      return locked(() =>
         db.get('writer').transaction(async (tx) => {
           await lock(tx, user);
           const previous = await receipts.replay(

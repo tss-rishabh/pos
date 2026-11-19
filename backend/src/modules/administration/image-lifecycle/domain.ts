@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { Principal } from '../../../domain/access.js';
 import type { AdministrationTransaction } from '../checkins.js';
 import { uploadInput } from '../media-domain.js';
-import type { lockAdministrationRegistry } from '../locks.js';
+import type { AdministrationLockResource } from '../locks.js';
 
 export const imageKind = z.enum(['image', 'cover-image']);
 export type ImageKind = z.infer<typeof imageKind>;
@@ -27,7 +27,7 @@ export interface ImageOwnerState {
 }
 /** The adapter owns current authorization, row locks, references and persistent owner fields. */
 export interface ImageOwnerAdapter {
-  registry: Parameters<typeof lockAdministrationRegistry>[1];
+  registry: AdministrationLockResource;
   errorPrefix: string;
   subject: string;
   kinds: readonly ImageKind[];

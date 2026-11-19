@@ -14,7 +14,9 @@ import { AppError } from '../../domain/errors.js';
 import { assertModelAdministrationPermission } from './access-control.js';
 import { administrationAccessReceipts } from './access-receipts.js';
 import type { AdministrationTransaction } from './checkins.js';
-import { lockAdministrationRegistry } from './locks.js';
+import { withAdministrationLock } from './locks.js';
+import type { EphemeralStore } from '../../jobs/ephemeral.js';
+import { administrationEphemeralStore } from './ephemeral-runtime.js';
 import { ownedImageService } from './image-lifecycle/service.js';
 import type { ImageOwnerAdapter } from './image-lifecycle/domain.js';
 import type { DocumentationMediaStore } from './media-storage.js';
@@ -118,6 +120,7 @@ export function operatorAdministrationService(
   db: Databases,
   invalidateAuthentication: AuthenticationInvalidator,
   options: OperatorAdminOptions = {},
+  ephemeral: EphemeralStore = administrationEphemeralStore(config),
 ) {
   const receipts = administrationAccessReceipts(config);
   const images = ownedImageService(
@@ -128,9 +131,11 @@ export function operatorAdministrationService(
   );
   const context = (user: Principal, id: string) => ({ user, ownerId: id });
   async function guard(tx: AdministrationTransaction, user: Principal, id: string) {
-    await lockAdministrationRegistry(tx, 'operators');
     return managedAccount(tx, user, id, 'publish');
   }
+  const locked = <T>(run: () => Promise<T>) =>
+    withAdministrationLock(ephemeral, 'operators', () => retryTransaction(run));
+
   return {
     async profile(user: Principal, id: string) {
       return db.get('writer').transaction(async (tx) => {
@@ -181,7 +186,7 @@ export function operatorAdministrationService(
     ) {
       const hash = receipts.inputHash({ id, input }),
         resource = `operator:${id}`;
-      return retryTransaction(() =>
+      return locked(() =>
         db.get('writer').transaction(async (tx) => {
           const { target } = await guard(tx, user, id);
           const previous = await receipts.replay(
@@ -287,7 +292,7 @@ export function operatorAdministrationService(
       });
       if (initial.kind === 'replay') return initial.result;
       const encoded = await djangoPasswordHash(input.newPassword);
-      return retryTransaction(() =>
+      return locked(() =>
         db.get('writer').transaction(async (tx) => {
           const { actor, target } = await guard(tx, user, id);
           if (!actor.is_superuser)

@@ -5,7 +5,9 @@ import { retryTransaction } from '../../../db/retry.js';
 import { AppError } from '../../../domain/errors.js';
 import { currentRequestTrace } from '../../../observability/context.js';
 import { uploadInput } from '../media-domain.js';
-import { lockAdministrationRegistry } from '../locks.js';
+import { withAdministrationLock } from '../locks.js';
+import type { EphemeralStore } from '../../../jobs/ephemeral.js';
+import { administrationEphemeralStore } from '../ephemeral-runtime.js';
 import type { DocumentationMediaStore, ReservedMedia } from '../media-storage.js';
 import { verifyPrivateImage } from './validation.js';
 import {
@@ -38,8 +40,11 @@ export function ownedImageService(
   owner: ImageOwnerAdapter,
   media: DocumentationMediaStore | undefined,
   now: () => number = Date.now,
+  ephemeral: EphemeralStore = administrationEphemeralStore({}),
 ) {
   const { uploads, jobs } = tables;
+  const locked = <T>(run: () => Promise<T>) =>
+    withAdministrationLock(ephemeral, owner.registry, () => retryTransaction(run));
   const fail = (status: number, suffix: string, message: string) =>
     new AppError(status, `${owner.errorPrefix}_${suffix}`, message);
   const changed = () =>
@@ -100,9 +105,8 @@ export function ownedImageService(
       const key = store.keyFor(input.upload);
       if (key.length > 254 || !owner.allowsKey(kind, key) || !owner.allowsCleanupKey(key))
         throw fail(400, 'IMAGE_KEY_INVALID', 'Choose the image again.');
-      const upload = await retryTransaction(() =>
+      const upload = await locked(() =>
         db.get('writer').transaction(async (tx) => {
-          await lockAdministrationRegistry(tx, owner.registry);
           const account = await owner.authorize(tx, context, 'publish');
           if (account.revision !== input.revision) throw changed();
           const [previous] = await tx
@@ -191,9 +195,8 @@ export function ownedImageService(
         { contentType: upload.contentType, size: upload.size, checksum: upload.checksum },
         owner.errorPrefix,
       );
-      await retryTransaction(() =>
+      await locked(() =>
         db.get('writer').transaction(async (tx) => {
-          await lockAdministrationRegistry(tx, owner.registry);
           const account = await owner.authorize(tx, context, 'publish');
           const [current] = await tx
             .select()
