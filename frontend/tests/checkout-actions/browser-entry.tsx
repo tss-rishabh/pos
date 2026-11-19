@@ -21,6 +21,12 @@ function Fixture() {
       value.customerId = '11';
     if (mode === 'missing') {
       delete value.quoteDisplay;
+      value.quote = {
+        meta: { items: [{ name: 'calculations', total: '868.00', rounding_off: '0.49' }] },
+      };
+    }
+    if (mode === 'payable-only') {
+      delete value.quoteDisplay;
       value.quote = { meta: { items: [{ name: 'calculations', total: '868.00' }] } };
     }
     return value;

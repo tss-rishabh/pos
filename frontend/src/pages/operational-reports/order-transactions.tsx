@@ -13,6 +13,7 @@ import { downloadLoadedPageCsv } from './page-csv';
 import { QueuedExport } from './queued-export';
 import './style.css';
 import '../order-history/table-tools.css';
+import { TextCell } from '../../components/text-cell';
 type Field = (typeof orderReportColumns)[number][1];
 const scalar = z.union([z.string(), z.number().finite(), z.null()]),
   rowSchema = z.record(z.string(), scalar).superRefine((row, ctx) => {
@@ -296,7 +297,7 @@ export function OrderTransactionsPage({ user, storeId }: { user: Principal; stor
                 {report.data.data.map((row, index) => (
                   <tr key={`${row.id}:${row.transaction_status}:${index}`}>
                     {visible.map(([, field]) => (
-                      <td key={field}>{row[field] === null ? '—' : String(row[field])}</td>
+                      <TextCell key={field} value={row[field]} />
                     ))}
                   </tr>
                 ))}

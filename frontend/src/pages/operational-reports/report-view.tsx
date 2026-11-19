@@ -13,6 +13,7 @@ import { downloadLoadedPageCsv } from './page-csv';
 import { QueuedExport } from './queued-export';
 import './style.css';
 import '../order-history/table-tools.css';
+import { TextCell } from '../../components/text-cell';
 interface ReportColumn<T> {
   key: keyof T;
   label: string;
@@ -327,11 +328,7 @@ export function ReportView<T extends Record<string, unknown>>({
                 {report.data.data.map((row, index) => (
                   <tr key={String(row.id ?? `${page}:${index}`)}>
                     {visible.map((column) => (
-                      <td key={String(column.key)}>
-                        {row[column.key] === null || row[column.key] === undefined
-                          ? '—'
-                          : String(row[column.key])}
-                      </td>
+                      <TextCell key={String(column.key)} value={row[column.key]} />
                     ))}
                   </tr>
                 ))}
