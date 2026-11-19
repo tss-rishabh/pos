@@ -13,11 +13,9 @@ import { chromium, expect as browserExpect, type Browser, type Page } from '@pla
 import { createServer, type ViteDevServer } from 'vite';
 import react from '@vitejs/plugin-react';
 import { paymentSchema } from '../../src/pages/checkout/PaymentPanel';
-import {
-  recordedPaymentInputSchema,
-  recordedLegacyInputSchema,
-} from '../../src/pages/checkout/payment-recovery';
+import { recordedPaymentInputSchema } from '../../src/pages/checkout/payment-recovery';
 import { z } from 'zod';
+import { orderSearchPage } from '../../src/pages/order-history/search-client';
 import { cancellationResultSchema } from '../../src/pages/checkout/cancellations/client';
 describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
   'existing-order payment recovery in actual OrdersPage',
@@ -63,12 +61,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
       await server?.close();
       if (cache) await rm(cache, { recursive: true, force: true });
     });
-    async function fixture(
-      page: Page,
-      legacy = false,
-      cancellable = false,
-      options: { actor?: '44' | '55' } = {},
-    ) {
+    async function fixture(page: Page, cancellable = false, options: { actor?: '44' | '55' } = {}) {
       page.setDefaultTimeout(6500);
       await installInvoicePrintProbe(page);
       const state = {
@@ -78,13 +71,11 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         detailErrors: 0,
         attempt: null as z.infer<typeof paymentSchema> | null,
         starts: [] as unknown[],
-        adopts: [] as unknown[],
-        checks: 0,
+        attemptReads: 0,
         paid: false,
         invoiceReads: 0,
         invoiceDenied: false,
         loseStart: false,
-        loseAdopt: false,
         cancellation: null as z.infer<typeof cancellationResultSchema> | null,
         cancels: [] as unknown[],
         unexpected: [] as string[],
@@ -137,15 +128,11 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
           });
         if (method === 'POST' && path === `/api/v1/stores/${state.scopeStore}/orders/searches`) {
           const input = z
-            .object({
-              draw: z.number().int(),
-              pageSize: z.number().int(),
-              from: z.string(),
-              to: z.string(),
-            })
+            .object({ draw: z.number().int(), pageSize: z.number().int() })
             .parse(route.request().postDataJSON() as unknown);
+          // The current search contract (orderSearchPage), parsed so the fixture cannot drift.
           return route.fulfill({
-            json: {
+            json: orderSearchPage.parse({
               contract: 'pos-source-order-search-v1',
               draw: input.draw,
               recordsTotal: '0',
@@ -155,14 +142,13 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
               reader: 'primary',
               data: [],
               fetchedAt: new Date().toISOString(),
-              generationId: null,
               range: {
-                from: input.from,
-                to: input.to,
+                placedFrom: null,
+                placedTo: null,
                 timeZone: 'Asia/Kolkata',
                 ignoredForQueue: false,
               },
-            },
+            }),
           });
         }
         if (method === 'GET' && path === base + '/invoices/capabilities')
@@ -189,17 +175,19 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
               storeId: '1',
               counterId: '3',
               payable: '99.95',
-              canRecordPayment: !legacy && !state.attempt && !state.cancellation,
-              activeAttemptId: state.attempt?.id ?? null,
-              legacyPayment:
-                legacy && !state.attempt
-                  ? { provider: 'pine', legacyId: '9007199254740994' }
+              paid: state.paid,
+              settlement:
+                state.paid && state.attempt
+                  ? {
+                      transactionId: state.attempt.transactionId,
+                      cashAmount: state.attempt.cashAmount,
+                      onlineAmount: state.attempt.onlineAmount,
+                    }
                   : null,
-              blocker: state.cancellation
-                ? 'ORDER_CANCELLATION_RECORDED'
-                : state.paid
-                  ? 'ORDER_NOT_PAYABLE'
-                  : null,
+              transactionId: 'EXISTING-ORDER-1',
+              activeTransaction: null,
+              canRecordPayment: !state.paid && !state.cancellation,
+              blocker: state.cancellation ? 'ORDER_CANCELLATION_RECORDED' : null,
             },
           });
         if (method === 'GET' && path === base + '/cancellations')
@@ -217,15 +205,9 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
           return route.fulfill({ json: state.cancellation });
         }
         if (method === 'GET' && path === base + '/payment-options')
-          return route.fulfill({
-            json: {
-              payable: '99.95',
-              options: [{ channel: 'cash', label: 'Cash', machineId: null }],
-            },
-          });
-        if (method === 'GET' && path === base + '/payment-attempts')
-          return route.fulfill({ json: { data: state.attempt ? [state.attempt] : [] } });
-        if (method === 'GET' && path.startsWith(base + '/payment-attempts/'))
+          return route.fulfill({ json: { payable: '99.95', counterId: '3', options: [] } });
+        if (method === 'GET' && path.startsWith(base + '/payment-attempts/')) {
+          state.attemptReads++;
           return state.attempt
             ? route.fulfill({ json: state.attempt })
             : route.fulfill({
@@ -237,6 +219,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
                   },
                 },
               });
+        }
         if (method === 'POST' && path === base + '/payment-attempts') {
           const input = recordedPaymentInputSchema.parse(route.request().postDataJSON() as unknown);
           state.starts.push(input);
@@ -245,40 +228,16 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
             return route.abort();
           }
           state.attempt = paymentSchema.parse({
-            id: input.operationId,
+            attemptId: input.operationId,
             orderId,
             transactionId: 'ORIGINAL-CASH',
-            channel: input.channel,
+            provider: 'cash',
+            status: 'paid',
+            legacyStatus: 'Payment Successful',
+            message: 'Payment Successful',
             cashAmount: input.cashAmount,
             onlineAmount: input.onlineAmount,
-            status: 'paid',
-            errorCode: null,
           });
-          state.paid = true;
-          return route.fulfill({ json: state.attempt });
-        }
-        if (method === 'POST' && path === base + '/legacy-payment-recoveries') {
-          const input = recordedLegacyInputSchema.parse(route.request().postDataJSON() as unknown);
-          state.adopts.push(input);
-          state.attempt = paymentSchema.parse({
-            id: input.operationId,
-            orderId,
-            transactionId: 'ORIGINAL-TERMINAL',
-            channel: 'pine-card',
-            cashAmount: '0.00',
-            onlineAmount: '99.95',
-            status: 'uncertain',
-            errorCode: null,
-          });
-          if (state.loseAdopt) {
-            state.loseAdopt = false;
-            return route.abort();
-          }
-          return route.fulfill({ json: state.attempt });
-        }
-        if (method === 'POST' && path.endsWith('/reconciliations') && state.attempt) {
-          state.checks++;
-          state.attempt.status = 'paid';
           state.paid = true;
           return route.fulfill({ json: state.attempt });
         }
@@ -316,6 +275,12 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
       ]);
       expect(rows[1]).toEqual([]);
     }
+    const paid = 'Payment has been Completed for order ID : 9007199254740993 · ORIGINAL-CASH';
+    /** Legacy payment form (create_order.html): Submit, then the 'Are you sure ?' confirmation. */
+    async function pay(page: Page) {
+      await page.getByRole('button', { name: 'Submit', exact: true }).click();
+      await page.getByRole('button', { name: 'Yes, sure!', exact: true }).click();
+    }
     async function reportHostOffline(page: Page) {
       // The document's explicit fixture baseline must win before app modules,
       // even if the host/browser reports offline when a new context starts.
@@ -331,10 +296,8 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         await browserExpect(
           page.getByText('Correct recorded cash payment', { exact: true }),
         ).toHaveCount(0);
-        await page.getByRole('button', { name: 'Record received payment' }).click();
-        await browserExpect(
-          page.getByText('Payment confirmed · ORIGINAL-CASH.', { exact: false }),
-        ).toBeVisible();
+        await pay(page);
+        await browserExpect(page.getByText(paid, { exact: false })).toBeVisible();
         await browserExpect(
           page
             .frameLocator(`iframe[title=\"Tax invoice for order 9007199254740993\"]`)
@@ -344,13 +307,10 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         expect(state.invoiceReads).toBe(1);
         await page.getByRole('button', { name: 'Close invoice' }).click();
         await page.reload();
-        await browserExpect(
-          page.getByText('Payment confirmed · ORIGINAL-CASH.', { exact: false }),
-        ).toBeVisible();
+        await browserExpect(page.getByText(paid, { exact: false })).toBeVisible();
         expect(state.invoiceReads).toBe(1);
         await browserExpect(page.locator('iframe')).toHaveCount(0);
         expect(state.starts).toHaveLength(1);
-        expect(state.adopts).toHaveLength(0);
         expect(state.unexpected).toEqual([]);
         await assertCartRetained(page);
       } finally {
@@ -361,21 +321,21 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
       const page = await browser.newPage();
       try {
         await reportHostOffline(page);
-        const state = await fixture(page, false, true);
+        const state = await fixture(page, true);
         await page.goto(origin + '/__order-payment-test__');
         await browserExpect(page.locator('html')).toHaveAttribute(
           'data-order-fixture-host-online',
           'false',
         );
-        const pay = page.getByRole('button', { name: 'Record received payment' }),
+        const submit = page.getByRole('button', { name: 'Submit', exact: true }),
           cancel = page.getByRole('button', { name: 'Cancel Order', exact: true });
-        await browserExpect(pay).toBeEnabled();
+        await browserExpect(submit).toBeEnabled();
         await browserExpect(cancel).toBeEnabled();
         await page.evaluate(() => {
           Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
           window.dispatchEvent(new Event('offline'));
         });
-        await browserExpect(pay).toBeDisabled();
+        await browserExpect(submit).toBeDisabled();
         await browserExpect(cancel).toBeDisabled();
         await browserExpect(
           page.getByText('Reconnect to confirm payment. Products remain pending delivery.'),
@@ -386,11 +346,9 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
           Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
           window.dispatchEvent(new Event('online'));
         });
-        await browserExpect(pay).toBeEnabled();
-        await pay.click();
-        await browserExpect(
-          page.getByText('Payment confirmed · ORIGINAL-CASH.', { exact: false }),
-        ).toBeVisible();
+        await browserExpect(submit).toBeEnabled();
+        await pay(page);
+        await browserExpect(page.getByText(paid, { exact: false })).toBeVisible();
         expect(state.starts).toHaveLength(1);
         expect(state.cancels).toEqual([]);
         expect(state.unexpected).toEqual([]);
@@ -410,53 +368,20 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
           'data-order-fixture-host-online',
           'false',
         );
-        await page.getByRole('button', { name: 'Record received payment' }).click();
+        await pay(page);
         await browserExpect(page.getByRole('alert')).toBeVisible();
         await page.reload();
+        // The saved request is read back by GET first; its absence (404) keeps it for an
+        // explicit check that resends the exact saved body.
         await browserExpect(
-          page.getByRole('button', { name: 'Retry original payment request' }),
+          page.getByRole('button', { name: 'Check payment status', exact: true }),
         ).toBeVisible();
         expect(state.starts).toHaveLength(1);
-        await page.getByRole('button', { name: 'Retry original payment request' }).click();
-        await browserExpect(
-          page.getByText('Payment confirmed · ORIGINAL-CASH.', { exact: false }),
-        ).toBeVisible();
+        await expect.poll(() => state.attemptReads).toBe(1);
+        await page.getByRole('button', { name: 'Check payment status', exact: true }).click();
+        await browserExpect(page.getByText(paid, { exact: false })).toBeVisible();
         expect(state.starts).toHaveLength(2);
         expect(state.starts[1]).toEqual(state.starts[0]);
-        expect(state.unexpected).toEqual([]);
-        await assertCartRetained(page);
-      } finally {
-        await page.close();
-      }
-    });
-    it('recovers a lost committed legacy adoption without charge or another adoption and enquires explicitly', async () => {
-      const page = await browser.newPage();
-      try {
-        await reportHostOffline(page);
-        const state = await fixture(page, true);
-        state.loseAdopt = true;
-        await page.goto(origin + '/__order-payment-test__');
-        await browserExpect(page.locator('html')).toHaveAttribute(
-          'data-order-fixture-host-online',
-          'false',
-        );
-        await page.getByRole('button', { name: 'Recover original terminal payment' }).click();
-        await browserExpect(
-          page.getByRole('button', { name: 'Check payment status' }),
-        ).toBeVisible();
-        await page.reload();
-        await browserExpect(
-          page.getByRole('button', { name: 'Check payment status' }),
-        ).toBeVisible();
-        expect(state.adopts).toHaveLength(1);
-        expect(state.starts).toHaveLength(0);
-        expect(state.checks).toBe(0);
-        await page.getByRole('button', { name: 'Check payment status' }).click();
-        await browserExpect(
-          page.getByText('Payment confirmed · ORIGINAL-TERMINAL.', { exact: false }),
-        ).toBeVisible();
-        expect(state.checks).toBe(1);
-        expect(state.adopts).toHaveLength(1);
         expect(state.unexpected).toEqual([]);
         await assertCartRetained(page);
       } finally {
@@ -467,7 +392,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
       const page = await browser.newPage();
       try {
         await reportHostOffline(page);
-        const state = await fixture(page, false, true);
+        const state = await fixture(page, true);
         await page.goto(origin + '/__order-payment-test__');
         await browserExpect(page.locator('html')).toHaveAttribute(
           'data-order-fixture-host-online',
@@ -492,10 +417,8 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         const state = await fixture(page);
         state.invoiceDenied = true;
         await page.goto(origin + '/__order-payment-test__');
-        await page.getByRole('button', { name: 'Record received payment' }).click();
-        await browserExpect(
-          page.getByText('Payment confirmed · ORIGINAL-CASH.', { exact: false }),
-        ).toBeVisible();
+        await pay(page);
+        await browserExpect(page.getByText(paid, { exact: false })).toBeVisible();
         await browserExpect(page.getByRole('alert')).toContainText(
           'Invoice temporarily unavailable.',
         );
