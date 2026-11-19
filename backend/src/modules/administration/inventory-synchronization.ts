@@ -1,12 +1,17 @@
-import { Temporal } from '@js-temporal/polyfill';
-import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { identifier } from '../../domain/validation.js';
-import { AppError } from '../../domain/errors.js';
-import { currentRequestTrace } from '../../observability/context.js';
 import type { AdministrationTransaction } from './checkins.js';
-import { administrationOutbox, type InventoryIntegrationEvent } from './schema.js';
 
+/**
+ * The `pos_rewrite_administration_outbox` table and its `worker:administration` delivery are
+ * removed. Legacy calls `Helpers.sync_pos_product` inline once the change is committed
+ * (`helpers/helpers.py:192-202`, `core/views.py:489,543,564,776`), so a caller must call its
+ * `ProductSynchronizer` (`product-sync.ts`) after its transaction commits.
+ *
+ * These exports are kept so callers outside administration still compile. They validate the
+ * event and record it on the transaction object; `takeInventorySynchronization(tx)` returns the
+ * recorded events after commit. A caller that never takes them sends no product sync.
+ */
 const synchronizationInput = z
   .object({
     id: z.string().regex(/^[A-Za-z0-9_-]{1,36}$/),
@@ -30,130 +35,33 @@ const systemSynchronizationInput = synchronizationInput
   .extend({ reason: z.enum(['legacy-rto', 'legacy-delivery']) })
   .strict();
 export type SystemInventorySynchronizationInput = z.infer<typeof systemSynchronizationInput>;
-const catalogSynchronizationInput = z
-  .object({
-    id: z.string().regex(/^[A-Za-z0-9_-]{1,36}$/),
-    importId: z.uuid(),
-    revision: z.number().int().min(0).max(5000),
-    productIds: z.array(identifier).min(1).max(1000),
-    operatorId: identifier,
-    requestId: z.string().min(1).max(128).optional(),
-  })
-  .strict();
-/** A completed/blocked/cancelled parent import synchronizes only its committed parent IDs. */
-export async function enqueueCatalogSynchronization(
-  transaction: AdministrationTransaction,
-  event: z.infer<typeof catalogSynchronizationInput>,
-) {
-  const input = catalogSynchronizationInput.parse(event),
-    payload: InventoryIntegrationEvent = {
-      kind: 'product.catalog.synchronization',
-      importId: input.importId,
-      revision: input.revision,
-      productIds: [...input.productIds],
-      actorId: input.operatorId,
-      ...(input.requestId ? { requestId: input.requestId } : {}),
-    };
-  await transaction
-    .insert(administrationOutbox)
-    .values({
-      id: input.id,
-      kind: payload.kind,
-      payload,
-      attempts: 0,
-      createdAt: Temporal.Now.instant()
-        .toZonedDateTimeISO('UTC')
-        .toPlainDateTime()
-        .toString({ smallestUnit: 'millisecond' })
-        .replace('T', ' '),
-      deliveredAt: null,
-    })
-    .onDuplicateKeyUpdate({ set: { id: input.id } });
-  const [saved] = await transaction
-    .select({ payload: administrationOutbox.payload })
-    .from(administrationOutbox)
-    .where(eq(administrationOutbox.id, input.id))
-    .limit(1)
-    .for('update');
-  if (
-    !saved ||
-    saved.payload.kind !== payload.kind ||
-    saved.payload.importId !== payload.importId ||
-    saved.payload.revision !== payload.revision ||
-    saved.payload.actorId !== payload.actorId ||
-    JSON.stringify(saved.payload.productIds) !== JSON.stringify(payload.productIds)
-  )
-    throw new AppError(
-      409,
-      'INVENTORY_SYNCHRONIZATION_CONFLICT',
-      'Catalog synchronization belongs to another import revision.',
-    );
+
+const pending = new WeakMap<object, InventorySynchronizationInput[]>();
+function record(transaction: AdministrationTransaction, event: InventorySynchronizationInput) {
+  const events = pending.get(transaction) ?? [];
+  events.push(event);
+  pending.set(transaction, events);
 }
 
-/** Caller authorizes and mutates stock in this same transaction; retries share the event ID. */
+/** @deprecated Record-only; see the module comment. Call the product synchronizer after commit. */
 export async function enqueueInventorySynchronization(
   transaction: AdministrationTransaction,
   event: InventorySynchronizationInput,
 ): Promise<void> {
-  const input = synchronizationInput.parse(event);
-  return enqueueValidatedInventorySynchronization(transaction, input);
+  record(transaction, synchronizationInput.parse(event));
 }
-/** Trusted durable service-job callers only; preserve source system actor0 without granting HTTP impersonation. */
+/** @deprecated Record-only; system actor0 as the source (`operatorId` "0"). */
 export async function enqueueSystemInventorySynchronization(
   transaction: AdministrationTransaction,
   event: SystemInventorySynchronizationInput,
 ): Promise<void> {
-  const input = systemSynchronizationInput.parse(event);
-  return enqueueValidatedInventorySynchronization(transaction, { ...input, operatorId: '0' });
+  record(transaction, { ...systemSynchronizationInput.parse(event), operatorId: '0' });
 }
-async function enqueueValidatedInventorySynchronization(
+/** Events recorded on `transaction`, once; call after the transaction has committed. */
+export function takeInventorySynchronization(
   transaction: AdministrationTransaction,
-  input: InventorySynchronizationInput,
-): Promise<void> {
-  const requestId = input.requestId || currentRequestTrace()?.requestId;
-  const payload: InventoryIntegrationEvent = {
-    kind: 'product.inventory.synchronization',
-    storeId: input.storeId,
-    productIds: [...new Set(input.productIds)].sort((left, right) =>
-      BigInt(left) < BigInt(right) ? -1 : BigInt(left) > BigInt(right) ? 1 : 0,
-    ),
-    actorId: input.operatorId,
-    reason: input.reason,
-    ...(requestId ? { requestId } : {}),
-  };
-  await transaction
-    .insert(administrationOutbox)
-    .values({
-      id: input.id,
-      kind: payload.kind,
-      payload,
-      attempts: 0,
-      createdAt: Temporal.Now.instant()
-        .toZonedDateTimeISO('UTC')
-        .toPlainDateTime()
-        .toString({ smallestUnit: 'millisecond' })
-        .replace('T', ' '),
-      deliveredAt: null,
-    })
-    .onDuplicateKeyUpdate({ set: { id: input.id } });
-  const [stored] = await transaction
-    .select({ payload: administrationOutbox.payload })
-    .from(administrationOutbox)
-    .where(eq(administrationOutbox.id, input.id))
-    .limit(1)
-    .for('update');
-  // Never overwrite another operation merely because a caller reused its event ID.
-  if (
-    !stored ||
-    stored.payload.kind !== payload.kind ||
-    stored.payload.storeId !== payload.storeId ||
-    stored.payload.actorId !== payload.actorId ||
-    stored.payload.reason !== payload.reason ||
-    JSON.stringify(stored.payload.productIds) !== JSON.stringify(payload.productIds)
-  )
-    throw new AppError(
-      409,
-      'INVENTORY_SYNCHRONIZATION_CONFLICT',
-      'Inventory synchronization event belongs to another operation.',
-    );
+): InventorySynchronizationInput[] {
+  const events = pending.get(transaction) ?? [];
+  pending.delete(transaction);
+  return events;
 }
