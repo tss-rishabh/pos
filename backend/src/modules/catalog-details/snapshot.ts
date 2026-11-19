@@ -1,7 +1,9 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, ne, not, notExists, or, sql } from 'drizzle-orm';
+import { alias, QueryBuilder } from 'drizzle-orm/mysql-core';
 import { z } from 'zod';
 import type { Databases } from '../../db/pools.js';
-import { Store } from '../../db/legacy-schema.js';
+import { Product, ProductBarcode, ProductStore, Store } from '../../db/legacy-schema.js';
+import { catalogPriceList } from './schema.js';
 import type { Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
 import { scalarId } from '../operational-reports/report-inputs.js';
@@ -12,15 +14,78 @@ import { assertCatalogScope } from './service.js';
  * (product_id, pricelist_id, location_id) wins: `order by location_id desc limit 1`. The barcode
  * likewise takes the highest products_gs1 id. A NULL/0 last price prints 0 (`or 0`).
  */
-export const snapshotQuery = (storeId: string) => sql`select cast(p.id as char) as id,p.product,
-  coalesce(nullif((select cast(b.gtin as char) from products_gs1 b where b.product_id=p.id order by b.id desc limit 1),'0'),'Barcode Missing') as barcode,
-  case when p.parent_prod_id=0 then p.price else parent.price end as price,
-  case when p.parent_prod_id=0 then p.spl_price else parent.spl_price end as spl_price,
-  coalesce((select pl.price from pricelist pl where pl.product_id=case when p.parent_prod_id=0 then p.id else p.parent_prod_id end and pl.pricelist_id=2 order by pl.location_id desc limit 1),0) as exclusive_price,
-  ps.stock from products p join product_store ps on ps.product_id=p.id and ps.store_id=${storeId} left join products parent on parent.id=p.parent_prod_id
-  where ps.is_del=0 and ps.is_avail=1 and p.product<>'' and not(p.parent_prod_id=0 and p.prod_type=3)
-    and ((p.is_del=0 and not exists(select 1 from products dp where dp.id=p.parent_prod_id and dp.is_del=1 and dp.prod_type=3 and dp.parent_prod_id=0)) or ps.stock>0)
-  order by p.id asc limit 70001`;
+const subquery = new QueryBuilder(),
+  parent = alias(Product, 'parent'),
+  removedParent = alias(Product, 'dp');
+/** The offline snapshot projection and filters for one store, as a builder statement. */
+export function snapshotSelect(db: ReturnType<Databases['get']>, storeId: string) {
+  const own = eq(Product.parent_prod_id, 0n);
+  return db
+    .select({
+      id: sql<string>`cast(${Product.id} as char)`,
+      product: Product.product,
+      barcode: sql<string>`coalesce(nullif(${subquery
+        .select({ gtin: sql`cast(${ProductBarcode.gtin} as char)` })
+        .from(ProductBarcode)
+        .where(eq(ProductBarcode.product, Product.id))
+        .orderBy(desc(ProductBarcode.id))
+        .limit(1)},'0'),'Barcode Missing')`,
+      price: sql<string | null>`case when ${own} then ${Product.price} else ${parent.price} end`,
+      spl_price: sql<
+        string | null
+      >`case when ${own} then ${Product.spl_price} else ${parent.spl_price} end`,
+      exclusive_price: sql<number>`coalesce(${subquery
+        .select({ price: catalogPriceList.price })
+        .from(catalogPriceList)
+        .where(
+          and(
+            eq(
+              catalogPriceList.product_id,
+              sql`case when ${own} then ${Product.id} else ${Product.parent_prod_id} end`,
+            ),
+            eq(catalogPriceList.pricelist_id, 2),
+          ),
+        )
+        .orderBy(desc(catalogPriceList.location_id))
+        .limit(1)},0)`,
+      stock: ProductStore.stock,
+    })
+    .from(Product)
+    .innerJoin(
+      ProductStore,
+      and(eq(ProductStore.product, Product.id), eq(ProductStore.store, BigInt(storeId))),
+    )
+    .leftJoin(parent, eq(parent.id, Product.parent_prod_id))
+    .where(
+      and(
+        eq(ProductStore.is_del, false),
+        eq(ProductStore.is_avail, true),
+        ne(Product.product, ''),
+        not(and(own, eq(Product.prod_type, 3n))!),
+        or(
+          and(
+            eq(Product.is_del, 0),
+            notExists(
+              subquery
+                .select({ id: removedParent.id })
+                .from(removedParent)
+                .where(
+                  and(
+                    eq(removedParent.id, Product.parent_prod_id),
+                    eq(removedParent.is_del, 1),
+                    eq(removedParent.prod_type, 3n),
+                    eq(removedParent.parent_prod_id, 0n),
+                  ),
+                ),
+            ),
+          ),
+          gt(ProductStore.stock, 0),
+        ),
+      ),
+    )
+    .orderBy(asc(Product.id))
+    .limit(70001);
+}
 const row = z.object({
   id: scalarId,
   product: z.string(),
@@ -41,7 +106,7 @@ export function catalogSnapshotService(db: Databases) {
         .where(and(eq(Store.id, BigInt(storeId)), eq(Store.is_active, true)))
         .limit(1);
       if (!store) throw new AppError(404, 'STORE_NOT_FOUND', 'Active store was not found.');
-      const rows = z.array(row).parse((await db.get('primary').execute(snapshotQuery(storeId)))[0]);
+      const rows = z.array(row).parse(await snapshotSelect(db.get('primary'), storeId));
       if (rows.length > 70000)
         throw new AppError(
           422,
