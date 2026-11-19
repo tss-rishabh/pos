@@ -13,7 +13,12 @@ export interface ResourceTrace {
 declare module 'fastify' {
   interface FastifyContextConfig {
     trace?: ResourceTrace;
-    authentication?: 'session' | 'service';
+    /**
+     * `session` (default): a signed-in operator is required, checked in `onRequest` before input
+     * validation (S50). `public`: the session is read when present but not required (login,
+     * health). `service`: no session; the route checks its own secret or proof.
+     */
+    authentication?: 'session' | 'service' | 'public';
   }
   interface FastifyRequest {
     principal: Principal | null;

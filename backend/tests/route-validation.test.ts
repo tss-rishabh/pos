@@ -231,3 +231,73 @@ describe('validation error contract', () => {
     expect(response.body).not.toContain('9876543210');
   });
 });
+
+describe('S50: authentication runs before validation on session routes', () => {
+  const origin = 'http://localhost:5173';
+  const publicRoutes = [
+    'DELETE /api/v1/auth/sessions/current',
+    'GET /api/v1/auth/capabilities',
+    'GET /api/v1/auth/challenges/current',
+    'GET /health/live',
+    'GET /health/ready',
+    'POST /api/v1/auth/challenges/current/resends',
+    'POST /api/v1/auth/challenges/current/verifications',
+    'POST /api/v1/auth/demo-sessions',
+    'POST /api/v1/auth/sessions',
+  ];
+  it('marks only the login and health routes public; everything else needs a session or a service proof', () => {
+    const marked = registeredRoutes(app)
+      .filter((route) => route.method !== 'HEAD' && route.authentication === 'public')
+      .map((route) => `${route.method} ${route.url}`)
+      .sort();
+    // The demo-session route disappears when demo mode is removed (W10).
+    const demo = 'POST /api/v1/auth/demo-sessions';
+    expect(marked).toEqual(publicRoutes.filter((key) => key !== demo || marked.includes(key)));
+  });
+  it('answers 401 to unauthenticated calls with invalid params, query, body or JSON, never a shape 400', async () => {
+    for (const request of [
+      { method: 'GET' as const, url: '/api/v1/stores/not-an-id/counters' },
+      { method: 'GET' as const, url: '/api/v1/stores?unexpected=9876543210' },
+      {
+        method: 'POST' as const,
+        url: '/api/v1/stores/1/checkout-sessions',
+        headers: { origin },
+        payload: { unexpected: '9876543210' },
+      },
+      {
+        method: 'PUT' as const,
+        url: '/api/v1/stores/1/cart-drafts/not-a-uuid',
+        headers: { origin, 'content-type': 'application/json' },
+        payload: '{"broken":',
+      },
+    ]) {
+      const response = await app.inject(request);
+      expect(response.statusCode).toBe(401);
+      expect(response.json<{ error: { code: string; fields?: unknown } }>().error).toMatchObject({
+        code: 'AUTH_REQUIRED',
+      });
+      expect(response.json<{ error: { fields?: unknown } }>().error.fields).toBeUndefined();
+      expect(response.body).not.toContain('9876543210');
+    }
+  });
+  it('keeps validating first on public and service routes', async () => {
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/sessions?unexpected=1',
+      headers: { origin },
+      payload: { username: 'operator' },
+    });
+    expect(login.statusCode).toBe(400);
+    expect(login.json<{ error: { code: string } }>().error.code).toBe('INVALID_REQUEST');
+    const scan = await app.inject({ url: '/user_to_app?store_id=not-a-store' });
+    expect(scan.statusCode).toBe(400);
+    const webhook = await app.inject({
+      method: 'POST',
+      url: '/api/v1/webhooks/day-close-alerts',
+      payload: { unexpected: true },
+    });
+    // The webhook's own API-key guard answers, not the session gate.
+    expect(webhook.statusCode).toBe(401);
+    expect(webhook.json<{ error: { code: string } }>().error.code).not.toBe('AUTH_REQUIRED');
+  });
+});

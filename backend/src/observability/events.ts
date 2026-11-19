@@ -5,7 +5,7 @@ export type { ResourceTrace } from '../fastify-extensions.js';
 export interface ResourceRoute extends ResourceTrace {
   method: string;
   path: string;
-  authentication: 'session' | 'service';
+  authentication: 'session' | 'service' | 'public';
 }
 const manifests = new WeakMap<FastifyInstance, ResourceRoute[]>();
 export function resourceRoutes(app: FastifyInstance): ResourceRoute[] {

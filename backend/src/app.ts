@@ -501,8 +501,9 @@ export async function buildApp(
     },
   );
   const noInput = routeSchema({ querystring: noQuery, headers: transportHeaders });
-  app.get('/health/live', noInput, async () => ({ status: 'ok' }));
-  app.get('/health/ready', noInput, async (_request, reply) => {
+  const health = { config: { authentication: 'public' as const }, ...noInput };
+  app.get('/health/live', health, async () => ({ status: 'ok' }));
+  app.get('/health/ready', health, async (_request, reply) => {
     if (config.DEMO_MODE) return { status: 'ok', mode: 'demo' };
     const result = await Promise.allSettled([
       ...(['writer', 'primary', 'data'] as const).map(async (reader) =>
