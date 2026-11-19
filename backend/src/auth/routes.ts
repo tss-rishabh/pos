@@ -231,6 +231,39 @@ export function registerAuth(app: FastifyInstance, options: AuthRouteOptions) {
     ...publicRoute,
     ...routeSchema({ querystring: noQuery, body: noBody, headers: authHeaders }),
   };
+  /**
+   * Public sign-in state probe for the web/desktop shell. Signed out is a normal state here, so it
+   * answers 200 `{ session: null }` instead of the 401 that every protected resource (including
+   * `GET /auth/sessions/current`) still returns. `loginChallengePending` only reports that this
+   * browser holds an unexpired sealed password-step cookie; the challenge itself is still read
+   * through `GET /auth/challenges/current`. Nothing about any other account is revealed.
+   */
+  app.get(
+    '/api/v1/auth/session-state',
+    {
+      config: {
+        trace: { module: 'identity', resource: 'session-state', action: 'read' },
+        authentication: 'public' as const,
+      },
+      ...authSchema(),
+    },
+    async (request) => {
+      validate(request);
+      let loginChallengePending = false;
+      if (!request.principal && request.cookies[pendingCookieName])
+        try {
+          loginChallengePending = pendingCredential(request).expires > Date.now();
+        } catch {
+          /* An unreadable or expired cookie identifies no pending login. */
+        }
+      return {
+        session: request.principal
+          ? { user: request.principal, sessionExpiresAt: request.sessionExpiresAt }
+          : null,
+        loginChallengePending,
+      };
+    },
+  );
   app.get('/api/v1/auth/sessions/current', authSchema(), async (request) => {
     validate(request);
     return { user: authenticated(request), sessionExpiresAt: request.sessionExpiresAt };

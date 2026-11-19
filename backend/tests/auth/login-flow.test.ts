@@ -413,6 +413,32 @@ describe.each(authRedisBackends)('staff login on $name', (backend) => {
     expect(await redis.port.get('check_in_11')).toBe('[1, "Andh\\u00e9ri"]');
   });
 
+  it('reports signed-out and pending-challenge state with 200 while the session resource stays 401', async () => {
+    const state = async () => {
+      const response = await app.inject({
+        url: '/api/v1/auth/session-state',
+        headers: { cookie: cookieHeader({ cookies: [] }, jar) },
+      });
+      expect(response.statusCode).toBe(200);
+      return response.json<{
+        session: { user: { id: string } } | null;
+        loginChallengePending: boolean;
+      }>();
+    };
+    expect(await state()).toEqual({ session: null, loginChallengePending: false });
+    expect((await app.inject({ url: '/api/v1/auth/sessions/current' })).statusCode).toBe(401);
+    expect((await app.inject({ url: '/api/v1/auth/session-state?probe=1' })).statusCode).toBe(400);
+    await passwordStep('operator11');
+    expect(await state()).toEqual({ session: null, loginChallengePending: true });
+    await verify(smsCode());
+    const signedIn = await state();
+    expect(signedIn.session?.user.id).toBe('11');
+    expect(signedIn.loginChallengePending).toBe(false);
+    jar.set('pos_pending_login', 'not-a-sealed-value');
+    for (const name of [...jar.keys()]) if (name !== 'pos_pending_login') jar.delete(name);
+    expect(await state()).toEqual({ session: null, loginChallengePending: false });
+  });
+
   it('rejects bad credentials and expired or missing password steps with clear statuses', async () => {
     const bad = await passwordStep('operator11', 'wrong');
     expect(bad.statusCode).toBe(401);
