@@ -5,6 +5,7 @@ import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { runCheck, stopProcess, type Check, type CheckResult } from './verification/check.js';
+import { mysqlTestDatabases } from './test-env/mysql-test-env.js';
 
 // Run with Node 24 and tsx. Never load .env or pass live service credentials to checks.
 const backend = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -46,33 +47,8 @@ if (flags.has('--mysql')) {
     url.pathname !== '/pos_rewrite_integration'
   )
     throw new Error('Verification requires the explicit local fixture database URL.');
-  for (const [name, schema] of Object.entries({
-    MYSQL_INTEGRATION_URL: 'pos_rewrite_integration',
-    AUTH_MYSQL_TEST_URL: 'pos_rewrite_auth_test',
-    ADMINISTRATION_MYSQL_TEST_URL: 'pos_rewrite_administration_test',
-    ADMINISTRATION_CREATOR_MYSQL_URL: 'pos_rewrite_creator_authority_test',
-    STORE_DEFAULT_OPERATORS_MYSQL_URL: 'pos_rewrite_store_defaults_test',
-    CHECKOUT_MYSQL_TEST_URL: 'pos_rewrite_checkout_test',
-    SPECIAL_PERMISSION_MYSQL_TEST_URL: 'pos_rewrite_activity_history_test',
-    APPLICATION_LINK_MYSQL_TEST_URL: 'pos_rewrite_application_links_test',
-    CUSTOMER_PROFILE_MYSQL_TEST_URL: 'pos_rewrite_customer_profile_test',
-    CUSTOMER_CONTACT_MYSQL_TEST_URL: 'pos_rewrite_customer_contacts_test',
-    CUSTOMER_OTP_MYSQL_TEST_URL: 'pos_rewrite_customer_otp_test',
-    CUSTOMER_WEBSITE_HANDOFF_MYSQL_TEST_URL: 'pos_rewrite_customer_website_handoff_test',
-    GLOBAL_VOUCHERS_MYSQL_TEST_URL: 'pos_rewrite_global_vouchers_test',
-    DASHBOARD_MYSQL_TEST_URL: 'pos_rewrite_dashboard_test',
-    BARCODE_ASSIGNMENTS_MYSQL_TEST_URL: 'pos_rewrite_barcodes_test',
-    ORDER_HISTORY_MYSQL_TEST_URL: 'pos_rewrite_order_history_test',
-    ORDER_SEARCH_MYSQL_TEST_URL: 'pos_rewrite_order_search_test',
-    PARENT_STORE_IMPORTS_MYSQL_TEST_URL: 'pos_rewrite_parent_store_test',
-    MODEL_ACCOUNTS_MYSQL_TEST_URL: 'pos_rewrite_model_accounts_test',
-    ECOMMERCE_SYNC_MYSQL_TEST_URL: 'pos_rewrite_integration',
-    WHOLE_ORDER_STATUS_MYSQL_TEST_URL: 'pos_rewrite_whole_status_test',
-    GIFT_CARD_BATCH_MYSQL_TEST_URL: 'pos_rewrite_gift_card_batches_test',
-    ADMINISTRATION_HISTORY_MYSQL_TEST_URL: 'pos_rewrite_administration_history_test',
-    APP_STACK_MYSQL_TEST_URL: 'pos_rewrite_app_stack_test',
-    INVENTORY_JOBS_MYSQL_TEST_URL: 'pos_rewrite_inventory_jobs_test',
-  })) {
+  // The variable -> template database map lives in tools/test-env/mysql-test-env.ts.
+  for (const [name, schema] of Object.entries(mysqlTestDatabases)) {
     url.pathname = '/' + schema;
     const fixtureUrl = new URL(url);
     if (
@@ -84,7 +60,6 @@ if (flags.has('--mysql')) {
     }
     childEnvironment[name] = fixtureUrl.href;
   }
-  childEnvironment.ORDER_SEARCH_SOURCE_ROOT = resolve(workspace, '../backend-pos-web');
   // Playwright (frontend/playwright.config.ts) seeds its own pos_rewrite_e2e schema on this server.
   url.pathname = '/pos_rewrite_e2e';
   childEnvironment.E2E_MYSQL_URL = url.href;
