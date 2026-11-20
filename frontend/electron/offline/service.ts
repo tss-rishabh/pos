@@ -19,7 +19,7 @@ import {
 } from '../../src/offline/billing/contracts';
 import type { OfflineSaleUpload } from '../../src/offline/billing/sync-contract';
 import type { CachedOperator, OfflineStore, QueueEntry } from './database';
-import type { ServerApi } from './server';
+import { UNKNOWN_OUTCOME_MESSAGE, type ServerApi } from './server';
 
 /** Errors returned to the renderer: fixed code and a non-sensitive message. */
 export class OfflineBillingError extends Error {
@@ -53,6 +53,13 @@ export interface OfflineServiceDeps {
 
 const MANAGER_ROLES = new Set([1, 2, 3, 4]);
 const MAX_CATALOG_PAGES = 300;
+/** Server refusals before dispatch (busy, check-in, operator change) retried this many times
+ * go to the manager instead of retrying forever. */
+export const MAX_SYNC_ATTEMPTS = 8;
+const INTERRUPTED_MESSAGE =
+  'The app closed while this sale was syncing. ' + UNKNOWN_OUTCOME_MESSAGE;
+const ESCALATED_MESSAGE =
+  'This sale could not be synced after repeated attempts. ' + UNKNOWN_OUTCOME_MESSAGE;
 
 export function isManager(operator: Pick<CachedOperator, 'role'>): boolean {
   return MANAGER_ROLES.has(operator.role);
@@ -69,7 +76,17 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
     lastSyncAt: number | null = null,
     lastSyncError: string | null = null,
     refreshing = false;
-  store.recoverInterrupted();
+  const interrupted = store.transaction(() =>
+    store.recoverInterrupted(INTERRUPTED_MESSAGE, deps.now()),
+  );
+  if (interrupted > 0)
+    deps.log({
+      eventId: 'offline.sync.interrupted',
+      traceId: randomUUID(),
+      outcome: 'failed',
+      code: 'OUTCOME_UNKNOWN',
+      count: interrupted,
+    });
 
   /** Persist monotonic elapsed time (called every minute and before decisions). */
   function tick() {
@@ -332,10 +349,11 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
     const started = deps.mono();
     try {
       for (const sale of store.due(deps.now())) {
-        const uploader =
-          operator.id === sale.operatorId ||
-          isManager(operator) ||
-          sale.resolution?.managerId === operator.id;
+        // A manager-resolved sale carries that manager's decision, which the server accepts only
+        // from the same manager; anyone else would turn it into a refusal.
+        const uploader = sale.resolution
+          ? sale.resolution.managerId === operator.id
+          : operator.id === sale.operatorId || isManager(operator);
         if (!uploader) continue;
         const salespersonId = sale.salespersonId;
         if (!salespersonId) {
@@ -364,10 +382,20 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
             store.markSynced(sale.saleId, outcome.orderId, outcome.invoiceNumber, now),
           );
           uploaded++;
-        } else if (outcome.kind === 'conflict' || outcome.kind === 'rejected') {
-          const code = conflictCodeSchema.catch('REJECTED').parse(outcome.code);
+        } else if (outcome.kind === 'conflict') {
+          const code = conflictCodeSchema.catch('OUTCOME_UNKNOWN').parse(outcome.code);
           store.transaction(() => store.markConflict(sale.saleId, code, outcome.message, now));
         } else {
+          // Only a request that never left the device, or one the server refused before
+          // dispatch, comes back here. Pre-dispatch refusals count toward the escalation.
+          const counted = outcome.kind === 'retry' && outcome.code !== 'NETWORK_UNAVAILABLE';
+          if (counted && sale.attempts + 1 >= MAX_SYNC_ATTEMPTS) {
+            store.transaction(() =>
+              store.markConflict(sale.saleId, 'OUTCOME_UNKNOWN', ESCALATED_MESSAGE, now),
+            );
+            deps.changed();
+            continue;
+          }
           const delay = Math.min(300000, 5000 * 2 ** Math.min(sale.attempts, 6));
           store.transaction(() =>
             store.markRetry(
@@ -375,6 +403,7 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
               outcome.kind === 'unauthorized' ? 'AUTH_REQUIRED' : outcome.code,
               now + delay,
               now,
+              counted,
             ),
           );
           lastSyncError =
@@ -435,6 +464,12 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
         const sale = publicSale(existing);
         return { sale, receipt: receipt(sale) };
       }
+      // Until the first probe finishes the device cannot know it is offline.
+      if (!probed)
+        throw new OfflineBillingError(
+          'CONNECTION_CHECK_PENDING',
+          'Checking the connection to the store service. Try again in a moment.',
+        );
       if (online())
         throw new OfflineBillingError(
           'ONLINE_BILLING_REQUIRED',

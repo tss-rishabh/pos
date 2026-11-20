@@ -1,11 +1,15 @@
 /** Offline billing window and clock-tamper guard (Phase D2 item 5b).
  *
  * The window starts at the device's last successful server contact while the
- * queue was empty. Elapsed time is accumulated from a monotonic clock while
- * the app runs and persisted every minute. Across restarts the wall-clock gap
- * is added (the window keeps running while the app is closed). If the wall
- * clock moves backwards, or a restart observes a wall clock inconsistent with
- * the persisted elapsed time, the window is treated as expired. */
+ * queue was empty. While the app runs, each step adds the larger of the
+ * monotonic and the wall-clock delta: the monotonic clock stops during system
+ * sleep on some platforms, so sleep never pauses the window, and a forward
+ * wall-clock jump can only shorten it. The main process also steps the window
+ * on power resume. Elapsed time is persisted every minute. Across restarts the
+ * wall-clock gap is added (the window keeps running while the app is closed).
+ * If the wall clock moves backwards, or a restart observes a wall clock
+ * inconsistent with the persisted elapsed time, the window is treated as
+ * expired. */
 export interface OfflineLimits {
   maxMinutes: number;
   maxOrders: number;
@@ -60,7 +64,8 @@ export function advanceWindow(
     const monotonic = Math.max(0, reading.monoMs - session.lastMonoMs),
       wall = reading.wallMs - state.lastWallMs;
     if (wall + BACKWARD_TOLERANCE_MS < monotonic) next.tampered = true;
-    next.elapsedMs += monotonic;
+    // Sleep pauses the monotonic clock (macOS) but not the wall clock: count the larger.
+    next.elapsedMs += Math.max(monotonic, wall);
   }
   next.lastWallMs = Math.max(state.lastWallMs, reading.wallMs);
   return { state: next, session: nextSession };

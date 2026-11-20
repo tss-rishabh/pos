@@ -59,10 +59,40 @@ describe('offline billing window', () => {
     expect(evaluateLimits(limits, state, 1).reason).toBe('TIME_LIMIT');
     expect(evaluateLimits(limits, resetWindow(start), 3).reason).toBe('ORDER_LIMIT');
   });
-  it('ignores a forward wall-clock jump while running (monotonic time counts)', () => {
+  it('counts a forward wall-clock jump while running: it can only shorten the window', () => {
     const step = advanceWindow(
       resetWindow(start),
       { wallMs: start + 10 * 3600_000, monoMs: 10 * minute },
+      { lastMonoMs: 0 },
+    );
+    expect(step.state.elapsedMs).toBe(10 * 3600_000);
+    expect(step.state.tampered).toBe(false);
+    expect(evaluateLimits(DEFAULT_LIMITS, step.state, 0).reason).toBe('TIME_LIMIT');
+  });
+  it('keeps counting through system sleep, when the monotonic clock stops', () => {
+    // 30 minutes awake, then a 3-hour sleep during which performance.now() did not advance.
+    let step = advanceWindow(
+      resetWindow(start),
+      { wallMs: start + 30 * minute, monoMs: 30 * minute },
+      { lastMonoMs: 0 },
+    );
+    expect(evaluateLimits(DEFAULT_LIMITS, step.state, 0).allowed).toBe(true);
+    step = advanceWindow(
+      step.state,
+      { wallMs: start + 210 * minute, monoMs: 30 * minute + 2_000 },
+      step.session,
+    );
+    expect(step.state.elapsedMs).toBe(210 * minute);
+    expect(step.state.tampered).toBe(false);
+    expect(evaluateLimits(DEFAULT_LIMITS, step.state, 0)).toMatchObject({
+      allowed: false,
+      reason: 'TIME_LIMIT',
+    });
+  });
+  it('uses monotonic time when the wall clock lags slightly (NTP slew)', () => {
+    const step = advanceWindow(
+      resetWindow(start),
+      { wallMs: start + 9 * minute, monoMs: 10 * minute },
       { lastMonoMs: 0 },
     );
     expect(step.state.elapsedMs).toBe(10 * minute);

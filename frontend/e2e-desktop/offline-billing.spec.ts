@@ -439,26 +439,45 @@ test.describe.serial('desktop offline billing on the real stack', () => {
     expect(await posOrderCalls()).toBe(2);
   });
 
-  test('a replayed upload after a lost response creates no duplicate order', async () => {
+  test('a lost response sends the sale to the manager, is never resent, and links without a duplicate', async () => {
     await goOffline();
     const billed = await billViaBridge('1003');
     expect(billed.ok).toBe(true);
+    const saleId = billed.ok ? billed.data.sale.saleId : '';
     const calls = await posOrderCalls();
+    // The upload reaches the backend, which creates the order; the reply is lost on the way back.
     await network(true, { dropSaleResponses: 1 });
     await waitForStatus(
-      (value) => value.online && value.queue.synced === 3 && !value.syncing,
+      (value) => value.online && value.queue.needsManager === 1 && !value.syncing,
       90000,
     );
-    const sale = (await sales()).find(
-      (item) => billed.ok && item.saleId === billed.data.sale.saleId,
-    )!;
-    expect(sale.status).toBe('synced');
+    let sale = (await sales()).find((item) => item.saleId === saleId)!;
+    expect(sale).toMatchObject({ status: 'needs_manager', conflict: { code: 'OUTCOME_UNKNOWN' } });
     expect(
       (await control<{ droppedSaleResponses: number }>('/network', { up: true }))
         .droppedSaleResponses,
     ).toBe(1);
+    // Two more heartbeat cycles: the device never resends an uncertain sale by itself.
+    await page.waitForTimeout(35000);
+    expect(await posOrderCalls()).toBe(calls + 1);
     const { rows } = await control<ControlOrders>('/offline-orders');
-    expect(rows.filter((row) => row.comment.includes(`${sale.provisionalRef} `))).toHaveLength(1);
+    const created = rows.filter((row) => row.comment.includes(`${sale.provisionalRef} `));
+    expect(created).toHaveLength(1);
+    // The manager links the order found in Orders.
+    const resolved = await bridge<{ sale: OfflineSale }>('offline:conflict:resolve', {
+      saleId,
+      action: 'link-order',
+      orderId: created[0]!.orderId,
+      reason: 'Found the order in Orders',
+    });
+    expect(resolved.ok).toBe(true);
+    await waitForStatus((value) => value.queue.needsManager === 0 && !value.syncing, 60000);
+    sale = (await sales()).find((item) => item.saleId === saleId)!;
+    expect(sale).toMatchObject({ status: 'synced', orderId: created[0]!.orderId });
+    const after = await control<ControlOrders>('/offline-orders');
+    expect(
+      after.rows.filter((row) => row.comment.includes(`${sale.provisionalRef} `)),
+    ).toHaveLength(1);
     expect(await posOrderCalls()).toBe(calls + 1);
   });
 
