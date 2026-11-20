@@ -8,7 +8,16 @@ import { e2eOperator } from './support/login';
  */
 test('sign-in without a store asks for a check-in; the header checks out, in and logs out', async ({
   page,
+  network,
 }) => {
+  // Checking out, reloading and logging out cancel a store-notifications read that is still in
+  // flight (the query is scoped to the checked-in store); timing decides whether one is pending.
+  network.expectFailure({
+    method: 'GET',
+    path: '/api/v1/stores/1/notifications',
+    outcome: 'net::ERR_ABORTED',
+    upTo: 3,
+  });
   const checkIns: string[] = [];
   page.on('response', (response) => {
     if (new URL(response.url()).pathname === '/api/v1/operators/me/check-in')
