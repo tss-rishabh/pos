@@ -138,6 +138,18 @@ must run with `maxmemory-policy noeviction`. Lockout alerts post to
 security worker. Alerts and logs never carry the OTP, password, email or an unmasked
 phone.
 
+Offline billing sync keeps three kinds of state in the same `REDIS_URL`:
+
+- idempotency records (`pos:offline_sale:<ref>`, 30 days)
+- upload locks (`pos:offline_sale_lock:<ref>`)
+- per-device episode counts (`pos:offline_device_sales:<deviceId>`, 3 days)
+
+If one of these records is lost, an uncertain sale can be created twice. The server's
+comment-row and candidate-order checks narrow that window but do not close it.
+This Redis must therefore also run with AOF persistence (`appendonly yes`,
+`appendfsync everysec` or stricter) on top of `noeviction`. A cache-only, non-persistent
+Redis is not supported.
+
 Provide BigQuery ADC/workload identity, project/location and verified view/table
 contracts. Current business-day reports use the data reader; historical and
 mixed-day reports require BigQuery. Verify CDC freshness, decimal/NULL behavior,
