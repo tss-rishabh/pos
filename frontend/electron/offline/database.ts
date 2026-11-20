@@ -678,9 +678,7 @@ export function offlineStore(db: SqliteDatabase) {
       db.prepare("UPDATE sales SET status = 'syncing' WHERE sale_id = ? AND status = 'queued'").run(
         saleId,
       );
-      db.prepare(
-        'UPDATE sync_queue SET attempts = attempts + 1, updated_at = ? WHERE sale_id = ?',
-      ).run(now, saleId);
+      db.prepare('UPDATE sync_queue SET updated_at = ? WHERE sale_id = ?').run(now, saleId);
     },
     markSynced(saleId: string, orderId: string, invoice: string | null, now: number) {
       db.prepare(
@@ -688,23 +686,17 @@ export function offlineStore(db: SqliteDatabase) {
       ).run(orderId, invoice, now, saleId);
       db.prepare('DELETE FROM sync_queue WHERE sale_id = ?').run(saleId);
     },
-    markRetry(saleId: string, code: string, nextAttemptAt: number, now: number) {
+    /** Back to the queue. `attempts` counts only server refusals (counted), never a request
+     * that provably did not leave the device; it drives the escalation to a manager. */
+    markRetry(saleId: string, code: string, nextAttemptAt: number, now: number, counted: boolean) {
       db.prepare("UPDATE sales SET status = 'queued' WHERE sale_id = ? AND status = 'syncing'").run(
         saleId,
       );
       db.prepare(
-        'UPDATE sync_queue SET next_attempt_at = ?, last_error_code = ?, updated_at = ? WHERE sale_id = ?',
-      ).run(nextAttemptAt, code, now, saleId);
+        'UPDATE sync_queue SET attempts = attempts + ?, next_attempt_at = ?, last_error_code = ?, updated_at = ? WHERE sale_id = ?',
+      ).run(counted ? 1 : 0, nextAttemptAt, code, now, saleId);
     },
-    markConflict(saleId: string, code: ConflictCode, message: string, now: number) {
-      db.prepare("UPDATE sales SET status = 'needs_manager' WHERE sale_id = ?").run(saleId);
-      db.prepare(
-        'UPDATE sync_queue SET last_error_code = ?, next_attempt_at = 0, updated_at = ? WHERE sale_id = ?',
-      ).run(code, now, saleId);
-      db.prepare(
-        'INSERT INTO conflicts (sale_id, code, message, created_at) VALUES (?, ?, ?, ?)',
-      ).run(saleId, code, message, now);
-    },
+    markConflict,
     resolve(saleId: string, resolution: SaleResolution) {
       db.prepare(
         'UPDATE conflicts SET resolved_at = ?, resolved_by = ?, resolution = ? WHERE sale_id = ? AND resolved_at IS NULL',
@@ -717,15 +709,31 @@ export function offlineStore(db: SqliteDatabase) {
       if (resolution.action === 'void')
         db.prepare('DELETE FROM sync_queue WHERE sale_id = ?').run(saleId);
       else
+        // A manager decision starts a fresh retry budget.
         db.prepare(
-          'UPDATE sync_queue SET next_attempt_at = 0, updated_at = ? WHERE sale_id = ?',
+          'UPDATE sync_queue SET attempts = 0, next_attempt_at = 0, updated_at = ? WHERE sale_id = ?',
         ).run(resolution.resolvedAt, saleId);
     },
-    /** A crash mid-upload leaves 'syncing'; the server lookup makes a re-upload safe. */
-    recoverInterrupted() {
-      db.prepare("UPDATE sales SET status = 'queued' WHERE status = 'syncing'").run();
+    /** A crash or quit mid-upload leaves 'syncing'. The request may have reached the server,
+     * so the sale goes to the manager as an unknown outcome and is never resent by itself. */
+    recoverInterrupted(message: string, now: number): number {
+      const rows = db
+        .prepare("SELECT sale_id FROM sales WHERE status = 'syncing' ORDER BY sequence")
+        .all()
+        .map((row) => z.object({ sale_id: z.string() }).parse(row).sale_id);
+      for (const saleId of rows) markConflict(saleId, 'OUTCOME_UNKNOWN', message, now);
+      return rows.length;
     },
   };
+  function markConflict(saleId: string, code: ConflictCode, message: string, now: number) {
+    db.prepare("UPDATE sales SET status = 'needs_manager' WHERE sale_id = ?").run(saleId);
+    db.prepare(
+      'UPDATE sync_queue SET last_error_code = ?, next_attempt_at = 0, updated_at = ? WHERE sale_id = ?',
+    ).run(code, now, saleId);
+    db.prepare(
+      'INSERT INTO conflicts (sale_id, code, message, created_at) VALUES (?, ?, ?, ?)',
+    ).run(saleId, code, message, now);
+  }
   function writeTender(saleId: string, tender: Tender, payablePaise: number, now: number) {
     db.prepare(
       `INSERT INTO payments (sale_id, mode, amount_paise, cash_received_paise, reference, updated_at)

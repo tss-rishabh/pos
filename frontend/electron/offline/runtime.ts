@@ -1,19 +1,40 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
-import { app, ipcMain, net, safeStorage, type BrowserWindow, type Session } from 'electron';
+import {
+  app,
+  ipcMain,
+  net,
+  powerMonitor,
+  safeStorage,
+  type BrowserWindow,
+  type Session,
+} from 'electron';
 import { z } from 'zod';
 import type { IpcReply, OfflineStatus } from '../../src/offline/billing/contracts';
 import { DEFAULT_LIMITS, evaluateLimits } from '../../src/offline/billing/limits';
 import {
+  OfflineDatabaseLockedError,
   offlineStore,
   openEncryptedDatabase,
   type SqliteConstructor,
   type SqliteDatabase,
 } from './database';
 import { registerOfflineIpc, type IpcHandlers } from './ipc';
-import { loadOrCreateDatabaseKey, type SecretWrapper } from './key-store';
-import { NetworkUnavailableError, serverApi, type HttpClient, type HttpRequest } from './server';
+import {
+  OfflineKeyMissingError,
+  OfflineKeyUnavailableError,
+  loadOrCreateDatabaseKey,
+  type SecretWrapper,
+} from './key-store';
+import {
+  NetworkUnavailableError,
+  RequestNotSentError,
+  preSendNetworkError,
+  serverApi,
+  type HttpClient,
+  type HttpRequest,
+} from './server';
 import { OfflineBillingError, offlineBillingService, type OfflineLogEvent } from './service';
 
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
@@ -42,8 +63,8 @@ function electronHttp(origin: string, profile: Session): HttpClient {
     request(request: HttpRequest) {
       return new Promise((resolve, reject) => {
         const url = new URL(request.path, origin);
-        if (url.origin !== origin) {
-          reject(new NetworkUnavailableError());
+        if (url.origin !== origin || !net.isOnline()) {
+          reject(new RequestNotSentError());
           return;
         }
         const call = net.request({
@@ -86,9 +107,14 @@ function electronHttp(origin: string, profile: Session): HttpClient {
             reject(new NetworkUnavailableError());
           });
         });
-        call.on('error', () => {
+        call.on('error', (error: Error) => {
           clearTimeout(timer);
-          reject(new NetworkUnavailableError());
+          // Only connection set-up failures prove the request never reached the server.
+          reject(
+            preSendNetworkError(error.message)
+              ? new RequestNotSentError()
+              : new NetworkUnavailableError(),
+          );
         });
         call.on('abort', () => {
           clearTimeout(timer);
@@ -131,6 +157,32 @@ function unavailableStatus(reason: string): OfflineStatus {
     syncing: false,
     lastSyncAt: null,
     lastSyncError: null,
+  };
+}
+
+/** Fixed, user-facing reasons per known start-up failure; error text is never shown or logged. */
+function storageFailure(error: unknown): { code: string; reason: string } {
+  if (error instanceof OfflineKeyMissingError)
+    return {
+      code: 'KEY_MISSING',
+      reason:
+        'Offline billing is off: the device key for the saved offline sales is missing. The saved sales were kept. Contact support before billing offline on this device.',
+    };
+  if (error instanceof OfflineKeyUnavailableError)
+    return {
+      code: 'KEY_UNAVAILABLE',
+      reason:
+        'Offline billing is off: secure key storage is unavailable on this device. Saved offline sales are kept.',
+    };
+  if (error instanceof OfflineDatabaseLockedError)
+    return {
+      code: 'DATABASE_LOCKED',
+      reason:
+        'Offline billing is off: the saved offline sales could not be opened on this device. They were kept unchanged. Contact support.',
+    };
+  return {
+    code: 'STORAGE_UNAVAILABLE',
+    reason: 'Offline billing storage is unavailable on this device.',
   };
 }
 
@@ -179,24 +231,26 @@ export async function startOfflineBilling(
   };
   let database: SqliteDatabase | null = null;
   try {
-    const directory = app.getPath('userData');
-    const { key } = await loadOrCreateDatabaseKey(wrapper, join(directory, 'offline-billing.key'));
+    const directory = app.getPath('userData'),
+      databaseFile = join(directory, 'offline-billing.db');
+    const { key } = await loadOrCreateDatabaseKey(
+      wrapper,
+      join(directory, 'offline-billing.key'),
+      databaseFile,
+    );
     try {
-      database = openEncryptedDatabase(loadSqlite(), join(directory, 'offline-billing.db'), key);
+      database = openEncryptedDatabase(loadSqlite(), databaseFile, key);
     } finally {
       key.fill(0);
     }
   } catch (error) {
     // Never delete or replace an existing database: it may hold sold goods.
-    const reason =
-      error instanceof Error
-        ? error.message
-        : 'Offline billing storage is unavailable on this device.';
+    const { code, reason } = storageFailure(error);
     log({
       eventId: 'offline.storage.unavailable',
       traceId: randomUUID(),
       outcome: 'failed',
-      code: 'STORAGE_UNAVAILABLE',
+      code,
     });
     const status = unavailableStatus(reason);
     const refuse = async () => {
@@ -285,9 +339,21 @@ export async function startOfflineBilling(
   }, 60000);
   const navigated = () => beat(true);
   window.webContents.on('did-finish-load', navigated);
+  // After system sleep, count the slept time into the offline window at once.
+  const resumed = () => {
+    try {
+      service.tick();
+    } catch {
+      log({ eventId: 'offline.clock.persist', traceId: randomUUID(), outcome: 'failed' });
+    }
+    notify();
+    beat();
+  };
+  powerMonitor.on('resume', resumed);
   const stop = () => {
     clearInterval(heartbeat);
     clearInterval(minute);
+    powerMonitor.removeListener('resume', resumed);
     unregister();
     if (!window.isDestroyed()) window.webContents.removeListener('did-finish-load', navigated);
     try {

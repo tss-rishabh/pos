@@ -14,14 +14,35 @@ export class OfflineKeyUnavailableError extends Error {
   }
 }
 
+/** The wrapped key file is gone but the encrypted database it unlocks is still on disk.
+ * A new key could never open that database, so no key is created: the sales in it are kept
+ * for support to recover, and offline billing stays off. */
+export class OfflineKeyMissingError extends OfflineKeyUnavailableError {
+  constructor() {
+    super('The offline billing key is missing while offline sales data exists.');
+  }
+}
+
 const MAX_WRAPPED_BYTES = 16384;
+
+/** True unless the path is definitely absent; any other stat failure counts as present. */
+async function mayExist(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch (error) {
+    return !(error instanceof Error && 'code' in error && error.code === 'ENOENT');
+  }
+}
 
 /** Load the per-device 256-bit database key, creating it on first use. The
  * plaintext key exists only in main-process memory; on disk it is wrapped by
- * the OS keystore. The wrapped file is written atomically with mode 0600. */
+ * the OS keystore. The wrapped file is written atomically with mode 0600.
+ * A key is created only when the database file (and its WAL) does not exist. */
 export async function loadOrCreateDatabaseKey(
   wrapper: SecretWrapper,
   filename: string,
+  databaseFilename: string,
 ): Promise<{ key: Buffer; created: boolean }> {
   if (!(await wrapper.available())) throw new OfflineKeyUnavailableError();
   let wrapped: Buffer | null = null;
@@ -47,6 +68,8 @@ export async function loadOrCreateDatabaseKey(
       throw new OfflineKeyUnavailableError('The offline billing key is invalid.');
     return { key: Buffer.from(hex, 'hex'), created: false };
   }
+  for (const path of [databaseFilename, `${databaseFilename}-wal`])
+    if (await mayExist(path)) throw new OfflineKeyMissingError();
   const key = randomBytes(32);
   const sealed = await wrapper.encrypt(key.toString('hex'));
   const temporary = `${filename}.${randomBytes(8).toString('hex')}.tmp`;
