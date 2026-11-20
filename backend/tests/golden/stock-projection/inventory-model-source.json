@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "kind": "source-excerpt",
+  "sourceRepository": "backend-sync-api",
+  "sourceCommit": "70b80159016db39a73572f80bfa87c47201c0a9f",
+  "path": "new-src/api/models/inventoryModel.ts",
+  "fileSha256": "07246982120d152e54f897e10d6407e2fa4d49726638376e489c4ff9319d1d3e",
+  "capturedAt": "2026-11-20T12:11:44Z",
+  "capture": "tools/golden/capture-source-excerpts.ts",
+  "test": "backend/tests/stock-projection.mysql.integration.test.ts",
+  "excerpts": {
+    "getProductInventory": {
+      "rule": "the top-level `function getProductInventory` declaration (TypeScript AST getText)",
+      "sha256": "748420b9fed9df669145a707fbe7a7cb57357d04574e6eaf97a75ea2f3fdd3fd",
+      "text": "export async function getProductInventory(productId: number): Promise<ProductStockInfo | false> {\n    // Validate product exists and is the right type (excludes combos, GVs, freebies, parent products)\n    const productRows = await db\n        .select({ parentProdId: products.parentProdId, isAvail: products.isAvail, isDel: products.isDel })\n        .from(products)\n        .where(and(\n            eq(products.id, productId),\n            inArray(products.prodType, [PRODUCT_TYPES.SIMPLE, PRODUCT_TYPES.MEMBERSHIP, PRODUCT_TYPES.FREEBIE, PRODUCT_TYPES.GIFT_VOUCHER])\n        ))\n        .limit(1);\n\n    if (productRows.length === 0) return false;\n\n    const p = productRows[0];\n\n    // Fetch stock and stocked (buffer) from product_stocks table\n    const stockRows = await db\n        .select({ stock: productStocks.stock, stocked: productStocks.stocked })\n        .from(productStocks)\n        .where(eq(productStocks.prodId, productId))\n        .limit(1);\n\n    // Fetch warehouse stocks from product_store joined with stores\n    const warehouseRows = await db\n        .select({ locationCode: stores.locationCode, stock: productStore.stock })\n        .from(productStore)\n        .innerJoin(stores, eq(productStore.storeId, stores.id))\n        .where(and(\n            eq(productStore.productId, productId),\n            inArray(stores.locationCode, WAREHOUSE_LOCATIONS)\n        ));\n\n    // Build warehouse stock map for easy lookup\n    const warehouseStockMap: { [key: string]: number } = {};\n    for (const row of warehouseRows) {\n        warehouseStockMap[row.locationCode.toLowerCase()] = row.stock || 0;\n    }\n\n    // Calculate store online stock (stock above ecommerce threshold from delivery-enabled stores)\n    const storeRows = await db\n        .select({ sum: sum(sql`${productStore.stock} - ${stores.ecomThreshold}`) })\n        .from(productStore)\n        .leftJoin(stores, eq(productStore.storeId, stores.id))\n        .where(and(\n            eq(productStore.productId, productId),\n            eq(stores.ecomDelivery, 1),\n            gt(productStore.stock, 0),\n            sql`${productStore.stock} > ${stores.ecomThreshold}`\n        ));\n\n    const storeOnline = parseInt(storeRows[0].sum || '0', 10);\n\n    // Return comprehensive inventory object with all warehouse stocks from product_store\n    return {\n        parentProductId: p.parentProdId || 0,\n        totalOnline: (stockRows.length > 0 ? stockRows[0].stock || 0 : 0),  // From product_stocks table\n        storeOnline,\n        buffer: (stockRows.length > 0 ? stockRows[0].stocked || 0 : 0),  // From product_stocks table\n        isAvail: p.isAvail,\n        isDel: p.isDel,\n        dwh: warehouseStockMap['dwh'] || 0,\n        bwh: warehouseStockMap['bwh'] || 0,\n        wwh: warehouseStockMap['wwh'] || 0,\n        bw1: warehouseStockMap['bw1'] || 0,\n        bw2: warehouseStockMap['bw2'] || 0,\n        dw1: warehouseStockMap['dw1'] || 0,\n        hwh: warehouseStockMap['hwh'] || 0,\n        mw1: warehouseStockMap['mw1'] || 0,\n        mw2: warehouseStockMap['mw2'] || 0,\n        mw3: warehouseStockMap['mw3'] || 0,\n    };\n}"
+    },
+    "onlineStockArithmetic": {
+      "rule": "the only `onlineStock = … + storeOnlineStock` statement in a block and the two statements after it (TypeScript AST getText, joined with newlines)",
+      "sha256": "07685855ebd2c77e4d13465b6fc06f6e4d3b97743cece8a352a9d25ae5dcd571",
+      "text": "onlineStock = stock.dwh + stock.bwh + stock.wwh + stock.bw1 + stock.bw2\n                                + stock.dw1 + stock.hwh + stock.mw1 + stock.mw2 + stock.mw3\n                                + storeOnlineStock;\nbufferStock = Math.min(bufferStock, onlineStock);\nonlineStock -= bufferStock;"
+    }
+  }
+}

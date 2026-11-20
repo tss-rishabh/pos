@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "kind": "source-excerpt",
+  "sourceRepository": "backend-pos-web",
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "path": "order/templates/order/index.html",
+  "fileSha256": "cf59e63984df4e6d1db6b020d41077ee95b0dfdace3145d7ec5d31e38aba4826",
+  "capturedAt": "2026-11-20T12:11:44Z",
+  "capture": "tools/golden/capture-source-excerpts.ts",
+  "test": "backend/tests/order-search/he-store-validation.test.ts",
+  "excerpts": {
+    "submitHandler": {
+      "rule": "from the first \"$(document).on('submit', '.filter-class'\" up to the next \"\\n    {% with request.path as path %}\"",
+      "sha256": "53e7d98498d302ac7418f3934ab0057c4ec73557a084c4e66eb1f37d5a0288f5",
+      "text": "$(document).on('submit', '.filter-class', function (e) {\n        var order_type = $('input[name=\"order_type\"]:checked').val();\n        var selected_stores = $('.s_stores').val();\n        var order_id = $('.order_id').val();\n        var mobile = $('input[name=\"mobile\"]').val();\n        var email = $('input[name=\"email\"]').val();\n        if (order_type === 'HE') {\n            if (!selected_stores || selected_stores.length === 0) {\n                e.preventDefault();\n                $.alert('Please select a store when searching HyperLocal orders.');\n                return false;\n            }\n            if (selected_stores.length > 1) {\n                e.preventDefault();\n                $.alert('Please select only one store when searching HyperLocal orders.');\n                return false;\n            }\n        }\n    });\n"
+    }
+  }
+}

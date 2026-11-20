@@ -348,3 +348,29 @@ one of its cases selects the same tier after truncation, so it is unchanged.
 rewrite's MySQL gateway on the same fixture session and requires the same output as
 the pinned source statements (`parity/customer-history.md`).
 
+## Validation V1 (20 November 2026): no sibling checkouts at test time
+
+The backend suite now runs in CI (`npm run test:integration` in
+`.github/workflows/desktop-platforms.yml`) without `../backend-pos-web`,
+`../backend-sync-api` or git history. Three tests that read those at run time now read
+verbatim **source excerpts** instead. This is a different golden shape from the oracle
+invocations above (`kind: "source-excerpt"`, loaded by `source-excerpts.ts`): these
+tests execute the original code itself on their own inputs rather than compare against
+recorded output.
+
+Capture: `tools/golden/capture-source-excerpts.ts`, on files exported with
+`git --git-dir=<repo>/.git show <pin>:<path>` outside this repository. The tool refuses
+any file whose whole-file SHA-256 differs from the pinned one, extracts each excerpt
+with the same rule the test used on the checkout, and records each excerpt's SHA-256,
+which the loader re-checks. Captured twice; the captures were identical apart from
+`capturedAt`. No database, network or live service was involved.
+
+| Golden                                         | Source: pin, path, file SHA-256                                                                  | Excerpts                                                                  | Consumer                                                                                              |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `order-search/he-submit-handler.json`          | `backend-pos-web` 78d5b63, `order/templates/order/index.html`, `cf59e639…`                       | the `.filter-class` submit handler (the same start/end markers as before) | `tests/order-search/he-store-validation.test.ts` (runs it in `node:vm` as before)                     |
+| `stock-projection/inventory-model-source.json` | `backend-sync-api` 70b8015, `new-src/api/models/inventoryModel.ts`, `07246982…` (already pinned) | `getProductInventory`; the online-stock arithmetic (the same AST rules)   | `tools/stock-projection/source-oracle.ts`, used by `tests/stock-projection.mysql.integration.test.ts` |
+| `order-history/orders-b90b4be-source.json`     | this repository at b90b4be, `backend/src/modules/orders.ts`, `68f8a107…`                         | the whole file: the earlier rewrite projection the test compares against  | `tests/order-history/orders.mysql.test.ts` (was `git show b90b4be:…`; CI checkouts are shallow)       |
+
+`order-history/online-detail-mysql.timeline.json` is unchanged. Its consumer now pins
+its fixture clock to the golden's `capturedAt`, because the golden records the absolute
+fixture dates of that day; before, the test failed on every later day.
