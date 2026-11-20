@@ -202,3 +202,11 @@ Every fix and every feature must land on, and be verified on, all three clients:
   The app uses the ghost logo icon. The bundle and app ID stay `com.thesouledstore.pos`, so installs upgrade in place.
   The desktop profile folder and the OS keystore entry follow the product name ("Retail POS Safe Storage"). There
   was no released install under the old name.
+
+## Repository: user instruction, 20 November 2026 (STRICT)
+
+- The only repository is **https://github.com/tss-rishabh/pos**, and all developed code goes to its `main`.
+- Never push to, open pull requests on, or fetch from any other repository. That includes the former
+  `thesouledstore-tss/pos`, whose `upstream` remote was removed.
+- Links to it in evidence and in past PR documents are historical records. Leave them unchanged.
+- Push to `main` only after the Windows and macOS legs of `desktop-platforms.yml` pass, as before.

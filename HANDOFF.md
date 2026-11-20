@@ -10,7 +10,7 @@ is in git history at `e392040f`.
 
 | Item | Value |
 |---|---|
-| Repository | https://github.com/tss-rishabh/pos (`origin`, work lands on `main`); upstream https://github.com/thesouledstore-tss/pos (PR #2) |
+| Repository | https://github.com/tss-rishabh/pos, the only repository. All work lands on its `main` |
 | Branch | `main`. The rewrite was developed on `refactor/single-stack-schema-freeze` |
 | Checkout | `/Users/rishabhbhatia/code/pos-rewrite`, the only checkout (the other worktrees were removed on 20 November 2026). Local-only, gitignored: `backend/.env.uat` (UAT settings) and `.tmp/w26` (UAT run logs) |
 | Integration merge | `b481fa91` (W21), on top of W19 `ecc966a9`, W20 `feb995c7`/`719a66a6` and W18 `a2382b4e` |
@@ -23,7 +23,7 @@ is in git history at `e392040f`.
 2. `backend/parity/w22-verification.md`: the current verification matrix and its one failure. W18's
    `w18-verification.md` is the previous matrix; `w19`–`w21-report.md` describe the blocker fixes.
 3. `backend/parity/security-decisions.md`: S1–S58.
-4. `docs/pull-requests/pr-2-description.md`: the PR #2 text, a draft not yet pasted to GitHub.
+4. `docs/pull-requests/pr-2-description.md`: historical. It is the description drafted for PR #2 on the former `thesouledstore-tss/pos` repository, which is no longer used.
 5. `docs/plans/single-stack-schema-freeze.md`: the plan and its phase status.
 6. The workstream reports, `backend/parity/w2-followups.md` and `w3`–`w21-report.md`.
 
