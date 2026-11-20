@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { createClient } from 'redis';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readConfig } from '../../src/config.js';
@@ -8,18 +7,9 @@ import {
   saleKeys,
   type OfflineSyncCoordinator,
 } from '../../src/modules/offline-sync/locks.js';
-import { privateRedisFixture } from '../helpers/private-redis.js';
+import { privateRedisFixture, redisServerAvailable } from '../helpers/private-redis.js';
 
-const hasRedis = (() => {
-  try {
-    execFileSync(process.env.E2E_REDIS_SERVER || 'redis-server', ['--version'], {
-      stdio: 'ignore',
-    });
-    return true;
-  } catch {
-    return false;
-  }
-})();
+const hasRedis = redisServerAvailable;
 const device = 'abcdef0123456789abcdef0123456789';
 
 describe.skipIf(!hasRedis)('offline sync device sales in Redis (private loopback)', () => {

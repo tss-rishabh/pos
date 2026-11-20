@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { readConfig } from '../src/config.js';
@@ -10,18 +9,9 @@ import {
   redisStateStore,
   type PosStateStore,
 } from '../src/modules/checkout/state-store.js';
-import { privateRedisFixture } from './helpers/private-redis.js';
+import { privateRedisFixture, redisServerAvailable } from './helpers/private-redis.js';
 
-const hasRedis = (() => {
-  try {
-    execFileSync(process.env.E2E_REDIS_SERVER || 'redis-server', ['--version'], {
-      stdio: 'ignore',
-    });
-    return true;
-  } catch {
-    return false;
-  }
-})();
+const hasRedis = redisServerAvailable;
 
 const operator: Principal = {
   id: '7',

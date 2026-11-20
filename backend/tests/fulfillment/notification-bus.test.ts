@@ -1,5 +1,3 @@
-import { spawn, type ChildProcess } from 'node:child_process';
-import { createServer } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readConfig } from '../../src/config.js';
 import {
@@ -7,65 +5,26 @@ import {
   type NoticeEvent,
   type NotificationBus,
 } from '../../src/modules/fulfillment/notification-bus.js';
+import { privateRedisFixture, redisServerAvailable } from '../helpers/private-redis.js';
 
-describe('scoped Redis notification fanout', () => {
-  let server: ChildProcess | undefined, bus: NotificationBus | undefined;
+// A private loopback Redis-compatible server (E2E_REDIS_SERVER, e.g. Memurai on Windows).
+describe.skipIf(!redisServerAvailable)('scoped Redis notification fanout', () => {
+  let server: Awaited<ReturnType<typeof privateRedisFixture>> | undefined,
+    bus: NotificationBus | undefined;
   beforeAll(async () => {
-    const listener = createServer();
-    await new Promise<void>((resolve, reject) => {
-      listener.once('error', reject);
-      listener.listen(0, '127.0.0.1', resolve);
-    });
-    const address = listener.address();
-    if (!address || typeof address === 'string') throw new Error('No isolated notification port.');
-    await new Promise<void>((resolve, reject) =>
-      listener.close((error) => (error ? reject(error) : resolve())),
-    );
-    server = spawn(
-      'redis-server',
-      [
-        '--port',
-        String(address.port),
-        '--bind',
-        '127.0.0.1',
-        '--save',
-        '',
-        '--appendonly',
-        'no',
-        '--protected-mode',
-        'yes',
-      ],
-      { stdio: ['ignore', 'pipe', 'ignore'] },
-    );
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Isolated Redis did not start.')), 5000);
-      server!.once('error', (error) => {
-        clearTimeout(timeout);
-        reject(error);
-      });
-      server!.stdout!.on('data', (chunk: Buffer) => {
-        if (chunk.toString().includes('Ready to accept connections')) {
-          clearTimeout(timeout);
-          resolve();
-        }
-      });
-    });
+    server = await privateRedisFixture();
     bus = notificationBus(
       readConfig({
         NODE_ENV: 'test',
         MYSQL_PRIMARY_READER_URL: 'mysql://127.0.0.1:1/unused',
         SESSION_SECRET: 'isolated-redis-notifications-'.repeat(3),
-        REDIS_URL: `redis://127.0.0.1:${address.port}`,
+        REDIS_URL: server.url,
       }),
     );
   });
   afterAll(async () => {
     await bus?.close();
-    if (server && !server.killed) {
-      const exit = new Promise<void>((resolve) => server!.once('exit', () => resolve()));
-      server.kill('SIGTERM');
-      await exit;
-    }
+    await server?.close();
   });
   it('publishes only to the requested store and recipients without revealing the audience', async () => {
     if (!bus) throw new Error('Fixture not initialized');
