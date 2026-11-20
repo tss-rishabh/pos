@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { goldenStdout } from '../golden/load.js';
+/**
+ * Source evidence only (V2, 20 Nov 2026; see tests/golden/INVENTORY.md): this file asserts
+ * facts of the pinned legacy capture and runs no rewrite code.
+ * Reason: the rewrite's order list output is compared with the pinned datatable in
+ * tests/order-search/native.test.ts (order-search/native-datatable.json).
+ */
 describe('pinned source order date/store selection', () => {
   it('executes source datatable filtering and proves explicit dates and OrderStore association without source settings', () => {
     const value: unknown = JSON.parse(goldenStdout('order-history', 'source'));

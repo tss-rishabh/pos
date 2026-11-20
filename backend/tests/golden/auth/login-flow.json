@@ -1,0 +1,1517 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "v2-oracles/auth/login_oracle.py (outside the repository): executes the pinned source text of users/login_otp.py, users/views.py (pending_login_user, login_session_expired, login_locked, CustomLoginView.post after authenticate(), AjaxMfaLoginView, AjaxSendLoginOtpView), core/tasks.py send_login_otp and helpers/helpers.py parse_check_in_store/_mask_phone, with an in-memory redis-py-compatible store on a fake clock, recorded SMS/email/WhatsApp/Slack senders and a deterministic secrets.randbelow; plus Django check_password with the default PASSWORD_HASHERS",
+  "runtime": "CPython 3.10.22 via uv --no-project with django==4.2.5, pyotp==2.9.0",
+  "capturedAt": "2026-11-20T12:16:59Z",
+  "test": "tests/auth/login-golden.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "34290f2bf6c2e6385588948a5b43c8d64e19a6f281b7effc5a2ec05765b6ef4a",
+      "args": [
+        "login_oracle.py",
+        "<backend-pos-web@78d5b63>"
+      ],
+      "status": 0,
+      "output": {
+        "messages": {
+          "locked": "Too many wrong OTP attempts. Please try again after 3 hours.",
+          "retryWait": "Please wait 30 seconds before trying again."
+        },
+        "passwords": [
+          {
+            "mustUpdate": false,
+            "valid": true
+          },
+          {
+            "mustUpdate": false,
+            "valid": false
+          },
+          {
+            "mustUpdate": false,
+            "valid": true
+          },
+          {
+            "mustUpdate": true,
+            "valid": true
+          },
+          {
+            "mustUpdate": true,
+            "valid": true
+          },
+          {
+            "mustUpdate": true,
+            "valid": true
+          },
+          {
+            "mustUpdate": true,
+            "valid": true
+          },
+          {
+            "mustUpdate": false,
+            "valid": false
+          },
+          {
+            "mustUpdate": false,
+            "valid": false
+          },
+          {
+            "mustUpdate": false,
+            "valid": false
+          },
+          {
+            "mustUpdate": false,
+            "valid": false
+          },
+          {
+            "error": "ValueError",
+            "message": "invalid literal for int() with base 10: 'x'"
+          },
+          {
+            "error": "ValueError",
+            "message": "Couldn't load 'Argon2PasswordHasher' algorithm library: No module named 'argon2'"
+          },
+          {
+            "mustUpdate": false,
+            "valid": true
+          }
+        ],
+        "scenarios": [
+          {
+            "name": "sms otp signs in",
+            "steps": [
+              {
+                "alerts": [],
+                "checkIn": null,
+                "context": {
+                  "is_authenticated": 1,
+                  "is_mfa": 0,
+                  "mfa_message": "One Time Password (OTP) has been sent on your registered mobile number",
+                  "otp_method": "SMS",
+                  "user_id": 7
+                },
+                "deliveries": [
+                  {
+                    "channel": "sms",
+                    "text": "123456 is your OTP to log in to The Souled Store.",
+                    "to": "9000000007"
+                  }
+                ],
+                "loggedIn": false,
+                "op": "password",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "verified",
+                  "status": 200
+                },
+                "checkIn": 1,
+                "deliveries": [],
+                "httpStatus": 200,
+                "loggedIn": true,
+                "op": "verify",
+                "pendingSession": false,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              }
+            ]
+          },
+          {
+            "name": "email otp signs in",
+            "steps": [
+              {
+                "alerts": [],
+                "checkIn": null,
+                "context": {
+                  "is_authenticated": 1,
+                  "is_mfa": 0,
+                  "mfa_message": "One Time Password (OTP) has been sent on your registered email address",
+                  "otp_method": "Email",
+                  "user_id": 8
+                },
+                "deliveries": [
+                  {
+                    "channel": "email",
+                    "to": "ops8@example.test"
+                  }
+                ],
+                "loggedIn": false,
+                "op": "password",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "verified",
+                  "status": 200
+                },
+                "checkIn": 1,
+                "deliveries": [],
+                "httpStatus": 200,
+                "loggedIn": true,
+                "op": "verify",
+                "pendingSession": false,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              }
+            ]
+          },
+          {
+            "name": "wrong code, retry pause, then the right code",
+            "steps": [
+              {
+                "alerts": [],
+                "checkIn": null,
+                "context": {
+                  "is_authenticated": 1,
+                  "is_mfa": 0,
+                  "mfa_message": "One Time Password (OTP) has been sent on your registered mobile number",
+                  "otp_method": "SMS",
+                  "user_id": 7
+                },
+                "deliveries": [
+                  {
+                    "channel": "sms",
+                    "text": "123456 is your OTP to log in to The Souled Store.",
+                    "to": "9000000007"
+                  }
+                ],
+                "loggedIn": false,
+                "op": "password",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "Wrong OTP. 2 attempts left. Please wait 30 seconds before trying again.",
+                  "status": 401
+                },
+                "checkIn": null,
+                "deliveries": [],
+                "httpStatus": 200,
+                "loggedIn": false,
+                "op": "verify",
+                "pendingSession": true,
+                "state": {
+                  "failures": 1,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": true
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "Please wait 30 seconds before trying again.",
+                  "status": 429
+                },
+                "checkIn": null,
+                "deliveries": [],
+                "httpStatus": 429,
+                "loggedIn": false,
+                "op": "verify",
+                "pendingSession": true,
+                "state": {
+                  "failures": 1,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": true
+                }
+              },
+              {
+                "alerts": [],
+                "checkIn": null,
+                "deliveries": [],
+                "loggedIn": false,
+                "op": "advance",
+                "pendingSession": true,
+                "state": {
+                  "failures": 1,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "verified",
+                  "status": 200
+                },
+                "checkIn": 1,
+                "deliveries": [],
+                "httpStatus": 200,
+                "loggedIn": true,
+                "op": "verify",
+                "pendingSession": false,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              }
+            ]
+          },
+          {
+            "name": "three wrong codes lock the OTP step",
+            "steps": [
+              {
+                "alerts": [],
+                "checkIn": null,
+                "context": {
+                  "is_authenticated": 1,
+                  "is_mfa": 0,
+                  "mfa_message": "One Time Password (OTP) has been sent on your registered mobile number",
+                  "otp_method": "SMS",
+                  "user_id": 7
+                },
+                "deliveries": [
+                  {
+                    "channel": "sms",
+                    "text": "123456 is your OTP to log in to The Souled Store.",
+                    "to": "9000000007"
+                  }
+                ],
+                "loggedIn": false,
+                "op": "password",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "Wrong OTP. 2 attempts left. Please wait 30 seconds before trying again.",
+                  "status": 401
+                },
+                "checkIn": null,
+                "deliveries": [],
+                "httpStatus": 200,
+                "loggedIn": false,
+                "op": "verify",
+                "pendingSession": true,
+                "state": {
+                  "failures": 1,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": true
+                }
+              },
+              {
+                "alerts": [],
+                "checkIn": null,
+                "deliveries": [],
+                "loggedIn": false,
+                "op": "advance",
+                "pendingSession": true,
+                "state": {
+                  "failures": 1,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "Wrong OTP. 1 attempt left. Please wait 30 seconds before trying again.",
+                  "status": 401
+                },
+                "checkIn": null,
+                "deliveries": [],
+                "httpStatus": 200,
+                "loggedIn": false,
+                "op": "verify",
+                "pendingSession": true,
+                "state": {
+                  "failures": 2,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": false,
+                  "retryWait": true
+                }
+              },
+              {
+                "alerts": [],
+                "checkIn": null,
+                "deliveries": [],
+                "loggedIn": false,
+                "op": "advance",
+                "pendingSession": true,
+                "state": {
+                  "failures": 2,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [
+                  ":lock: Staff login: user_id `7` locked for 3h after 3 wrong OTP attempts."
+                ],
+                "body": {
+                  "data": {},
+                  "message": "Too many wrong OTP attempts. Please try again after 3 hours.",
+                  "status": 429
+                },
+                "checkIn": null,
+                "deliveries": [],
+                "httpStatus": 429,
+                "loggedIn": false,
+                "op": "verify",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": true,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": true
+                }
+              },
+              {
+                "alerts": [],
+                "checkIn": null,
+                "deliveries": [],
+                "loggedIn": false,
+                "op": "advance",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": true,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "Too many wrong OTP attempts. Please try again after 3 hours.",
+                  "status": 429
+                },
+                "checkIn": null,
+                "deliveries": [],
+                "httpStatus": 429,
+                "loggedIn": false,
+                "op": "verify",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": true,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "Too many wrong OTP attempts. Please try again after 3 hours.",
+                  "status": 429
+                },
+                "checkIn": null,
+                "deliveries": [],
+                "httpStatus": 429,
+                "loggedIn": false,
+                "op": "resend",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": true,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "checkIn": null,
+                "context": {
+                  "is_authenticated": 1,
+                  "is_mfa": 0,
+                  "mfa_message": "Too many wrong OTP attempts. Please try again after 3 hours.",
+                  "otp_method": "SMS",
+                  "user_id": 7
+                },
+                "deliveries": [],
+                "loggedIn": false,
+                "op": "password",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": true,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "checkIn": null,
+                "deliveries": [],
+                "loggedIn": false,
+                "op": "advance",
+                "pendingSession": false,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "checkIn": null,
+                "context": {
+                  "is_authenticated": 1,
+                  "is_mfa": 0,
+                  "mfa_message": "One Time Password (OTP) has been sent on your registered mobile number",
+                  "otp_method": "SMS",
+                  "user_id": 7
+                },
+                "deliveries": [
+                  {
+                    "channel": "sms",
+                    "text": "654321 is your OTP to log in to The Souled Store.",
+                    "to": "9000000007"
+                  }
+                ],
+                "loggedIn": false,
+                "op": "password",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "verified",
+                  "status": 200
+                },
+                "checkIn": 1,
+                "deliveries": [],
+                "httpStatus": 200,
+                "loggedIn": true,
+                "op": "verify",
+                "pendingSession": false,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              }
+            ]
+          },
+          {
+            "name": "resend cooldown, resend replaces the code and adds WhatsApp",
+            "steps": [
+              {
+                "alerts": [],
+                "checkIn": null,
+                "context": {
+                  "is_authenticated": 1,
+                  "is_mfa": 0,
+                  "mfa_message": "One Time Password (OTP) has been sent on your registered mobile number",
+                  "otp_method": "SMS",
+                  "user_id": 7
+                },
+                "deliveries": [
+                  {
+                    "channel": "sms",
+                    "text": "123456 is your OTP to log in to The Souled Store.",
+                    "to": "9000000007"
+                  }
+                ],
+                "loggedIn": false,
+                "op": "password",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "message": "Please wait a few seconds before requesting another OTP.",
+                  "status": 429
+                },
+                "checkIn": null,
+                "deliveries": [],
+                "httpStatus": 429,
+                "loggedIn": false,
+                "op": "resend",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "checkIn": null,
+                "deliveries": [],
+                "loggedIn": false,
+                "op": "advance",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "message": "OTP has been sent.",
+                  "otp_method_message": "One Time Password (OTP) has been sent on your registered mobile number.",
+                  "status": 200
+                },
+                "checkIn": null,
+                "deliveries": [
+                  {
+                    "channel": "sms",
+                    "text": "654321 is your OTP to log in to The Souled Store.",
+                    "to": "9000000007"
+                  },
+                  {
+                    "channel": "whatsapp",
+                    "context": "staff_login|user_id:7",
+                    "to": "9000000007"
+                  }
+                ],
+                "httpStatus": 200,
+                "loggedIn": false,
+                "op": "resend",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "Wrong OTP. 2 attempts left. Please wait 30 seconds before trying again.",
+                  "status": 401
+                },
+                "checkIn": null,
+                "deliveries": [],
+                "httpStatus": 200,
+                "loggedIn": false,
+                "op": "verify",
+                "pendingSession": true,
+                "state": {
+                  "failures": 1,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": true
+                }
+              },
+              {
+                "alerts": [],
+                "checkIn": null,
+                "deliveries": [],
+                "loggedIn": false,
+                "op": "advance",
+                "pendingSession": true,
+                "state": {
+                  "failures": 1,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "verified",
+                  "status": 200
+                },
+                "checkIn": 1,
+                "deliveries": [],
+                "httpStatus": 200,
+                "loggedIn": true,
+                "op": "verify",
+                "pendingSession": false,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              }
+            ]
+          },
+          {
+            "name": "password again inside the cooldown keeps the code",
+            "steps": [
+              {
+                "alerts": [],
+                "checkIn": null,
+                "context": {
+                  "is_authenticated": 1,
+                  "is_mfa": 0,
+                  "mfa_message": "One Time Password (OTP) has been sent on your registered mobile number",
+                  "otp_method": "SMS",
+                  "user_id": 7
+                },
+                "deliveries": [
+                  {
+                    "channel": "sms",
+                    "text": "123456 is your OTP to log in to The Souled Store.",
+                    "to": "9000000007"
+                  }
+                ],
+                "loggedIn": false,
+                "op": "password",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "checkIn": null,
+                "context": {
+                  "is_authenticated": 1,
+                  "is_mfa": 0,
+                  "mfa_message": "One Time Password (OTP) has been sent on your registered mobile number",
+                  "otp_method": "SMS",
+                  "user_id": 7
+                },
+                "deliveries": [],
+                "loggedIn": false,
+                "op": "password",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "verified",
+                  "status": 200
+                },
+                "checkIn": 1,
+                "deliveries": [],
+                "httpStatus": 200,
+                "loggedIn": true,
+                "op": "verify",
+                "pendingSession": false,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              }
+            ]
+          },
+          {
+            "name": "a user without a phone gets no code but the same message",
+            "steps": [
+              {
+                "alerts": [],
+                "checkIn": null,
+                "context": {
+                  "is_authenticated": 1,
+                  "is_mfa": 0,
+                  "mfa_message": "One Time Password (OTP) has been sent on your registered mobile number",
+                  "otp_method": "SMS",
+                  "user_id": 9
+                },
+                "deliveries": [],
+                "loggedIn": false,
+                "op": "password",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "Wrong OTP. 2 attempts left. Please wait 30 seconds before trying again.",
+                  "status": 401
+                },
+                "checkIn": null,
+                "deliveries": [],
+                "httpStatus": 200,
+                "loggedIn": false,
+                "op": "verify",
+                "pendingSession": true,
+                "state": {
+                  "failures": 1,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": true,
+                  "retryWait": true
+                }
+              }
+            ]
+          },
+          {
+            "name": "authenticator user",
+            "steps": [
+              {
+                "alerts": [],
+                "checkIn": null,
+                "context": {
+                  "is_authenticated": 1,
+                  "is_mfa": 1,
+                  "mfa_message": "Open your Authenticator app on your mobile device. Enter the OTP displayed on your Authenticator app, then click on Login",
+                  "otp_method": "SMS",
+                  "user_id": 10
+                },
+                "deliveries": [],
+                "loggedIn": false,
+                "op": "password",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "Wrong OTP. 2 attempts left. Please wait 30 seconds before trying again.",
+                  "status": 401
+                },
+                "checkIn": null,
+                "deliveries": [],
+                "httpStatus": 200,
+                "loggedIn": false,
+                "op": "verify",
+                "pendingSession": true,
+                "state": {
+                  "failures": 1,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": true
+                }
+              },
+              {
+                "alerts": [],
+                "checkIn": null,
+                "deliveries": [],
+                "loggedIn": false,
+                "op": "advance",
+                "pendingSession": true,
+                "state": {
+                  "failures": 1,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "verified",
+                  "status": 200
+                },
+                "checkIn": 1,
+                "deliveries": [],
+                "httpStatus": 200,
+                "loggedIn": true,
+                "op": "verify",
+                "pendingSession": false,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              }
+            ]
+          },
+          {
+            "name": "authenticator user asks for an OTP instead",
+            "steps": [
+              {
+                "alerts": [],
+                "checkIn": null,
+                "context": {
+                  "is_authenticated": 1,
+                  "is_mfa": 1,
+                  "mfa_message": "Open your Authenticator app on your mobile device. Enter the OTP displayed on your Authenticator app, then click on Login",
+                  "otp_method": "SMS",
+                  "user_id": 10
+                },
+                "deliveries": [],
+                "loggedIn": false,
+                "op": "password",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "message": "OTP has been sent.",
+                  "otp_method_message": "One Time Password (OTP) has been sent on your registered mobile number.",
+                  "status": 200
+                },
+                "checkIn": null,
+                "deliveries": [
+                  {
+                    "channel": "sms",
+                    "text": "123456 is your OTP to log in to The Souled Store.",
+                    "to": "9000000010"
+                  }
+                ],
+                "httpStatus": 200,
+                "loggedIn": false,
+                "op": "resend",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "verified",
+                  "status": 200
+                },
+                "checkIn": 1,
+                "deliveries": [],
+                "httpStatus": 200,
+                "loggedIn": true,
+                "op": "verify",
+                "pendingSession": false,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              }
+            ]
+          },
+          {
+            "name": "invalid input and store checks",
+            "steps": [
+              {
+                "alerts": [],
+                "checkIn": null,
+                "context": {
+                  "is_authenticated": 1,
+                  "is_mfa": 0,
+                  "mfa_message": "One Time Password (OTP) has been sent on your registered mobile number",
+                  "otp_method": "SMS",
+                  "user_id": 7
+                },
+                "deliveries": [
+                  {
+                    "channel": "sms",
+                    "text": "123456 is your OTP to log in to The Souled Store.",
+                    "to": "9000000007"
+                  }
+                ],
+                "loggedIn": false,
+                "op": "password",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "Please select a store to check in to.",
+                  "status": 400
+                },
+                "checkIn": null,
+                "deliveries": [],
+                "httpStatus": 400,
+                "loggedIn": false,
+                "op": "verify",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "Please select a store to check in to.",
+                  "status": 400
+                },
+                "checkIn": null,
+                "deliveries": [],
+                "httpStatus": 400,
+                "loggedIn": false,
+                "op": "verify",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "message": "Please Provide Valid OTP.",
+                  "status": 400
+                },
+                "checkIn": null,
+                "deliveries": [],
+                "httpStatus": 200,
+                "loggedIn": false,
+                "op": "verify",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "message": "Please Provide Valid OTP.",
+                  "status": 400
+                },
+                "checkIn": null,
+                "deliveries": [],
+                "httpStatus": 200,
+                "loggedIn": false,
+                "op": "verify",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "message": "Please Provide Valid OTP.",
+                  "status": 400
+                },
+                "checkIn": null,
+                "deliveries": [],
+                "httpStatus": 200,
+                "loggedIn": false,
+                "op": "verify",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "You are not assigned to this store.",
+                  "status": 403
+                },
+                "checkIn": null,
+                "deliveries": [],
+                "httpStatus": 403,
+                "loggedIn": false,
+                "op": "verify",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "checkIn": null,
+                "deliveries": [],
+                "loggedIn": false,
+                "op": "advance",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "Wrong OTP. 2 attempts left. Please wait 30 seconds before trying again.",
+                  "status": 401
+                },
+                "checkIn": null,
+                "deliveries": [],
+                "httpStatus": 200,
+                "loggedIn": false,
+                "op": "verify",
+                "pendingSession": true,
+                "state": {
+                  "failures": 1,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": true
+                }
+              }
+            ]
+          },
+          {
+            "name": "the password step expires",
+            "steps": [
+              {
+                "alerts": [],
+                "checkIn": null,
+                "context": {
+                  "is_authenticated": 1,
+                  "is_mfa": 0,
+                  "mfa_message": "One Time Password (OTP) has been sent on your registered mobile number",
+                  "otp_method": "SMS",
+                  "user_id": 7
+                },
+                "deliveries": [
+                  {
+                    "channel": "sms",
+                    "text": "123456 is your OTP to log in to The Souled Store.",
+                    "to": "9000000007"
+                  }
+                ],
+                "loggedIn": false,
+                "op": "password",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "checkIn": null,
+                "deliveries": [],
+                "loggedIn": false,
+                "op": "advance",
+                "pendingSession": false,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "Your login session has expired. Please sign in again.",
+                  "status": 401
+                },
+                "checkIn": null,
+                "deliveries": [],
+                "httpStatus": 401,
+                "loggedIn": false,
+                "op": "verify",
+                "pendingSession": false,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "Your login session has expired. Please sign in again.",
+                  "status": 401
+                },
+                "checkIn": null,
+                "deliveries": [],
+                "httpStatus": 401,
+                "loggedIn": false,
+                "op": "resend",
+                "pendingSession": false,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              }
+            ]
+          },
+          {
+            "name": "the OTP expires",
+            "steps": [
+              {
+                "alerts": [],
+                "checkIn": null,
+                "context": {
+                  "is_authenticated": 1,
+                  "is_mfa": 0,
+                  "mfa_message": "One Time Password (OTP) has been sent on your registered mobile number",
+                  "otp_method": "SMS",
+                  "user_id": 7
+                },
+                "deliveries": [
+                  {
+                    "channel": "sms",
+                    "text": "123456 is your OTP to log in to The Souled Store.",
+                    "to": "9000000007"
+                  }
+                ],
+                "loggedIn": false,
+                "op": "password",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "checkIn": null,
+                "deliveries": [],
+                "loggedIn": false,
+                "op": "advance",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "Wrong OTP. 2 attempts left. Please wait 30 seconds before trying again.",
+                  "status": 401
+                },
+                "checkIn": null,
+                "deliveries": [],
+                "httpStatus": 200,
+                "loggedIn": false,
+                "op": "verify",
+                "pendingSession": true,
+                "state": {
+                  "failures": 1,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": true
+                }
+              }
+            ]
+          },
+          {
+            "name": "fixed OTP for a listed user",
+            "steps": [
+              {
+                "alerts": [],
+                "checkIn": null,
+                "context": {
+                  "is_authenticated": 1,
+                  "is_mfa": 0,
+                  "mfa_message": "One Time Password (OTP) has been sent on your registered mobile number",
+                  "otp_method": "SMS",
+                  "user_id": 7
+                },
+                "deliveries": [],
+                "loggedIn": false,
+                "op": "password",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "verified",
+                  "status": 200
+                },
+                "checkIn": 1,
+                "deliveries": [],
+                "httpStatus": 200,
+                "loggedIn": true,
+                "op": "verify",
+                "pendingSession": false,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              }
+            ]
+          },
+          {
+            "name": "authenticator user with an unusable secret",
+            "steps": [
+              {
+                "alerts": [],
+                "checkIn": null,
+                "context": {
+                  "is_authenticated": 1,
+                  "is_mfa": 1,
+                  "mfa_message": "Open your Authenticator app on your mobile device. Enter the OTP displayed on your Authenticator app, then click on Login",
+                  "otp_method": "SMS",
+                  "user_id": 11
+                },
+                "deliveries": [],
+                "loggedIn": false,
+                "op": "password",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "checkIn": null,
+                "deliveries": [],
+                "error": "Error",
+                "httpStatus": 500,
+                "loggedIn": false,
+                "op": "verify",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": false,
+                  "retryWait": true
+                }
+              }
+            ]
+          },
+          {
+            "name": "administrator checks in to an unassigned store",
+            "steps": [
+              {
+                "alerts": [],
+                "checkIn": null,
+                "context": {
+                  "is_authenticated": 1,
+                  "is_mfa": 0,
+                  "mfa_message": "One Time Password (OTP) has been sent on your registered mobile number",
+                  "otp_method": "SMS",
+                  "user_id": 12
+                },
+                "deliveries": [
+                  {
+                    "channel": "sms",
+                    "text": "123456 is your OTP to log in to The Souled Store.",
+                    "to": "9000000007"
+                  }
+                ],
+                "loggedIn": false,
+                "op": "password",
+                "pendingSession": true,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": true,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              },
+              {
+                "alerts": [],
+                "body": {
+                  "data": {},
+                  "message": "verified",
+                  "status": 200
+                },
+                "checkIn": 3,
+                "deliveries": [],
+                "httpStatus": 200,
+                "loggedIn": true,
+                "op": "verify",
+                "pendingSession": false,
+                "state": {
+                  "failures": null,
+                  "locked": false,
+                  "otpPending": false,
+                  "resendWait": true,
+                  "retryWait": false
+                }
+              }
+            ]
+          }
+        ],
+        "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "sourceSha256": {
+          "core/tasks.py": "776a423fde4538b88cbb270cd336e9a3b210ff5c0c811f231f34ae24fee19571",
+          "helpers/helpers.py": "7a5010baca25487e2020950ea0e129c2a72e0ab664dc6cf3207c7d6bb12f88c0",
+          "users/login_otp.py": "8931af4b7ba45f2b8d67557d82afa911dd86bae890a9413484b6fd1434cd8190",
+          "users/views.py": "23e3ff32bc197de469f072da53a86eb1ff1bccc669d6f060e8c7c4852ff2f9e0"
+        }
+      }
+    }
+  ]
+}

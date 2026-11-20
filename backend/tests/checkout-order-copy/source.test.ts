@@ -1,6 +1,13 @@
 import { it, expect } from 'vitest';
 import { z } from 'zod';
 import { goldenStdout } from '../golden/load.js';
+/**
+ * Source evidence only (V2, 20 Nov 2026; see tests/golden/INVENTORY.md): this file asserts
+ * facts of the pinned legacy capture and runs no rewrite code.
+ * Reason: the rewrite's messages are compared with these vectors in
+ * tests/checkout-order-copy/service.mysql.test.ts; the legacy defects pinned here are deliberately
+ * not reproduced.
+ */
 it('executes six literal source handler vectors without Django/Redis/providers', () => {
   const vectors = z
     .record(
