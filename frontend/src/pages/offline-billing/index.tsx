@@ -70,7 +70,7 @@ export default function OfflineBillingPage() {
       <>
         <PageTitle title="Offline billing" />
         <Empty title="Offline billing needs the desktop app">
-          Web browsers need an internet connection to bill. Use the Souled POS desktop app to keep
+          Web browsers need an internet connection to bill. Use the Retail POS desktop app to keep
           billing during an outage.
         </Empty>
       </>

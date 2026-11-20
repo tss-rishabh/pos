@@ -1,7 +1,7 @@
 {
   "name": "@pos/frontend",
   "version": "0.1.0",
-  "productName": "Souled POS",
+  "productName": "Retail POS",
   "private": true,
   "type": "module",
   "main": "electron/main.cjs",
@@ -34,7 +34,7 @@
   },
   "build": {
     "appId": "com.thesouledstore.pos",
-    "productName": "Souled POS",
+    "productName": "Retail POS",
     "beforePack": "./electron/before-pack.cjs",
     "files": [
       "dist/**/*",

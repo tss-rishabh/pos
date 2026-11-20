@@ -236,7 +236,7 @@ async function pay(page: Page, dialog: Locator, label: string, mode: string, mes
   await dialog.getByRole('button', { name: 'Proceed For Payment', exact: true }).click();
   const form = dialog.locator('#paymentform');
   await expect(form).toBeVisible();
-  const due = (await form.locator('.grand-total strong').innerText()).replace(/[^\d.]/g, '');
+  const due = (await form.locator('.payment-due strong').innerText()).replace(/[^\d.]/g, '');
   if (mode === 'cash') {
     await form.getByRole('spinbutton', { name: 'Cash To Be Accepted' }).fill(due);
     await form.getByRole('spinbutton', { name: 'Cash Received' }).fill(due);

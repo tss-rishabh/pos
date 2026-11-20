@@ -194,3 +194,11 @@ Every fix and every feature must land on, and be verified on, all three clients:
   - The ghost logo (`components/brand-mark.tsx`, `public/icon.svg`, `build/icon.png`) is a vector trace of the
     supplied 152 px icon.
   - Printed documents (invoices, shipping labels) keep their legacy styling.
+- **App name, 20 November 2026 (user):** the app is called **Retail POS** on all three clients:
+  - the desktop product name, window title, macOS menu bar and Dock
+  - the Windows installer, Start menu and install folder
+  - the web page title and PWA manifest
+
+  The app uses the ghost logo icon. The bundle and app ID stay `com.thesouledstore.pos`, so installs upgrade in place.
+  The desktop profile folder and the OS keystore entry follow the product name ("Retail POS Safe Storage"). There
+  was no released install under the old name.

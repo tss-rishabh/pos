@@ -28,6 +28,12 @@ const refusedSwitches = ['remote-debugging-port', 'remote-debugging-pipe', 'use-
 if (app.isPackaged && refusedSwitches.some((name) => app.commandLine.hasSwitch(name))) {
   app.exit(1);
 }
+// An unpackaged run is the stock Electron.app, so macOS would show its icon; use the app icon.
+// Packaged builds carry build/icon.png in the bundle (.icns / .ico) and need nothing here.
+if (!app.isPackaged && process.platform === 'darwin')
+  void app
+    .whenReady()
+    .then(() => app.dock?.setIcon(path.join(__dirname, '..', 'build', 'icon.png')));
 app.enableSandbox();
 if (process.platform === 'win32') app.setAppUserModelId('com.thesouledstore.pos');
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -58,7 +64,7 @@ else
         minWidth: 1024,
         minHeight: 720,
         backgroundColor: '#f8f8f9' /* --athens-gray: native window paint before CSS loads */,
-        title: 'Souled POS',
+        title: 'Retail POS',
         show: false,
         // Windows/Linux: no menu bar, and Alt does not reveal it (see installMenu).
         autoHideMenuBar: false,
