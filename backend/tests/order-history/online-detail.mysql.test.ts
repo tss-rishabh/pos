@@ -14,7 +14,7 @@ import { testAuthRedis, testSessions } from '../helpers/auth-sessions.js';
 import { seal } from '../../src/auth/crypto.js';
 import { buildApp } from '../../src/app.js';
 import { readNativeOnlineDetail } from '../../src/modules/order-history/online-detail/native.js';
-import { goldenStdout } from '../golden/load.js';
+import { goldenStdout, loadGolden } from '../golden/load.js';
 import { fixturePlaceholders } from '../golden/fixture-placeholders.js';
 // Check-ins are the legacy Redis keys; bind an in-process port for this file.
 bindCheckInRedis(memoryRedisPort());
@@ -109,7 +109,10 @@ describe.skipIf(!connection)('native source-family order details', () => {
       await native.fixture.insert('order_status', { id, order_status: label, display_name: label });
     await native.fixture.insert('payment_status', { id: 4, payment_status: 'Paid' });
     await native.fixture.insert('payment_method', { id: 14, name: 'Cash' });
-    now = Date.now();
+    // The timeline golden records the absolute dates its fixture had when it was captured
+    // (online-detail-mysql.timeline.json capturedAt, 2026-11-19 in Asia/Kolkata), so the fixture
+    // clock is pinned to that instant instead of the wall clock.
+    now = Date.parse(loadGolden('order-history', 'online-detail-mysql.timeline').capturedAt);
     const day = Temporal.Instant.fromEpochMilliseconds(now)
       .toZonedDateTimeISO('Asia/Kolkata')
       .toPlainDate();
@@ -217,7 +220,10 @@ describe.skipIf(!connection)('native source-family order details', () => {
         { logger: false, authRedis: testAuthRedis },
       );
       const apiOrigin = await app.listen({ host: '127.0.0.1', port: 0 });
-      const vite = await import('../../../frontend/node_modules/vite/dist/node/index.js');
+      // Resolved from this file: Vitest resolves a bare relative dynamic import from the wrong base.
+      const vite = (await import(
+        new URL('../../../frontend/node_modules/vite/dist/node/index.js', import.meta.url).href
+      )) as typeof import('../../../frontend/node_modules/vite/dist/node/index.js');
       preview = await vite.preview({
         root: '../frontend',
         configFile: '../frontend/vite.config.ts',
@@ -531,7 +537,9 @@ describe.skipIf(!connection)('native source-family order details', () => {
     'loads actual routed App with native cookie, exact wide IDs, reload/new tab and closed workspace guards',
     async () => {
       if (!browserOrigin) throw new Error('Native browser fixture unavailable');
-      const { chromium } = await import('../../../frontend/node_modules/playwright-core/index.js');
+      const { chromium } = (await import(
+        new URL('../../../frontend/node_modules/playwright-core/index.js', import.meta.url).href
+      )) as typeof import('../../../frontend/node_modules/playwright-core/index.js');
       const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
       const executablePath =
         process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ||

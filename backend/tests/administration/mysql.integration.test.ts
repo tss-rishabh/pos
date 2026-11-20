@@ -532,6 +532,11 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       is_active: 1,
       user_type: 1,
     });
+    // The digest summary holds performance_schema_digests_size (10000) rows per server; once a
+    // long-lived server or a full suite run has filled it, new statements are only counted in
+    // Performance_schema_digest_lost and the per-schema counts below stay 0. This is the only
+    // test that reads the digest summary, so it starts from an empty table.
+    await connection.query('TRUNCATE TABLE performance_schema.events_statements_summary_by_digest');
     const inserts = async (table: string) => {
       const [rows] = await connection.query<mysql.RowDataPacket[]>(
         'SELECT COALESCE(SUM(COUNT_STAR),0) AS total FROM performance_schema.events_statements_summary_by_digest WHERE SCHEMA_NAME=? AND DIGEST_TEXT LIKE ?',
