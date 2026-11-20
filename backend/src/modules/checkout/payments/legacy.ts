@@ -1,6 +1,7 @@
 /**
  * Pure ports of the legacy payment rules (backend-pos-web@78d5b63). No I/O.
  */
+import { pythonFloatRepr } from '../../../domain/python-compat.js';
 import type { PaytmReply, PineReply } from './contracts.js';
 
 /** `Helpers.get_transaction_id` (helpers/helpers.py:714-737). */
@@ -25,52 +26,9 @@ export function legacyTransactionId(input: {
   return result.replaceAll('-', '').length >= 8 ? result : input.orderId;
 }
 
-/** Python `repr(float)` for a finite money value (`100.0`, `99.5`). */
-export function pythonFloat(value: number): string {
-  if (!Number.isFinite(value)) return value > 0 ? 'inf' : value < 0 ? '-inf' : 'nan';
-  if (Number.isInteger(value) && Math.abs(value) < 1e16) return value.toFixed(1);
-  const text = String(value);
-  return text.includes('e') ? text.replace(/e([+-])(\d)$/, 'e$10$2') : text;
-}
-function pythonString(value: string): string {
-  const quote = value.includes("'") && !value.includes('"') ? '"' : "'";
-  let out = quote;
-  for (const character of value) {
-    const code = character.codePointAt(0)!;
-    if (character === '\\') out += '\\\\';
-    else if (character === quote) out += '\\' + quote;
-    else if (character === '\n') out += '\\n';
-    else if (character === '\r') out += '\\r';
-    else if (character === '\t') out += '\\t';
-    else if (code < 0x20 || code === 0x7f) out += '\\x' + code.toString(16).padStart(2, '0');
-    else if (code >= 0x80 && code < 0xa0) out += '\\x' + code.toString(16).padStart(2, '0');
-    else out += character;
-  }
-  return out + quote;
-}
-/** Python `str(value)` of parsed JSON, as Django stores a dict in a TextField. */
-export function pythonRepr(value: unknown): string {
-  if (value === null || value === undefined) return 'None';
-  if (value === true) return 'True';
-  if (value === false) return 'False';
-  if (typeof value === 'number')
-    return Number.isInteger(value) ? String(value) : pythonFloat(value);
-  if (typeof value === 'bigint') return value.toString();
-  if (typeof value === 'string') return pythonString(value);
-  if (Array.isArray(value)) return '[' + value.map(pythonRepr).join(', ') + ']';
-  if (typeof value === 'object')
-    return (
-      '{' +
-      Object.entries(value as Record<string, unknown>)
-        .map(([key, item]) => pythonString(key) + ': ' + pythonRepr(item))
-        .join(', ') +
-      '}'
-    );
-  return pythonString(String(value));
-}
 /** `pay_dict` written by `complete_order` / `AjaxPaymentStatusView` (floats, Python repr). */
 export function legacyPayDict(entries: [string, number][]): string {
-  return '{' + entries.map(([key, item]) => `'${key}': ${pythonFloat(item)}`).join(', ') + '}';
+  return '{' + entries.map(([key, item]) => `'${key}': ${pythonFloatRepr(item)}`).join(', ') + '}';
 }
 
 /** Result of a provider reply, classified as legacy handles it. */

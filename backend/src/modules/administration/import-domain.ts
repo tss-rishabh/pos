@@ -1,9 +1,11 @@
 import { z } from 'zod';
+import { pythonIntLiteral, pythonStringRepr } from '../../domain/python-compat.js';
 import { identifier } from '../../domain/validation.js';
 
 /**
  * Legacy CSV inventory uploads (`pos_csv_upload`) and the Python semantics their Celery tasks
- * depend on: `csv.DictReader`, `int()`, `repr()` and `json.dumps` (`helpers/task_helpers.py:64-350`).
+ * depend on: `csv.DictReader` and `int()` (`helpers/task_helpers.py:64-350`). `repr()` and
+ * `json.dumps` come from `domain/python-compat.ts`.
  */
 export const uploadTypes = ['PRODUCT_STOCK_CSV', 'PRODUCT_STORE_CSV'] as const;
 export const uploadType = z.enum(uploadTypes);
@@ -103,24 +105,6 @@ export class PythonError extends Error {
   }
 }
 
-/** Python `repr()` of a `str`. */
-export function pythonRepr(value: string): string {
-  const quote = value.includes("'") && !value.includes('"') ? '"' : "'";
-  let out = quote;
-  for (const character of value) {
-    const code = character.codePointAt(0)!;
-    if (character === '\\') out += '\\\\';
-    else if (character === quote) out += '\\' + quote;
-    else if (character === '\n') out += '\\n';
-    else if (character === '\r') out += '\\r';
-    else if (character === '\t') out += '\\t';
-    else if (code < 0x20 || code === 0x7f) out += '\\x' + code.toString(16).padStart(2, '0');
-    else if (code >= 0x80 && code < 0xa0) out += '\\x' + code.toString(16).padStart(2, '0');
-    else out += character;
-  }
-  return out + quote;
-}
-
 /** Python `int(value)` for a CSV cell (`str`) or a missing cell (`None`). */
 export function pythonInt(value: string | null): bigint {
   if (value === null)
@@ -128,48 +112,13 @@ export function pythonInt(value: string | null): bigint {
       'TypeError',
       "int() argument must be a string, a bytes-like object or a real number, not 'NoneType'",
     );
-  const text = value.trim();
-  if (!/^[+-]?\d+(?:_\d+)*$/.test(text))
+  const literal = pythonIntLiteral(value);
+  if (literal === null)
     throw new PythonError(
       'ValueError',
-      `invalid literal for int() with base 10: ${pythonRepr(value)}`,
+      `invalid literal for int() with base 10: ${pythonStringRepr(value)}`,
     );
-  return BigInt(text.replace(/_/g, ''));
-}
-
-/** JSON value as `json.dumps` sees it (dicts keep insertion order). */
-export type PythonJson =
-  null | string | number | boolean | readonly PythonJson[] | { readonly [key: string]: PythonJson };
-
-/** Python `json.dumps(value)` with its defaults: `ensure_ascii=True`, `", "` and `": "`. */
-export function pythonJsonDumps(value: PythonJson): string {
-  if (value === null) return 'null';
-  if (typeof value === 'boolean') return value ? 'true' : 'false';
-  if (typeof value === 'number') return String(value);
-  if (typeof value === 'string') {
-    let out = '"';
-    for (let index = 0; index < value.length; index++) {
-      const code = value.charCodeAt(index),
-        character = value[index]!;
-      if (character === '"') out += '\\"';
-      else if (character === '\\') out += '\\\\';
-      else if (character === '\n') out += '\\n';
-      else if (character === '\r') out += '\\r';
-      else if (character === '\t') out += '\\t';
-      else if (character === '\b') out += '\\b';
-      else if (character === '\f') out += '\\f';
-      else if (code < 0x20 || code > 0x7e) out += '\\u' + code.toString(16).padStart(4, '0');
-      else out += character;
-    }
-    return out + '"';
-  }
-  if (Array.isArray(value)) return '[' + value.map(pythonJsonDumps).join(', ') + ']';
-  const entries = Object.entries(value as { readonly [key: string]: PythonJson });
-  return (
-    '{' +
-    entries.map(([key, item]) => `${pythonJsonDumps(key)}: ${pythonJsonDumps(item)}`).join(', ') +
-    '}'
-  );
+  return BigInt(literal);
 }
 
 /**

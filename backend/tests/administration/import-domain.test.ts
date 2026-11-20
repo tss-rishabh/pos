@@ -5,12 +5,11 @@ import {
   pythonCsvRows,
   pythonDictRows,
   pythonInt,
-  pythonJsonDumps,
-  pythonRepr,
   templateInput,
   templates,
   PythonError,
 } from '../../src/modules/administration/import-domain.js';
+import { pythonJsonDumps, pythonStringRepr } from '../../src/domain/python-compat.js';
 import { goldenStdout } from '../golden/load.js';
 
 const oracle = <T>(operation: string, cases: unknown[]): T[] =>
@@ -113,7 +112,7 @@ describe('inventory CSV source semantics', () => {
     expect(() => pythonInt(null)).toThrow(
       "int() argument must be a string, a bytes-like object or a real number, not 'NoneType'",
     );
-    expect(pythonRepr('ü')).toBe("'ü'");
+    expect(pythonStringRepr('ü')).toBe("'ü'");
   });
   it('serializes failed_data exactly as json.dumps', () => {
     expect(

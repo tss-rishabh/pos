@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { AppError } from '../../domain/errors.js';
 import { identifier } from '../../domain/validation.js';
 import { scalarId } from './report-inputs.js';
-import { pythonRound2 } from '../../domain/python-round.js';
+import { pythonRound2 } from '../../domain/python-compat.js';
 import { pythonFloatString } from './number-format.js';
 import { slackText } from '../fulfillment/slack-text.js';
 export const scheduledKind = z.enum([

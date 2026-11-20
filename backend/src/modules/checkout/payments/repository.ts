@@ -39,7 +39,8 @@ import {
   type PaytmTerminal,
   type PineTerminal,
 } from './contracts.js';
-import { legacyPayDict, legacyTransactionId, pythonFloat } from './legacy.js';
+import { pythonFloatRepr } from '../../../domain/python-compat.js';
+import { legacyPayDict, legacyTransactionId } from './legacy.js';
 
 export type PaymentTransaction = AdministrationTransaction;
 export interface PaymentRepositoryOptions {
@@ -527,8 +528,8 @@ export function paymentRepository(
         ['total amount on counter', total],
       ]),
       comment: input.others
-        ? `Order Delivered : Total Amount Recieved at Counter online (others): ${pythonFloat(total)}`
-        : `Order Delivered : Total Amount Recieved at Counter in Cash: ${pythonFloat(total)}`,
+        ? `Order Delivered : Total Amount Recieved at Counter online (others): ${pythonFloatRepr(total)}`
+        : `Order Delivered : Total Amount Recieved at Counter in Cash: ${pythonFloatRepr(total)}`,
       statuses: { order: 3n, payment: 4n },
     });
     await markStale(tx, input.storeId, input.orderId, record.createdAt, 'PAYMENT');
@@ -1129,7 +1130,7 @@ export function paymentRepository(
               ])
             : '{}',
           comment: paid
-            ? `Order Delivered : Total Amount Recieved at Counter : ${pythonFloat(offline + online)}`
+            ? `Order Delivered : Total Amount Recieved at Counter : ${pythonFloatRepr(offline + online)}`
             : 'Store Order: Status Reverted to PLACED by pos admin. Recieved Amount Return to customer on Counter (Only counter amount)',
           statuses: { order: finalOrder, payment: finalPayment },
         });

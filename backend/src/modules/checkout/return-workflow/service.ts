@@ -7,7 +7,7 @@ import type { CheckoutRepository } from '../contracts.js';
 import { issueCustomerToken } from '../crypto.js';
 import { CheckoutGatewayError } from '../gateway.js';
 import type { CheckoutEnvironment } from '../gateway.js';
-import { pythonFloat, pythonRepr } from '../payments/legacy.js';
+import { pythonFloatRepr, pythonRepr } from '../../../domain/python-compat.js';
 import { currentRequestTrace } from '../../../observability/context.js';
 import {
   publicReturn,
@@ -250,7 +250,7 @@ export function returnService(context: ReturnServiceContext) {
         response.returnAmount,
         // API-v2 serialises the amount as a float; Django stores repr(return_amt).
         typeof response.returnAmountRaw === 'number'
-          ? pythonFloat(response.returnAmountRaw)
+          ? pythonFloatRepr(response.returnAmountRaw)
           : pythonRepr(response.returnAmountRaw),
       );
     } catch (error) {

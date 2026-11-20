@@ -38,7 +38,7 @@ import type { StockProcedure } from '../../administration/stock-procedure.js';
 import { financialYear } from '../finalizer.js';
 import { exchangeRetryable } from '../returns.js';
 import { wireId } from '../payloads.js';
-import { pythonFloat } from '../payments/legacy.js';
+import { pythonFloatRepr } from '../../../domain/python-compat.js';
 import { currentRequestTrace } from '../../../observability/context.js';
 import { exchangeFeatureEnabled } from '../legacy-flags.js';
 import { exchangeRefusal, forceReturnRefusal, type CellRefusal } from './exchange-cell.js';
@@ -1602,11 +1602,11 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           user_id: 0n,
           pos_user_id: BigInt(user.id),
           pay_dict:
-            `{'tss point refunded': ${pythonFloat(ledger.tss_point_used)}, ` +
-            `'tss money refunded': ${pythonFloat(ledger.tss_money_used)}, ` +
-            `'gift voucher amount refunded': ${pythonFloat(ledger.gift_voucher_amount)}, ` +
+            `{'tss point refunded': ${pythonFloatRepr(ledger.tss_point_used)}, ` +
+            `'tss money refunded': ${pythonFloatRepr(ledger.tss_money_used)}, ` +
+            `'gift voucher amount refunded': ${pythonFloatRepr(ledger.gift_voucher_amount)}, ` +
             `'${operation.input.refundMode === 'cash' ? 'pay amt refunded into cash' : 'pay amt refunded into tss money'}': ${amountRepr}, ` +
-            `'total amount refunded': ${pythonFloat(ledger.amount_to_be_refunded + ledger.tss_point_used)}}`,
+            `'total amount refunded': ${pythonFloatRepr(ledger.amount_to_be_refunded + ledger.tss_point_used)}}`,
           comment:
             `Product ID : ${operation.productId}, ${operation.quantity} Quantity Return to ${store.name}`.slice(
               0,
@@ -1950,7 +1950,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           .set({ status: 'EXCHANGE_COMPLETED' })
           .where(and(eq(HasProduct.id, line.id), eq(HasProduct.order, BigInt(operation.orderId))));
         if (!alreadyFinished) {
-          const wallet = pythonFloat(child.wallet);
+          const wallet = pythonFloatRepr(child.wallet);
           await tx.insert(PosTransactionLog).values([
             {
               order_id: BigInt(operation.orderId),

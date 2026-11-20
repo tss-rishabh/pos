@@ -1,7 +1,7 @@
 import { orderReportHeaders } from './order-report-columns.js';
 export { orderReportHeaders } from './order-report-columns.js';
 import { z } from 'zod';
-import { pythonRound2 } from '../../domain/python-round.js';
+import { pythonRound2 } from '../../domain/python-compat.js';
 import { reportCsvCell } from './export-domain.js';
 import { scalarId } from './report-inputs.js';
 import { pythonFloatString, pythonRoundInteger } from './number-format.js';
