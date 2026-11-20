@@ -1,9 +1,9 @@
-import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 import type { Config } from '../../../config.js';
 import { AppError } from '../../../domain/errors.js';
 import { boundedJson } from '../../../domain/http-json.js';
 import { currentRequestTrace, tracedFetch } from '../../../observability/context.js';
+import { pythonRound2 } from '../../../domain/python-round.js';
 import { stringifyNumericJson } from '../../upstream.js';
 import {
   outboundAllowlistEnabled,
@@ -68,6 +68,28 @@ export function returnEnvironment(env: NodeJS.ProcessEnv = process.env): ReturnE
     commonGroupAlert: parsed.COMMON_GROUP_ALERT_ON !== 0,
   };
 }
+/**
+ * API-v2's cash branch returns an unrounded float (for example 0.010000000000005116 when the
+ * order was part-paid with TSS money or a gift voucher). Legacy (order/views.py:947-966) takes it
+ * as-is: the customer has already been refunded, so any finite amount that is not negative after
+ * rounding must complete the return. The display amount is CPython round(x, 2); the raw value is
+ * kept separately for the transaction log. Returns null for a value that is not a finite number.
+ */
+export function refundAmount(raw: string | number): string | null {
+  let value: number;
+  if (typeof raw === 'number') value = raw;
+  else {
+    const text = raw.trim();
+    if (!/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(text)) return null;
+    value = Number(text);
+  }
+  if (!Number.isFinite(value)) return null;
+  const rounded = pythonRound2(value);
+  // Tiny negative float noise rounds to -0, which is stored as 0.00.
+  if (rounded < 0) return null;
+  return (rounded === 0 ? 0 : rounded).toFixed(2);
+}
+
 export function inboundPayload(input: InboundReturn, transporterCode: string) {
   return {
     orderReturn: [
@@ -428,18 +450,14 @@ export function returnGateway(
         .object({ return_amount: z.union([z.string(), z.number()]) })
         .passthrough()
         .parse(response.value);
-      const amount = new Decimal(result.return_amount);
-      if (!amount.isFinite() || amount.isNegative() || amount.decimalPlaces() > 2)
+      const returnAmount = refundAmount(result.return_amount);
+      if (returnAmount === null)
         throw new CheckoutGatewayError(
           'RETURN_REFUND_AMOUNT_UNCONFIRMED',
           'The service returned an unsupported refund amount.',
           true,
         );
-      return {
-        kind: 'refunded',
-        returnAmount: amount.toFixed(2),
-        returnAmountRaw: result.return_amount,
-      };
+      return { kind: 'refunded', returnAmount, returnAmountRaw: result.return_amount };
     },
     async returnMail(value) {
       const url = mailUrl('api/v2/mailr/omnichannel-return-order/');

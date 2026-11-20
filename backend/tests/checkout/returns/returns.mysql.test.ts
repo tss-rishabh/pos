@@ -14,6 +14,7 @@ import {
   type LineEligibility,
   type ReturnGateway,
 } from '../../../src/modules/checkout/return-workflow/contracts.js';
+import { refundAmount } from '../../../src/modules/checkout/return-workflow/gateway.js';
 import { returnRepository } from '../../../src/modules/checkout/return-workflow/repository.js';
 import { returnService } from '../../../src/modules/checkout/return-workflow/service.js';
 import { exchangeService } from '../../../src/modules/checkout/return-workflow/exchanges.js';
@@ -77,7 +78,7 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
   };
   let eligibility = new Map<string, LineEligibility>();
   let inboundResult: 'ok' | 'reject' = 'ok';
-  let refundResult: 'ok' | 'already' = 'ok';
+  let refundResult: 'ok' | 'already' | 'float-noise' = 'ok';
   let exchangeResult: 'ok' | 'fail' = 'ok';
   const entry = (status: boolean, reason = '', upto: string | null = '2099-01-01') => ({
     status,
@@ -99,9 +100,13 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
     },
     async refund() {
       calls.refund++;
-      return refundResult === 'already'
-        ? { kind: 'already-refunded' }
-        : { kind: 'refunded', returnAmount: '50.25', returnAmountRaw: 50.25 };
+      if (refundResult === 'already') return { kind: 'already-refunded' };
+      if (refundResult === 'float-noise') {
+        // API-v2 cash branch on an order part-paid with TSS money: an unrounded float.
+        const raw = 0.010000000000005116;
+        return { kind: 'refunded', returnAmount: refundAmount(raw)!, returnAmountRaw: raw };
+      }
+      return { kind: 'refunded', returnAmount: '50.25', returnAmountRaw: 50.25 };
     },
     async returnMail(value) {
       calls.returnMail.push(value);
@@ -434,6 +439,19 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
     expect(await rows('SELECT id FROM pos_hold_stock_logs')).toEqual([]);
     expect(await rows('SELECT id FROM pos_transaction_logs')).toEqual([]);
     expect(calls.returnMail).toEqual([]);
+  });
+
+  it('completes the return when API-v2 refunds an unrounded float amount', async () => {
+    const { returns } = services(),
+      line = await seedOrder(9004);
+    refundResult = 'float-noise';
+    const result = await returns.start(operator, '1', line.orderId, line.lineId, returnInput());
+    expect(result).toMatchObject({ phase: 'completed', returnAmount: '0.01' });
+    expect(await rows('SELECT id FROM pos_hold_stock_logs')).toHaveLength(1);
+    const logs = await rows('SELECT pay_dict FROM pos_transaction_logs');
+    expect(logs).toHaveLength(1);
+    expect(String(logs[0]!.pay_dict)).toContain('0.010000000000005116');
+    expect(calls.returnMail).toHaveLength(1);
   });
 
   it('applies the return window, and accepts force return only where show.html offers it', async () => {
