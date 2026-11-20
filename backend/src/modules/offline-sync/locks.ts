@@ -8,8 +8,23 @@ import { AppError } from '../../domain/errors.js';
  *   the checkout service is called; `done` with the order and invoice after the
  *   order is created. Kept 30 days. An `in-flight` record without an order is
  *   an unknown outcome and is never resubmitted automatically.
- * - `pos:offline_sale_lock:<ref>`: short exclusive upload lock. */
+ * - `pos:offline_sale_lock:<ref>`: short exclusive upload lock.
+ * - `pos:offline_device_sales:<deviceId>`: hash of the device's recent offline sales
+ *   (provisional reference -> billed time, device sequence and first successful sync time),
+ *   used to enforce OFFLINE_BILLING_MAX_ORDERS per offline episode on the server. Kept 3 days.
+ *
+ * These keys must survive a Redis restart and must never be evicted: run Redis with AOF
+ * persistence and `maxmemory-policy noeviction` (or a `volatile-*` policy). */
 export const SALE_RECORD_TTL_SECONDS = 30 * 24 * 3600;
+export const DEVICE_SALES_TTL_SECONDS = 3 * 24 * 3600;
+export const deviceSaleSchema = z
+  .object({
+    billedAt: z.number().int().positive(),
+    sequence: z.number().int().positive(),
+    syncedAt: z.number().int().positive().nullable(),
+  })
+  .strict();
+export type DeviceSale = z.infer<typeof deviceSaleSchema>;
 const identifier = z.string().regex(/^[1-9]\d{0,19}$/);
 export const saleRecordSchema = z.discriminatedUnion('state', [
   z
@@ -36,6 +51,15 @@ export interface OfflineSyncCoordinator {
   record(reference: string): Promise<SaleRecord | null>;
   saveRecord(reference: string, value: SaleRecord): Promise<void>;
   clearRecord(reference: string): Promise<void>;
+  /** The device's recent offline sales by provisional reference (unreadable entries dropped). */
+  deviceSales(deviceId: string): Promise<Map<string, DeviceSale>>;
+  /** Upsert one device sale and delete the given stale references. */
+  saveDeviceSale(
+    deviceId: string,
+    reference: string,
+    value: DeviceSale,
+    stale: readonly string[],
+  ): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -43,6 +67,7 @@ const unlockScript = `if redis.call('GET',KEYS[1])==ARGV[1] then return redis.ca
 export const saleKeys = {
   record: (reference: string) => `pos:offline_sale:${reference}`,
   lock: (reference: string) => `pos:offline_sale_lock:${reference}`,
+  device: (deviceId: string) => `pos:offline_device_sales:${deviceId}`,
 };
 
 export function redisOfflineSyncCoordinator(
@@ -139,6 +164,30 @@ export function redisOfflineSyncCoordinator(
     },
     async clearRecord(reference) {
       await command((c) => c.del(saleKeys.record(reference)));
+    },
+    async deviceSales(deviceId) {
+      const values = await command((c) => c.hGetAll(saleKeys.device(deviceId)));
+      const sales = new Map<string, DeviceSale>();
+      for (const [reference, value] of Object.entries(values)) {
+        try {
+          const parsed = deviceSaleSchema.safeParse(JSON.parse(value));
+          if (parsed.success) sales.set(reference, parsed.data);
+        } catch {
+          // An unreadable entry is ignored; it only ever counts toward the cap.
+        }
+      }
+      return sales;
+    },
+    async saveDeviceSale(deviceId, reference, value, stale) {
+      const key = saleKeys.device(deviceId);
+      await command(async (c) => {
+        const multi = c
+          .multi()
+          .hSet(key, reference, JSON.stringify(deviceSaleSchema.parse(value)))
+          .expire(key, DEVICE_SALES_TTL_SECONDS);
+        if (stale.length) multi.hDel(key, [...stale]);
+        await multi.exec();
+      });
     },
     async close() {
       if (client) reset(client);

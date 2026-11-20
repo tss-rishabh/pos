@@ -49,6 +49,19 @@ Historical/mixed-day pulls require `BQ_FINANCE_RECONCILIATION_SALES` and `BQ_FIN
 
 Evidence includes 20 actual-Python record-shaping oracle cases, a source-SQL/strict-mode isolated MySQL comparison, service-key bypass tests, and historical warehouse routing tests that perform zero MySQL report reads.
 
+### Approved divergence: feed contract (user, 20 November 2026)
+
+The user approved the rewrite's feed contract on 20 November 2026 (AGENTS.md, "Audit remediation decisions"; `docs/plans/audit-remediation.md`, decision 2). Glassbox is an external consumer, and there is no alias for the old path. **Glassbox must be updated to the new path and error body before cut-over.**
+
+| Aspect | Legacy (`backend-pos-web@78d5b63`) | Rewrite (approved) |
+| --- | --- | --- |
+| Path | `GET /reports/api/v1/reconciliation/<feed_type>/` (`POSAdmin/urls.py:18` + `report/urls.py:16`); only `orders` is registered in `FEED_HANDLERS` (`report/glassbox_finance_feed_views.py:336`), any other value gets 400 `Unknown feed_type '<x>'` (`:349-350`) | `GET /api/v1/finance/reconciliation/orders` (`src/modules/finance/index.ts:166`). The feed type is fixed in the path; other types are a 404 |
+| Error body | `{"success": false, "error": "<message>"}` (`_error_response`, `:44-45`), for 401 `Invalid or missing API key`, 400 parameter errors joined with `"; "`, 500 `Internal error while building feed` | The global error body `{"error": {"code", "message", "requestId"}}` (`src/observability/errors.ts:96`, `mapError`). 401 keeps the message `Invalid or missing API key` (code `SERVICE_AUTHENTICATION_REQUIRED`); parameter errors are 400 from the shared validator; unavailable warehouse configuration is 503 |
+| Success body | `{"success": true, "data": [...], "pagination": {page, page_size, total_records, total_pages}}` (`:48-62`) | Unchanged (see above) |
+| Data source | Sales and returns both from MySQL, `connections[READ_DB_ALIAS]` (`:128-132`; `POSAdmin/settings.py:227`, `mysql_ro` when configured), for every date | Today's sales from the MySQL DATA reader through bound SQL; **today's returns from BigQuery** (`BQ_FINANCE_RECONCILIATION_RETURNS`), because a return's sale/tax/refund facts may be older; historical and mixed-day pulls read both from BigQuery (`src/modules/finance/feed.ts:70`, `:106-127`). No MySQL fallback |
+
+Consequence for Glassbox: a return recorded today appears in the feed only once the BigQuery returns view has it, whereas legacy read it from MySQL immediately.
+
 ## Close history and pending alerts
 
 Cross-store history preserves every attempt or latest-per-store/day filtering, literal case-insensitive status/reason/comment search, source ordering, tolerance-based TALLIED/SHORT/EXCESS labels, closed-late boundaries, and the complete 28-column financial export. Latest-attempt selection happens before search, so an older matching attempt never substitutes for a newer non-matching attempt. CSV cells guard spreadsheet formulas while preserving signed numeric monetary cells. An immediate authenticated CSV download remains available. The operational-reports plugin additionally implements the durable queue/private-storage/history lifecycle for day-close history and cash balances; see `report-exports.md` for its migration, worker options, permissions and exact evidence.

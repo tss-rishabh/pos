@@ -1,10 +1,16 @@
+// @ts-check
 const fs = require('node:fs');
 const path = require('node:path');
 
 const VERSION = 1;
+/** @returns {never} */
 function invalid() {
   throw new Error('The desktop workspace configuration is unavailable or invalid.');
 }
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 function workspaceUrl(value, development = false) {
   try {
     if (typeof value !== 'string' || value.length < 1 || value.length > 2048) invalid();
@@ -23,9 +29,13 @@ function workspaceUrl(value, development = false) {
     invalid();
   }
 }
+/**
+ * @param {unknown} input
+ * @returns {string[]}
+ */
 function exactOrigins(input) {
   if (!Array.isArray(input) || input.length > 20) invalid();
-  const values = input.map((value) => {
+  const values = input.map((/** @type {unknown} */ value) => {
     try {
       if (typeof value !== 'string' || value.length > 2048) invalid();
       const url = new URL(value);
@@ -54,11 +64,20 @@ function originList(value = '') {
       .filter(Boolean),
   );
 }
-function validateWorkspace(value, development = false) {
+/**
+ * @param {unknown} input
+ * @returns {Readonly<{
+ *   v: number,
+ *   url: string,
+ *   oauthOrigins: readonly string[],
+ *   applicationOrigins: readonly string[],
+ *   customerWebsiteOrigin: string | null,
+ * }>}
+ */
+function validateWorkspace(input, development = false) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) invalid();
+  const value = /** @type {Record<string, unknown>} */ (input);
   if (
-    !value ||
-    typeof value !== 'object' ||
-    Array.isArray(value) ||
     Object.keys(value).sort().join(',') !==
       'applicationOrigins,customerWebsiteOrigin,oauthOrigins,url,v' ||
     value.v !== VERSION
@@ -114,6 +133,11 @@ function readBundledWorkspace(filename = path.join(__dirname, 'workspace.json'))
 /** Explicit OS environment provisioning remains supported. Otherwise normal
  * Finder/Start-menu launches use the configuration protected by signed ASAR.
  * Environment and bundled allowlists are never implicitly merged. */
+/**
+ * @param {Record<string, string | undefined>} [env]
+ * @param {string} [filename]
+ * @param {boolean} [allowLoopbackHttp]
+ */
 function readWorkspaceConfiguration(env = process.env, filename, allowLoopbackHttp = false) {
   // allowLoopbackHttp comes from runtime-mode.cjs: never from NODE_ENV in a packaged build.
   if (env.POS_DESKTOP_URL) return workspaceFromEnvironment(env, allowLoopbackHttp === true);

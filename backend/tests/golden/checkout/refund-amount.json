@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "order/views.py:947-966 return_amount handling: round(x, 2) and repr(x) of the API-v2 JSON float (inline oracle, run outside the repository)",
+  "runtime": "CPython 3.10.22 via uv --no-project",
+  "capturedAt": "2026-11-20T11:01:18Z",
+  "test": "tests/checkout/refund-amount.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "b911745cdc369eb9731c9ca24ea874b5f3f28f70af82d78ae0bc4d62306a4dd6",
+      "args": ["refund_amount"],
+      "status": 0,
+      "output": {
+        "rounded": [0.01, 50.25, 2.67, 1, 0.01, 0.01, 199.99, 1234.57, 349, 0],
+        "repr": [
+          "0.010000000000005116",
+          "50.25",
+          "2.675",
+          "1.005",
+          "0.005",
+          "0.015",
+          "199.99499999999998",
+          "1234.565",
+          "349.00000000000006",
+          "1e-07"
+        ]
+      }
+    }
+  ]
+}

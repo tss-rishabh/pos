@@ -2,7 +2,7 @@ import type { Config } from '../../config.js';
 import { boundedText } from '../../domain/http-json.js';
 import { issueCustomerToken } from '../checkout/crypto.js';
 import type { LegacyFulfillmentEnvironment } from './options.js';
-import { pythonJsonDumps } from './python-text.js';
+import { pythonJsonDumps } from '../../domain/python-compat.js';
 import { tracedFetch } from '../../observability/context.js';
 import {
   outboundAllowlistEnabled,

@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, like, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, like, lte } from 'drizzle-orm';
 import { Temporal } from '@js-temporal/polyfill';
 import type { Databases } from '../../db/pools.js';
 import {
@@ -53,6 +53,59 @@ export interface OfflineLinkCandidate {
   /** Comment texts on the order that already carry an offline provisional reference. */
   offlineComments: string[];
 }
+/** An order that may be this sale created by an earlier attempt whose outcome was lost. */
+export interface UnconfirmedOrderQuery {
+  storeId: string;
+  counterId: string;
+  reference: string;
+  lines: { productId: string; quantity: number }[];
+  /** The sale's master salesperson: pos/order carries it and API-v2 stores it in
+   * order_stores.salesperson_id (OrderController.py:10901, OrderHelper.py:1959). */
+  salespersonId: string;
+  from: number;
+  to: number;
+}
+/** `orders.payment_status` values an order created by an offline-sync attempt can still have
+ * before finish() writes its comment: API-v2 builds the POS order at 0 (initiated,
+ * libs/OrderHelper.py:391) and legacy's unconfirmed counter order is 1 (pending,
+ * order/views.py:714). 4 is paid (Helpers.complete_order, helpers/helpers.py:633), and 2 and 5
+ * come with order status 4 (cancelled, order/views.py:2931, 3607). */
+export const UNCONFIRMED_PAYMENT_STATUSES: readonly number[] = [0, 1];
+
+/** What a previous attempt for this sale could have left behind. The query already limits the
+ * order to the same store counter and master salesperson, created at or after the billing time
+ * (less the clock-skew allowance). The order must have exactly the sale's lines (same products and quantities, no
+ * extra lines; the sale's offline cart carries no benefits or freebies). An order carrying this
+ * sale's billing comment matches (finish() writes it first); otherwise the order must carry no
+ * offline comment at all and still be unpaid and uncancelled, because finish() pays only after
+ * writing the comment. An order linked to another offline sale never matches. */
+export function unconfirmedMatch(
+  query: Pick<UnconfirmedOrderQuery, 'reference' | 'lines'>,
+  candidate: {
+    paymentStatus: number;
+    lines: { productId: string; quantity: number }[];
+    offlineComments: string[];
+  },
+): boolean {
+  const quantities = new Map<string, number>();
+  for (const line of candidate.lines)
+    quantities.set(line.productId, (quantities.get(line.productId) ?? 0) + line.quantity);
+  if (
+    quantities.size !== query.lines.length ||
+    query.lines.some((line) => quantities.get(line.productId) !== line.quantity)
+  )
+    return false;
+  const ours = offlineCommentPrefix(query.reference);
+  if (
+    candidate.offlineComments.some((text) => !text.startsWith(`Offline bill ${query.reference} `))
+  )
+    return false;
+  if (candidate.offlineComments.some((text) => text.startsWith(ours))) return true;
+  return (
+    candidate.offlineComments.length === 0 &&
+    UNCONFIRMED_PAYMENT_STATUSES.includes(candidate.paymentStatus)
+  );
+}
 export interface OfflineReferenceComment {
   orderId: string;
   reference: string;
@@ -81,6 +134,8 @@ export interface OfflineSyncRepository {
     to: number,
   ): Promise<OfflineOrder | null>;
   commentExists(orderId: string, reference: string): Promise<boolean>;
+  /** Candidate match before creating an order when no record of the sale exists. */
+  unconfirmedOrder(query: UnconfirmedOrderQuery): Promise<string | null>;
   linkCandidate(orderId: string): Promise<OfflineLinkCandidate | null>;
   recordReference(input: OfflineReferenceComment): Promise<void>;
   /** Terminal-table check of a manually entered card/UPI reference (finance reconciliation). */
@@ -196,6 +251,58 @@ export function offlineSyncRepository(db: Databases, timezone: string): OfflineS
         })),
         offlineComments: comments.map((item) => item.comment),
       };
+    },
+    async unconfirmedOrder(query) {
+      const writer = db.get('writer');
+      const [first] = query.lines;
+      if (!first) return null;
+      const candidates = await writer
+        .selectDistinct({ orderId: Order.id, payment: Order.payment_statuses })
+        .from(HasProduct)
+        .innerJoin(Order, eq(Order.id, HasProduct.order))
+        .innerJoin(OrderStore, eq(OrderStore.order, Order.id))
+        .where(
+          and(
+            eq(OrderStore.store, BigInt(query.storeId)),
+            eq(OrderStore.counter, BigInt(query.counterId)),
+            eq(OrderStore.salesperson, BigInt(query.salespersonId)),
+            eq(HasProduct.product, BigInt(first.productId)),
+            gte(Order.created_at, local(query.from)),
+            lte(Order.created_at, local(query.to)),
+          ),
+        )
+        .orderBy(desc(Order.id))
+        .limit(200);
+      if (!candidates.length) return null;
+      const ids = candidates.map((row) => row.orderId);
+      const lines = await writer
+        .select({
+          orderId: HasProduct.order,
+          productId: HasProduct.product,
+          quantity: HasProduct.qty,
+        })
+        .from(HasProduct)
+        .where(inArray(HasProduct.order, ids));
+      const comments = await writer
+        .select({ orderId: Comments.order_id, comment: Comments.comment })
+        .from(Comments)
+        .where(and(inArray(Comments.order_id, ids), like(Comments.comment, 'Offline bill %')));
+      for (const candidate of candidates) {
+        const match = unconfirmedMatch(query, {
+          paymentStatus: Number(candidate.payment),
+          lines: lines
+            .filter((line) => line.orderId === candidate.orderId)
+            .map((line) => ({
+              productId: String(line.productId),
+              quantity: Number(line.quantity),
+            })),
+          offlineComments: comments
+            .filter((row) => row.orderId === candidate.orderId)
+            .map((row) => row.comment),
+        });
+        if (match) return String(candidate.orderId);
+      }
+      return null;
     },
     async commentExists(orderId, reference) {
       const prefix = offlineCommentPrefix(reference).replace(/[\\%_]/g, (match) => '\\' + match);

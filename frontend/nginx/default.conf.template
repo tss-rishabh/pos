@@ -3,12 +3,30 @@ server {
   server_name _;
   root /usr/share/nginx/html;
   client_max_body_size 256k;
+
+  # Security headers for every response this server builds itself: the SPA shell, every client-side route
+  # (they fall back to /index.html), assets, the service worker, health and error pages.
+  # nginx normally drops the server-level add_header list in any location that defines its own add_header
+  # (the Cache-Control lines below). `merge` (nginx >= 1.29.3; the image is pinned to 1.30.6) appends this
+  # list to each location's own headers instead, so a new location cannot silently lose them.
+  # The meta CSP injected by vite.config.ts cannot carry frame-ancestors; the header does, and browsers
+  # enforce both policies. X-Frame-Options DENY matches frame-ancestors 'none' for clients without CSP 2.
+  # The SPA never frames its own pages: its iframes use srcdoc or API URLs.
+  add_header_inherit merge;
   add_header X-Content-Type-Options nosniff always;
   add_header Referrer-Policy same-origin always;
-  add_header X-Frame-Options SAMEORIGIN always;
+  add_header X-Frame-Options DENY always;
+  add_header Content-Security-Policy "frame-ancestors 'none'" always;
 
   location = /health/static { access_log off; return 200 'ok'; }
   location ~ ^/(api|health)/ {
+    # The backend owns the framing policy of API responses: invoice and shipping-label previews are framed
+    # by the SPA (frame-ancestors 'self'), so the SPA's DENY / frame-ancestors 'none' must not reach them.
+    # Same headers as before this change.
+    add_header_inherit off;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy same-origin always;
+    add_header X-Frame-Options SAMEORIGIN always;
     proxy_pass http://${API_UPSTREAM};
     proxy_http_version 1.1;
     proxy_set_header Host $host;

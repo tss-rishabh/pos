@@ -39,7 +39,10 @@ const runId = randomUUID();
 // Job handler logs carry the originating request's trace (restored by the worker from the job
 // record); worker lifecycle lines fall back to this run's ID.
 const runtime = Fastify({
-  logger: applicationLogger({}, { requestId: runId, module: 'jobs', resource: 'worker' }),
+  logger: applicationLogger(
+    {},
+    { requestId: runId, module: 'jobs', resource: 'worker', process: 'worker' },
+  ),
   logController: new PrivateWorkerLogController(),
 });
 const log: JobLogger = (level, event, message) => runtime.log[level]({ ...event }, message);

@@ -1,9 +1,11 @@
 import { z } from 'zod';
+import { pythonIntLiteral, pythonStringRepr } from '../../domain/python-compat.js';
 import { identifier } from '../../domain/validation.js';
 
 /**
  * Legacy CSV inventory uploads (`pos_csv_upload`) and the Python semantics their Celery tasks
- * depend on: `csv.DictReader`, `int()`, `repr()` and `json.dumps` (`helpers/task_helpers.py:64-350`).
+ * depend on: `csv.DictReader` and `int()` (`helpers/task_helpers.py:64-350`). `repr()` and
+ * `json.dumps` come from `domain/python-compat.ts`.
  */
 export const uploadTypes = ['PRODUCT_STOCK_CSV', 'PRODUCT_STORE_CSV'] as const;
 export const uploadType = z.enum(uploadTypes);
@@ -103,24 +105,6 @@ export class PythonError extends Error {
   }
 }
 
-/** Python `repr()` of a `str`. */
-export function pythonRepr(value: string): string {
-  const quote = value.includes("'") && !value.includes('"') ? '"' : "'";
-  let out = quote;
-  for (const character of value) {
-    const code = character.codePointAt(0)!;
-    if (character === '\\') out += '\\\\';
-    else if (character === quote) out += '\\' + quote;
-    else if (character === '\n') out += '\\n';
-    else if (character === '\r') out += '\\r';
-    else if (character === '\t') out += '\\t';
-    else if (code < 0x20 || code === 0x7f) out += '\\x' + code.toString(16).padStart(2, '0');
-    else if (code >= 0x80 && code < 0xa0) out += '\\x' + code.toString(16).padStart(2, '0');
-    else out += character;
-  }
-  return out + quote;
-}
-
 /** Python `int(value)` for a CSV cell (`str`) or a missing cell (`None`). */
 export function pythonInt(value: string | null): bigint {
   if (value === null)
@@ -128,48 +112,13 @@ export function pythonInt(value: string | null): bigint {
       'TypeError',
       "int() argument must be a string, a bytes-like object or a real number, not 'NoneType'",
     );
-  const text = value.trim();
-  if (!/^[+-]?\d+(?:_\d+)*$/.test(text))
+  const literal = pythonIntLiteral(value);
+  if (literal === null)
     throw new PythonError(
       'ValueError',
-      `invalid literal for int() with base 10: ${pythonRepr(value)}`,
+      `invalid literal for int() with base 10: ${pythonStringRepr(value)}`,
     );
-  return BigInt(text.replace(/_/g, ''));
-}
-
-/** JSON value as `json.dumps` sees it (dicts keep insertion order). */
-export type PythonJson =
-  null | string | number | boolean | readonly PythonJson[] | { readonly [key: string]: PythonJson };
-
-/** Python `json.dumps(value)` with its defaults: `ensure_ascii=True`, `", "` and `": "`. */
-export function pythonJsonDumps(value: PythonJson): string {
-  if (value === null) return 'null';
-  if (typeof value === 'boolean') return value ? 'true' : 'false';
-  if (typeof value === 'number') return String(value);
-  if (typeof value === 'string') {
-    let out = '"';
-    for (let index = 0; index < value.length; index++) {
-      const code = value.charCodeAt(index),
-        character = value[index]!;
-      if (character === '"') out += '\\"';
-      else if (character === '\\') out += '\\\\';
-      else if (character === '\n') out += '\\n';
-      else if (character === '\r') out += '\\r';
-      else if (character === '\t') out += '\\t';
-      else if (character === '\b') out += '\\b';
-      else if (character === '\f') out += '\\f';
-      else if (code < 0x20 || code > 0x7e) out += '\\u' + code.toString(16).padStart(4, '0');
-      else out += character;
-    }
-    return out + '"';
-  }
-  if (Array.isArray(value)) return '[' + value.map(pythonJsonDumps).join(', ') + ']';
-  const entries = Object.entries(value as { readonly [key: string]: PythonJson });
-  return (
-    '{' +
-    entries.map(([key, item]) => `${pythonJsonDumps(key)}: ${pythonJsonDumps(item)}`).join(', ') +
-    '}'
-  );
+  return BigInt(literal);
 }
 
 /**
@@ -357,3 +306,65 @@ export const initialProgress = (): ImportProgress => ({
   productIds: [],
   inserts: [],
 });
+
+/**
+ * Per-record journal `pos:import_progress:{uploadId}:journal` (Redis list, newest first by
+ * LPUSH, EX 7 days). The snapshot under `importProgressKey` is only rewritten every
+ * `importCheckpointRecords` records; each committed record in between appends one small entry
+ * here (one LPUSH, O(1)), instead of rewriting the whole growing snapshot per row. The current
+ * cursor is the snapshot plus the journal entries after it (`replayImportJournal`).
+ */
+export const importProgressJournalKey = (uploadId: string) =>
+  `${importProgressKey(uploadId)}:journal`;
+export const importCheckpointRecords = 500;
+export const importJournalEntry = z
+  .object({
+    /** The record number this entry completes (1-based). */
+    record: z.number().int().min(1),
+    failed: failedData,
+    productId: z
+      .string()
+      .regex(/^-?\d+$/)
+      .nullable(),
+    inserts: z.array(z.tuple([identifier, identifier])),
+  })
+  .strict();
+export type ImportJournalEntry = z.infer<typeof importJournalEntry>;
+
+/** Appends one committed record's outcome to the cursor in place (no copy of the arrays). */
+export function applyImportJournalEntry(progress: ImportProgress, entry: ImportJournalEntry) {
+  progress.record = entry.record;
+  progress.failed.push(...entry.failed);
+  if (entry.productId) progress.productIds.push(entry.productId);
+  progress.inserts.push(...entry.inserts);
+}
+
+/**
+ * Snapshot plus journal (as `LRANGE 0 -1` returns it, newest first). Entries at or before the
+ * snapshot's record were already folded in by a checkpoint whose journal reset did not complete,
+ * and are skipped. Returns null when the journal is unreadable or has a gap, so the caller treats
+ * the cursor as lost rather than re-applying or skipping a committed record.
+ */
+export function replayImportJournal(
+  snapshot: ImportProgress,
+  journal: readonly string[],
+): ImportProgress | null {
+  const progress: ImportProgress = {
+    record: snapshot.record,
+    failed: [...snapshot.failed],
+    productIds: [...snapshot.productIds],
+    inserts: [...snapshot.inserts],
+  };
+  for (let index = journal.length - 1; index >= 0; index--) {
+    let entry: ImportJournalEntry;
+    try {
+      entry = importJournalEntry.parse(JSON.parse(journal[index]!) as unknown);
+    } catch {
+      return null;
+    }
+    if (entry.record <= progress.record) continue;
+    if (entry.record !== progress.record + 1) return null;
+    applyImportJournalEntry(progress, entry);
+  }
+  return progress;
+}

@@ -1,25 +1,15 @@
-import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
 import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
 import { orderSearchInput } from '../../src/modules/order-history/search/contracts.js';
+import { sourceExcerpt } from '../golden/source-excerpts.js';
 
-const pin = '78d5b63d6a149a6bf2c748fa1d191799c59ecb8a';
-/** Exact original handler; the small carrier supplies only form-control values. */
+/**
+ * Exact original handler (backend-pos-web 78d5b63, order/templates/order/index.html), captured
+ * verbatim in tests/golden/order-search/he-submit-handler.json; the small carrier supplies only
+ * form-control values.
+ */
+const submitHandler = sourceExcerpt('order-search', 'he-submit-handler', 'submitHandler');
 function originalRejects(stores: string[], type = 'HE', ids = '') {
-  const source = execFileSync(
-    'git',
-    [
-      '-C',
-      process.env.ORDER_SEARCH_SOURCE_ROOT ?? resolve(process.cwd(), '../../backend-pos-web'),
-      'show',
-      pin + ':order/templates/order/index.html',
-    ],
-    { encoding: 'utf8' },
-  );
-  const start = source.indexOf("$(document).on('submit', '.filter-class'");
-  const end = source.indexOf('\n    {% with request.path as path %}', start);
-  if (start < 0 || end < 0) throw new Error('Pinned original form handler changed.');
   let callback: ((event: { preventDefault(): void }) => unknown) | undefined,
     rejected = false;
   const document = {};
@@ -47,7 +37,7 @@ function originalRejects(stores: string[], type = 'HE', ids = '') {
       },
     },
   );
-  runInNewContext(source.slice(start, end), { $: dollar, document }, { timeout: 1000 });
+  runInNewContext(submitHandler, { $: dollar, document }, { timeout: 1000 });
   if (!callback) throw new Error('Original submit handler did not register.');
   callback({
     preventDefault: () => {

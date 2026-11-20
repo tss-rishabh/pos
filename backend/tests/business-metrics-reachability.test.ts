@@ -1,6 +1,12 @@
 import { expect, it } from 'vitest';
 import { z } from 'zod';
 import { goldenSpawnResult } from './golden/load.js';
+/**
+ * Source evidence only (V2, 20 Nov 2026; see tests/golden/INVENTORY.md): this file asserts
+ * facts of the pinned legacy capture and runs no rewrite code.
+ * Reason: the BD prototype is inactive at the pin, so the rewrite has nothing to implement or
+ * compare.
+ */
 
 it('keeps both BD prototype templates inventoried and proves their views/routes/navigation are inactive at the pinned source', () => {
   const result: { error?: Error; status: number | null; stdout: string; stderr: string } =

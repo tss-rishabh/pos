@@ -1,4 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import {
+  Component,
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
 import {
   Banknote,
   CloudCheck,
@@ -12,7 +22,7 @@ import {
   Smartphone,
 } from 'lucide-react';
 import { Empty, PageTitle } from '../../components/common';
-import { Loader } from '../../components/loader';
+import { Loader, Spinner } from '../../components/loader';
 import { Modal } from '../../components/modal';
 import {
   desktopOfflineBridge,
@@ -29,6 +39,7 @@ import type {
   Tender,
 } from '../../offline/billing/contracts';
 import { formatMoney, parseMoney, saleTotals } from '../../offline/billing/money';
+import { useOfflineStatus } from '../../offline/billing/status-store';
 import './styles.css';
 
 const rupees = (paise: number) => `Rs. ${formatMoney(paise)}`;
@@ -75,37 +86,80 @@ export default function OfflineBillingPage() {
         </Empty>
       </>
     );
-  return <OfflineBilling client={client} />;
+  return (
+    <OfflineBillingBoundary>
+      <OfflineBilling client={client} />
+    </OfflineBillingBoundary>
+  );
+}
+
+/** Route-level boundary: a rendering failure on this page leaves the rest of the workspace (and
+ * the sales stored in the main process) untouched, and the page can be opened again in place. */
+export class OfflineBillingBoundary extends Component<
+  { children: ReactNode },
+  { failed: boolean; attempt: number }
+> {
+  override state = { failed: false, attempt: 0 };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  override render() {
+    if (!this.state.failed)
+      return <Fragment key={this.state.attempt}>{this.props.children}</Fragment>;
+    return (
+      <div className="empty" role="alert">
+        <h2>Offline billing could not be shown.</h2>
+        <p>Offline sales already saved stay on this device and keep syncing.</p>
+        <button
+          className="button secondary"
+          onClick={() => this.setState(({ attempt }) => ({ failed: false, attempt: attempt + 1 }))}
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+}
+
+/** Reload the sale list when the queue changes, not on every status read. */
+function queueSignature(status: OfflineStatus | null) {
+  if (!status) return '';
+  const { queue } = status;
+  return [
+    queue.queued,
+    queue.syncing,
+    queue.needsManager,
+    queue.synced,
+    queue.voided,
+    status.syncing,
+    status.lastSyncAt,
+  ].join(':');
 }
 
 function OfflineBilling({ client }: { client: OfflineBillingClient }) {
-  const [status, setStatus] = useState<OfflineStatus | null>(null),
-    [sales, setSales] = useState<OfflineSale[]>([]),
+  const shared = useOfflineStatus();
+  const status = shared.status;
+  const [sales, setSales] = useState<OfflineSale[]>([]),
     [error, setError] = useState(''),
     [receipt, setReceipt] = useState<OfflineReceipt | null>(null),
     [resolving, setResolving] = useState<OfflineSale | null>(null),
     [busy, setBusy] = useState(false);
-  const refresh = useCallback(async () => {
+  const loadSales = useCallback(async () => {
     try {
-      const [nextStatus, list] = await Promise.all([
-        client.call('offline:status', {}),
-        client.call('offline:sale:list', { limit: 100 }),
-      ]);
-      setStatus(nextStatus);
-      setSales(list.sales);
+      setSales((await client.call('offline:sale:list', { limit: 100 })).sales);
     } catch (e) {
       setError(message(e));
     }
   }, [client]);
+  const refreshStatus = shared.refresh;
+  const refresh = useCallback(
+    () => Promise.all([refreshStatus(), loadSales()]).then(() => undefined),
+    [refreshStatus, loadSales],
+  );
+  const signature = queueSignature(status);
   useEffect(() => {
-    void refresh();
-    const unsubscribe = client.onStatusChanged(() => void refresh());
-    const timer = setInterval(() => void refresh(), 30000);
-    return () => {
-      unsubscribe();
-      clearInterval(timer);
-    };
-  }, [client, refresh]);
+    void loadSales();
+  }, [loadSales, signature]);
   async function run(work: () => Promise<void>) {
     setBusy(true);
     setError('');
@@ -129,9 +183,7 @@ function OfflineBilling({ client }: { client: OfflineBillingClient }) {
           className="button secondary"
           disabled={busy || !status?.online}
           aria-busy={busy}
-          onClick={() =>
-            void run(async () => setStatus(await client.call('offline:sync:retry', {})))
-          }
+          onClick={() => void run(async () => void (await client.call('offline:sync:retry', {})))}
         >
           {!busy && <RefreshCw size={16} />}
           Sync now
@@ -147,12 +199,12 @@ function OfflineBilling({ client }: { client: OfflineBillingClient }) {
           Refresh catalogue
         </button>
       </PageTitle>
-      {error && (
+      {(error || (!status && shared.error)) && (
         <div role="alert" className="inline-error">
-          {error}
+          {error || shared.error}
         </div>
       )}
-      {!status && !error && <Loader label="Loading offline billing…" />}
+      {!status && !error && !shared.error && <Loader label="Loading offline billing…" />}
       {status && <StatusPanel status={status} />}
       {status && !status.online && canBill && operator?.storeId && status.counters.length > 0 && (
         <SaleComposer
@@ -249,12 +301,15 @@ function OfflineBilling({ client }: { client: OfflineBillingClient }) {
         <ResolveDialog
           sale={resolving}
           onClose={() => setResolving(null)}
-          onResolve={(input) =>
-            run(async () => {
+          onResolve={async (input) => {
+            // Errors stay in the dialog (ResolveDialog shows them); the page refreshes either way.
+            try {
               await client.call('offline:conflict:resolve', { saleId: resolving.saleId, ...input });
               setResolving(null);
-            })
-          }
+            } finally {
+              void refresh();
+            }
+          }}
         />
       )}
     </>
@@ -275,6 +330,7 @@ function StatusPanel({ status }: { status: OfflineStatus }) {
     waiting > 0 ||
     status.queue.needsManager > 0 ||
     !limits.allowed ||
+    status.catalog.truncated ||
     Boolean(status.lastSyncError);
   if (!relevant) return null;
   return (
@@ -314,6 +370,12 @@ function StatusPanel({ status }: { status: OfflineStatus }) {
             : ''}
         </p>
         {status.lastSyncError && <p className="offline-limit-blocked">{status.lastSyncError}</p>}
+        {status.catalog.truncated && (
+          <p className="offline-limit-blocked">
+            This device holds only part of the store’s catalogue ({status.catalog.products}{' '}
+            products). Products beyond it cannot be billed offline.
+          </p>
+        )}
       </div>
     </section>
   );
@@ -687,8 +749,11 @@ function ResolveDialog({
     [reason, setReason] = useState(''),
     [mode, setMode] = useState<TenderMode>(sale.tender.mode),
     [value, setValue] = useState(''),
-    [error, setError] = useState('');
-  function submit() {
+    [error, setError] = useState(''),
+    [saving, setSaving] = useState(false);
+  async function submit() {
+    if (saving) return;
+    setError('');
     const trimmed = reason.trim();
     if (trimmed.length < 5) {
       setError('Enter a reason of at least five characters.');
@@ -715,12 +780,19 @@ function ResolveDialog({
         tender = { mode, reference: value.trim() };
       }
     }
-    void onResolve({
-      action,
-      reason: trimmed,
-      ...(tender ? { tender } : {}),
-      ...(action === 'link-order' ? { orderId: orderId.trim() } : {}),
-    });
+    setSaving(true);
+    try {
+      await onResolve({
+        action,
+        reason: trimmed,
+        ...(tender ? { tender } : {}),
+        ...(action === 'link-order' ? { orderId: orderId.trim() } : {}),
+      });
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setSaving(false);
+    }
   }
   return (
     <Modal
@@ -730,13 +802,21 @@ function ResolveDialog({
         sale.conflict?.message ?? 'This sale needs a manager decision before it can sync.'
       }
       onClose={onClose}
+      dismissible={!saving}
       footer={
         <>
-          <button type="button" className="button secondary" onClick={onClose}>
+          <button type="button" className="button secondary" disabled={saving} onClick={onClose}>
             Cancel
           </button>
-          <button type="button" className="button primary" onClick={submit}>
-            Save decision
+          <button
+            type="button"
+            className="button primary"
+            disabled={saving}
+            aria-busy={saving}
+            onClick={() => void submit()}
+          >
+            {saving && <Spinner size={14} />}
+            {saving ? 'Saving…' : 'Save decision'}
           </button>
         </>
       }

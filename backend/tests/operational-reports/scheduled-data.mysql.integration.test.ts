@@ -383,6 +383,39 @@ describe.skipIf(!connection)('scheduled report queries on verified-schema local 
     );
     expect(closed[0]?.fd_ticket_status).toBe('CLOSED');
   });
+  it('verifies CRM candidates by exact ticket and order pair, a NULL order matching only NULL', async () => {
+    await admin!.query(
+      "INSERT INTO hyperlocal_fd_logs (id,order_id,fd_ticket_id,fd_ticket_status,fd_ticket_age,created_at) VALUES (90,NULL,'905','OPEN','','2026-11-16 09:00:00'),(91,1002,'906','OPEN','','2026-11-16 09:00:00')",
+    );
+    try {
+      const calls: string[] = [];
+      const builder = scheduledReportBuilder(
+        config,
+        db(),
+        { ...options, BQ_HYPERLOCAL_CRM_TICKETS_VIEW: 'fixture-project.reports.crm_tickets' },
+        {
+          async queryReport() {
+            return [
+              { orderId: null, ticketId: '905', createdAt: '2026-11-16 09:00:00' },
+              // Same ticket with an order the writer does not hold, and a NULL order for a
+              // ticket the writer holds only with an order: neither is verified.
+              { orderId: '1001', ticketId: '905', createdAt: '2026-11-16 09:00:00' },
+              { orderId: null, ticketId: '906', createdAt: '2026-11-16 09:00:00' },
+            ];
+          },
+        },
+        async (id) => {
+          calls.push(id);
+          return { status: 'OPEN', createdAt: '2026-11-15T07:00:00Z' };
+        },
+        () => Temporal.Instant.from('2026-11-17T08:00:00Z'),
+      );
+      await builder({ ...scheduleInput.parse({ kind: 'crm-tickets' }), date: '2026-11-16' });
+      expect(calls).toEqual(['905']);
+    } finally {
+      await admin!.query('DELETE FROM hyperlocal_fd_logs WHERE id IN (90,91)');
+    }
+  });
   it('treats archived CRM rows as candidates and rechecks writer-current tickets after the external lookup', async () => {
     const calls: string[] = [],
       roles: string[] = [],

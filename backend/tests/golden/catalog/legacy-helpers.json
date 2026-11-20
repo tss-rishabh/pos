@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "pos-oracles catalog_oracle.py operation \"helpers\" (outside the repository): Product.first_image_url (core/models.py:70-94) and AjaxOrderProductsListView.get_storage_stock (core/datatables/store_products_datatable.py:307-313) compiled from the pinned files via ast, only their ORM lookups stubbed",
+  "runtime": "CPython 3.10.22 via uv --no-project (python -I); no database",
+  "capturedAt": "2026-11-20T12:16:34Z",
+  "test": "tests/catalog/legacy-helpers.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "96c7908cba65ca786901960a5f2c88317b706949a9d149566e173ad47bb213c6",
+      "args": [
+        "catalog_oracle.py"
+      ],
+      "status": 0,
+      "stdout": "{\"lines\": {\"first_image_url\": 70, \"get_storage_stock\": 307}, \"results\": [{\"image\": \"https://prod-img.thesouledstore.com/public/theSoul/uploads/catalog/product/u.jpg\", \"kind\": \"image\"}, {\"image\": \"https://prod-img.thesouledstore.com/public/theSoul/uploads/catalog/product/m.jpg\", \"kind\": \"image\"}, {\"image\": \"https://prod-img.thesouledstore.com/public/theSoul/uploads/catalog/product/f.jpg\", \"kind\": \"image\"}, {\"image\": \"https://prod-img.thesouledstore.com/public/theSoul/uploads/catalog/product/m.jpg\", \"kind\": \"image\"}, {\"image\": \"https://prod-img.thesouledstore.com/public/theSoul/uploads/catalog/product/f.jpg\", \"kind\": \"image\"}, {\"image\": null, \"kind\": \"image\"}, {\"image\": \"https://prod-img.thesouledstore.com/public/theSoul/uploads/catalog/product/p.jpg\", \"kind\": \"image\"}, {\"image\": \"https://prod-img.thesouledstore.com/public/theSoul/uploads/catalog/product/p.jpg\", \"kind\": \"image\"}, {\"image\": \"https://prod-img.thesouledstore.com/public/theSoul/uploads/catalog/product/p.jpg\", \"kind\": \"image\"}, {\"image\": null, \"kind\": \"image\"}, {\"image\": \"https://prod-img.thesouledstore.com/public/theSoul/uploads/catalog/product/p.jpg\", \"kind\": \"image\"}, {\"image\": null, \"kind\": \"image\"}, {\"image\": null, \"kind\": \"image\"}, {\"image\": null, \"kind\": \"image\"}, {\"image\": \"https://prod-img.thesouledstore.com/public/theSoul/uploads/catalog/product/own.jpg\", \"kind\": \"image\"}, {\"image\": null, \"kind\": \"image\"}, {\"image\": null, \"kind\": \"image\"}, {\"image\": \"https://prod-img.thesouledstore.com/public/theSoul/uploads/catalog/product/caf\\u00e9/\\u00fc 1.jpg\", \"kind\": \"image\"}, {\"image\": \"https://prod-img.thesouledstore.com/public/theSoul/uploads/catalog/product/5\", \"kind\": \"image\"}, {\"image\": \"https://prod-img.thesouledstore.com/public/theSoul/uploads/catalog/product/None\", \"kind\": \"image\"}, {\"image\": \"https://prod-img.thesouledstore.com/public/theSoul/uploads/catalog/product/a\", \"kind\": \"image\"}, {\"image\": null, \"kind\": \"image\"}, {\"kind\": \"storage\", \"text\": \"Not available in any storage\"}, {\"kind\": \"storage\", \"text\": \"Rack A : 3\\n\"}, {\"kind\": \"storage\", \"text\": \"Rack A : 3\\nNone : -1\\n : 0\\nBack room \\u00fc : 12\\n\"}], \"sourceCommit\": \"78d5b63d6a149a6bf2c748fa1d191799c59ecb8a\"}"
+    }
+  ]
+}

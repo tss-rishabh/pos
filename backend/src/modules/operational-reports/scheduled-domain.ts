@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { AppError } from '../../domain/errors.js';
 import { identifier } from '../../domain/validation.js';
 import { scalarId } from './report-inputs.js';
-import { pythonRound2 } from '../../domain/python-round.js';
+import { pythonRound2 } from '../../domain/python-compat.js';
 import { pythonFloatString } from './number-format.js';
 import { slackText } from '../fulfillment/slack-text.js';
 export const scheduledKind = z.enum([
@@ -217,12 +217,12 @@ export function summaryMessages(
     const value = counts.get(slot.storeId) || fresh();
     if (value.accepted > 0 || value.decline > 0) {
       const rate = (value.accepted / (value.accepted + value.decline)) * 100;
-      output += `*${icons.store} ${slackText(names.get(slot.storeId) || '')}*\n   ${icons.accepted} Accepted: \` ${value.accepted} \` |  ${icons.declined} Declined: \` ${value.decline}\` |  ${icons.chart} Acceptance Rate: *${rate.toFixed(2)}%* ${rate <= 0 ? icons.no : ''}\n\n\n`;
+      output += `*${icons.store} ${slackText(names.get(slot.storeId) || '')}*\n   ${icons.accepted} Accepted: \` ${value.accepted} \` |  ${icons.declined} Declined: \` ${value.decline}\` |  ${icons.chart} Acceptance Rate: *${pythonRound2(rate).toFixed(2)}%* ${rate <= 0 ? icons.no : ''}\n\n\n`;
     }
   }
   const total = acceptedTotal + convertedTotal + nonConvertedTotal,
     rate = total ? (acceptedTotal / total) * 100 : 0;
-  output += `------------------------------------------------\n*${icons.total} Total Orders:* \` ${total} \`\n*${icons.accepted} Accepted Orders:* \` ${acceptedTotal} \`\n*${icons.convert} Converted Orders:* \` ${convertedTotal} \`\n*${icons.declined} Conversion Failed:* \` ${nonConvertedTotal} \`\n\n*${icons.chart} Overall Accepted Rate:* *${rate.toFixed(2)}%*\n`;
+  output += `------------------------------------------------\n*${icons.total} Total Orders:* \` ${total} \`\n*${icons.accepted} Accepted Orders:* \` ${acceptedTotal} \`\n*${icons.convert} Converted Orders:* \` ${convertedTotal} \`\n*${icons.declined} Conversion Failed:* \` ${nonConvertedTotal} \`\n\n*${icons.chart} Overall Accepted Rate:* *${pythonRound2(rate).toFixed(2)}%*\n`;
   return { messages: [{ target: 'main', text: output }], recordCount: rows.length };
 }
 export interface AvailabilityFact {

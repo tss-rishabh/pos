@@ -11,6 +11,7 @@ import { invoiceDocumentOptions, type InvoiceDocumentOptions } from './options.j
 import { invoiceDocumentService } from './service.js';
 import { invoicePreviewScope, invoicePreviewHtml, invoicePreviewPolicy } from './presentation.js';
 import { auditCrossStoreLookup } from '../order-history/audit.js';
+import type { RegisteredEvent } from '../../observability/event-registry.js';
 
 /** Legacy `store|online|online_sdd/<order_id>/invoice/` (`order/urls.py:13-15`). */
 export function registerInvoiceDocuments(
@@ -27,7 +28,7 @@ export function registerInvoiceDocuments(
         resource: 'whatsapp-invoice',
         eventId: 'invoice-documents.whatsapp-invoice.not-sent',
         outcome,
-      },
+      } satisfies RegisteredEvent,
       'WhatsApp invoice message was not sent.',
     ),
   );

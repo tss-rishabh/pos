@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { createHash } from 'node:crypto';
 import { Script } from 'node:vm';
 import ts from 'typescript';
 import { and, eq, gt, inArray, sql, sum } from 'drizzle-orm';
@@ -7,8 +5,8 @@ import { z } from 'zod';
 import type { Databases } from '../../src/db/pools.js';
 import { bigint, int, mysqlTable, varchar } from 'drizzle-orm/mysql-core';
 import { warehouseLocations } from '../../src/db/stock-projection/domain.js';
+import { loadSourceExcerpts } from '../../tests/golden/source-excerpts.js';
 
-const path = '../../backend-sync-api/new-src/api/models/inventoryModel.ts';
 // Keep source property names/Number decoders; this oracle accepts only bounded exact IDs.
 const products = mysqlTable('products', {
   id: bigint('id', { mode: 'number', unsigned: true }),
@@ -34,44 +32,30 @@ const productStocks = mysqlTable('product_stocks', {
   stocked: int('stocked'),
 });
 
-const source = readFileSync(path, 'utf8');
-export const sourceHash = createHash('sha256').update(source).digest('hex');
-const tree = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
-const inventory = tree.statements.find(
-  (node): node is ts.FunctionDeclaration =>
-    ts.isFunctionDeclaration(node) && node.name?.text === 'getProductInventory',
-);
-if (!inventory) throw new Error('Pinned source inventory function unavailable.');
-const arithmetic: string[] = [];
-function inspect(node: ts.Node) {
-  if (
-    ts.isExpressionStatement(node) &&
-    ts.isBinaryExpression(node.expression) &&
-    node.expression.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
-    node.expression.left.getText(tree) === 'onlineStock' &&
-    /\+\s*storeOnlineStock$/.test(node.expression.right.getText(tree)) &&
-    ts.isBlock(node.parent)
-  ) {
-    const index = node.parent.statements.indexOf(node);
-    arithmetic.push(
-      node.parent.statements
-        .slice(index, index + 3)
-        .map((statement) => statement.getText(tree))
-        .join('\n'),
-    );
-  }
-  ts.forEachChild(node, inspect);
+// backend-sync-api 70b8015 new-src/api/models/inventoryModel.ts, captured verbatim
+// (tests/golden/stock-projection/inventory-model-source.json) instead of reading the sibling
+// checkout: the getProductInventory declaration and the online-stock arithmetic statements.
+const captured = loadSourceExcerpts('stock-projection', 'inventory-model-source');
+export const sourceHash = captured.fileSha256;
+function excerpt(key: string, valid: (text: string) => boolean, message: string): string {
+  const text = captured.excerpts[key]?.text;
+  if (!text || !valid(text)) throw new Error(message);
+  return text;
 }
-inspect(tree);
-if (
-  arithmetic.length !== 1 ||
-  !arithmetic[0]!.replace(/\s/g, '').includes('Math.min(bufferStock,onlineStock)')
-)
-  throw new Error('Pinned source stock arithmetic changed.');
+const inventory = excerpt(
+  'getProductInventory',
+  (text) => /^export\s+(?:async\s+)?function\s+getProductInventory\b/.test(text),
+  'Pinned source inventory function unavailable.',
+);
+const arithmetic = excerpt(
+  'onlineStockArithmetic',
+  (text) => text.replace(/\s/g, '').includes('Math.min(bufferStock,onlineStock)'),
+  'Pinned source stock arithmetic changed.',
+);
 
 /** Runs only the selected original query/function bodies, without application imports or startup. */
 export function sourceStockOracle(db: ReturnType<Databases['get']>) {
-  const code = ts.transpileModule(inventory!.getText(tree).replace(/^export\s+/, ''), {
+  const code = ts.transpileModule(inventory.replace(/^export\s+/, ''), {
     compilerOptions: { target: ts.ScriptTarget.ES2023, module: ts.ModuleKind.None },
   }).outputText;
   const original: unknown = new Script(code + '\ngetProductInventory').runInNewContext({
@@ -91,7 +75,7 @@ export function sourceStockOracle(db: ReturnType<Databases['get']>) {
   });
   const calculate: unknown = new Script(
     '(function(stock, storeOnlineStock, bufferStock) { let onlineStock;\n' +
-      arithmetic[0] +
+      arithmetic +
       '\nreturn {stock:onlineStock,storeStock:storeOnlineStock,grossStock:onlineStock+bufferStock,effectiveBuffer:bufferStock}; })',
   ).runInNewContext({});
   if (typeof original !== 'function' || typeof calculate !== 'function')

@@ -1,7 +1,6 @@
-import { execFileSync } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { privateRedisFixture } from '../helpers/private-redis.js';
+import { privateRedisFixture, redisServerAvailable } from '../helpers/private-redis.js';
 import { connectRedis, type RedisCommands } from '../../src/jobs/redis.js';
 import {
   jobClaimer,
@@ -23,14 +22,7 @@ import {
 } from '../../src/jobs/ephemeral.js';
 import type { JobLogger } from '../../src/jobs/runtime.js';
 
-const hasRedis = (() => {
-  try {
-    execFileSync('redis-server', ['--version'], { stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
-  }
-})();
+const hasRedis = redisServerAvailable;
 
 describe.skipIf(!hasRedis)('Redis job queue (private loopback redis-server)', () => {
   let fixture: Awaited<ReturnType<typeof privateRedisFixture>>;

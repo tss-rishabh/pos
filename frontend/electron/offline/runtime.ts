@@ -1,40 +1,61 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
-import { app, ipcMain, net, safeStorage, type BrowserWindow, type Session } from 'electron';
+import {
+  app,
+  ipcMain,
+  net,
+  powerMonitor,
+  safeStorage,
+  type BrowserWindow,
+  type Session,
+} from 'electron';
 import { z } from 'zod';
-import type { IpcReply, OfflineStatus } from '../../src/offline/billing/contracts';
+import {
+  offlineStatusEvent,
+  type IpcParsedRequest,
+  type IpcReply,
+  type OfflineStatus,
+} from '../../src/offline/billing/contracts';
 import { DEFAULT_LIMITS, evaluateLimits } from '../../src/offline/billing/limits';
 import {
+  OfflineDatabaseLockedError,
   offlineStore,
   openEncryptedDatabase,
   type SqliteConstructor,
   type SqliteDatabase,
 } from './database';
 import { registerOfflineIpc, type IpcHandlers } from './ipc';
-import { loadOrCreateDatabaseKey, type SecretWrapper } from './key-store';
-import { NetworkUnavailableError, serverApi, type HttpClient, type HttpRequest } from './server';
+import {
+  OfflineKeyMissingError,
+  OfflineKeyUnavailableError,
+  loadOrCreateDatabaseKey,
+  type SecretWrapper,
+} from './key-store';
+import { coalescedNotifier } from './notify';
+import {
+  NetworkUnavailableError,
+  RequestNotSentError,
+  preSendNetworkError,
+  serverApi,
+  type HttpClient,
+  type HttpRequest,
+} from './server';
 import { OfflineBillingError, offlineBillingService, type OfflineLogEvent } from './service';
+import { desktopLog, setDesktopLogUser } from './desktop-log';
 
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 const SESSION_COOKIE = 'pos_session';
-export const STATUS_EVENT = 'offline:status:changed';
+export const STATUS_EVENT = offlineStatusEvent;
+/** Status pushes within this window are coalesced into one (see notify.ts). */
+const STATUS_PUSH_DELAY_MS = 150;
+/** Synced sales are pruned from the device once they are older than the retention (service.ts). */
+const PRUNE_INTERVAL_MS = 60 * 60000;
 
-/** PII-free structured log line: identifiers, outcome codes and timings only. */
-function log(event: OfflineLogEvent & { channel?: string }) {
-  process.stdout.write(
-    JSON.stringify({
-      module: 'desktop-offline-billing',
-      resource: event.channel ?? 'runtime',
-      time: new Date().toISOString(),
-      // Same trace fields as the backend: requestId equals traceId and reaches the server as
-      // X-Request-Id on sync/heartbeat calls.
-      requestId: event.traceId,
-      eventInstanceId: randomUUID(),
-      userId: null,
-      ...event,
-    }) + '\n',
-  );
+/** PII-free structured log line (identifiers, outcome codes and timings only), written to the
+ * rotating desktop log file (desktop-log.ts) with the backend's record shape. */
+function log(event: OfflineLogEvent) {
+  desktopLog(event);
 }
 
 function electronHttp(origin: string, profile: Session): HttpClient {
@@ -42,8 +63,8 @@ function electronHttp(origin: string, profile: Session): HttpClient {
     request(request: HttpRequest) {
       return new Promise((resolve, reject) => {
         const url = new URL(request.path, origin);
-        if (url.origin !== origin) {
-          reject(new NetworkUnavailableError());
+        if (url.origin !== origin || !net.isOnline()) {
+          reject(new RequestNotSentError());
           return;
         }
         const call = net.request({
@@ -86,9 +107,14 @@ function electronHttp(origin: string, profile: Session): HttpClient {
             reject(new NetworkUnavailableError());
           });
         });
-        call.on('error', () => {
+        call.on('error', (error: Error) => {
           clearTimeout(timer);
-          reject(new NetworkUnavailableError());
+          // Only connection set-up failures prove the request never reached the server.
+          reject(
+            preSendNetworkError(error.message)
+              ? new RequestNotSentError()
+              : new NetworkUnavailableError(),
+          );
         });
         call.on('abort', () => {
           clearTimeout(timer);
@@ -126,11 +152,37 @@ function unavailableStatus(reason: string): OfflineStatus {
     operator: null,
     counters: [],
     limits: evaluateLimits(DEFAULT_LIMITS, null, 0),
-    catalog: { storeId: null, products: 0, refreshedAt: null },
+    catalog: { storeId: null, products: 0, refreshedAt: null, truncated: false },
     queue: { queued: 0, syncing: 0, needsManager: 0, synced: 0, voided: 0 },
     syncing: false,
     lastSyncAt: null,
     lastSyncError: null,
+  };
+}
+
+/** Fixed, user-facing reasons per known start-up failure; error text is never shown or logged. */
+function storageFailure(error: unknown): { code: string; reason: string } {
+  if (error instanceof OfflineKeyMissingError)
+    return {
+      code: 'KEY_MISSING',
+      reason:
+        'Offline billing is off: the device key for the saved offline sales is missing. The saved sales were kept. Contact support before billing offline on this device.',
+    };
+  if (error instanceof OfflineKeyUnavailableError)
+    return {
+      code: 'KEY_UNAVAILABLE',
+      reason:
+        'Offline billing is off: secure key storage is unavailable on this device. Saved offline sales are kept.',
+    };
+  if (error instanceof OfflineDatabaseLockedError)
+    return {
+      code: 'DATABASE_LOCKED',
+      reason:
+        'Offline billing is off: the saved offline sales could not be opened on this device. They were kept unchanged. Contact support.',
+    };
+  return {
+    code: 'STORAGE_UNAVAILABLE',
+    reason: 'Offline billing storage is unavailable on this device.',
   };
 }
 
@@ -143,6 +195,18 @@ function loadSqlite(): SqliteConstructor {
     : load('better-sqlite3-multiple-ciphers');
   if (typeof loaded !== 'function') throw new Error('Offline billing storage is unavailable.');
   return loaded as SqliteConstructor;
+}
+
+/** Renderer error report (already validated against the ID-only schema by dispatchIpc). */
+function reportUiError(report: IpcParsedRequest<'diagnostics:ui-error'>, traceId: string) {
+  log({
+    eventId: report.eventId,
+    traceId,
+    outcome: 'failed',
+    errorName: report.errorName,
+    route: report.route,
+  });
+  return {};
 }
 
 export interface OfflineBillingRuntimeOptions {
@@ -174,29 +238,32 @@ export async function startOfflineBilling(
       return false;
     }
   };
-  const notify = () => {
+  const pushStatus = coalescedNotifier(() => {
     if (!window.isDestroyed()) window.webContents.send(STATUS_EVENT);
-  };
+  }, STATUS_PUSH_DELAY_MS);
   let database: SqliteDatabase | null = null;
   try {
-    const directory = app.getPath('userData');
-    const { key } = await loadOrCreateDatabaseKey(wrapper, join(directory, 'offline-billing.key'));
+    const directory = app.getPath('userData'),
+      databaseFile = join(directory, 'offline-billing.db');
+    const { key } = await loadOrCreateDatabaseKey(
+      wrapper,
+      join(directory, 'offline-billing.key'),
+      databaseFile,
+    );
     try {
-      database = openEncryptedDatabase(loadSqlite(), join(directory, 'offline-billing.db'), key);
+      database = openEncryptedDatabase(loadSqlite(), databaseFile, key);
     } finally {
       key.fill(0);
     }
   } catch (error) {
     // Never delete or replace an existing database: it may hold sold goods.
-    const reason =
-      error instanceof Error
-        ? error.message
-        : 'Offline billing storage is unavailable on this device.';
+    const { code, reason } = storageFailure(error);
     log({
       eventId: 'offline.storage.unavailable',
       traceId: randomUUID(),
       outcome: 'failed',
-      code: 'STORAGE_UNAVAILABLE',
+      errorCode: code,
+      errorName: error instanceof Error ? error.name : 'NonErrorValue',
     });
     const status = unavailableStatus(reason);
     const refuse = async () => {
@@ -204,7 +271,6 @@ export async function startOfflineBilling(
     };
     const handlers: IpcHandlers = {
       'offline:status': () => status,
-      'offline:sync:status': () => status,
       'offline:sync:retry': () => status,
       'offline:catalog:search': refuse,
       'offline:catalog:barcode': refuse,
@@ -214,10 +280,13 @@ export async function startOfflineBilling(
       'offline:sale:list': () => ({ sales: [] }),
       'offline:sale:reprint': refuse,
       'offline:conflict:resolve': refuse,
+      'diagnostics:ui-error': (payload, traceId) => reportUiError(payload, traceId),
     };
     return registerOfflineIpc(ipcMain, handlers, trustedSender, log);
   }
   const store = offlineStore(database);
+  // The signed-in operator on this device (one indexed meta read; no operator row parsing).
+  setDesktopLogUser(() => store.getMeta('device_operator'));
   let deviceId = store.getMeta('device_id');
   if (!deviceId || !/^[a-f0-9]{32}$/.test(deviceId)) {
     deviceId = randomBytes(16).toString('hex');
@@ -236,11 +305,10 @@ export async function startOfflineBilling(
       return cookies.length > 0;
     },
     log,
-    changed: notify,
+    changed: pushStatus.notify,
   });
   const handlers: IpcHandlers = {
     'offline:status': () => service.status(),
-    'offline:sync:status': () => service.status(),
     'offline:sync:retry': (_payload, traceId) => service.retry(traceId),
     'offline:catalog:search': async (payload) => ({
       products: await service.searchCatalog(payload),
@@ -258,6 +326,7 @@ export async function startOfflineBilling(
     'offline:conflict:resolve': async (payload, traceId) => ({
       sale: await service.resolve(payload, traceId),
     }),
+    'diagnostics:ui-error': (payload, traceId) => reportUiError(payload, traceId),
   };
   const unregister = registerOfflineIpc(ipcMain, handlers, trustedSender, log);
   let beating = false;
@@ -266,28 +335,61 @@ export async function startOfflineBilling(
     beating = true;
     void service
       .heartbeat(randomUUID(), { catalog })
-      .catch(() =>
-        log({ eventId: 'offline.heartbeat.failed', traceId: randomUUID(), outcome: 'failed' }),
+      .catch((error: unknown) =>
+        log({
+          eventId: 'offline.heartbeat.failed',
+          traceId: randomUUID(),
+          outcome: 'failed',
+          errorName: error instanceof Error ? error.name : 'NonErrorValue',
+        }),
       )
       .finally(() => {
         beating = false;
       });
   };
   service.tick();
+  const prune = () => {
+    try {
+      service.pruneSynced();
+    } catch (error) {
+      log({
+        eventId: 'offline.sales.prune-failed',
+        traceId: randomUUID(),
+        outcome: 'failed',
+        errorName: error instanceof Error ? error.name : 'NonErrorValue',
+      });
+    }
+  };
+  prune();
   beat(true);
   const heartbeat = setInterval(() => beat(), 15000);
+  const housekeeping = setInterval(prune, PRUNE_INTERVAL_MS);
   const minute = setInterval(() => {
     try {
       service.tick();
     } catch {
-      log({ eventId: 'offline.clock.persist', traceId: randomUUID(), outcome: 'failed' });
+      log({ eventId: 'offline.clock.persist-failed', traceId: randomUUID(), outcome: 'failed' });
     }
   }, 60000);
   const navigated = () => beat(true);
   window.webContents.on('did-finish-load', navigated);
+  // After system sleep, count the slept time into the offline window at once.
+  const resumed = () => {
+    try {
+      service.tick();
+    } catch {
+      log({ eventId: 'offline.clock.persist-failed', traceId: randomUUID(), outcome: 'failed' });
+    }
+    pushStatus.notify();
+    beat();
+  };
+  powerMonitor.on('resume', resumed);
   const stop = () => {
     clearInterval(heartbeat);
     clearInterval(minute);
+    powerMonitor.removeListener('resume', resumed);
+    clearInterval(housekeeping);
+    pushStatus.cancel();
     unregister();
     if (!window.isDestroyed()) window.webContents.removeListener('did-finish-load', navigated);
     try {

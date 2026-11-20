@@ -8,11 +8,7 @@ import {
   type PaytmTerminal,
   type PineTerminal,
 } from '../../src/modules/checkout/payments/contracts.js';
-import {
-  paytmBody,
-  pythonJson,
-  terminalGateway,
-} from '../../src/modules/checkout/payments/gateway.js';
+import { paytmBody, terminalGateway } from '../../src/modules/checkout/payments/gateway.js';
 import {
   classifyPaytmRequest,
   classifyPaytmStatus,
@@ -22,9 +18,8 @@ import {
   legacyPayDict,
   legacyPaymentMessage,
   legacyTransactionId,
-  pythonFloat,
-  pythonRepr,
 } from '../../src/modules/checkout/payments/legacy.js';
+import { pythonFloatRepr, pythonJsonDumps, pythonRepr } from '../../src/domain/python-compat.js';
 import { validatePaymentSplit } from '../../src/modules/checkout/payments/repository.js';
 import {
   pineUploadPayload,
@@ -90,7 +85,7 @@ describe('payment source parity', () => {
         onlineAmount: '59.95',
         mode,
       });
-      checksums.push(pythonJson(body));
+      checksums.push(pythonJsonDumps(body));
       calls.push({
         path: 'payment/request',
         payload: {
@@ -271,9 +266,9 @@ describe('legacy record shapes', () => {
     );
   });
   it('writes Python repr text for pay_dict and api_response', () => {
-    expect(pythonFloat(100)).toBe('100.0');
-    expect(pythonFloat(99.5)).toBe('99.5');
-    expect(pythonFloat(0.1 + 0.2)).toBe('0.30000000000000004');
+    expect(pythonFloatRepr(100)).toBe('100.0');
+    expect(pythonFloatRepr(99.5)).toBe('99.5');
+    expect(pythonFloatRepr(0.1 + 0.2)).toBe('0.30000000000000004');
     expect(
       legacyPayDict([
         ['cash payment', 40],

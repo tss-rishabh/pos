@@ -17,6 +17,7 @@ const pii = {
   sql: 'SELECT secret_canary FROM pos_user',
 };
 const line = z.object({
+  process: z.enum(['server', 'worker', 'main', 'preload', 'renderer']),
   traceId: z.uuid(),
   requestId: z.uuid(),
   module: z.string().regex(/^[a-z][a-z0-9-]*$/),
@@ -162,7 +163,63 @@ describe('PII-free structured logs', () => {
         resource: 'customer',
         userId: '42',
         eventId: 'checkout.customer.lookup',
+        process: 'server',
       });
+    });
+  });
+  it('logs a UI error beacon as IDs only and refuses any report carrying other fields', async () => {
+    await withApp(async (app, lines) => {
+      const origin = 'http://localhost:5173';
+      const accepted = await app.inject({
+        method: 'POST',
+        url: '/api/v1/diagnostics/ui-errors',
+        headers: { origin, cookie: `pos_session=${pii.token}` },
+        payload: { eventId: 'ui.render.failed', errorName: 'TypeError', route: '/orders/:id' },
+      });
+      expect(accepted.statusCode).toBe(204);
+      for (const payload of [
+        {
+          eventId: 'ui.render.failed',
+          errorName: 'TypeError',
+          route: '/sales',
+          message: pii.email,
+        },
+        { eventId: 'ui.render.failed', errorName: 'TypeError', route: '/sales', stack: pii.sql },
+        { eventId: 'ui.render.failed', errorName: pii.name, route: '/sales' },
+        { eventId: 'ui.render.failed', errorName: 'TypeError', route: `/customers/${pii.phone}` },
+        { eventId: 'ui.render.failed', errorName: 'TypeError', route: `/sales?phone=${pii.phone}` },
+        { eventId: `ui.${pii.otp}`, errorName: 'TypeError', route: '/sales' },
+      ]) {
+        const refused = await app.inject({
+          method: 'POST',
+          url: '/api/v1/diagnostics/ui-errors',
+          headers: { origin },
+          payload,
+        });
+        expect(refused.statusCode).toBe(400);
+      }
+      const forged = await app.inject({
+        method: 'POST',
+        url: '/api/v1/diagnostics/ui-errors',
+        headers: { origin: 'https://attacker.example' },
+        payload: { eventId: 'ui.render.failed', errorName: 'TypeError', route: '/sales' },
+      });
+      expect(forged.statusCode).toBe(403);
+      assertNoPii(lines);
+      const reports = lines
+        .map((value) => JSON.parse(value) as Record<string, unknown>)
+        .filter((row) => row.eventId === 'ui.render.failed');
+      expect(reports).toEqual([
+        expect.objectContaining({
+          process: 'renderer',
+          module: 'diagnostics',
+          resource: 'ui-error',
+          errorName: 'TypeError',
+          route: '/orders/:id',
+          msg: 'User interface error reported',
+        }),
+      ]);
+      line.parse(reports[0]);
     });
   });
 });

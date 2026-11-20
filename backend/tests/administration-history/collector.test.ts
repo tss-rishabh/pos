@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { goldenStdout } from '../golden/load.js';
+/**
+ * Source evidence only (V2, 20 Nov 2026; see tests/golden/INVENTORY.md): this file asserts
+ * facts of the pinned legacy capture and runs no rewrite code.
+ * Reason: the rewrite implements no destructive user/store/group delete endpoints, so there is no
+ * rewrite behaviour to compare.
+ */
 
 const outcome = z.object({
   kind: z.string(),

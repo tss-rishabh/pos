@@ -26,7 +26,7 @@ const guarded: Record<string, readonly string[]> = {
   'src/modules/gift-card-batches/delivery.ts': ['gift-card-batch-mail'],
   'src/modules/checkout/order-sms.ts': ['order-sms'],
   'src/modules/customer-otp/api-v2.ts': ['customer-otp'],
-  'src/modules/checkout/service.ts': ['customer-otp'],
+  'src/modules/checkout/service-verification.ts': ['customer-otp'],
   'src/modules/invoice-documents/adapter.ts': ['whatsapp-invoice'],
   'src/modules/checkout/return-workflow/gateway.ts': [
     'return-mail',
@@ -101,7 +101,7 @@ it('keeps the expected number of guard calls in each sender', () => {
     'src/modules/gift-card-batches/delivery.ts': 1,
     'src/modules/checkout/order-sms.ts': 1,
     'src/modules/customer-otp/api-v2.ts': 1,
-    'src/modules/checkout/service.ts': 1,
+    'src/modules/checkout/service-verification.ts': 1,
     'src/modules/invoice-documents/adapter.ts': 1,
     'src/modules/checkout/return-workflow/gateway.ts': 1,
     'src/modules/fulfillment/effects.ts': 2,

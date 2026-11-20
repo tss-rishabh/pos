@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { PROVISIONAL_REFERENCE_PATTERN } from './reference';
+import { uiErrorReportSchema } from '../../observability/ui-events';
 
 /** IPC contracts shared by the Electron main process (which validates every
  * message) and the renderer (which validates every reply). */
@@ -58,11 +59,17 @@ export const ipcChannels = [
   'offline:sale:create',
   'offline:sale:list',
   'offline:sale:reprint',
-  'offline:sync:status',
   'offline:sync:retry',
   'offline:conflict:resolve',
+  // ID-only renderer error report for the desktop log (frontend/src/observability).
+  'diagnostics:ui-error',
 ] as const;
 export type IpcChannel = (typeof ipcChannels)[number];
+/** Main-to-renderer push ("status changed, read offline:status again"). It carries no data and
+ * lives outside the `offline:` invoke namespace so it can never be mistaken for, or registered
+ * as, an invoke channel. electron/preload.cjs repeats this literal (sandboxed preloads cannot
+ * import TypeScript); tests/offline-billing/preload-channels.test.ts keeps the two equal. */
+export const offlineStatusEvent = 'offline-billing-event:status-changed';
 
 const empty = z.object({}).strict();
 export const ipcRequestSchemas = {
@@ -111,7 +118,6 @@ export const ipcRequestSchemas = {
     })
     .strict(),
   'offline:sale:reprint': z.object({ saleId: z.uuid() }).strict(),
-  'offline:sync:status': empty,
   'offline:sync:retry': empty,
   'offline:conflict:resolve': z
     .object({
@@ -130,6 +136,7 @@ export const ipcRequestSchemas = {
       message: 'Enter the order ID only when linking the order found in Orders.',
       path: ['orderId'],
     }),
+  'diagnostics:ui-error': uiErrorReportSchema,
 } satisfies Record<IpcChannel, z.ZodType>;
 export type IpcRequest<C extends IpcChannel> = z.input<(typeof ipcRequestSchemas)[C]>;
 export type IpcParsedRequest<C extends IpcChannel> = z.output<(typeof ipcRequestSchemas)[C]>;
@@ -169,6 +176,9 @@ export const statusSchema = z.object({
     storeId: identifier.nullable(),
     products: z.number().int().min(0),
     refreshedAt: z.number().int().nullable(),
+    /** True when the last refresh stopped at the device's page cap before the server's last
+     * page. Defaults to false so a renderer still reads an older desktop build's status. */
+    truncated: z.boolean().default(false),
   }),
   queue: z.object({
     queued: z.number().int().min(0),
@@ -257,9 +267,9 @@ export const ipcResponseSchemas = {
   'offline:sale:create': z.object({ sale: saleSchema, receipt: receiptSchema }),
   'offline:sale:list': z.object({ sales: z.array(saleSchema) }),
   'offline:sale:reprint': z.object({ receipt: receiptSchema }),
-  'offline:sync:status': statusSchema,
   'offline:sync:retry': statusSchema,
   'offline:conflict:resolve': z.object({ sale: saleSchema }),
+  'diagnostics:ui-error': z.object({}).strict(),
 } satisfies Record<IpcChannel, z.ZodType>;
 export type IpcResponse<C extends IpcChannel> = z.infer<(typeof ipcResponseSchemas)[C]>;
 

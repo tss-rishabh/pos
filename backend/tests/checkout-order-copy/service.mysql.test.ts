@@ -12,6 +12,19 @@ import { orderCopyService } from '../../src/modules/checkout/order-copy/service.
 import { checkoutSessionStore } from '../../src/modules/checkout/session-store.js';
 import { memoryStateStore } from '../../src/modules/checkout/state-store.js';
 import { orderCopyFixture } from './mysql-fixture.js';
+import { z } from 'zod';
+import { goldenStdout } from '../golden/load.js';
+
+/**
+ * Messages of the pinned AjaxCopyOrderView handler vectors (order/views.py; backend-pos-web
+ * 78d5b63), replayed from tests/golden/checkout-order-copy/source.json. The rewrite keeps the
+ * legacy texts; its HTTP statuses (404/409 instead of a 204 body status) are the approved
+ * status policy, and the legacy defects that source.test.ts pins (whole-cart concatenation,
+ * a thrown addition reported as "Cart Synced") are not reproduced.
+ */
+const legacyVectors = z
+  .record(z.string(), z.object({ status: z.number(), message: z.string() }).passthrough())
+  .parse(JSON.parse(goldenStdout('checkout-order-copy', 'source')) as unknown);
 
 const template = process.env.CHECKOUT_MYSQL_TEST_URL;
 const operator: Principal = {
@@ -101,7 +114,7 @@ describe.skipIf(!template)('legacy order copy into the connected customer cart',
     expect(await service.copy(operator, scope, { orderId: '900' })).toEqual({
       orderId: '900',
       partial: false,
-      message: 'Cart Synced',
+      message: legacyVectors.normal!.message,
     });
     expect(sends).toEqual([
       { productId: '10', quantity: 2 },
@@ -124,7 +137,7 @@ describe.skipIf(!template)('legacy order copy into the connected customer cart',
     await sessions.acquireLease('customer', '501', state.id);
     expect(await service.copy(operator, scope, { orderId: '900' })).toMatchObject({
       partial: true,
-      message: 'Cart partially synced - please review the cart',
+      message: legacyVectors['partial-none']!.message,
     });
     expect(sends).toHaveLength(2);
   });
@@ -134,7 +147,7 @@ describe.skipIf(!template)('legacy order copy into the connected customer cart',
     await sessions.write({ ...state, customerId: null });
     await expect(service.copy(operator, scope, { orderId: '900' })).rejects.toMatchObject({
       status: 409,
-      message: 'Please Connect The User',
+      message: legacyVectors.disconnected!.message,
     });
     await sessions.write(state);
     await expect(service.copy(operator, scope, { orderId: '900' })).rejects.toMatchObject({
@@ -144,7 +157,7 @@ describe.skipIf(!template)('legacy order copy into the connected customer cart',
     for (const orderId of ['901', '999'])
       await expect(service.copy(operator, scope, { orderId })).rejects.toMatchObject({
         status: 404,
-        message: 'Please Enter Correct Order Id',
+        message: legacyVectors.missing!.message,
       });
     expect(sends).toEqual([]);
   });

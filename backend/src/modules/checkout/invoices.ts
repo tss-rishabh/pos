@@ -12,7 +12,7 @@ import { AppError } from '../../domain/errors.js';
 import { noQuery, routeSchema, transportHeaders } from '../../domain/route-validation.js';
 import { boundedText } from '../../domain/http-json.js';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { currentRequestTrace } from '../../observability/context.js';
+import { currentRequestTrace, tracedFetch } from '../../observability/context.js';
 import { assertCurrentStoreAccess } from '../administration/authorization.js';
 import {
   assertInvoiceResponseProof,
@@ -116,7 +116,7 @@ export function invoiceService(
   db: Databases,
   config: Config,
   environment: InvoiceEnvironment,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = tracedFetch,
 ) {
   return async function invoice(user: Principal, storeId: string, orderId: string) {
     requireStore(user, storeId);
@@ -219,7 +219,7 @@ export function registerInvoices(
   config: Config,
   db: Databases,
   environment = invoiceEnvironment(),
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = tracedFetch,
 ) {
   const invoice = invoiceService(db, config, environment, fetcher);
   const invoiceParams = z.object({ storeId: identifier, orderId: identifier }).strict(),

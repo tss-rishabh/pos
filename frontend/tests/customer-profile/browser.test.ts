@@ -162,7 +162,7 @@ describe.skipIf(process.env.CUSTOMER_PROFILE_BROWSER_TESTS !== 'true')(
             json: {
               customerId: options.wrongHistoryCustomer ? '778' : '777',
               checkoutVersion: options.wrongHistoryVersion ? 2 : 1,
-              reader: 'bigquery',
+              reader: 'primary',
               fetchedAt: '2026-11-16T11:00:00.000Z',
               summary: {
                 exclusiveSavings: 125.5,

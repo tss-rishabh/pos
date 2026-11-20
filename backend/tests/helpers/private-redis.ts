@@ -1,9 +1,24 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer, createConnection } from 'node:net';
 import { setTimeout } from 'node:timers/promises';
+
+/**
+ * The Redis-7-compatible server binary for private loopback fixtures: E2E_REDIS_SERVER (for
+ * example Memurai on Windows, which has no native redis-server), else redis-server on PATH.
+ */
+export const redisServerBinary = process.env.E2E_REDIS_SERVER || 'redis-server';
+
+/**
+ * True when the server binary runs. Redis-backed tests skip without one, except when
+ * POS_REDIS_TESTS_REQUIRED=1 (CI), which turns a missing server into a failure.
+ */
+export const redisServerAvailable =
+  spawnSync(redisServerBinary, ['--version'], { stdio: 'ignore' }).status === 0;
+if (process.env.POS_REDIS_TESTS_REQUIRED === '1' && !redisServerAvailable)
+  throw new Error('POS_REDIS_TESTS_REQUIRED=1 but no Redis-compatible server binary runs.');
 
 /**
  * Own a separate loopback Redis process. Never reuse or flush a developer's Redis.
@@ -26,7 +41,7 @@ export async function privateRedisFixture() {
     });
   });
   const child: ChildProcess = spawn(
-    process.env.E2E_REDIS_SERVER || 'redis-server',
+    redisServerBinary,
     [
       '--bind',
       '127.0.0.1',

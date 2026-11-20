@@ -1,4 +1,4 @@
-import { pythonRound2 as round } from '../domain/python-round.js';
+import { pythonRound2 as round } from '../domain/python-compat.js';
 
 export interface Rollup {
   store_id: number;

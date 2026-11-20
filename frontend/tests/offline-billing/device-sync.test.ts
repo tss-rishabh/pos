@@ -10,7 +10,11 @@ import {
   type SqliteDatabase,
 } from '../../electron/offline/database';
 import type { ServerApi, UploadOutcome } from '../../electron/offline/server';
-import { offlineBillingService, type OfflineBillingService } from '../../electron/offline/service';
+import {
+  MAX_SYNC_ATTEMPTS,
+  offlineBillingService,
+  type OfflineBillingService,
+} from '../../electron/offline/service';
 import type { OfflineSaleUpload } from '../../src/offline/billing/sync-contract';
 
 const DEVICE = 'abcdef0123456789abcdef0123456789';
@@ -234,7 +238,7 @@ describe('device offline billing and sync', () => {
     });
   });
 
-  it('retries transient failures and never drops a sale', async () => {
+  it('retries a request that never left the device and never drops a sale', async () => {
     const billing = service();
     await billing.heartbeat(randomUUID());
     net = false;
@@ -243,11 +247,107 @@ describe('device offline billing and sync', () => {
     respond = () => ({ kind: 'retry', code: 'NETWORK_UNAVAILABLE' });
     net = true;
     await billing.heartbeat(randomUUID());
-    expect(billing.list({ limit: 10 })[0]).toMatchObject({ status: 'queued', attempts: 1 });
+    // Not sent, so it does not count toward the escalation to a manager.
+    expect(billing.list({ limit: 10 })[0]).toMatchObject({ status: 'queued', attempts: 0 });
     respond = () => ({ kind: 'synced', orderId: '9200', invoiceNumber: 'INV1' });
     clock.wall += 60_000;
     await billing.heartbeat(randomUUID());
     expect(billing.list({ limit: 10 })[0]).toMatchObject({ status: 'synced', orderId: '9200' });
+  });
+
+  it('escalates a sale refused before dispatch to the manager after repeated attempts', async () => {
+    const billing = service();
+    await billing.heartbeat(randomUUID());
+    net = false;
+    await billing.heartbeat(randomUUID());
+    await billing.createSale(sale(), randomUUID());
+    respond = () => ({ kind: 'retry', code: 'OFFLINE_SYNC_IN_PROGRESS' });
+    net = true;
+    for (let round = 0; round < MAX_SYNC_ATTEMPTS + 3; round++) {
+      await billing.heartbeat(randomUUID());
+      clock.wall += 400_000;
+    }
+    expect(uploads).toHaveLength(MAX_SYNC_ATTEMPTS);
+    expect(billing.list({ limit: 10 })[0]).toMatchObject({
+      status: 'needs_manager',
+      conflict: { code: 'OUTCOME_UNKNOWN' },
+    });
+  });
+
+  it('sends a sale interrupted mid-upload to the manager on restart, never resending it', async () => {
+    const first = service();
+    await first.heartbeat(randomUUID());
+    net = false;
+    await first.heartbeat(randomUUID());
+    const created = await first.createSale(sale(), randomUUID());
+    // The app quit while the upload was in flight.
+    offlineStore(db).markSyncing(created.sale.saleId, clock.wall);
+    const restarted = service();
+    expect(restarted.reprint(created.sale.saleId)).toMatchObject({
+      status: 'needs_manager',
+      conflict: { code: 'OUTCOME_UNKNOWN' },
+    });
+    net = true;
+    await restarted.heartbeat(randomUUID());
+    expect(uploads).toHaveLength(0);
+    expect((await restarted.status()).queue).toMatchObject({ needsManager: 1, syncing: 0 });
+  });
+
+  it('uploads a manager-resolved sale only while that manager is signed in', async () => {
+    const billing = service();
+    await billing.heartbeat(randomUUID());
+    net = false;
+    await billing.heartbeat(randomUUID());
+    const created = await billing.createSale(sale(), randomUUID());
+    respond = () => ({ kind: 'conflict', code: 'OUTCOME_UNKNOWN', message: 'Check Orders.' });
+    net = true;
+    await billing.heartbeat(randomUUID());
+    expect(uploads).toHaveLength(1);
+    operator = { id: '5', role: 4 };
+    await billing.heartbeat(randomUUID());
+    respond = () => ({ kind: 'conflict', code: 'REJECTED', message: 'Should not be sent.' });
+    // The manager decides while the store service is briefly unreachable.
+    net = false;
+    await billing.heartbeat(randomUUID());
+    await billing.resolve(
+      {
+        saleId: created.sale.saleId,
+        action: 'recreate',
+        reason: 'No order in Orders',
+      },
+      randomUUID(),
+    );
+    // The cashier signs back in: the manager's decision is not uploaded under their session.
+    operator = { id: '77', role: 5 };
+    net = true;
+    await billing.heartbeat(randomUUID());
+    expect(uploads).toHaveLength(1);
+    expect(billing.reprint(created.sale.saleId).status).toBe('queued');
+    respond = () => ({ kind: 'synced', orderId: '9300', invoiceNumber: 'INV9300' });
+    operator = { id: '5', role: 4 };
+    await billing.heartbeat(randomUUID());
+    expect(uploads).toHaveLength(2);
+    expect(uploads[1]).toMatchObject({ resolution: { action: 'recreate', managerId: '5' } });
+    expect(billing.reprint(created.sale.saleId)).toMatchObject({
+      status: 'synced',
+      orderId: '9300',
+    });
+  });
+
+  it('refuses to bill offline before the first connection probe has finished', async () => {
+    const billing = service();
+    await billing.heartbeat(randomUUID());
+    net = false;
+    await billing.heartbeat(randomUUID());
+    // A fresh start (app restart) with no probe yet.
+    const restarted = service();
+    await expect(restarted.createSale(sale(), randomUUID())).rejects.toMatchObject({
+      code: 'CONNECTION_CHECK_PENDING',
+    });
+    await restarted.heartbeat(randomUUID());
+    await expect(restarted.createSale(sale(), randomUUID())).resolves.toMatchObject({
+      sale: { status: 'queued' },
+    });
   });
 
   it('expires the window when the clock is set back', async () => {

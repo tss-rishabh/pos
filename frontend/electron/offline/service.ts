@@ -19,7 +19,9 @@ import {
 } from '../../src/offline/billing/contracts';
 import type { OfflineSaleUpload } from '../../src/offline/billing/sync-contract';
 import type { CachedOperator, OfflineStore, QueueEntry } from './database';
-import type { ServerApi } from './server';
+import { UNKNOWN_OUTCOME_MESSAGE, type ServerApi } from './server';
+import type { DesktopLogEvent } from './events';
+import { callRequestId } from './request-id';
 
 /** Errors returned to the renderer: fixed code and a non-sensitive message. */
 export class OfflineBillingError extends Error {
@@ -31,14 +33,10 @@ export class OfflineBillingError extends Error {
   }
 }
 
-export interface OfflineLogEvent {
-  eventId: string;
-  traceId: string;
-  outcome: 'succeeded' | 'failed' | 'skipped';
-  code?: string;
-  count?: number;
-  durationMs?: number;
-}
+/** Registered desktop event (events.ts): identifiers, codes, counts and timings only. */
+export type OfflineLogEvent = DesktopLogEvent;
+/** The error class name of a thrown value, for logs (never its message). */
+const errorName = (error: unknown) => (error instanceof Error ? error.name : 'NonErrorValue');
 export interface OfflineServiceDeps {
   store: OfflineStore;
   server: ServerApi;
@@ -52,7 +50,21 @@ export interface OfflineServiceDeps {
 }
 
 const MANAGER_ROLES = new Set([1, 2, 3, 4]);
-const MAX_CATALOG_PAGES = 300;
+/** The backend serves at most 100 products per page (catalogProductsQuery in backend/src/app.ts),
+ * so this caps a device catalogue at 200,000 in-stock products. Reaching the cap with more pages
+ * left is logged (offline.catalog.truncated) and shown on the offline billing page. */
+const MAX_CATALOG_PAGES = 2000;
+/** Synced sales stay on the device this long for reprints, then are deleted with their tender
+ * (card/UPI references included). Queued, syncing, needs-manager and voided sales are kept. */
+export const SYNCED_SALE_RETENTION_MS = 30 * 24 * 3600_000;
+const yieldToEventLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
+/** Server refusals before dispatch (busy, check-in, operator change) retried this many times
+ * go to the manager instead of retrying forever. */
+export const MAX_SYNC_ATTEMPTS = 8;
+const INTERRUPTED_MESSAGE =
+  'The app closed while this sale was syncing. ' + UNKNOWN_OUTCOME_MESSAGE;
+const ESCALATED_MESSAGE =
+  'This sale could not be synced after repeated attempts. ' + UNKNOWN_OUTCOME_MESSAGE;
 
 export function isManager(operator: Pick<CachedOperator, 'role'>): boolean {
   return MANAGER_ROLES.has(operator.role);
@@ -69,7 +81,17 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
     lastSyncAt: number | null = null,
     lastSyncError: string | null = null,
     refreshing = false;
-  store.recoverInterrupted();
+  const interrupted = store.transaction(() =>
+    store.recoverInterrupted(INTERRUPTED_MESSAGE, deps.now()),
+  );
+  if (interrupted > 0)
+    deps.log({
+      eventId: 'offline.sync.interrupted',
+      traceId: randomUUID(),
+      outcome: 'failed',
+      errorCode: 'OUTCOME_UNKNOWN',
+      count: interrupted,
+    });
 
   /** Persist monotonic elapsed time (called every minute and before decisions). */
   function tick() {
@@ -79,9 +101,14 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
     clock = next.session;
     store.setWindow(next.state);
   }
+  /** Read-only: projects the window to now without persisting it. Only tick() writes (every
+   * minute, and before a sale decision), so polling the status never writes to the database. */
   function limitStatus() {
-    tick();
-    return evaluateLimits(store.limits() ?? DEFAULT_LIMITS, store.window(), store.unsyncedCount());
+    const window = store.window();
+    const projected = window
+      ? advanceWindow(window, { wallMs: deps.now(), monoMs: deps.mono() }, clock).state
+      : null;
+    return evaluateLimits(store.limits() ?? DEFAULT_LIMITS, projected, store.unsyncedCount());
   }
   /** A successful server contact restarts the window only once nothing is queued. */
   function recordContact() {
@@ -148,6 +175,7 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
         storeId: catalog?.storeId ?? null,
         products: catalog?.products ?? 0,
         refreshedAt: catalog?.refreshedAt ?? null,
+        truncated: catalog?.truncated ?? false,
       },
       queue: store.counts(),
       syncing,
@@ -181,12 +209,25 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
     if (refreshing) return store.catalogInfo()?.products ?? 0;
     refreshing = true;
     const started = deps.mono();
+    // Each page is staged in a connection-private table as it arrives (small transactions, the
+    // event loop runs between pages), then one short set-based transaction swaps the catalogue:
+    // readers see the old catalogue or the new one, never a mix.
     try {
-      const storeId = operator.checkIn.storeId,
-        products: CatalogProduct[] = [];
-      let after = '0';
-      for (let page = 0; page < MAX_CATALOG_PAGES; page++) {
-        const result = await server.catalogPage(traceId, storeId, after);
+      store.beginCatalogStage();
+      const storeId = operator.checkIn.storeId;
+      let after = '0',
+        truncated = false;
+      for (let page = 0; ; page++) {
+        if (page === MAX_CATALOG_PAGES) {
+          truncated = true;
+          break;
+        }
+        const result = await server.catalogPage(
+          callRequestId(traceId, `catalog:${page}`),
+          storeId,
+          after,
+        );
+        const products: CatalogProduct[] = [];
         for (const item of result.data) {
           const price = parseMoney(item.price);
           if (price === null || price === 0) continue;
@@ -198,24 +239,40 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
             stock: item.stock,
           });
         }
+        store.stageCatalog(products);
         if (!result.nextCursor) break;
         after = result.nextCursor;
+        await yieldToEventLoop();
       }
-      const salespeople = await server.salespeople(traceId, operator.id, storeId);
-      store.transaction(() => {
-        store.replaceCatalog(storeId, products, deps.now());
+      if (truncated)
+        deps.log({
+          eventId: 'offline.catalog.truncated',
+          traceId,
+          outcome: 'failed',
+          errorCode: 'CATALOG_PAGE_CAP',
+          count: MAX_CATALOG_PAGES,
+        });
+      const salespeople = await server.salespeople(
+        callRequestId(traceId, 'salespeople'),
+        operator.id,
+        storeId,
+      );
+      const count = store.transaction(() => {
+        const swapped = store.swapCatalog(storeId, deps.now(), truncated);
         store.replaceSalespeople(storeId, salespeople, deps.now());
+        return swapped;
       });
       deps.log({
         eventId: 'offline.catalog.refreshed',
         traceId,
         outcome: 'succeeded',
-        count: products.length,
+        count,
         durationMs: Math.round(deps.mono() - started),
       });
       deps.changed();
-      return products.length;
+      return count;
     } finally {
+      store.endCatalogStage();
       refreshing = false;
     }
   }
@@ -235,13 +292,27 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
       return;
     }
     const wasReachable = reachable;
-    reachable = await server.reachable(traceId);
+    reachable = await server.reachable(callRequestId(traceId, 'reachable'));
     if (reachable !== wasReachable || !probed) {
       probed = true;
       deps.changed();
     }
     if (!reachable) return;
-    const session = await server.session(traceId).catch(() => undefined);
+    const failed =
+      (eventId: OfflineLogEvent['eventId'], step: string) =>
+      (error: unknown): undefined => {
+        deps.log({
+          eventId,
+          traceId,
+          requestId: callRequestId(traceId, step),
+          outcome: 'failed',
+          errorName: errorName(error),
+        });
+        return undefined;
+      };
+    const session = await server
+      .session(callRequestId(traceId, 'session'))
+      .catch(failed('offline.session.check-failed', 'session'));
     if (session === undefined) return;
     if (session === null) {
       store.forgetDeviceOperator();
@@ -250,10 +321,23 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
       return;
     }
     const previous = store.deviceOperator();
-    const checkIn = await server.checkIn(traceId, session.user.id).catch(() => null);
-    const limits = await server.settings(traceId, session.user.id).catch(() => null);
-    const stores = await server.stores(traceId).catch(() => []);
-    const counters = checkIn ? await server.counters(traceId, checkIn.storeId).catch(() => []) : [];
+    const checkIn =
+      (await server
+        .checkIn(callRequestId(traceId, 'check-in'), session.user.id)
+        .catch(failed('offline.check-in.read-failed', 'check-in'))) ?? null;
+    const limits =
+      (await server
+        .settings(callRequestId(traceId, 'settings'), session.user.id)
+        .catch(failed('offline.settings.read-failed', 'settings'))) ?? null;
+    const stores =
+      (await server
+        .stores(callRequestId(traceId, 'stores'))
+        .catch(failed('offline.stores.read-failed', 'stores'))) ?? [];
+    const counters = checkIn
+      ? ((await server
+          .counters(callRequestId(traceId, 'counters'), checkIn.storeId)
+          .catch(failed('offline.counters.read-failed', 'counters'))) ?? [])
+      : [];
     store.transaction(() => {
       store.saveOperator({
         id: session.user.id,
@@ -278,12 +362,13 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
         catalog?.storeId !== checkIn.storeId ||
         deps.now() - (catalog?.refreshedAt ?? 0) > 30 * 60000)
     )
-      await refreshCatalog(traceId).catch(() => {
+      await refreshCatalog(traceId).catch((error: unknown) => {
         deps.log({
           eventId: 'offline.catalog.refreshed',
           traceId,
           outcome: 'failed',
-          code: 'CATALOG_UNAVAILABLE',
+          errorCode: error instanceof OfflineBillingError ? error.code : 'CATALOG_UNAVAILABLE',
+          errorName: errorName(error),
         });
       });
     deps.changed();
@@ -332,10 +417,11 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
     const started = deps.mono();
     try {
       for (const sale of store.due(deps.now())) {
-        const uploader =
-          operator.id === sale.operatorId ||
-          isManager(operator) ||
-          sale.resolution?.managerId === operator.id;
+        // A manager-resolved sale carries that manager's decision, which the server accepts only
+        // from the same manager; anyone else would turn it into a refusal.
+        const uploader = sale.resolution
+          ? sale.resolution.managerId === operator.id
+          : operator.id === sale.operatorId || isManager(operator);
         if (!uploader) continue;
         const salespersonId = sale.salespersonId;
         if (!salespersonId) {
@@ -347,12 +433,19 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
               deps.now(),
             ),
           );
+          deps.log({
+            eventId: 'offline.sale.conflict',
+            traceId,
+            outcome: 'skipped',
+            errorCode: 'SALESPERSON_MISSING',
+          });
           deps.changed();
           continue;
         }
         store.transaction(() => store.markSyncing(sale.saleId, deps.now()));
+        const requestId = callRequestId(traceId, `upload:${sale.saleId}`);
         const outcome = await server.upload(
-          traceId,
+          requestId,
           operator.id,
           sale.storeId,
           sale.counterId,
@@ -363,11 +456,37 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
           store.transaction(() =>
             store.markSynced(sale.saleId, outcome.orderId, outcome.invoiceNumber, now),
           );
+          deps.log({ eventId: 'offline.sale.synced', traceId, requestId, outcome: 'succeeded' });
           uploaded++;
-        } else if (outcome.kind === 'conflict' || outcome.kind === 'rejected') {
-          const code = conflictCodeSchema.catch('REJECTED').parse(outcome.code);
+        } else if (outcome.kind === 'conflict') {
+          const code = conflictCodeSchema.catch('OUTCOME_UNKNOWN').parse(outcome.code);
           store.transaction(() => store.markConflict(sale.saleId, code, outcome.message, now));
+          deps.log({
+            eventId: 'offline.sale.conflict',
+            traceId,
+            requestId,
+            outcome: 'failed',
+            errorCode: outcome.code,
+          });
         } else {
+          // Only a request that never left the device, or one the server refused before
+          // dispatch, comes back here. Pre-dispatch refusals count toward the escalation.
+          const counted = outcome.kind === 'retry' && outcome.code !== 'NETWORK_UNAVAILABLE';
+          if (counted && sale.attempts + 1 >= MAX_SYNC_ATTEMPTS) {
+            store.transaction(() =>
+              store.markConflict(sale.saleId, 'OUTCOME_UNKNOWN', ESCALATED_MESSAGE, now),
+            );
+            deps.log({
+              eventId: 'offline.sale.conflict',
+              traceId,
+              requestId,
+              outcome: 'failed',
+              errorCode: 'OUTCOME_UNKNOWN',
+              count: sale.attempts + 1,
+            });
+            deps.changed();
+            continue;
+          }
           const delay = Math.min(300000, 5000 * 2 ** Math.min(sale.attempts, 6));
           store.transaction(() =>
             store.markRetry(
@@ -375,8 +494,16 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
               outcome.kind === 'unauthorized' ? 'AUTH_REQUIRED' : outcome.code,
               now + delay,
               now,
+              counted,
             ),
           );
+          deps.log({
+            eventId: 'offline.sale.retry-scheduled',
+            traceId,
+            requestId,
+            outcome: 'failed',
+            errorCode: outcome.kind === 'unauthorized' ? 'AUTH_REQUIRED' : outcome.code,
+          });
           lastSyncError =
             outcome.kind === 'unauthorized'
               ? 'Sign in again to sync offline sales.'
@@ -405,8 +532,21 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
     heartbeat,
     status,
     refreshCatalog,
-    setReachable(value: boolean) {
-      reachable = value;
+    /** Delete synced sales older than the retention, with their lines and tender. */
+    pruneSynced() {
+      const pruned = store.transaction(() =>
+        store.pruneSynced(deps.now() - SYNCED_SALE_RETENTION_MS),
+      );
+      if (pruned > 0) {
+        deps.log({
+          eventId: 'offline.sales.pruned',
+          traceId: randomUUID(),
+          outcome: 'succeeded',
+          count: pruned,
+        });
+        deps.changed();
+      }
+      return pruned;
     },
     online,
     async searchCatalog(input: IpcParsedRequest<'offline:catalog:search'>) {
@@ -435,6 +575,12 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
         const sale = publicSale(existing);
         return { sale, receipt: receipt(sale) };
       }
+      // Until the first probe finishes the device cannot know it is offline.
+      if (!probed)
+        throw new OfflineBillingError(
+          'CONNECTION_CHECK_PENDING',
+          'Checking the connection to the store service. Try again in a moment.',
+        );
       if (online())
         throw new OfflineBillingError(
           'ONLINE_BILLING_REQUIRED',
@@ -582,10 +728,20 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
         eventId: 'offline.conflict.resolved',
         traceId,
         outcome: 'succeeded',
-        code: input.action,
+        action: input.action,
       });
       deps.changed();
-      if (input.action !== 'void') void sync(randomUUID()).catch(() => undefined);
+      if (input.action !== 'void') {
+        const syncTrace = randomUUID();
+        void sync(syncTrace).catch((error: unknown) =>
+          deps.log({
+            eventId: 'offline.sync.failed',
+            traceId: syncTrace,
+            outcome: 'failed',
+            errorName: errorName(error),
+          }),
+        );
+      }
       const updated = store.sale(sale.saleId);
       if (!updated)
         throw new OfflineBillingError('SALE_NOT_FOUND', 'This offline sale was not found.');

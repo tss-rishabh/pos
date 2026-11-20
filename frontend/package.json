@@ -18,7 +18,7 @@
     "desktop": "vite build --config electron/vite.config.ts && electron .",
     "desktop:pack": "npm run build && electron-builder --dir",
     "desktop:dist": "npm run build && electron-builder",
-    "lint": "eslint src tests e2e vite.config.ts playwright.config.ts vitest.config.ts",
+    "lint": "eslint src tests e2e electron vite.config.ts playwright.config.ts vitest.config.ts",
     "desktop:pack:mac": "npm run build && electron-builder --mac --dir",
     "desktop:pack:win": "npm run build && electron-builder --win --x64 --dir",
     "desktop:dist:mac": "npm run build && electron-builder --mac --x64 --arm64",

@@ -23,6 +23,9 @@ export class OfflineBillingClientError extends Error {
   constructor(
     readonly code: string,
     message: string,
+    /** The IPC request ID the main process logged this failure under (support reference), when
+     * the main process answered. */
+    readonly requestId: string | null = null,
   ) {
     super(message);
   }
@@ -53,12 +56,17 @@ export function offlineBillingClient(bridge: DesktopOfflineBridge) {
           'Offline billing returned an invalid reply.',
         );
       if (!reply.data.ok)
-        throw new OfflineBillingClientError(reply.data.error.code, reply.data.error.message);
+        throw new OfflineBillingClientError(
+          reply.data.error.code,
+          reply.data.error.message,
+          reply.data.requestId,
+        );
       const data = ipcResponseSchemas[channel].safeParse(reply.data.data);
       if (!data.success)
         throw new OfflineBillingClientError(
           'INVALID_REPLY',
           'Offline billing returned an invalid reply.',
+          reply.data.requestId,
         );
       return data.data as IpcResponse<C>;
     },

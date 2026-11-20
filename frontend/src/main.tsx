@@ -6,6 +6,10 @@ import { App } from './app';
 import './fonts.css';
 import './styles.css';
 import { ErrorBoundary } from './components/error-boundary';
+import { installUiErrorReporting } from './observability/report-ui-error';
+
+// ID-only reports of uncaught errors and unhandled rejections (desktop log or web beacon).
+installUiErrorReporting();
 
 const client = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } },

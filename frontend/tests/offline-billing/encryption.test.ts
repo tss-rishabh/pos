@@ -11,6 +11,7 @@ import {
 } from '../../electron/offline/database';
 import {
   loadOrCreateDatabaseKey,
+  OfflineKeyMissingError,
   OfflineKeyUnavailableError,
   type SecretWrapper,
 } from '../../electron/offline/key-store';
@@ -67,20 +68,27 @@ describe('safeStorage-wrapped device key', () => {
     decrypt: async (wrapped) => Buffer.from(wrapped.map((byte) => byte ^ 0x5a)).toString('utf8'),
   };
   it('creates a random key once, stores only the wrapped form, and reloads it', async () => {
-    const filename = join(directory, 'offline-billing.key');
-    const first = await loadOrCreateDatabaseKey(wrapper, filename);
+    const filename = join(directory, 'offline-billing.key'),
+      database = join(directory, 'offline-billing.db');
+    const first = await loadOrCreateDatabaseKey(wrapper, filename, database);
     expect(first.created).toBe(true);
     expect(first.key).toHaveLength(32);
     const stored = await readFile(filename);
     expect(stored.includes(Buffer.from(first.key.toString('hex')))).toBe(false);
     if (process.platform !== 'win32') expect((await stat(filename)).mode & 0o777).toBe(0o600);
-    const second = await loadOrCreateDatabaseKey(wrapper, filename);
+    // Once the database exists the stored key keeps opening it.
+    await writeFile(database, 'encrypted-pages');
+    const second = await loadOrCreateDatabaseKey(wrapper, filename, database);
     expect(second.created).toBe(false);
     expect(second.key.equals(first.key)).toBe(true);
   });
   it('refuses to run without OS key storage', async () => {
     await expect(
-      loadOrCreateDatabaseKey({ ...wrapper, available: async () => false }, join(directory, 'k')),
+      loadOrCreateDatabaseKey(
+        { ...wrapper, available: async () => false },
+        join(directory, 'k'),
+        join(directory, 'db'),
+      ),
     ).rejects.toBeInstanceOf(OfflineKeyUnavailableError);
   });
   it('never replaces an unreadable wrapped key', async () => {
@@ -95,8 +103,22 @@ describe('safeStorage-wrapped device key', () => {
           },
         },
         filename,
+        join(directory, 'offline-billing.db'),
       ),
     ).rejects.toBeInstanceOf(OfflineKeyUnavailableError);
     expect((await readFile(filename)).toString()).toBe('garbage');
   });
+  it.each(['offline-billing.db', 'offline-billing.db-wal'])(
+    'never creates a new key while %s exists without its key file',
+    async (existing) => {
+      const filename = join(directory, 'offline-billing.key'),
+        database = join(directory, 'offline-billing.db');
+      await writeFile(join(directory, existing), 'sold-goods');
+      await expect(loadOrCreateDatabaseKey(wrapper, filename, database)).rejects.toBeInstanceOf(
+        OfflineKeyMissingError,
+      );
+      await expect(stat(filename)).rejects.toMatchObject({ code: 'ENOENT' });
+      expect((await readFile(join(directory, existing))).toString()).toBe('sold-goods');
+    },
+  );
 });

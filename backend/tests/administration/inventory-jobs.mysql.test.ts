@@ -16,11 +16,12 @@ import {
 } from '../../src/db/legacy-schema.js';
 import type { Principal } from '../../src/domain/access.js';
 import type { JobContext } from '../../src/jobs/contract.js';
-import { memoryEphemeralStore } from '../../src/jobs/ephemeral.js';
+import { memoryEphemeralStore, type EphemeralStore } from '../../src/jobs/ephemeral.js';
 import { recordingJobProducer } from '../../src/jobs/module-runtime.js';
 import { ecommerceInventoryJob } from '../../src/modules/administration/ecommerce-sync/index.js';
 import {
   importMessages,
+  importProgressJournalKey,
   importProgressKey,
   importProgressTtlSeconds,
   initialProgress,
@@ -89,7 +90,7 @@ describe.skipIf(!template)('inventory CSV and ecommerce jobs on isolated MySQL',
     const [result] = await connection.query<RowDataPacket[]>(query, values);
     return result.map((row) => ({ ...row }));
   }
-  function handlers() {
+  function handlers(overrides: Partial<Parameters<typeof inventoryImportJobs>[0]> = {}) {
     return inventoryImportJobs({
       config: { BUSINESS_TIMEZONE: 'Asia/Kolkata' },
       db,
@@ -104,6 +105,7 @@ describe.skipIf(!template)('inventory CSV and ecommerce jobs on isolated MySQL',
         return true;
       },
       log: (level, event) => logs.push({ level, eventId: event.eventId }),
+      ...overrides,
     });
   }
   /** Upload through the real route service, as `ProductsStockBulkUploadView.post`. */
@@ -429,6 +431,68 @@ describe.skipIf(!template)('inventory CSV and ecommerce jobs on isolated MySQL',
     });
     expect(await rows('SELECT stock FROM product_store')).toEqual([{ stock: 6 }]);
     expect(logs.map((row) => row.eventId)).toContain('administration.inventory-import.interrupted');
+  });
+
+  it('journals each record and rewrites the progress snapshot only at checkpoints, resuming exactly once', async () => {
+    await seed(ProductStore, { product_id: 11, store_id: 1, stock: 10, is_avail: 1, is_del: 0 });
+    // Five hold-1 records, the third failing (missing parameters).
+    const { id, args } = await upload(
+      'PRODUCT_STOCK_CSV',
+      stockHeader + '11,1,1,1,,\n11,1,1,1,,\n0,1,,,,\n11,1,1,1,,\n11,1,1,1,,\n',
+    );
+    const key = importProgressKey(id),
+      journalKey = importProgressJournalKey(id),
+      snapshots: number[] = [],
+      pushes: number[] = [],
+      controller = new AbortController();
+    const recording: EphemeralStore = {
+      ...ephemeral,
+      async set(name, value, options) {
+        if (name === key) snapshots.push((JSON.parse(value) as { record: number }).record);
+        return ephemeral.set(name, value, options);
+      },
+      async lPush(name, ...values) {
+        if (name === journalKey) {
+          pushes.push(...values.map((value) => (JSON.parse(value) as { record: number }).record));
+          // Stop the worker after the third committed record (signal checked per record).
+          if (pushes.length === 3) controller.abort();
+        }
+        return ephemeral.lPush(name, ...values);
+      },
+    };
+    const run = handlers({ ephemeral: recording, checkpointRecords: 2 });
+    await run.productStock(args, { ...context(), signal: controller.signal });
+    expect(pushes).toEqual([1, 2, 3]);
+    expect(snapshots).toEqual([2]);
+    expect(JSON.parse((await ephemeral.get(key))!)).toMatchObject({ record: 2 });
+    expect(await ephemeral.lRange(journalKey, 0, -1)).toHaveLength(1);
+    expect(await ephemeral.ttl(journalKey)).toBeGreaterThan(0);
+    expect(await uploadRow(id)).toMatchObject({ is_imported: 0 });
+
+    await run.productStock(args, context());
+    expect(pushes).toEqual([1, 2, 3, 4, 5]);
+    expect(snapshots).toEqual([2, 4]);
+    // Every record applied once: four holds of 1.
+    expect(await rows('SELECT stock FROM product_store')).toEqual([{ stock: 6 }]);
+    expect(await rows('SELECT stock FROM hold_stock_store')).toEqual([{ stock: 4 }]);
+    const row = await uploadRow(id);
+    expect(row).toMatchObject({ is_imported: 1, message: importMessages.stockDone });
+    expect(JSON.parse(String(row.failed_data))).toEqual([
+      {
+        data: {
+          SkuId: '0',
+          StoreId: '1',
+          IsHold: '',
+          'Hold/UnholdQty': '',
+          IsAvailable: '',
+          IsDelete: '',
+        },
+        message: importMessages.missing,
+      },
+    ]);
+    expect(syncs.at(-1)).toEqual({ productIds: ['11', '11', '11', '11'], operatorId: '1' });
+    expect(await ephemeral.get(key)).toBeNull();
+    expect(await ephemeral.lRange(journalKey, 0, -1)).toEqual([]);
   });
 
   it('ends the task unimported on a missing header, as the source row_dict KeyError', async () => {

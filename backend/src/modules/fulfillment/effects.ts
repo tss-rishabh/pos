@@ -9,10 +9,11 @@ import { outboundAllowlistEnabled, outboundPermitted } from '../../outbound/allo
 import { syncRepoStatusApi, type CallStatusApi } from '../legacy-order-status/transport.js';
 import type { FulfillmentOptions } from './options.js';
 import { slackText } from './slack-text.js';
+import type { EventId } from '../../observability/event-registry.js';
 
 /** Identifier-only structured event. Never carries message text, payloads or responses. */
 export interface FulfillmentEvent {
-  eventId: string;
+  eventId: EventId;
   resource: string;
   outcome: string;
   storeId?: string;
@@ -24,7 +25,7 @@ export type FulfillmentLogger = (level: 'info' | 'warn' | 'error', event: Fulfil
 export function fulfillmentLogger(
   write: (
     level: 'info' | 'warn' | 'error',
-    event: Record<string, unknown>,
+    event: Record<string, unknown> & { eventId: EventId },
     message: string,
   ) => void,
 ): FulfillmentLogger {
@@ -89,7 +90,7 @@ export function fulfillmentEffects(
     dependencies.callStatusApi ??
     syncRepoStatusApi(options, fetcher, (outcome, hyperlocal) =>
       log(outcome === 'sent' ? 'info' : 'warn', {
-        eventId: 'fulfillment.sync-repo-status.' + outcome,
+        eventId: `fulfillment.sync-repo-status.${outcome}` as const,
         resource: hyperlocal ? 'sync-repo-order-status' : 'sync-repo-store-order-status',
         outcome,
       }),
@@ -237,7 +238,9 @@ export function fulfillmentEffects(
         );
         await response.body?.cancel();
         log(response.ok ? 'info' : 'error', {
-          eventId: `fulfillment.concurrency-sync.${response.ok ? 'sent' : 'failed'}`,
+          eventId: response.ok
+            ? 'fulfillment.concurrency-sync.sent'
+            : 'fulfillment.concurrency-sync.failed',
           resource: 'preorder-concurrency',
           outcome: response.ok ? 'sent' : 'rejected',
           storeId,
@@ -339,7 +342,7 @@ export function fulfillmentEffects(
     );
   }
   async function simplePost(
-    resource: string,
+    resource: 'out-for-delivery-mail' | 'vinculum-rto',
     url: string | null,
     headers: Record<string, string>,
     body: unknown,
@@ -348,7 +351,7 @@ export function fulfillmentEffects(
   ) {
     if (!url) {
       log('warn', {
-        eventId: `fulfillment.${resource}.skipped`,
+        eventId: `fulfillment.${resource}.skipped` as const,
         resource,
         outcome: 'unconfigured',
         orderId,
@@ -371,7 +374,7 @@ export function fulfillmentEffects(
       const response = await post(url, headers, body, 10000);
       await response.body?.cancel();
       log(response.ok ? 'info' : 'error', {
-        eventId: `fulfillment.${resource}.${response.ok ? 'sent' : 'rejected'}`,
+        eventId: `fulfillment.${resource}.${response.ok ? 'sent' : 'rejected'}` as const,
         resource,
         outcome: response.ok ? 'sent' : 'rejected',
         orderId,
@@ -379,7 +382,7 @@ export function fulfillmentEffects(
       });
     } catch {
       log('error', {
-        eventId: `fulfillment.${resource}.failed`,
+        eventId: `fulfillment.${resource}.failed` as const,
         resource,
         outcome: 'failed',
         orderId,

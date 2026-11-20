@@ -7,7 +7,7 @@ import type { CheckoutRepository } from '../contracts.js';
 import { issueCustomerToken } from '../crypto.js';
 import { CheckoutGatewayError } from '../gateway.js';
 import type { CheckoutEnvironment } from '../gateway.js';
-import { pythonFloat, pythonRepr } from '../payments/legacy.js';
+import { pythonFloatRepr, pythonRepr } from '../../../domain/python-compat.js';
 import { currentRequestTrace } from '../../../observability/context.js';
 import {
   publicReturn,
@@ -26,6 +26,7 @@ import {
 } from './exchange-cell.js';
 import type { ReturnRepository } from './repository.js';
 import type { ReturnGatewayLog } from './gateway.js';
+import type { RegisteredEvent } from '../../../observability/event-registry.js';
 
 export interface ReturnServiceContext {
   repository: ReturnRepository;
@@ -121,7 +122,7 @@ async function warehouseFailure(
           eventId: 'checkout.return-operation.vinculum-push-unqueued',
           requestId: trace?.requestId ?? null,
           userId: trace?.userId ?? null,
-        },
+        } satisfies RegisteredEvent,
         'No job producer is configured for push_vinc_order_for_all',
       );
     }
@@ -249,7 +250,7 @@ export function returnService(context: ReturnServiceContext) {
         response.returnAmount,
         // API-v2 serialises the amount as a float; Django stores repr(return_amt).
         typeof response.returnAmountRaw === 'number'
-          ? pythonFloat(response.returnAmountRaw)
+          ? pythonFloatRepr(response.returnAmountRaw)
           : pythonRepr(response.returnAmountRaw),
       );
     } catch (error) {

@@ -1,12 +1,10 @@
-import { spawnSync } from 'node:child_process';
 import { connectRedisPort } from '../../src/redis/node-client.js';
 import { memoryRedisPort } from './memory-redis.js';
 import type { RedisPort } from '../../src/redis/port.js';
-import { privateRedisFixture } from './private-redis.js';
+import { privateRedisFixture, redisServerAvailable } from './private-redis.js';
 
-/** True when a loopback `redis-server` can be spawned for this run. */
-export const redisServerAvailable =
-  spawnSync('redis-server', ['--version'], { stdio: 'ignore' }).status === 0;
+/** True when a loopback Redis-compatible server can be spawned for this run. */
+export { redisServerAvailable };
 export interface AuthRedisBackend {
   name: 'redis-server' | 'in-process';
   open(): Promise<{ port: RedisPort; flush(): Promise<void>; close(): Promise<void> }>;

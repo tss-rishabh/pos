@@ -22,6 +22,7 @@ import {
 } from './generation.js';
 import { readGiftCardBatchOptions, type GiftCardBatchOptions } from './options.js';
 import { createGiftCardBatchStorage } from './storage.js';
+import type { EventId } from '../../observability/event-registry.js';
 
 export const giftCardBatchJobName = 'pos.gift_card_batches.generate' as const;
 
@@ -51,10 +52,10 @@ export async function generateGiftCardBatch(
   context: Pick<JobContext, 'jobId' | 'requestId' | 'userId' | 'signal'>,
 ) {
   const args = generateGiftCardBatchArgs.parse(rawArgs);
-  const event = (outcome: string) => ({
+  const event = (eventId: EventId) => ({
     module: 'gift-card-batches',
     resource: 'batch',
-    eventId: `gift-card-batches.batch.${outcome}`,
+    eventId,
     eventInstanceId: randomUUID(),
     requestId: context.requestId ?? context.jobId,
     userId: context.userId ?? args.userId,
@@ -68,11 +69,19 @@ export async function generateGiftCardBatch(
     .where(eq(GiftCardCollection.id, BigInt(args.collectionId)))
     .limit(1);
   if (!collection) {
-    dependencies.log('warn', event('missing'), 'Gift card collection was not found');
+    dependencies.log(
+      'warn',
+      event('gift-card-batches.batch.missing'),
+      'Gift card collection was not found',
+    );
     return;
   }
   if (collection.completed === 1) {
-    dependencies.log('info', event('already-completed'), 'Gift card collection already completed');
+    dependencies.log(
+      'info',
+      event('gift-card-batches.batch.already-completed'),
+      'Gift card collection already completed',
+    );
     return;
   }
   const [user] = await writer
@@ -82,7 +91,11 @@ export async function generateGiftCardBatch(
     .limit(1);
   const email = giftCardRecipient(user?.email ?? null);
   if (!user || !email) {
-    dependencies.log('error', event('not-eligible'), 'Gift card requester has no email');
+    dependencies.log(
+      'error',
+      event('gift-card-batches.batch.not-eligible'),
+      'Gift card requester has no email',
+    );
     return;
   }
   let csv: Buffer;
@@ -96,7 +109,11 @@ export async function generateGiftCardBatch(
     );
     csv = giftCardCsv(cards);
   } catch {
-    dependencies.log('error', event('generation-failed'), 'Gift card generation failed');
+    dependencies.log(
+      'error',
+      event('gift-card-batches.batch.generation-failed'),
+      'Gift card generation failed',
+    );
     return;
   }
   const micros =
@@ -113,14 +130,22 @@ export async function generateGiftCardBatch(
       context.signal,
     );
   } catch {
-    dependencies.log('error', event('upload-failed'), 'Gift card upload failed');
+    dependencies.log(
+      'error',
+      event('gift-card-batches.batch.upload-failed'),
+      'Gift card upload failed',
+    );
     return;
   }
   try {
     if (!dependencies.storage) throw new Error('storage not configured');
     await dependencies.storage.upload(names.key, archive, context.signal);
   } catch {
-    dependencies.log('error', event('storage-failed'), 'Gift card storage upload failed');
+    dependencies.log(
+      'error',
+      event('gift-card-batches.batch.storage-failed'),
+      'Gift card storage upload failed',
+    );
   }
   const sent = dependencies.delivery
     ? await dependencies.delivery.send(
@@ -128,7 +153,12 @@ export async function generateGiftCardBatch(
         context.signal,
       )
     : false;
-  if (!sent) dependencies.log('error', event('email-failed'), 'Gift card email send failed');
+  if (!sent)
+    dependencies.log(
+      'error',
+      event('gift-card-batches.batch.email-failed'),
+      'Gift card email send failed',
+    );
   const [current] = await writer
     .select({ message: GiftCardCollection.message })
     .from(GiftCardCollection)
@@ -142,7 +172,11 @@ export async function generateGiftCardBatch(
       message: truncate((current?.message ?? '') + `| File has been sent on ${email}`, 255),
     })
     .where(eq(GiftCardCollection.id, BigInt(args.collectionId)));
-  dependencies.log('info', event('generated'), 'Gift card collection generated and uploaded');
+  dependencies.log(
+    'info',
+    event('gift-card-batches.batch.generated'),
+    'Gift card collection generated and uploaded',
+  );
 }
 
 /** Worker registration: one handler for the approved `pos.gift_card_batches.generate` job. */

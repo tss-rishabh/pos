@@ -13,12 +13,9 @@ import {
   type InventoryPullInput,
 } from './maintenance-domain.js';
 import type { MaintenanceTransports } from './maintenance-transports.js';
+import type { EventId, EventLogger } from '../../observability/event-registry.js';
 
-export type MaintenanceLogger = (
-  level: 'info' | 'warn' | 'error',
-  event: Readonly<Record<string, string | number | boolean | null>>,
-  message: string,
-) => void;
+export type MaintenanceLogger = EventLogger;
 /** `AjaxTroubleshootProductView` always answers with this (core/views.py:3027-3030). */
 export const troubleshootMessage =
   'Troubleshooting started for the Product, Just wait for a few seconds';
@@ -84,10 +81,15 @@ export function catalogMaintenanceService(
   ephemeral: EphemeralStore,
   log: MaintenanceLogger = () => {},
 ) {
-  const event = (user: Principal, requestId: string, resource: string, outcome: string) => ({
+  const event = (
+    user: Principal,
+    requestId: string,
+    resource: 'inventory-pull' | 'product-troubleshoot',
+    eventId: EventId,
+  ) => ({
     module: 'catalog-details',
     resource,
-    eventId: `catalog-details.${resource}.${outcome}`,
+    eventId,
     eventInstanceId: randomUUID(),
     requestId,
     userId: user.id,
@@ -132,7 +134,11 @@ export function catalogMaintenanceService(
         try {
           status = await send(ids, selection.mode);
         } catch {
-          log('error', event(user, requestId, 'inventory-pull', 'failed'), 'Inventory pull failed');
+          log(
+            'error',
+            event(user, requestId, 'inventory-pull', 'catalog-details.inventory-pull.failed'),
+            'Inventory pull failed',
+          );
           throw new AppError(
             503,
             'INVENTORY_PULL_UNAVAILABLE',
@@ -142,7 +148,15 @@ export function catalogMaintenanceService(
         if (status < 200 || status >= 300)
           log(
             'warn',
-            { ...event(user, requestId, 'inventory-pull', 'not-acknowledged'), status },
+            {
+              ...event(
+                user,
+                requestId,
+                'inventory-pull',
+                'catalog-details.inventory-pull.not-acknowledged',
+              ),
+              status,
+            },
             'Inventory pull was not acknowledged',
           );
       }
@@ -172,13 +186,23 @@ export function catalogMaintenanceService(
         });
         log(
           'info',
-          event(user, requestId, 'product-troubleshoot', 'completed'),
+          event(
+            user,
+            requestId,
+            'product-troubleshoot',
+            'catalog-details.product-troubleshoot.completed',
+          ),
           'Troubleshoot ran',
         );
       } catch {
         log(
           'error',
-          event(user, requestId, 'product-troubleshoot', 'failed'),
+          event(
+            user,
+            requestId,
+            'product-troubleshoot',
+            'catalog-details.product-troubleshoot.failed',
+          ),
           'Error while troubleshooting the product',
         );
       }

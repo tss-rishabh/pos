@@ -6,6 +6,7 @@ import {
   type IpcMainLike,
 } from '../../electron/offline/ipc';
 import { OfflineBillingError } from '../../electron/offline/service';
+import { ipcChannels, offlineStatusEvent } from '../../src/offline/billing/contracts';
 
 const requestId = '6f1c1d3e-2f0a-4b8e-9c55-3a1d2b4c5e6f';
 
@@ -22,9 +23,9 @@ function handlers(overrides: Partial<IpcHandlers> = {}): IpcHandlers {
     'offline:sale:create': fail,
     'offline:sale:list': fail,
     'offline:sale:reprint': fail,
-    'offline:sync:status': fail,
     'offline:sync:retry': fail,
     'offline:conflict:resolve': fail,
+    'diagnostics:ui-error': fail,
     ...overrides,
   };
 }
@@ -159,7 +160,9 @@ describe('IPC validation', () => {
       (event) => event === 'trusted',
       vi.fn(),
     );
-    expect(registered.size).toBe(11);
+    expect([...registered.keys()].sort()).toEqual([...ipcChannels].sort());
+    expect(registered.has('offline:sync:status')).toBe(false);
+    expect(registered.has(offlineStatusEvent)).toBe(false);
     const rejected = await registered.get('offline:status')!('evil', { requestId, payload: {} });
     expect(rejected).toMatchObject({ ok: false, error: { code: 'UNTRUSTED_SENDER' } });
     expect(status).not.toHaveBeenCalled();

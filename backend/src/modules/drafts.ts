@@ -9,6 +9,7 @@ import type { Draft } from '../domain/contracts.js';
 import {
   idempotencyKey,
   readJson,
+  readJsonMany,
   withStateLock,
   type PosStateStore,
 } from './checkout/state-store.js';
@@ -140,16 +141,13 @@ export function draftService(db: Databases, store: PosStateStore): DraftService 
       requireStore(user, storeId);
       const index =
         (await readJson(store, draftKeys.index(user.id, storeId), z.array(z.uuid()))) ?? [];
-      const result: Draft[] = [];
-      for (const draftId of index) {
-        const draft = await readJson(
-          store,
-          draftKeys.draft(user.id, storeId, draftId),
-          draftSchema,
-        );
-        if (draft) result.push(draft);
-      }
-      return result;
+      // One MGET for the whole index (at most 100 drafts); expired drafts drop out, in order.
+      const drafts = await readJsonMany(
+        store,
+        index.map((draftId) => draftKeys.draft(user.id, storeId, draftId)),
+        draftSchema,
+      );
+      return drafts.filter((draft): draft is Draft => draft !== null);
     },
   };
 }

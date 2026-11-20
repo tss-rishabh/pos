@@ -556,14 +556,15 @@ export function scheduledReportBuilder(
               )
               .orderBy(asc(scheduledCrmLog.id))
           : [],
-        verified = candidates.filter((row) =>
-          current.some(
+        // Ticket ids are digits only, so `ticket:order` (order '' for NULL) is unambiguous.
+        currentPairs = new Set(
+          current.map(
             (record) =>
-              record.ticketId === row.ticketId &&
-              (record.orderId === null
-                ? row.orderId === null
-                : String(record.orderId) === row.orderId),
+              `${record.ticketId ?? ''}:${record.orderId === null ? '' : String(record.orderId)}`,
           ),
+        ),
+        verified = candidates.filter((row) =>
+          currentPairs.has(`${row.ticketId}:${row.orderId ?? ''}`),
         ),
         ticketIds = [...new Set(verified.map((row) => row.ticketId))],
         results = new Map<string, FreshdeskTicket>(),

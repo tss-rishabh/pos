@@ -15,6 +15,7 @@ import {
 import type { OfflineSyncCoordinator, SaleRecord } from './locks.js';
 import type { OfflineBillingLimits } from './options.js';
 import type { OfflineOrder, OfflineSyncRepository } from './repository.js';
+import { withCause } from '../../observability/errors.js';
 
 /** The ordinary checkout service (modules/checkout/service.ts) as used here. */
 export type CheckoutReply =
@@ -106,6 +107,12 @@ const BEFORE_DISPATCH = new Set([
 const LOCK_TTL_MS = 120_000;
 const DAY_MS = 24 * 3600_000,
   FALLBACK_WINDOW_MS = 31 * DAY_MS;
+/** Device clock skew tolerated against the server clock (future billing time, episode cap). */
+export const DEVICE_CLOCK_SKEW_MS = 5 * 60_000;
+/** Earliest creation time, before the billing time, of an order an upload attempt could make. */
+const CANDIDATE_CLOCK_SKEW_MS = 2 * DEVICE_CLOCK_SKEW_MS;
+/** Device sales older than this no longer affect the episode cap and are pruned. */
+const DEVICE_SALE_RETENTION_MS = 2 * DAY_MS;
 
 const stateSchema = z
   .object({
@@ -160,10 +167,15 @@ export function offlinePayable(lines: OfflineSaleUpload['lines']): bigint {
   return gross - (gross % 100n);
 }
 
-const unknownOutcome = () =>
-  conflict(
-    'OUTCOME_UNKNOWN',
-    'The store service may already have created this order. A manager must check Orders for this provisional reference before resolving.',
+/** `cause`: the failure that left the outcome unknown; its code is kept as the request log's
+ * `causeCode` (never sent to the device). */
+const unknownOutcome = (cause?: unknown) =>
+  withCause(
+    conflict(
+      'OUTCOME_UNKNOWN',
+      'The store service may already have created this order. A manager must check Orders for this provisional reference before resolving.',
+    ),
+    cause,
   );
 
 export function offlineSyncService(deps: OfflineSyncDeps) {
@@ -287,6 +299,60 @@ export function offlineSyncService(deps: OfflineSyncDeps) {
   }
   async function markDone(reference: string, orderId: string, invoiceNo: string | null) {
     await deps.coordinator!.saveRecord(reference, { state: 'done', orderId, invoiceNo });
+  }
+
+  /** Server-side OFFLINE_BILLING_MAX_ORDERS per offline episode (S64). The device may hold at
+   * most that many unsynced sales: when it billed this sale, every earlier sale of the device
+   * billed within the time window and not yet synced counted. Sync times are server times, so a
+   * sale counts only when it synced clearly (beyond the clock-skew allowance) after this sale
+   * was billed. A manager-resolved upload is recorded but not refused: the manager decided. */
+  async function admit(sale: OfflineSaleUpload, sequence: number) {
+    const coordinator = deps.coordinator!,
+      at = now();
+    const sales = await coordinator.deviceSales(sale.deviceId);
+    if (sales.has(sale.provisionalRef)) return;
+    const window = deps.limits.maxMinutes * 60_000 + DEVICE_CLOCK_SKEW_MS,
+      stale: string[] = [];
+    let open = 0;
+    for (const [reference, entry] of sales) {
+      if (entry.billedAt < at - DEVICE_SALE_RETENTION_MS) {
+        stale.push(reference);
+        continue;
+      }
+      if (
+        entry.sequence < sequence &&
+        entry.billedAt >= sale.billedAt - window &&
+        (entry.syncedAt === null || entry.syncedAt > sale.billedAt + DEVICE_CLOCK_SKEW_MS)
+      )
+        open++;
+    }
+    if (open >= deps.limits.maxOrders && !sale.resolution)
+      throw conflict(
+        'REJECTED',
+        `This device billed more than ${deps.limits.maxOrders} offline sales without syncing. A manager must review this sale.`,
+      );
+    await coordinator.saveDeviceSale(
+      sale.deviceId,
+      sale.provisionalRef,
+      { billedAt: sale.billedAt, sequence, syncedAt: null },
+      stale,
+    );
+  }
+  /** First successful sync time of a device sale; best effort, never fails a synced sale. */
+  async function settled(sale: OfflineSaleUpload, sequence: number) {
+    try {
+      const coordinator = deps.coordinator!;
+      const entry = (await coordinator.deviceSales(sale.deviceId)).get(sale.provisionalRef);
+      if (entry?.syncedAt) return;
+      await coordinator.saveDeviceSale(
+        sale.deviceId,
+        sale.provisionalRef,
+        { billedAt: entry?.billedAt ?? sale.billedAt, sequence, syncedAt: now() },
+        [],
+      );
+    } catch {
+      // The cap stays lenient for this sale: it is treated as not yet synced.
+    }
   }
 
   /** Lines and quote through the ordinary checkout service. Nothing here can
@@ -465,9 +531,16 @@ export function offlineSyncService(deps: OfflineSyncDeps) {
         throw conflict('REJECTED', error.message);
       }
       // Anything else may have created the order: never resubmit automatically.
-      throw unknownOutcome();
+      throw unknownOutcome(error);
     }
-    if (reply.status !== 'succeeded') throw unknownOutcome();
+    if (reply.status !== 'succeeded')
+      throw unknownOutcome(
+        new AppError(
+          502,
+          reply.errorCode ?? `CHECKOUT_${reply.status.toUpperCase()}`,
+          reply.status,
+        ),
+      );
     const result = reply.result;
     const orderId = z.union([z.string(), z.number()]).transform(String).parse(result.orderId);
     const invoice = z
@@ -475,7 +548,9 @@ export function offlineSyncService(deps: OfflineSyncDeps) {
       .nullable()
       .catch(null)
       .parse(result.invoice ?? null);
-    await markDone(reference, orderId, invoice);
+    // The order exists: a lost Redis write must not turn it into a failure. The comment row
+    // written by finish() is the durable record, and the submitting record stays unknown.
+    await markDone(reference, orderId, invoice).catch(() => undefined);
     return finish(user, sale, storeId, counterId, orderId, 'created');
   }
 
@@ -553,6 +628,103 @@ export function offlineSyncService(deps: OfflineSyncDeps) {
     return create(user, sale, storeId, counterId, fresh);
   }
 
+  /** One upload under the reference lock. */
+  async function upload(
+    user: Principal,
+    sale: OfflineSaleUpload,
+    storeId: string,
+    counterId: string,
+    sequence: number,
+  ): Promise<OfflineSaleResult> {
+    const coordinator = deps.coordinator!,
+      reference = sale.provisionalRef;
+    const record = await coordinator.record(reference);
+    if (record?.state === 'done')
+      return await finish(user, sale, storeId, counterId, record.orderId, 'existing');
+    if (record?.state === 'in-flight') {
+      if (record.submitting) return await reconcile(user, sale, storeId, counterId, record);
+      if (record.operatorId !== user.id) {
+        // Nothing was submitted under that record. Another operator's attempt is still
+        // retried, but a manager's decision takes the sale over with a fresh checkout.
+        if (!sale.resolution) throw retry();
+        const fresh = {
+          state: 'in-flight' as const,
+          operatorId: user.id,
+          checkoutId: null,
+          submitting: false,
+        };
+        await coordinator.saveRecord(reference, fresh);
+        return await create(user, sale, storeId, counterId, fresh);
+      }
+      return await create(user, sale, storeId, counterId, record);
+    }
+    // Durable fallback when the Redis record expired or was lost.
+    const at = now(),
+      from = Math.max(Math.min(sale.billedAt, at) - DAY_MS, at - FALLBACK_WINDOW_MS);
+    const found = await repository.findByComment(
+      reference,
+      [
+        ...new Set([
+          user.id,
+          sale.billedBy,
+          ...(sale.resolution ? [sale.resolution.managerId] : []),
+        ]),
+      ],
+      from,
+      at + 3600_000,
+    );
+    if (found) {
+      await markDone(reference, found.orderId, found.invoiceNumber);
+      return await finish(user, sale, storeId, counterId, found.orderId, 'existing');
+    }
+    if (sale.resolution?.action === 'link-order' && sale.resolution.orderId)
+      return await link(user, sale, storeId, counterId, sale.resolution.orderId);
+    if (sale.resolution?.action !== 'accept' && sale.resolution?.action !== 'recreate') {
+      const billed = await deps.operators.get(sale.billedBy);
+      const access =
+        billed &&
+        (billed.role === 1 && billed.userType === 1 ? true : billed.storeIds.includes(storeId));
+      if (!access)
+        throw conflict(
+          'OPERATOR_REVOKED',
+          'The operator who billed this sale no longer has access to this store.',
+        );
+    }
+    // No record of this sale exists (first upload, or the Redis record was lost before the
+    // comment was written). An order that may be this sale goes to the manager instead of
+    // being created again; a manager's 'recreate' is the confirmation that none exists.
+    if (sale.resolution?.action !== 'recreate') {
+      const candidate = await repository.unconfirmedOrder({
+        storeId,
+        counterId,
+        reference,
+        lines: sale.lines.map((line) => ({
+          productId: line.productId,
+          quantity: line.quantity,
+        })),
+        // prepare() sets this salesperson before submit, so pos/order carries it.
+        salespersonId: sale.salespersonId,
+        // An attempt can only follow billing, and the future-billing check keeps the device
+        // clock within DEVICE_CLOCK_SKEW_MS of the server at upload; allow twice that.
+        from: sale.billedAt - CANDIDATE_CLOCK_SKEW_MS,
+        to: at + 3600_000,
+      });
+      if (candidate)
+        throw unknownOutcome(
+          new AppError(409, 'CANDIDATE_ORDER_FOUND', 'A matching order may already exist.'),
+        );
+    }
+    await admit(sale, sequence);
+    const inFlight = {
+      state: 'in-flight' as const,
+      operatorId: user.id,
+      checkoutId: null,
+      submitting: false,
+    };
+    await coordinator.saveRecord(reference, inFlight);
+    return await create(user, sale, storeId, counterId, inFlight);
+  }
+
   return {
     settings(): OfflineBillingLimits {
       return { ...deps.limits };
@@ -588,6 +760,13 @@ export function offlineSyncService(deps: OfflineSyncDeps) {
           'INVALID_OFFLINE_TENDER',
           'Cash received must cover the payable amount.',
         );
+      // A sale cannot be billed after the moment it is uploaded (S64).
+      if (sale.billedAt > now() + DEVICE_CLOCK_SKEW_MS)
+        throw conflict(
+          'REJECTED',
+          'This sale is dated later than the store service clock. Check the device date and time; a manager must review it.',
+        );
+      const sequence = Number(parts[4]);
       if (sale.resolution && (sale.resolution.managerId !== user.id || !isManager(user)))
         throw new AppError(
           403,
@@ -607,54 +786,9 @@ export function offlineSyncService(deps: OfflineSyncDeps) {
         owner = randomUUID();
       if (!(await coordinator.lock(reference, owner, LOCK_TTL_MS))) throw retry();
       try {
-        const record = await coordinator.record(reference);
-        if (record?.state === 'done')
-          return await finish(user, sale, storeId, counterId, record.orderId, 'existing');
-        if (record?.state === 'in-flight') {
-          if (record.submitting) return await reconcile(user, sale, storeId, counterId, record);
-          if (record.operatorId !== user.id) throw retry();
-          return await create(user, sale, storeId, counterId, record);
-        }
-        // Durable fallback when the Redis record expired or was lost.
-        const at = now(),
-          from = Math.max(Math.min(sale.billedAt, at) - DAY_MS, at - FALLBACK_WINDOW_MS);
-        const found = await repository.findByComment(
-          reference,
-          [
-            ...new Set([
-              user.id,
-              sale.billedBy,
-              ...(sale.resolution ? [sale.resolution.managerId] : []),
-            ]),
-          ],
-          from,
-          at + 3600_000,
-        );
-        if (found) {
-          await markDone(reference, found.orderId, found.invoiceNumber);
-          return await finish(user, sale, storeId, counterId, found.orderId, 'existing');
-        }
-        if (sale.resolution?.action === 'link-order' && sale.resolution.orderId)
-          return await link(user, sale, storeId, counterId, sale.resolution.orderId);
-        if (sale.resolution?.action !== 'accept' && sale.resolution?.action !== 'recreate') {
-          const billed = await deps.operators.get(sale.billedBy);
-          const access =
-            billed &&
-            (billed.role === 1 && billed.userType === 1 ? true : billed.storeIds.includes(storeId));
-          if (!access)
-            throw conflict(
-              'OPERATOR_REVOKED',
-              'The operator who billed this sale no longer has access to this store.',
-            );
-        }
-        const inFlight = {
-          state: 'in-flight' as const,
-          operatorId: user.id,
-          checkoutId: null,
-          submitting: false,
-        };
-        await coordinator.saveRecord(reference, inFlight);
-        return await create(user, sale, storeId, counterId, inFlight);
+        const result = await upload(user, sale, storeId, counterId, sequence);
+        await settled(sale, sequence);
+        return result;
       } finally {
         await coordinator.unlock(reference, owner).catch(() => undefined);
       }

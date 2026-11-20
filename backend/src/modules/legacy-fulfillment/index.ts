@@ -29,11 +29,12 @@ import {
   type LegacyFulfillmentDependencies,
   type LifecycleLog,
 } from './runtime.js';
+import type { EventId } from '../../observability/event-registry.js';
 export { registerJobHandlers } from './jobs.js';
 export type { LegacyFulfillmentDependencies } from './runtime.js';
 
 interface EventLogger {
-  info(object: object, message: string): void;
+  info(object: { eventId: EventId } & Record<string, unknown>, message: string): void;
 }
 /**
  * Builds the module dependencies from the environment. Used by the HTTP registration below and

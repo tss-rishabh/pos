@@ -178,19 +178,41 @@ export function discountTerms(state: CheckoutState, secret: string): DiscountTer
     binding,
   };
 }
-/** Equivalent to AjaxPGDiscOTPSend's greatest threshold not above the discount percentage. */
+/**
+ * The discount the old checkout posts as `pg_discount` to AjaxPGDiscOTPSend:
+ * `parseInt(pgDiscount) + parseInt(pgDiscountNew)` (`create_order.html:5137`, `:5328`, `:7301`).
+ * Each input holds the cart's used PG / store (PG) discount, and `parseInt` truncates each one
+ * separately before they are added. The amounts here are validated non-negative decimals with at
+ * most two places, so `parseInt` is exactly Decimal truncation.
+ */
+export function legacyTruncatedDiscount(
+  terms: Pick<DiscountTerms, 'pgAmount' | 'storeAmount'>,
+): Decimal {
+  return new Decimal(terms.pgAmount).trunc().plus(new Decimal(terms.storeAmount).trunc());
+}
+/**
+ * AjaxPGDiscOTPSend (`order/views.py:4602-4618`): the greatest threshold not above
+ * `float(pg_discount)/(float(total_amount)+float(pg_discount))*100`, where `pg_discount` is the
+ * truncated sum above and `total_amount` is the cart's `products_total` (`#sub-total`,
+ * `create_order.html:453-456`). The percentage is computed with IEEE doubles in the same order
+ * as the Python source, so a tier boundary such as 10% resolves exactly as legacy does
+ * (user decision, 20 November 2026). It only selects approvers; no money is derived from it.
+ */
 export function approverSelection(
   policy: DiscountPolicy,
   storeId: string,
-  terms: Pick<DiscountTerms, 'amount' | 'productsTotal'>,
+  terms: Pick<DiscountTerms, 'pgAmount' | 'storeAmount' | 'productsTotal'>,
 ): { emails: string[]; fallback: boolean; exempt: boolean } {
-  const percentage = new Decimal(terms.amount)
-      .div(new Decimal(terms.productsTotal).plus(terms.amount))
-      .times(100),
+  const discount = legacyTruncatedDiscount(terms).toNumber(),
+    denominator = new Decimal(terms.productsTotal).toNumber() + discount;
+  // Legacy raises ZeroDivisionError here; never pick a tier from NaN.
+  if (denominator === 0)
+    throw new AppError(502, 'INVALID_DISCOUNT_QUOTE', 'The checkout discount quote is invalid.');
+  const percentage = (discount / denominator) * 100,
     thresholds = policy.storeThresholds[storeId] || {};
   let selected = '0';
   for (const threshold of Object.keys(thresholds).sort((a, b) => Number(a) - Number(b))) {
-    if (percentage.lt(threshold)) break;
+    if (percentage < Number(threshold)) break;
     selected = threshold;
   }
   const emails = thresholds[selected] || [];

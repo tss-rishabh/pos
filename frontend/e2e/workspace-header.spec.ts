@@ -47,6 +47,12 @@ test('sign-in without a store asks for a check-in; the header checks out, in and
   await expect(header.getByRole('link', { name: /^Offline\./ })).toHaveCount(0);
   await expect(page.getByText('Keyboard shortcuts')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Shortcut reference' })).toHaveCount(0);
+  // Web clients need internet to bill: offline billing is a desktop-only navigation entry.
+  await expect(
+    page
+      .getByRole('navigation', { name: 'Main navigation' })
+      .getByRole('link', { name: 'Offline billing' }),
+  ).toHaveCount(0);
 
   await header.getByRole('button', { name: 'Check out', exact: true }).click();
   await expect(header.getByLabel('Store check-in: Not checked in', { exact: true })).toBeVisible();

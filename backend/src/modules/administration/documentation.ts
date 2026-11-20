@@ -40,7 +40,7 @@ import { administrationEphemeralStore } from './ephemeral-runtime.js';
 export interface DocumentationEvent {
   module: 'administration';
   resource: 'documentation-media';
-  eventId: string;
+  eventId: 'administration.documentation-media.delete-failed';
   requestId: string | null;
   userId: string;
   documentId: string;

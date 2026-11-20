@@ -124,6 +124,7 @@ import {
 } from './domain/route-validation.js';
 import { mapError } from './observability/errors.js';
 import { applicationLogger } from './observability/logger.js';
+import { registerClientErrorReports } from './observability/client-errors.js';
 import { reportService } from './modules/reports.js';
 import { sql } from 'drizzle-orm';
 import type { JobProducer } from './jobs/contract.js';
@@ -229,16 +230,17 @@ export async function buildApp(
     }
   });
   // Error codes for the completion event; the request object never reaches the log.
-  const errorCodes = new WeakMap<object, string>();
+  const errorCodes = new WeakMap<object, { code: string; causeCode?: string }>();
   app.addHook('onResponse', async (request, reply) => {
+    const failure = errorCodes.get(request);
     app.log.info(
-      requestEvent(request, reply, errorCodes.get(request)),
+      requestEvent(request, reply, failure?.code, failure?.causeCode),
       'Resource request completed',
     );
   });
   // Fastify's default 404 body echoes the method and URL (query values included).
   app.setNotFoundHandler(async (request, reply) => {
-    errorCodes.set(request, 'NOT_FOUND');
+    errorCodes.set(request, { code: 'NOT_FOUND' });
     return reply.code(404).send({
       error: {
         code: 'NOT_FOUND',
@@ -249,10 +251,16 @@ export async function buildApp(
   });
   app.setErrorHandler((error, request, reply) => {
     const mapped = mapError(error, request.id);
-    errorCodes.set(request, mapped.logCode);
+    errorCodes.set(request, {
+      code: mapped.logCode,
+      ...(mapped.causeCode ? { causeCode: mapped.causeCode } : {}),
+    });
     reply.code(mapped.status);
     if (mapped.unexpected)
-      app.log.error(requestEvent(request, reply, mapped.logCode), 'Resource request failed');
+      app.log.error(
+        requestEvent(request, reply, mapped.logCode, mapped.causeCode),
+        'Resource request failed',
+      );
     return reply.send(mapped.body);
   });
   const sessions = redisSessions(config, activeAccountReader(db), authRedis);
@@ -387,6 +395,7 @@ export async function buildApp(
   registerDashboard(app, config, db);
   registerGiftCardBatches(app, config, db, readGiftCardBatchOptions(), moduleRuntime);
   registerAdministrationHistory(app, config, db, readAdministrationHistoryOptions());
+  registerClientErrorReports(app);
   const dailyStoreSalesQuery = z
     .object({
       storeIds: z

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { conflictCodeSchema, type ConflictCode } from '../../src/offline/billing/contracts';
 import {
   offlineSaleResultSchema,
   offlineSettingsSchema,
@@ -27,6 +28,40 @@ export class NetworkUnavailableError extends Error {
     super('The store service is unreachable.');
   }
 }
+/** The request provably never left the device (no connection was made), so the server
+ * cannot have acted on it. Every other transport failure may have reached the server. */
+export class RequestNotSentError extends NetworkUnavailableError {}
+
+/** Chromium net errors raised before a connection exists: DNS, refused or unreachable
+ * connections, connect timeouts, proxy/tunnel set-up and certificate rejection. Errors that
+ * can happen after the request was written (resets, empty responses, timeouts, aborts) are
+ * deliberately absent. */
+const PRE_SEND_NET_ERRORS = new Set([
+  'ERR_INTERNET_DISCONNECTED',
+  'ERR_NAME_NOT_RESOLVED',
+  'ERR_NAME_RESOLUTION_FAILED',
+  'ERR_CONNECTION_REFUSED',
+  'ERR_CONNECTION_TIMED_OUT',
+  'ERR_ADDRESS_UNREACHABLE',
+  'ERR_ADDRESS_INVALID',
+  'ERR_PROXY_CONNECTION_FAILED',
+  'ERR_TUNNEL_CONNECTION_FAILED',
+]);
+export function preSendNetworkError(message: string): boolean {
+  const match = /net::(ERR_[A-Z_]+)/.exec(message);
+  if (!match) return false;
+  return PRE_SEND_NET_ERRORS.has(match[1]!) || match[1]!.startsWith('ERR_CERT_');
+}
+
+/** Server error codes raised before the sale reaches order creation: the only refusals the
+ * device retries by itself. */
+export const PRE_DISPATCH_CODES: ReadonlySet<string> = new Set([
+  'OFFLINE_SYNC_IN_PROGRESS',
+  'CHECK_IN_REQUIRED',
+  'OPERATOR_CHANGED',
+]);
+export const UNKNOWN_OUTCOME_MESSAGE =
+  'The store service may already have created this order. A manager must check Orders for this provisional reference before resolving.';
 
 const id = z.string().regex(/^[1-9]\d{0,19}$/);
 const sessionSchema = z.object({
@@ -68,19 +103,24 @@ const MAX_SALESPEOPLE_PAGES = 50;
 const listSchema = z.object({ data: z.array(z.object({ id, name: z.string().max(300) })) });
 
 export type ServerSession = z.infer<typeof sessionSchema>;
+/** A sale is retried automatically only for 'retry' (provably not sent, or refused before
+ * dispatch) and 'unauthorized' (refused by the session check); every other outcome is final
+ * until a manager decides. */
 export type UploadOutcome =
   | { kind: 'synced'; orderId: string; invoiceNumber: string | null }
-  | { kind: 'conflict'; code: string; message: string }
+  | { kind: 'conflict'; code: ConflictCode; message: string }
   | { kind: 'unauthorized' }
-  | { kind: 'retry'; code: string }
-  | { kind: 'rejected'; code: string; message: string };
+  | { kind: 'retry'; code: string };
 
 function errorOf(body: unknown) {
   const parsed = serverErrorSchema.safeParse(body);
-  return parsed.success
-    ? parsed.data.error
-    : { code: 'SERVER_ERROR', message: 'The store service rejected this request.' };
+  return parsed.success ? parsed.data.error : null;
 }
+const unknownOutcome = (message = UNKNOWN_OUTCOME_MESSAGE): UploadOutcome => ({
+  kind: 'conflict',
+  code: 'OUTCOME_UNKNOWN',
+  message,
+});
 
 export function serverApi(http: HttpClient) {
   return {
@@ -200,13 +240,16 @@ export function serverApi(http: HttpClient) {
           body: sale,
           timeoutMs: 60000,
         });
-      } catch {
-        return { kind: 'retry', code: 'NETWORK_UNAVAILABLE' };
+      } catch (error) {
+        // Only a request that never left the device is safe to send again.
+        if (error instanceof RequestNotSentError)
+          return { kind: 'retry', code: 'NETWORK_UNAVAILABLE' };
+        return unknownOutcome();
       }
       if (response.status === 200 || response.status === 201) {
         const result = offlineSaleResultSchema.safeParse(response.body);
         if (!result.success || result.data.provisionalRef !== sale.provisionalRef)
-          return { kind: 'retry', code: 'INVALID_SERVER_REPLY' };
+          return unknownOutcome();
         return {
           kind: 'synced',
           orderId: result.data.orderId,
@@ -214,21 +257,25 @@ export function serverApi(http: HttpClient) {
         };
       }
       const error = errorOf(response.body);
+      // The session check runs before the sale is looked at.
       if (response.status === 401) return { kind: 'unauthorized' };
-      if (error.code.startsWith('OFFLINE_CONFLICT_'))
+      if (!error) return unknownOutcome();
+      if (response.status === 409 && error.code.startsWith('OFFLINE_CONFLICT_'))
         return {
           kind: 'conflict',
-          code: error.code.slice('OFFLINE_CONFLICT_'.length),
+          code: conflictCodeSchema
+            .catch('OUTCOME_UNKNOWN')
+            .parse(error.code.slice('OFFLINE_CONFLICT_'.length)),
           message: error.message,
         };
-      if (
-        response.status >= 500 ||
-        response.status === 429 ||
-        response.status === 408 ||
-        ['OFFLINE_SYNC_IN_PROGRESS', 'OPERATOR_CHANGED', 'CHECK_IN_REQUIRED'].includes(error.code)
-      )
-        return { kind: 'retry', code: error.code };
-      return { kind: 'rejected', code: error.code, message: error.message };
+      if (PRE_DISPATCH_CODES.has(error.code)) return { kind: 'retry', code: error.code };
+      // Anything else (5xx, 408, 429, or a refusal the device cannot place) may have followed
+      // order creation: the manager checks Orders; the sale is never resent automatically.
+      return unknownOutcome(
+        response.status >= 400 && response.status < 500
+          ? `${error.message} ${UNKNOWN_OUTCOME_MESSAGE}`
+          : UNKNOWN_OUTCOME_MESSAGE,
+      );
     },
   };
 }

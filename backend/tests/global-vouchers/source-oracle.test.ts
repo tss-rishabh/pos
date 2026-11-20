@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { goldenStdout } from '../golden/load.js';
+/**
+ * Source evidence only (V2, 20 Nov 2026; see tests/golden/INVENTORY.md): this file asserts
+ * facts of the pinned legacy capture and runs no rewrite code.
+ * Reason: the historical conversion route is absent at the pinned source (currentRoutePresent
+ * false), so the rewrite has no counterpart route whose output could be compared.
+ */
 
 const resultSchema = z.object({
   parentCommit: z.string(),

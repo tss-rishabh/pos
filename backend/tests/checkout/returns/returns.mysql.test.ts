@@ -14,6 +14,8 @@ import {
   type LineEligibility,
   type ReturnGateway,
 } from '../../../src/modules/checkout/return-workflow/contracts.js';
+import { financialYear } from '../../../src/modules/checkout/finalizer.js';
+import { refundAmount } from '../../../src/modules/checkout/return-workflow/gateway.js';
 import { returnRepository } from '../../../src/modules/checkout/return-workflow/repository.js';
 import { returnService } from '../../../src/modules/checkout/return-workflow/service.js';
 import { exchangeService } from '../../../src/modules/checkout/return-workflow/exchanges.js';
@@ -77,7 +79,7 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
   };
   let eligibility = new Map<string, LineEligibility>();
   let inboundResult: 'ok' | 'reject' = 'ok';
-  let refundResult: 'ok' | 'already' = 'ok';
+  let refundResult: 'ok' | 'already' | 'float-noise' = 'ok';
   let exchangeResult: 'ok' | 'fail' = 'ok';
   const entry = (status: boolean, reason = '', upto: string | null = '2099-01-01') => ({
     status,
@@ -99,9 +101,13 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
     },
     async refund() {
       calls.refund++;
-      return refundResult === 'already'
-        ? { kind: 'already-refunded' }
-        : { kind: 'refunded', returnAmount: '50.25', returnAmountRaw: 50.25 };
+      if (refundResult === 'already') return { kind: 'already-refunded' };
+      if (refundResult === 'float-noise') {
+        // API-v2 cash branch on an order part-paid with TSS money: an unrounded float.
+        const raw = 0.010000000000005116;
+        return { kind: 'refunded', returnAmount: refundAmount(raw)!, returnAmountRaw: raw };
+      }
+      return { kind: 'refunded', returnAmount: '50.25', returnAmountRaw: 50.25 };
     },
     async returnMail(value) {
       calls.returnMail.push(value);
@@ -436,6 +442,19 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
     expect(calls.returnMail).toEqual([]);
   });
 
+  it('completes the return when API-v2 refunds an unrounded float amount', async () => {
+    const { returns } = services(),
+      line = await seedOrder(9004);
+    refundResult = 'float-noise';
+    const result = await returns.start(operator, '1', line.orderId, line.lineId, returnInput());
+    expect(result).toMatchObject({ phase: 'completed', returnAmount: '0.01' });
+    expect(await rows('SELECT id FROM pos_hold_stock_logs')).toHaveLength(1);
+    const logs = await rows('SELECT pay_dict FROM pos_transaction_logs');
+    expect(logs).toHaveLength(1);
+    expect(String(logs[0]!.pay_dict)).toContain('0.010000000000005116');
+    expect(calls.returnMail).toHaveLength(1);
+  });
+
   it('applies the return window, and accepts force return only where show.html offers it', async () => {
     const { returns } = services(),
       line = await seedOrder(9004, { oldDelivery: true });
@@ -704,6 +723,38 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
       { orderId: String(childOrderId), productId: '11', lineId: String(childOrderId + 100000) },
     ]);
     expect(calls.refund).toBe(0);
+  });
+
+  it("matches a store code with '_' or '%' literally in credit note and invoice sequences", async () => {
+    // helpers.py:2230-2231, 2284-2285: Django `startswith` escapes `\ % _`.
+    const { exchanges } = services(),
+      fy = financialYear(new Date().toISOString().slice(0, 10)),
+      line = await seedOrder(9013);
+    await connection.query("UPDATE stores SET location_code='F_1' WHERE id=1");
+    // Unescaped, 'F_1…' would match these other codes and continue their sequences.
+    await fixture.insert('return_orders', {
+      order_id: '1',
+      prod_id: '10',
+      has_product_id: '1',
+      store_id: 1,
+      qty: 1,
+      credit_note_no: `FX1${fy}CN00009`,
+      created_at: '2026-01-01 10:00:01',
+    });
+    await connection.query(
+      'INSERT INTO order_stores (order_id,store_id,counter_id,order_invoice) VALUES (1,1,3,?),(2,1,3,?)',
+      [`FX1${fy}INV00009`, `F%1/${fy}/INV/00004`],
+    );
+    const result = await exchanges.start(operator, '1', line.orderId, line.lineId, exchangeInput());
+    expect(result.phase).toBe('completed');
+    expect(
+      (await rows('SELECT credit_note_no FROM return_orders WHERE order_id=9013'))[0]
+        ?.credit_note_no,
+    ).toBe(`F_1${fy}CN00001`);
+    expect(
+      (await rows('SELECT order_invoice FROM order_stores WHERE order_id=?', [childOrderId]))[0]
+        ?.order_invoice,
+    ).toBe(`F_1${fy}INV00001`);
   });
 
   it('marks a failed replacement for manual fix, alerts Slack and retries with stored picks', async () => {

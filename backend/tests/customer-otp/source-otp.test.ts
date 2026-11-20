@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { goldenSpawnResult } from '../golden/load.js';
+/**
+ * Source evidence only (V2, 20 Nov 2026; see tests/golden/INVENTORY.md): this file asserts
+ * facts of the pinned legacy capture and runs no rewrite code.
+ * Reason: this records API-v2's own OTP internals; the rewrite calls omnichannel-sendotp/verifyotp
+ * unchanged (request shape: tests/customer-otp/api-v2.test.ts).
+ */
 
 // Captured from tools/customer-otp/source-otp-oracle.py against backend-tss-api_v2@2960acb.
 describe('actual pinned omnichannel source behavior', () => {

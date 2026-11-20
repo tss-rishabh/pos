@@ -78,7 +78,12 @@ export function registerEventCatalog(app: FastifyInstance) {
         });
   });
 }
-export function requestEvent(request: FastifyRequest, reply: FastifyReply, errorCode?: string) {
+export function requestEvent(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  errorCode?: string,
+  causeCode?: string,
+) {
   const trace = request.routeOptions.config.trace || {
     module: 'system',
     resource: 'http-request',
@@ -96,5 +101,6 @@ export function requestEvent(request: FastifyRequest, reply: FastifyReply, error
     status: reply.statusCode,
     durationMs: Math.round(reply.elapsedTime * 100) / 100,
     ...(errorCode ? { errorCode } : {}),
+    ...(causeCode ? { causeCode } : {}),
   };
 }

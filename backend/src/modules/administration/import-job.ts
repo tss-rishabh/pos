@@ -20,22 +20,28 @@ import type { JobLogger } from '../../jobs/runtime.js';
 import type { AdministrationTransaction } from './checkins.js';
 import {
   PythonError,
+  applyImportJournalEntry,
+  importCheckpointRecords,
   importMessages,
   importProgress,
+  importProgressJournalKey,
   importProgressKey,
   importProgressTtlSeconds,
+  replayImportJournal,
+  type ImportJournalEntry,
   pythonDictRows,
   pythonInt,
-  pythonJsonDumps,
   requiredColumns,
   type CsvRecord,
   type FailedRecord,
   type ImportProgress,
   type UploadType,
 } from './import-domain.js';
+import { pythonJsonDumps } from '../../domain/python-compat.js';
 import type { CsvUploadStorage } from './import-storage.js';
 import type { ProductSynchronizer } from './product-sync.js';
 import type { StockProcedure } from './stock-procedure.js';
+import type { EventId } from '../../observability/event-registry.js';
 
 /** Celery args of `parse_csv_product_store` / `parse_csv_product_stock` (`core/tasks.py:28-48`). */
 const importArgs = z
@@ -61,6 +67,8 @@ export interface InventoryImportJobDependencies {
   stockProcedure: StockProcedure;
   productSync: ProductSynchronizer;
   log: JobLogger;
+  /** Records between progress snapshots (default `importCheckpointRecords`); tests shorten it. */
+  checkpointRecords?: number;
 }
 
 const lockMs = 15 * 60 * 1000;
@@ -97,12 +105,12 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
   const event = (
     context: JobContext,
     uploadId: string,
-    action: string,
+    eventId: EventId,
     extra: Record<string, string | number | boolean | null> = {},
   ) => ({
     module: 'administration',
     resource: 'inventory-import',
-    eventId: `administration.inventory-import.${action}`,
+    eventId,
     jobId: context.jobId,
     requestId: context.requestId,
     userId: context.userId,
@@ -140,7 +148,9 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
     } catch {
       log(
         'warn',
-        event(context, scope.uploadId, 'stock-procedure-failed', { storeId: String(storeId) }),
+        event(context, scope.uploadId, 'administration.inventory-import.stock-procedure-failed', {
+          storeId: String(storeId),
+        }),
         'Stock not synced',
       );
     }
@@ -500,7 +510,11 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
       .update(CsvUpload)
       .set({ is_imported: true, message: importMessages.interrupted, updated_at: localNow() })
       .where(and(eq(CsvUpload.id, BigInt(uploadId)), eq(CsvUpload.is_imported, false)));
-    log('warn', event(context, uploadId, 'interrupted'), 'Inventory import was not resumed');
+    log(
+      'warn',
+      event(context, uploadId, 'administration.inventory-import.interrupted'),
+      'Inventory import was not resumed',
+    );
   }
 
   async function run(type: UploadType, rawArgs: JobArgs, context: JobContext) {
@@ -513,27 +527,35 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
       .where(eq(CsvUpload.id, BigInt(uploadId)))
       .limit(1);
     if (!upload || upload.upload_type !== type) {
-      log('warn', event(context, uploadId, 'missing'), 'Inventory import upload was not found');
+      log(
+        'warn',
+        event(context, uploadId, 'administration.inventory-import.missing'),
+        'Inventory import upload was not found',
+      );
       return;
     }
     if (upload.is_imported) {
       log(
         'info',
-        event(context, uploadId, 'already-imported'),
+        event(context, uploadId, 'administration.inventory-import.already-imported'),
         'Inventory import already finished',
       );
       return;
     }
     const key = importProgressKey(uploadId),
-      saved = await ephemeral.get(key);
-    let progress: ImportProgress;
+      journalKey = importProgressJournalKey(uploadId),
+      saved = await ephemeral.get(key),
+      // Read outside the parse guard: a Redis failure fails the job, it never closes the upload.
+      journal = saved === null ? [] : await ephemeral.lRange(journalKey, 0, -1);
+    let progress: ImportProgress | null;
     try {
       if (saved === null) throw new Error('missing');
-      progress = importProgress.parse(JSON.parse(saved) as unknown);
+      progress = replayImportJournal(importProgress.parse(JSON.parse(saved) as unknown), journal);
     } catch {
-      // Ledger risk note: without the cursor, re-running could re-apply committed hold movements.
-      return closeInterrupted(uploadId, context);
+      progress = null;
     }
+    // Ledger risk note: without the cursor, re-running could re-apply committed hold movements.
+    if (!progress) return closeInterrupted(uploadId, context);
     if (!deps.storage || !upload.filename) throw new Error('CSV_STORAGE_UNAVAILABLE');
     const reader = db.get('writer');
     const [userStores, activeStores] = await Promise.all([
@@ -564,7 +586,7 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
       if (context.signal.aborted) {
         log(
           'info',
-          event(context, uploadId, 'paused', { record: index }),
+          event(context, uploadId, 'administration.inventory-import.paused', { record: index }),
           'Inventory import paused',
         );
         return;
@@ -577,15 +599,22 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
             ? productStoreRecord(tx, scope, records[index]!, context)
             : productStockRecord(tx, scope, records[index]!, context),
         );
-      progress = {
+      const entry: ImportJournalEntry = {
         record: index + 1,
-        failed: [...progress.failed, ...outcome.failed],
-        productIds: outcome.productId
-          ? [...progress.productIds, outcome.productId]
-          : progress.productIds,
-        inserts: [...progress.inserts, ...outcome.inserts],
+        failed: outcome.failed,
+        productId: outcome.productId,
+        inserts: outcome.inserts,
       };
-      await ephemeral.set(key, JSON.stringify(progress), { EX: importProgressTtlSeconds });
+      applyImportJournalEntry(progress, entry);
+      // The record is committed: make it durable before anything else (one LPUSH of this
+      // record's outcome), then fold the journal into the snapshot every N records. A crash
+      // between the snapshot SET and the journal DEL leaves entries the replay skips.
+      await ephemeral.lPush(journalKey, JSON.stringify(entry));
+      await ephemeral.expire(journalKey, importProgressTtlSeconds);
+      if (entry.record % (deps.checkpointRecords ?? importCheckpointRecords) === 0) {
+        await ephemeral.set(key, JSON.stringify(progress), { EX: importProgressTtlSeconds });
+        await ephemeral.del(journalKey);
+      }
       await ephemeral.expire(lockKey, lockMs / 1000);
       if (outcome.syncNow.length)
         await deps.productSync(outcome.syncNow, { operatorId: args.user_id });
@@ -621,10 +650,10 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
         })
         .where(eq(CsvUpload.id, BigInt(uploadId)));
     });
-    await ephemeral.del(key);
+    await ephemeral.del(key, journalKey);
     log(
       'info',
-      event(context, uploadId, 'completed', {
+      event(context, uploadId, 'administration.inventory-import.completed', {
         records: records.length,
         failedRecords: progress.failed.length,
       }),
@@ -645,7 +674,11 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
       if (!result)
         log(
           'warn',
-          event(context, uploadId.success ? uploadId.data : 'invalid', 'already-running'),
+          event(
+            context,
+            uploadId.success ? uploadId.data : 'invalid',
+            'administration.inventory-import.already-running',
+          ),
           'Inventory import is already running',
         );
     };

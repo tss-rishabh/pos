@@ -1,5 +1,10 @@
 # Customer history query/deployment proposal
 
+> **Superseded, 20 November 2026.** The user decided that customer history reads MySQL for all
+> dates, as legacy does (AGENTS.md, "Audit remediation decisions"). The BigQuery gateway,
+> `customer-history/sql.ts` and `tools/customer-history/dry-run.ts` were removed; see
+> `customer-history.md`. Nothing below is deployed or required. It is kept as a historical record.
+
 Baseline: `backend-pos-web@78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`,
 `users/views.py:AjaxUserbehaviourView`. No live MySQL write/DDL, BigQuery DDL,
 copy/load/export or source-row output was performed.

@@ -73,7 +73,7 @@ const common = z.object({
     .regex(/^(?:0|[1-9]\d{0,4})(?:\.\d{1,2})?$/)
     .refine(
       (value) => Number(value) > 0 && Number(value) <= 99999,
-      'Enter an amount from0.01 to99999.',
+      'Enter an amount from 0.01 to 99999.',
     ),
   reason: z.enum(benefitReasons),
   orderId: reference,

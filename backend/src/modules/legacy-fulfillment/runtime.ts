@@ -20,6 +20,7 @@ import type { StockProcedure } from '../administration/stock-procedure.js';
 import type { OrderRedis } from '../fulfillment/order-redis.js';
 import type { HyperlocalGateway } from './gateway.js';
 import type { LegacyFulfillmentEnvironment } from './options.js';
+import type { EventId } from '../../observability/event-registry.js';
 
 export type Writer = AdministrationTransaction | ReturnType<Databases['get']>;
 /** Live notification fan-out (legacy Channels `group_send("notification_order")`). */
@@ -32,7 +33,7 @@ export interface NoticePublication {
 }
 /** Registered resource events only: ids and outcome codes, never bodies or PII. */
 export type LifecycleLog = (event: {
-  eventId: string;
+  eventId: EventId;
   orderId?: string;
   storeId?: string;
   outcome: string;

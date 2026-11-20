@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { pythonRound2 } from '../../domain/python-round.js';
+import { pythonRound2 } from '../../domain/python-compat.js';
 const number = z.coerce.number().finite();
 const decimal = z.union([z.string().regex(/^-?\d+(?:\.\d+)?$/), z.number().finite()]).nullable();
 export const feedLineSchema = z.object({

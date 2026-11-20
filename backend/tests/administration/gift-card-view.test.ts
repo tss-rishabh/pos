@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { goldenStdout } from '../golden/load.js';
+/**
+ * Source evidence only (V2, 20 Nov 2026; see tests/golden/INVENTORY.md): this file asserts
+ * facts of the pinned legacy capture and runs no rewrite code.
+ * Reason: the rewrite's responses and flag changes are compared with these cases in
+ * tests/administration/gift-card-batches.mysql.test.ts.
+ */
 
 function oracle(cases: unknown[]) {
   return z

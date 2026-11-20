@@ -229,6 +229,8 @@ export async function startOrderApiFake(connection: mysql.Connection, timeZone =
         order: orderId,
         store: BigInt(storeId),
         counter: BigInt(String(payload.counter_id ?? '0')),
+        // API-v2 writes the payload's master salesperson, else 0 (OrderController.py:10901).
+        salesperson: BigInt(String(payload.salesperson_id || '0')),
         is_manually_paid: false,
         transaction_id: '',
         message: '',

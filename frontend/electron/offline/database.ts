@@ -40,6 +40,9 @@ export function openEncryptedDatabase(
     db.pragma('synchronous = FULL');
     db.pragma('foreign_keys = ON');
     db.pragma('secure_delete = ON');
+    // The catalogue refresh stages rows in a TEMP table: keep it in memory, never in an
+    // unencrypted temporary file.
+    db.pragma('temp_store = MEMORY');
     migrate(db);
     return db;
   } catch (error) {
@@ -262,8 +265,46 @@ export interface NewSale {
 }
 export type QueueEntry = OfflineSale & { nextAttemptAt: number };
 
+/**
+ * The same connection, with `prepare` cached per SQL text: each statement is compiled once per
+ * connection instead of on every call (status polls, sale lists, the sync loop). All SQL in this
+ * store is a fixed literal, so the cache is bounded. Other members are forwarded, bound to the
+ * real connection. Statements are never iterated, so a cached statement is never busy when reused.
+ */
+export function withStatementCache(database: SqliteDatabase): SqliteDatabase {
+  const statements = new Map<string, ReturnType<SqliteDatabase['prepare']>>();
+  const prepare = (source: string) => {
+    let statement = statements.get(source);
+    if (!statement) {
+      statement = database.prepare(source);
+      statements.set(source, statement);
+    }
+    return statement;
+  };
+  return new Proxy(database, {
+    get(target, property) {
+      if (property === 'prepare') return prepare;
+      const value: unknown = Reflect.get(target, property, target);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+}
+
+/** Catalogue refresh staging: connection-private (TEMP, kept in memory), so it needs no migration
+ * and is invisible to every reader until swapCatalog copies it in one transaction. */
+const CATALOG_STAGE = `CREATE TEMP TABLE IF NOT EXISTS catalog_stage (
+  product_id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  barcode TEXT,
+  unit_price_paise INTEGER NOT NULL,
+  stock INTEGER NOT NULL
+) STRICT`;
+const saleKey = z.object({ sale_id: z.string(), status: z.string() });
+const saleIdsJson = (rows: { sale_id: string }[]) => JSON.stringify(rows.map((row) => row.sale_id));
+
 /** All SQL for the device database. Every statement binds its values. */
-export function offlineStore(db: SqliteDatabase) {
+export function offlineStore(connection: SqliteDatabase) {
+  const db = withStatementCache(connection);
   const getMeta = (key: string): string | null => {
     const row = db.prepare('SELECT value FROM meta WHERE key = ?').get(key);
     return row === undefined ? null : metaRow.parse(row).value;
@@ -295,7 +336,9 @@ export function offlineStore(db: SqliteDatabase) {
         'SELECT code, message, created_at FROM conflicts WHERE sale_id = ? AND resolved_at IS NULL ORDER BY conflict_id DESC LIMIT 1',
       )
       .get(saleId);
-    if (row === undefined) return null;
+    return row === undefined ? null : conflictFrom(row);
+  }
+  function conflictFrom(row: unknown) {
     const parsed = conflictRow.parse(row);
     const code = z
       .enum([
@@ -312,7 +355,52 @@ export function offlineStore(db: SqliteDatabase) {
   }
   const saleSelect = `SELECT s.*, p.mode, p.cash_received_paise, p.reference, q.attempts, q.next_attempt_at
     FROM sales s JOIN payments p ON p.sale_id = s.sale_id LEFT JOIN sync_queue q ON q.sale_id = s.sale_id`;
-  function toSale(row: unknown): QueueEntry {
+  /** Sale lists load every sale's lines and open conflict in two queries, not two per sale. */
+  function toSales(rows: unknown[]): QueueEntry[] {
+    const sales = rows.map((row) => saleKey.parse(row));
+    if (!sales.length) return [];
+    const lines = new Map<string, ReturnType<typeof linesFor>>();
+    for (const row of db
+      .prepare(
+        `SELECT sale_id, product_id, name, unit_price_paise, quantity FROM sale_lines
+         WHERE sale_id IN (SELECT value FROM json_each(?)) ORDER BY sale_id, line_no`,
+      )
+      .all(saleIdsJson(sales))) {
+      const saleId = z.object({ sale_id: z.string() }).parse(row).sale_id;
+      const line = lineRow.parse(row);
+      const list = lines.get(saleId) ?? [];
+      list.push({
+        productId: line.product_id,
+        name: line.name,
+        unitPricePaise: line.unit_price_paise,
+        quantity: line.quantity,
+      });
+      lines.set(saleId, list);
+    }
+    const conflicted = sales.filter((sale) => sale.status === 'needs_manager');
+    const conflicts = new Map<string, ReturnType<typeof openConflict>>();
+    if (conflicted.length)
+      for (const row of db
+        .prepare(
+          `SELECT c.sale_id, c.code, c.message, c.created_at FROM conflicts c
+           WHERE c.sale_id IN (SELECT value FROM json_each(?)) AND c.resolved_at IS NULL
+             AND c.conflict_id = (SELECT max(o.conflict_id) FROM conflicts o
+                                  WHERE o.sale_id = c.sale_id AND o.resolved_at IS NULL)`,
+        )
+        .all(saleIdsJson(conflicted))) {
+        const saleId = z.object({ sale_id: z.string() }).parse(row).sale_id;
+        conflicts.set(saleId, conflictFrom(row));
+      }
+    return rows.map((row, index) => {
+      const saleId = sales[index]!.sale_id;
+      return toSale(row, lines.get(saleId) ?? [], conflicts.get(saleId) ?? null);
+    });
+  }
+  function toSale(
+    row: unknown,
+    preloadedLines?: ReturnType<typeof linesFor>,
+    preloadedConflict?: ReturnType<typeof openConflict>,
+  ): QueueEntry {
     const sale = saleRow.parse(row);
     const tender: OfflineSale['tender'] =
       sale.mode === 'cash'
@@ -336,7 +424,7 @@ export function offlineStore(db: SqliteDatabase) {
       salespersonId: sale.salesperson_id,
       createdAt: sale.created_at,
       status: sale.status,
-      lines: linesFor(sale.sale_id),
+      lines: preloadedLines ?? linesFor(sale.sale_id),
       grossPaise: sale.gross_paise,
       roundingPaise: sale.rounding_paise,
       payablePaise: sale.payable_paise,
@@ -345,7 +433,12 @@ export function offlineStore(db: SqliteDatabase) {
       invoiceNumber: sale.invoice_number,
       syncedAt: sale.synced_at,
       attempts: sale.attempts ?? 0,
-      conflict: sale.status === 'needs_manager' ? openConflict(sale.sale_id) : null,
+      conflict:
+        sale.status !== 'needs_manager'
+          ? null
+          : preloadedConflict !== undefined
+            ? preloadedConflict
+            : openConflict(sale.sale_id),
       resolution,
       nextAttemptAt: sale.next_attempt_at ?? 0,
     };
@@ -449,28 +542,38 @@ export function offlineStore(db: SqliteDatabase) {
         verifiedAt: op.verified_at,
       };
     },
-    replaceCatalog(storeId: string, products: CatalogProduct[], now: number) {
+    /** Start a catalogue refresh with an empty connection-private stage. */
+    beginCatalogStage() {
+      db.exec(CATALOG_STAGE);
+      db.prepare('DELETE FROM temp.catalog_stage').run();
+    },
+    /** Stage one page of the refreshed catalogue (a small transaction on the TEMP table only). */
+    stageCatalog(products: CatalogProduct[]) {
+      const insert = db.prepare(
+        `INSERT INTO temp.catalog_stage (product_id, name, barcode, unit_price_paise, stock)
+         VALUES (?, ?, ?, ?, ?)`,
+      );
+      db.transaction(() => {
+        for (const item of products)
+          insert.run(item.productId, item.name, item.barcode, item.unitPricePaise, item.stock);
+      })();
+    },
+    /** Replace the store's catalogue with the stage in set-based statements. Call inside
+     * transaction() so readers see the old or the new catalogue, never a mix. */
+    swapCatalog(storeId: string, now: number, truncated = false): number {
       db.prepare('DELETE FROM products WHERE store_id = ?').run(storeId);
       db.prepare('DELETE FROM barcodes WHERE store_id = ?').run(storeId);
-      const product = db.prepare(
+      db.prepare(
         `INSERT INTO products (store_id, product_id, name, barcode, unit_price_paise, stock, cached_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      );
-      const barcode = db.prepare(
-        'INSERT OR IGNORE INTO barcodes (store_id, barcode, product_id) VALUES (?, ?, ?)',
-      );
-      for (const item of products) {
-        product.run(
-          storeId,
-          item.productId,
-          item.name,
-          item.barcode,
-          item.unitPricePaise,
-          item.stock,
-          now,
-        );
-        if (item.barcode) barcode.run(storeId, item.barcode, item.productId);
-      }
+         SELECT ?, product_id, name, barcode, unit_price_paise, stock, ? FROM temp.catalog_stage`,
+      ).run(storeId, now);
+      db.prepare(
+        `INSERT OR IGNORE INTO barcodes (store_id, barcode, product_id)
+         SELECT ?, barcode, product_id FROM temp.catalog_stage WHERE barcode IS NOT NULL AND barcode <> ''`,
+      ).run(storeId);
+      const products = countRow.parse(
+        db.prepare('SELECT count(*) AS count FROM temp.catalog_stage').get(),
+      ).count;
       // Re-apply local decrements for sales the server has not yet received.
       const pending = db
         .prepare(
@@ -485,7 +588,12 @@ export function offlineStore(db: SqliteDatabase) {
         const line = z.object({ product_id: z.string(), quantity: z.number().int() }).parse(row);
         decrement.run(line.quantity, storeId, line.product_id);
       }
-      setMeta('catalog', JSON.stringify({ storeId, refreshedAt: now, products: products.length }));
+      setMeta('catalog', JSON.stringify({ storeId, refreshedAt: now, products, truncated }));
+      return products;
+    },
+    /** Release the stage's memory after a refresh, whether it completed or failed. */
+    endCatalogStage() {
+      db.exec('DROP TABLE IF EXISTS temp.catalog_stage');
     },
     /** Active checkout salespeople of the store, refreshed with the catalogue. */
     replaceSalespeople(storeId: string, people: { id: string; name: string }[], now: number) {
@@ -550,7 +658,12 @@ export function offlineStore(db: SqliteDatabase) {
       const value = getMeta('catalog');
       if (value === null) return null;
       return z
-        .object({ storeId: z.string(), refreshedAt: z.number().int(), products: z.number().int() })
+        .object({
+          storeId: z.string(),
+          refreshedAt: z.number().int(),
+          products: z.number().int(),
+          truncated: z.boolean().default(false),
+        })
         .parse(JSON.parse(value));
     },
     product(storeId: string, productId: string): CatalogProduct | null {
@@ -632,22 +745,23 @@ export function offlineStore(db: SqliteDatabase) {
       return row === undefined ? null : toSale(row);
     },
     list(status: SaleStatus | undefined, limit: number): QueueEntry[] {
-      return (
+      return toSales(
         status
           ? db
               .prepare(`${saleSelect} WHERE s.status = ? ORDER BY s.sequence DESC LIMIT ?`)
               .all(status, limit)
-          : db.prepare(`${saleSelect} ORDER BY s.sequence DESC LIMIT ?`).all(limit)
-      ).map(toSale);
+          : db.prepare(`${saleSelect} ORDER BY s.sequence DESC LIMIT ?`).all(limit),
+      );
     },
     /** Queued sales due for upload, oldest first. */
     due(now: number): QueueEntry[] {
-      return db
-        .prepare(
-          `${saleSelect} WHERE s.status = 'queued' AND COALESCE(q.next_attempt_at, 0) <= ? ORDER BY s.sequence ASC`,
-        )
-        .all(now)
-        .map(toSale);
+      return toSales(
+        db
+          .prepare(
+            `${saleSelect} WHERE s.status = 'queued' AND COALESCE(q.next_attempt_at, 0) <= ? ORDER BY s.sequence ASC`,
+          )
+          .all(now),
+      );
     },
     counts() {
       const rows = db.prepare('SELECT status, count(*) AS count FROM sales GROUP BY status').all();
@@ -678,9 +792,7 @@ export function offlineStore(db: SqliteDatabase) {
       db.prepare("UPDATE sales SET status = 'syncing' WHERE sale_id = ? AND status = 'queued'").run(
         saleId,
       );
-      db.prepare(
-        'UPDATE sync_queue SET attempts = attempts + 1, updated_at = ? WHERE sale_id = ?',
-      ).run(now, saleId);
+      db.prepare('UPDATE sync_queue SET updated_at = ? WHERE sale_id = ?').run(now, saleId);
     },
     markSynced(saleId: string, orderId: string, invoice: string | null, now: number) {
       db.prepare(
@@ -688,23 +800,17 @@ export function offlineStore(db: SqliteDatabase) {
       ).run(orderId, invoice, now, saleId);
       db.prepare('DELETE FROM sync_queue WHERE sale_id = ?').run(saleId);
     },
-    markRetry(saleId: string, code: string, nextAttemptAt: number, now: number) {
+    /** Back to the queue. `attempts` counts only server refusals (counted), never a request
+     * that provably did not leave the device; it drives the escalation to a manager. */
+    markRetry(saleId: string, code: string, nextAttemptAt: number, now: number, counted: boolean) {
       db.prepare("UPDATE sales SET status = 'queued' WHERE sale_id = ? AND status = 'syncing'").run(
         saleId,
       );
       db.prepare(
-        'UPDATE sync_queue SET next_attempt_at = ?, last_error_code = ?, updated_at = ? WHERE sale_id = ?',
-      ).run(nextAttemptAt, code, now, saleId);
+        'UPDATE sync_queue SET attempts = attempts + ?, next_attempt_at = ?, last_error_code = ?, updated_at = ? WHERE sale_id = ?',
+      ).run(counted ? 1 : 0, nextAttemptAt, code, now, saleId);
     },
-    markConflict(saleId: string, code: ConflictCode, message: string, now: number) {
-      db.prepare("UPDATE sales SET status = 'needs_manager' WHERE sale_id = ?").run(saleId);
-      db.prepare(
-        'UPDATE sync_queue SET last_error_code = ?, next_attempt_at = 0, updated_at = ? WHERE sale_id = ?',
-      ).run(code, now, saleId);
-      db.prepare(
-        'INSERT INTO conflicts (sale_id, code, message, created_at) VALUES (?, ?, ?, ?)',
-      ).run(saleId, code, message, now);
-    },
+    markConflict,
     resolve(saleId: string, resolution: SaleResolution) {
       db.prepare(
         'UPDATE conflicts SET resolved_at = ?, resolved_by = ?, resolution = ? WHERE sale_id = ? AND resolved_at IS NULL',
@@ -717,15 +823,47 @@ export function offlineStore(db: SqliteDatabase) {
       if (resolution.action === 'void')
         db.prepare('DELETE FROM sync_queue WHERE sale_id = ?').run(saleId);
       else
+        // A manager decision starts a fresh retry budget.
         db.prepare(
-          'UPDATE sync_queue SET next_attempt_at = 0, updated_at = ? WHERE sale_id = ?',
+          'UPDATE sync_queue SET attempts = 0, next_attempt_at = 0, updated_at = ? WHERE sale_id = ?',
         ).run(resolution.resolvedAt, saleId);
     },
-    /** A crash mid-upload leaves 'syncing'; the server lookup makes a re-upload safe. */
-    recoverInterrupted() {
-      db.prepare("UPDATE sales SET status = 'queued' WHERE status = 'syncing'").run();
+    /** Delete synced sales whose sync is older than `before`, with their lines, tender (card/UPI
+     * reference included), queue row and resolved conflicts. Only status 'synced' is pruned: a
+     * queued, syncing, needs-manager or voided sale is never deleted. secure_delete overwrites
+     * the freed pages. Returns the number of sales deleted. */
+    pruneSynced(before: number): number {
+      const doomed = `SELECT sale_id FROM sales WHERE status = 'synced' AND synced_at IS NOT NULL AND synced_at < ?`;
+      db.prepare(`DELETE FROM sale_lines WHERE sale_id IN (${doomed})`).run(before);
+      db.prepare(`DELETE FROM payments WHERE sale_id IN (${doomed})`).run(before);
+      db.prepare(`DELETE FROM sync_queue WHERE sale_id IN (${doomed})`).run(before);
+      db.prepare(`DELETE FROM conflicts WHERE sale_id IN (${doomed})`).run(before);
+      return db
+        .prepare(
+          "DELETE FROM sales WHERE status = 'synced' AND synced_at IS NOT NULL AND synced_at < ?",
+        )
+        .run(before).changes;
+    },
+    /** A crash or quit mid-upload leaves 'syncing'. The request may have reached the server,
+     * so the sale goes to the manager as an unknown outcome and is never resent by itself. */
+    recoverInterrupted(message: string, now: number): number {
+      const rows = db
+        .prepare("SELECT sale_id FROM sales WHERE status = 'syncing' ORDER BY sequence")
+        .all()
+        .map((row) => z.object({ sale_id: z.string() }).parse(row).sale_id);
+      for (const saleId of rows) markConflict(saleId, 'OUTCOME_UNKNOWN', message, now);
+      return rows.length;
     },
   };
+  function markConflict(saleId: string, code: ConflictCode, message: string, now: number) {
+    db.prepare("UPDATE sales SET status = 'needs_manager' WHERE sale_id = ?").run(saleId);
+    db.prepare(
+      'UPDATE sync_queue SET last_error_code = ?, next_attempt_at = 0, updated_at = ? WHERE sale_id = ?',
+    ).run(code, now, saleId);
+    db.prepare(
+      'INSERT INTO conflicts (sale_id, code, message, created_at) VALUES (?, ?, ?, ?)',
+    ).run(saleId, code, message, now);
+  }
   function writeTender(saleId: string, tender: Tender, payablePaise: number, now: number) {
     db.prepare(
       `INSERT INTO payments (sale_id, mode, amount_paise, cash_received_paise, reference, updated_at)

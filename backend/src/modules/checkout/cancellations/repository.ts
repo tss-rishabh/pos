@@ -31,10 +31,21 @@ import {
   type CancellationContext,
   type CancellationResult,
 } from './contracts.js';
+import type { EventId, RegisteredEvent } from '../../../observability/event-registry.js';
 
 export interface CancellationLogger {
-  warn(fields: Record<string, string | null>, message: string): void;
+  warn(fields: RegisteredEvent, message: string): void;
 }
+/** Registered event for each logged cancellation failure code. */
+const cancellationEvents = {
+  ORDER_CANCEL_REFUND_LOG_MISSING: 'checkout.pending-order-cancellation.refund-log-missing',
+  ORDER_CANCEL_STOCK_LOG_FAILED: 'checkout.pending-order-cancellation.stock-log-failed',
+  ORDER_CANCEL_OUTCOME_UNKNOWN: 'checkout.pending-order-cancellation.outcome-unknown',
+  ORDER_CANCEL_LOCAL_UPDATE_FAILED: 'checkout.pending-order-cancellation.local-update-failed',
+  ORDER_CANCEL_PRODUCT_SYNC_UNAVAILABLE:
+    'checkout.pending-order-cancellation.product-sync-unavailable',
+  ORDER_CANCEL_PRODUCT_SYNC_FAILED: 'checkout.pending-order-cancellation.product-sync-failed',
+} as const satisfies Record<string, EventId>;
 export interface PendingCancellationServiceOptions {
   stateStore: PosStateStore;
   /** Undefined when no API-v2 base URL is configured: cancellation is refused before any work. */
@@ -78,13 +89,13 @@ export function pendingCancellationRepository(
       .toPlainDateTime()
       .toString({ smallestUnit: 'second' })
       .replace('T', ' ');
-  const warn = (errorCode: string, message: string) => {
+  const warn = (errorCode: keyof typeof cancellationEvents, message: string) => {
     const trace = currentRequestTrace();
     options.logger?.warn(
       {
         module: 'checkout',
         resource: 'pending-order-cancellation',
-        eventId: 'checkout.pending-order-cancellation.' + errorCode.toLowerCase(),
+        eventId: cancellationEvents[errorCode],
         requestId: trace?.requestId ?? null,
         userId: trace?.userId ?? null,
         errorCode,

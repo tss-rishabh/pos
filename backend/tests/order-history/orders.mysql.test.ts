@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import vm from 'node:vm';
 import ts from 'typescript';
 import * as orm from 'drizzle-orm';
@@ -11,6 +10,7 @@ import { ordersService, type OrdersService } from '../../src/modules/orders.js';
 import { orderHistoryFixture } from './mysql-fixture.js';
 import { now } from './fixtures.js';
 import { seedCheckIn } from '../helpers/check-ins.js';
+import { sourceExcerpt } from '../golden/source-excerpts.js';
 const template = process.env.ORDER_HISTORY_MYSQL_TEST_URL;
 const actor: access.Principal = {
   id: '1',
@@ -20,10 +20,8 @@ const actor: access.Principal = {
   name: 'Synthetic operator',
   email: '',
 };
-const priorSource = execFileSync('git', ['show', 'b90b4be:backend/src/modules/orders.ts'], {
-  encoding: 'utf8',
-  stdio: ['ignore', 'pipe', 'pipe'],
-});
+// backend/src/modules/orders.ts at b90b4be, captured verbatim: CI checkouts are shallow.
+const priorSource = sourceExcerpt('order-history', 'orders-b90b4be-source', 'ordersModule');
 function pinned(db: Databases): OrdersService {
   const exports: { ordersService?: (db: Databases) => OrdersService } = {};
   const imports: Record<string, unknown> = {

@@ -511,6 +511,69 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       'Store has been deleted for the selected user.',
     );
   });
+  it('adds operator and salesperson store assignments with one multi-row INSERT, in request order', async () => {
+    // Legacy `UserStore.objects.bulk_create` (users/views.py:589): one statement for the list.
+    for (const id of [3, 4, 5, 6, 7])
+      await seed(Store, {
+        id,
+        store_name: `Fixture Store ${id}`,
+        type: 'STORE',
+        category: 'IN_HOUSE',
+        location_code: `LOC-${id}`,
+        is_active: true,
+      });
+    await seed(SalesPerson, {
+      id: 1,
+      employee_id: 'FIX-1',
+      first_name: 'Fixture',
+      last_name: 'Salesperson',
+      email: 'fixture@example.test',
+      phone: '9876543210',
+      is_active: 1,
+      user_type: 1,
+    });
+    // The digest summary holds performance_schema_digests_size (10000) rows per server; once a
+    // long-lived server or a full suite run has filled it, new statements are only counted in
+    // Performance_schema_digest_lost and the per-schema counts below stay 0. This is the only
+    // test that reads the digest summary, so it starts from an empty table.
+    await connection.query('TRUNCATE TABLE performance_schema.events_statements_summary_by_digest');
+    const inserts = async (table: string) => {
+      const [rows] = await connection.query<mysql.RowDataPacket[]>(
+        'SELECT COALESCE(SUM(COUNT_STAR),0) AS total FROM performance_schema.events_statements_summary_by_digest WHERE SCHEMA_NAME=? AND DIGEST_TEXT LIKE ?',
+        [schemaName, `INSERT INTO \`${table}\`%`],
+      );
+      return Number(rows[0]?.total);
+    };
+    const requested = ['7', '3', '5', '1', '6', '4', '2'];
+    const userStores = await inserts('user_stores'),
+      operator = await app.inject({
+        method: 'PUT',
+        url: '/api/v1/admin/operators/5/stores',
+        payload: { storeIds: requested },
+      });
+    expect(operator.statusCode).toBe(200);
+    expect(operator.json()).toMatchObject({ added: 7, removed: 0 });
+    expect(await inserts('user_stores')).toBe(userStores + 1);
+    const [assigned] = await connection.query<mysql.RowDataPacket[]>(
+      'SELECT store_id FROM user_stores WHERE django_user_id=5 ORDER BY id',
+    );
+    expect(assigned.map((row) => String(row.store_id))).toEqual(requested);
+
+    const storeSalespeople = await inserts('store_salesperson'),
+      salesperson = await app.inject({
+        method: 'PUT',
+        url: '/api/v1/admin/salespeople/1/stores',
+        payload: { storeIds: requested, activeStoreId: '5' },
+      });
+    expect(salesperson.statusCode).toBe(200);
+    expect(await inserts('store_salesperson')).toBe(storeSalespeople + 1);
+    const [linked] = await connection.query<mysql.RowDataPacket[]>(
+      'SELECT store_id,is_active FROM store_salesperson WHERE salesperson_id=1 ORDER BY id',
+    );
+    expect(linked.map((row) => [String(row.store_id), String(row.is_active)])).toEqual(
+      requested.map((id) => [id, id === '5' ? '1' : '0']),
+    );
+  });
   it('adds normalized location codes without concurrent lost updates and rejects duplicates', async () => {
     const responses = await Promise.all(
       [' a1 ', 'b2'].map((code) =>
