@@ -1,16 +1,10 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
-import {
-  HasProduct,
-  Order,
-  OrderStatus,
-  OrderStore,
-  Store,
-  UserStore,
-} from '../../db/legacy-schema.js';
+import { HasProduct, Order, OrderStatus, OrderStore, Store } from '../../db/legacy-schema.js';
 import type { Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
+import { assertCurrentStoreAccess } from '../administration/authorization.js';
 import {
   queuedMessage,
   sourceStatusPresentation,
@@ -67,36 +61,25 @@ export function wholeOrderStatusService(
    * Legacy `ShowOrderDetailsView` store scope (`order/views.py:355-369`): the order needs an
    * `order_stores` row in the user's stores (`user_stores`, or every active store for role 1).
    * The `cr=1` cross-store bypass is not offered here (security decision, see report).
+   *
+   * Confirmed on the writer inside one transaction, from the current operator row and store
+   * assignment (`assertCurrentStoreAccess`), so a replica that lags a deactivation or an
+   * unassignment cannot authorize the external sync-repo push. The reads are plain consistent
+   * reads (`'none'`): nothing is mutated here and the transaction commits before the push, so
+   * row locks would only contend with checkout.
    */
   async function authorize(user: Principal, storeId: string, orderId: string) {
-    const reader = db.get('primary');
-    const allowed =
-      user.role === 1
-        ? reader
-            .select({ id: Store.id })
-            .from(Store)
-            .where(and(eq(Store.id, BigInt(storeId)), eq(Store.is_active, true)))
-        : reader
-            .select({ id: UserStore.store_id })
-            .from(UserStore)
-            .where(
-              and(
-                eq(UserStore.django_user_id, BigInt(user.id)),
-                eq(UserStore.store_id, BigInt(storeId)),
-              ),
-            );
-    const [row] = await reader
-      .select({ id: OrderStore.id })
-      .from(OrderStore)
-      .where(
-        and(
-          eq(OrderStore.order, BigInt(orderId)),
-          eq(OrderStore.store, BigInt(storeId)),
-          inArray(OrderStore.store, allowed),
-        ),
-      )
-      .limit(1);
-    if (!row) throw notFound();
+    await db.get('writer').transaction(async (tx) => {
+      await assertCurrentStoreAccess(tx, user.id, storeId, [1, 2, 3, 4, 5], 'none');
+      const [row] = await tx
+        .select({ id: OrderStore.id, active: Store.is_active })
+        .from(OrderStore)
+        .innerJoin(Store, eq(Store.id, OrderStore.store))
+        .where(and(eq(OrderStore.order, BigInt(orderId)), eq(OrderStore.store, BigInt(storeId))))
+        .limit(1);
+      // Role 1 reaches every active store (legacy `Store.objects.filter(is_active=True)`).
+      if (!row || (user.role === 1 && !row.active)) throw notFound();
+    });
   }
   return {
     /** "Vinculum Status" tab data (`order/views.py:451-464`, `show.html:303-340`). */

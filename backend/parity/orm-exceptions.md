@@ -8,8 +8,8 @@ listed with `file:line` (paths relative to `backend/src`) and the reason.
 Final sweep commands (run in `backend/`):
 
 ```
-grep -rnE 'sql`|\.execute\(|\.query\(' src   # task grep: 95 sites (213 at 43613a75)
-grep -rnE 'sql<' src                        # typed sql<T> expressions: 147 sites (104 at 43613a75)
+grep -rnE 'sql`|\.execute\(|\.query\(' src   # task grep: 96 sites (213 at 43613a75)
+grep -rnE 'sql<' src                        # typed sql<T> expressions: 150 sites (104 at 43613a75)
 ```
 
 Every site from both commands appears in the generated tables at the end of this file. Sites
@@ -35,7 +35,7 @@ fall into two groups:
 |---|---|
 | `modules/administration/stock-procedure.ts:24-25` | `call pos_stock_syncer(...)` on the writer transaction. Drizzle has no builder for `CALL`. Each argument is a bound value. |
 | `modules/checkout/return-workflow/repository.ts:365-366` | `call pos_stock_syncer(...)` inside the return transaction, the same procedure as legacy. Bound values. |
-| `modules/administration/ecommerce-sync/job.ts:23-24` | `call pos_stock_syncer_bk(...)` from the ecommerce sync job. Bound values. |
+| `modules/administration/ecommerce-sync/job.ts:24-25` | `call pos_stock_syncer_bk(...)` from the ecommerce sync job. Bound values. |
 
 ## E3. Pinned legacy source SQL (verbatim copies, bound values)
 These statements execute SQL text copied verbatim from the pinned legacy source. Each file
@@ -64,7 +64,7 @@ flash-sales still cannot drop its session variables.
 ## E6. Readiness probe
 | site | reason |
 |---|---|
-| `app.ts:517` | `SELECT 1` per reader for `/ready`. A connectivity probe that reads no table, and Drizzle's select builder requires `FROM`. `app.ts` is a shared file, so W11 kept the edit out. |
+| `app.ts:414` | `SELECT 1` per reader for `/ready`. A connectivity probe that reads no table, and Drizzle's select builder requires `FROM`. `app.ts` is a shared file, so W11 kept the edit out. |
 
 ## E7. Column defaults in a table definition (not queries)
 | site | reason |
@@ -72,7 +72,7 @@ flash-sales still cannot drop its session variables.
 | `modules/application-links/schema.ts:10`, `:13`, `:16` | `.default(sql\`CURRENT_TIMESTAMP\`)` on the production `pos_to_app_logs` definition. This is DDL metadata for inserts. No statement text is involved. |
 
 ## Notable typed expressions (T) that bind values rather than columns
-- `modules/administration/import-job.ts:231, 383, 424, 433, 447, 465, 475`: `stock`/`is_avail`/`is_del`
+- `modules/administration/import-job.ts:238, 390, 431, 440, 454, 472, 482`: `stock`/`is_avail`/`is_del`
   are written as `sql\`${bigint}\``. Legacy writes arbitrary Python ints, for example
   `is_avail = 5` into `tinyint`, and stock deltas beyond `int`. The ORM types (`int` → number,
   `tinyintBoolean` → boolean) cannot carry these values, and the empty `sql_mode` clamps or
@@ -91,7 +91,7 @@ flash-sales still cannot drop its session variables.
 
 | site | category | code (backticks shown as ˋ) |
 |---|---|---|
-| `app.ts:517` | E6 readiness probe | db.get(reader).execute(sqlˋSELECT 1ˋ), |
+| `app.ts:414` | E6 readiness probe | db.get(reader).execute(sqlˋSELECT 1ˋ), |
 | `db/pools.ts:46` | E5 connection session setup | connection.query('SET SESSION TRANSACTION READ ONLY', (error) => { |
 | `db/pools.ts:49` | E5 connection session setup | connection.query(ˋSET SESSION MAX_EXECUTION_TIME=${readOnly ? 10000 : 15000}ˋ, (error) => { |
 | `modules/application-links/schema.ts:10` | E7 column DEFAULT in a table definition (not a query) | .default(sqlˋCURRENT_TIMESTAMPˋ), |
@@ -102,7 +102,7 @@ flash-sales still cannot drop its session variables.
 | `modules/catalog-details/queries.ts:72` | T CAST expression | like(sqlˋcast(${Product.id} as char)ˋ, pattern), |
 | `modules/catalog-details/queries.ts:108` | T aggregate / ANY_VALUE expression | .select({ categories: sqlˋgroup_concat(distinct ${catalogCategories.category})ˋ }) |
 | `modules/catalog-details/queries.ts:113` | T aggregate / ANY_VALUE expression | .select({ storeNames: sqlˋgroup_concat(distinct ${Store.store_name})ˋ }) |
-| `modules/catalog-details/matrix.ts:135` | T CAST expression | ? or(like(Product.product, pattern), like(sqlˋcast(${Product.id} as char)ˋ, pattern)) |
+| `modules/catalog-details/matrix.ts:161` | T CAST expression | ? or(like(Product.product, pattern), like(sqlˋcast(${Product.id} as char)ˋ, pattern)) |
 | `modules/gift-card-batches/service.ts:315` | T CAST expression | ? like(sqlˋCAST(${GiftCardCollection.id} AS CHAR)ˋ, pattern) |
 | `modules/reports.ts:116` | E3 pinned legacy source SQL (bound values) | storeIds.map((id) => sqlˋ${BigInt(id)}ˋ), |
 | `modules/reports.ts:117` | E3 pinned legacy source SQL (bound values) | sqlˋ, ˋ, |
@@ -150,29 +150,29 @@ flash-sales still cannot drop its session variables.
 | `modules/finance/feed-query.ts:54` | E3 pinned legacy source SQL (bound values) | index < args.length ? [sql.raw(part), sqlˋ${args[index]}ˋ] : [sql.raw(part)], |
 | `modules/finance/feed-query.ts:56` | E3 pinned legacy source SQL (bound values) | sqlˋˋ, |
 | `modules/finance/feed.ts:122` | E3 pinned legacy source SQL (bound values) | database.execute(queries.sales), |
-| `modules/administration/ecommerce-sync/job.ts:23` | E2 stored procedure call (bound values) | .execute( |
-| `modules/administration/ecommerce-sync/job.ts:24` | E2 stored procedure call (bound values) | sqlˋcall pos_stock_syncer_bk(${storeId}, ${productId}, ${String(stock)}, 0, 0, ${'Updated by System'})ˋ, |
+| `modules/administration/ecommerce-sync/job.ts:24` | E2 stored procedure call (bound values) | .execute( |
+| `modules/administration/ecommerce-sync/job.ts:25` | E2 stored procedure call (bound values) | sqlˋcall pos_stock_syncer_bk(${storeId}, ${productId}, ${String(stock)}, 0, 0, ${'Updated by System'})ˋ, |
 | `modules/administration/stock-procedure.ts:24` | E2 stored procedure call (bound values) | await transaction.execute( |
 | `modules/administration/stock-procedure.ts:25` | E2 stored procedure call (bound values) | sqlˋcall pos_stock_syncer(${BigInt(value.storeId)},${BigInt(value.productId)},${value.stock},${0},${BigInt(val |
-| `modules/administration/terminal-directory.ts:92` | T literal | provider: text(sqlˋ'pine-labs'ˋ, 'provider'), |
-| `modules/administration/terminal-directory.ts:98` | T literal | deviceSerialNumber: text(sqlˋ'-'ˋ, 'device_serial_number'), |
-| `modules/administration/terminal-directory.ts:102` | T SQL function expression | storeName: text(sqlˋCOALESCE(${Store.store_name}, '')ˋ, 'current_store_name'), |
-| `modules/administration/terminal-directory.ts:111` | T literal | input.provider === 'paytm' ? sqlˋFALSEˋ : undefined, |
-| `modules/administration/terminal-directory.ts:117` | T literal | provider: text(sqlˋ'paytm'ˋ, 'provider'), |
-| `modules/administration/terminal-directory.ts:122` | T literal | imei: text(sqlˋ'-'ˋ, 'imei_no'), |
-| `modules/administration/terminal-directory.ts:124` | T CAST expression | sqlˋCAST(${PosPaytmMachine.device_serial_no} AS CHAR)ˋ, |
-| `modules/administration/terminal-directory.ts:130` | T literal | storeCode: text(sqlˋ'-'ˋ, 'merchant_store_pos_code'), |
-| `modules/administration/terminal-directory.ts:131` | T SQL function expression | storeName: text(sqlˋCOALESCE(${Store.store_name}, '')ˋ, 'current_store_name'), |
-| `modules/administration/terminal-directory.ts:140` | T literal | input.provider === 'pine-labs' ? sqlˋFALSEˋ : undefined, |
-| `modules/administration/service.ts:1147` | T SQL function expression | column: sqlˋtrim(concat(coalesce(${SalesPerson.first_name},''),' ',coalesce(${SalesPerson.last_name},'')))ˋ, |
-| `modules/administration/service.ts:1463` | T SQL function expression | column: sqlˋtrim(concat(coalesce(${PosUser.first_name},''),' ',coalesce(${PosUser.last_name},'')))ˋ, |
-| `modules/administration/import-job.ts:231` | T value bound for a column whose ORM type cannot carry it | .set({ stock: sqlˋ${updated}ˋ }) |
-| `modules/administration/import-job.ts:383` | T value bound for a column whose ORM type cannot carry it | .set({ stock: sqlˋ${after}ˋ }) |
-| `modules/administration/import-job.ts:424` | T value bound for a column whose ORM type cannot carry it | .set({ stock: sqlˋ${after}ˋ }) |
-| `modules/administration/import-job.ts:433` | T value bound for a column whose ORM type cannot carry it | .values({ product: productId, store: storeId, stock: sqlˋ${after}ˋ }); |
-| `modules/administration/import-job.ts:447` | T value bound for a column whose ORM type cannot carry it | .set({ stock: sqlˋ${updated}ˋ }) |
-| `modules/administration/import-job.ts:465` | T value bound for a column whose ORM type cannot carry it | .set({ is_avail: sqlˋ${available}ˋ, is_del: sqlˋ${deleted}ˋ }) |
-| `modules/administration/import-job.ts:475` | T value bound for a column whose ORM type cannot carry it | .set({ is_avail: sqlˋ${available}ˋ, is_del: sqlˋ${deleted}ˋ }) |
+| `modules/administration/terminal-directory.ts:98` | T literal | provider: text(sqlˋ'pine-labs'ˋ, 'provider'), |
+| `modules/administration/terminal-directory.ts:104` | T literal | deviceSerialNumber: text(sqlˋ'-'ˋ, 'device_serial_number'), |
+| `modules/administration/terminal-directory.ts:108` | T SQL function expression | storeName: text(sqlˋCOALESCE(${Store.store_name}, '')ˋ, 'current_store_name'), |
+| `modules/administration/terminal-directory.ts:117` | T literal | input.provider === 'paytm' ? sqlˋFALSEˋ : undefined, |
+| `modules/administration/terminal-directory.ts:123` | T literal | provider: text(sqlˋ'paytm'ˋ, 'provider'), |
+| `modules/administration/terminal-directory.ts:128` | T literal | imei: text(sqlˋ'-'ˋ, 'imei_no'), |
+| `modules/administration/terminal-directory.ts:130` | T CAST expression | sqlˋCAST(${PosPaytmMachine.device_serial_no} AS CHAR)ˋ, |
+| `modules/administration/terminal-directory.ts:136` | T literal | storeCode: text(sqlˋ'-'ˋ, 'merchant_store_pos_code'), |
+| `modules/administration/terminal-directory.ts:137` | T SQL function expression | storeName: text(sqlˋCOALESCE(${Store.store_name}, '')ˋ, 'current_store_name'), |
+| `modules/administration/terminal-directory.ts:146` | T literal | input.provider === 'pine-labs' ? sqlˋFALSEˋ : undefined, |
+| `modules/administration/service.ts:1160` | T SQL function expression | column: sqlˋtrim(concat(coalesce(${SalesPerson.first_name},''),' ',coalesce(${SalesPerson.last_name},'')))ˋ, |
+| `modules/administration/service.ts:1478` | T SQL function expression | column: sqlˋtrim(concat(coalesce(${PosUser.first_name},''),' ',coalesce(${PosUser.last_name},'')))ˋ, |
+| `modules/administration/import-job.ts:238` | T value bound for a column whose ORM type cannot carry it | .set({ stock: sqlˋ${updated}ˋ }) |
+| `modules/administration/import-job.ts:390` | T value bound for a column whose ORM type cannot carry it | .set({ stock: sqlˋ${after}ˋ }) |
+| `modules/administration/import-job.ts:431` | T value bound for a column whose ORM type cannot carry it | .set({ stock: sqlˋ${after}ˋ }) |
+| `modules/administration/import-job.ts:440` | T value bound for a column whose ORM type cannot carry it | .values({ product: productId, store: storeId, stock: sqlˋ${after}ˋ }); |
+| `modules/administration/import-job.ts:454` | T value bound for a column whose ORM type cannot carry it | .set({ stock: sqlˋ${updated}ˋ }) |
+| `modules/administration/import-job.ts:472` | T value bound for a column whose ORM type cannot carry it | .set({ is_avail: sqlˋ${available}ˋ, is_del: sqlˋ${deleted}ˋ }) |
+| `modules/administration/import-job.ts:482` | T value bound for a column whose ORM type cannot carry it | .set({ is_avail: sqlˋ${available}ˋ, is_del: sqlˋ${deleted}ˋ }) |
 | `modules/warehouse.ts:32` | E1 BigQuery (bound params) | const response: unknown = await client.query({ |
 | `modules/order-history/search/native.ts:71` | T bound boolean flag | .leftJoin(anyStore, and(eq(anyStore.order, Order.id), sqlˋ${storeMode}ˋ)) |
 | `modules/order-history/search/native.ts:76` | T bound boolean flag | sqlˋ${selected}ˋ, |
@@ -185,7 +185,8 @@ flash-sales still cannot drop its session variables.
 | `modules/order-history/search/queue.ts:81` | T CAST expression | eq(HyperlocalLocation.id, sqlˋCAST(${Order.location_id} AS SIGNED)ˋ), |
 | `modules/order-history/search/queue.ts:86` | T CAST expression | and(eq(Order.location_type, 'SW'), eq(Store.id, sqlˋCAST(${Order.location_id} AS SIGNED)ˋ)), |
 | `modules/catalog.ts:137` | T CASE expression | sqlˋcase when ${Product.parent_prod_id}=0 then ${Product.id} else ${Product.parent_prod_id} endˋ, |
-| `modules/catalog.ts:189` | T CAST expression | like(sqlˋcast(${Product.id} as char)ˋ, pattern), |
+| `modules/catalog.ts:170` | T CAST expression | like(sqlˋcast(${Product.id} as char)ˋ, pattern), |
+| `modules/catalog.ts:268` | T qualified identifier of a builder subquery column | const pageId = sqlˋ${sql.identifier('catalog_page')}.${sql.identifier('page_id')}ˋ; |
 
 ## Generated: every typed `sql<T>` site
 
@@ -209,8 +210,8 @@ flash-sales still cannot drop its session variables.
 | `modules/catalog-details/audit.ts:86` | T literal | storage_name: kind === 'storage' ? StoreStorage.storage_name : sql<string \| null>ˋnullˋ, |
 | `modules/catalog-details/audit.ts:92` | T CASE expression | user: sql< |
 | `modules/catalog-details/audit.ts:153` | T aggregate / ANY_VALUE expression | ? sql<string>ˋcoalesce(sum(case when ${match} then 1 else 0 end),0)ˋ |
-| `modules/catalog-details/matrix.ts:143` | T aggregate / ANY_VALUE expression | ? sql<string>ˋcoalesce(sum(case when ${match} then 1 else 0 end),0)ˋ |
-| `modules/catalog-details/matrix.ts:160` | T CASE expression | erpName: sql<string>ˋcoalesce(nullif(case when ${Product.parent_prod_id}=0 then ${Product.erp_product} else ${ |
+| `modules/catalog-details/matrix.ts:169` | T aggregate / ANY_VALUE expression | ? sql<string>ˋcoalesce(sum(case when ${match} then 1 else 0 end),0)ˋ |
+| `modules/catalog-details/matrix.ts:186` | T CASE expression | erpName: sql<string>ˋcoalesce(nullif(case when ${Product.parent_prod_id}=0 then ${Product.erp_product} else ${ |
 | `modules/special-permission-history/service.ts:71` | T CAST expression | id: sql<string>ˋcast(${activity.id} as char)ˋ, |
 | `modules/special-permission-history/service.ts:72` | T IS NOT NULL value expression | actorExists: sql<boolean>ˋ${PosUser.id} is not nullˋ.mapWith( |
 | `modules/special-permission-history/service.ts:118` | T CAST expression | .select({ total: sql<string>ˋcast(count(*) as char)ˋ }) |
@@ -231,9 +232,9 @@ flash-sales still cannot drop its session variables.
 | `modules/checkout/benefit-adjustments/repository.ts:81` | T CAST expression | points: sql<number>ˋCAST(${MUser.tss_points} AS CHAR)ˋ.mapWith(Number), |
 | `modules/checkout/benefit-adjustments/repository.ts:82` | T CAST expression | cashback: sql<number>ˋCAST(${MUser.cashback} AS CHAR)ˋ.mapWith(Number), |
 | `modules/checkout/customer-contact-authority.ts:25` | T SQL function expression (shared digest constant) | export const customerContactDigestSql = sql<string>ˋ${sql.raw(customerContactDigestExpression)}ˋ; |
-| `modules/checkout/finalizer.ts:140` | T aggregate / ANY_VALUE expression | .select({ invoice: sql<string \| null>ˋmax(${OrderStore.order_invoice})ˋ }) |
-| `modules/checkout/finalizer.ts:194` | T aggregate / ANY_VALUE expression | .select({ count: sql<number>ˋcount(*)ˋ }) |
-| `modules/checkout/finalizer.ts:204` | T aggregate / ANY_VALUE expression | .select({ count: sql<number>ˋcount(*)ˋ }) |
+| `modules/checkout/finalizer.ts:151` | T aggregate / ANY_VALUE expression | .select({ invoice: sql<string \| null>ˋmax(${OrderStore.order_invoice})ˋ }) |
+| `modules/checkout/finalizer.ts:205` | T aggregate / ANY_VALUE expression | .select({ count: sql<number>ˋcount(*)ˋ }) |
+| `modules/checkout/finalizer.ts:215` | T aggregate / ANY_VALUE expression | .select({ count: sql<number>ˋcount(*)ˋ }) |
 | `modules/customer-insights/benefits.ts:76` | T scalar subquery built with the builder | vouchers: sql<string>ˋ${db |
 | `modules/customer-insights/benefits.ts:78` | T CAST expression | .select({ count: sql<string>ˋCAST(COUNT(*) AS CHAR)ˋ }) |
 | `modules/operational-reports/performance.ts:121` | T aggregate / ANY_VALUE expression | const total = sql<number>ˋsum(${HasProduct.price})ˋ, |
@@ -295,9 +296,9 @@ flash-sales still cannot drop its session variables.
 | `modules/finance/service.ts:99` | T aggregate / ANY_VALUE expression | onlineOther: sql<string>ˋcoalesce(sum(case when ${or(isNull(OrderStore.district_transaction_id), eq(OrderStore |
 | `modules/finance/service.ts:109` | T arithmetic expression | sql<number>ˋ(${OrderStore.offline_payment}+${OrderStore.online_payment}+${OrderStore.online_other_payment})ˋ, |
 | `modules/finance/service.ts:127` | T aggregate / ANY_VALUE expression | .select({ cashRefund: sql<string>ˋcoalesce(sum(${AmountToBeRefundedLog.refunded_amt}),0)ˋ }) |
-| `modules/administration/inventory.ts:68` | T scalar subquery built with the builder | barcode: sql<string \| null>ˋ${db |
-| `modules/administration/terminal-directory.ts:31` | T SQL function expression | sql<string>ˋCONVERT(${value} USING utf8mb4) COLLATE utf8mb4_unicode_ciˋ.as(alias); |
-| `modules/administration/service.ts:1083` | T aggregate / ANY_VALUE expression | .select({ total: sql<string>ˋcoalesce(sum(${StockStorage.stock}),0)ˋ }) |
+| `modules/administration/inventory.ts:74` | T scalar subquery built with the builder | barcode: sql<string \| null>ˋ${db |
+| `modules/administration/terminal-directory.ts:32` | T SQL function expression | sql<string>ˋCONVERT(${value} USING utf8mb4) COLLATE utf8mb4_unicode_ciˋ.as(alias); |
+| `modules/administration/service.ts:1096` | T aggregate / ANY_VALUE expression | .select({ total: sql<string>ˋcoalesce(sum(${StockStorage.stock}),0)ˋ }) |
 | `modules/order-history/online-detail/native.ts:80` | T CAST expression | rows: sql<string>ˋCAST(COUNT(*) AS CHAR)ˋ, |
 | `modules/order-history/online-detail/native.ts:81` | T CAST expression | bytes: sql<string>ˋCAST(COALESCE(SUM(OCTET_LENGTH(${PosTransactionLog.pay_dict})+COALESCE(OCTET_LENGTH(${PosTr |
 | `modules/order-history/search/native.ts:49` | T literal | const zero = sql<string>ˋ'0'ˋ; |
@@ -332,9 +333,12 @@ flash-sales still cannot drop its session variables.
 | `modules/order-history/search/service.ts:201` | T CAST expression | id: sql<string>ˋCAST(${OrderStatus.id} AS CHAR)ˋ, |
 | `modules/order-history/search/queue.ts:96` | T CAST expression | eq(sql<string>ˋCAST(${Order.location_id} AS CHAR)ˋ, storeId), |
 | `modules/order-history/search/queue.ts:119` | T CAST expression | eq(sql<string>ˋCAST(${Order.location_id} AS CHAR)ˋ, storeId), |
-| `modules/catalog.ts:111` | T optimizer hint on a column (pre-existing) | id: sql<bigint>ˋ/*+ JOIN_ORDER(products, product_store) */ ${Product.id}ˋ, |
+| `modules/catalog.ts:111` | T optimizer hint on a column (pre-existing; `sql.raw` of a shipped constant) | id: sql<bigint>ˋ${sql.raw(hint)} ${Product.id}ˋ, |
 | `modules/catalog.ts:113` | T CASE expression | erp: sql<string>ˋcoalesce(nullif(case when ${Product.parent_prod_id}=0 then ${Product.erp_product} else ${pare |
 | `modules/catalog.ts:116` | T CASE expression | price: sql<string>ˋcase when ${Product.parent_prod_id}=0 then ${Product.price} else coalesce(${parent.price},0 |
 | `modules/catalog.ts:117` | T CASE expression | special: sql<string>ˋcase when ${Product.parent_prod_id}=0 then ${Product.spl_price} else coalesce(${parent.sp |
-| `modules/catalog.ts:122` | T scalar subquery built with the builder | barcode: sql<string \| null>ˋ${databases |
-| `modules/catalog.ts:129` | T scalar subquery built with the builder | exclusive: sql<string \| null>ˋ${databases |
+| `modules/catalog.ts:124` | T scalar subquery built with the builder | barcode: sql<string \| null>ˋ${reader |
+| `modules/catalog.ts:130` | T scalar subquery built with the builder | exclusive: sql<string \| null>ˋ${reader |
+| `modules/catalog.ts:219` | T optimizer hint on a column | id: sql<bigint>ˋ/*+ JOIN_ORDER(products_gs1, products, product_store) */ ${Product.id}ˋ.as( |
+| `modules/catalog.ts:241` | T optimizer hint on a column | id: sql<bigint>ˋ/*+ JOIN_ORDER(product_store, products) INDEX(product_store idx_store_id_stock_is_avail_is_d |
+| `modules/administration/inventory.ts:64` | T optimizer hint on a column | id: sql<bigint>ˋ/*+ JOIN_ORDER(products, product_store) */ ${Product.id}ˋ.mapWith( |

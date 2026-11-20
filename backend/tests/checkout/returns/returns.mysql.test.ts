@@ -14,6 +14,7 @@ import {
   type LineEligibility,
   type ReturnGateway,
 } from '../../../src/modules/checkout/return-workflow/contracts.js';
+import { financialYear } from '../../../src/modules/checkout/finalizer.js';
 import { refundAmount } from '../../../src/modules/checkout/return-workflow/gateway.js';
 import { returnRepository } from '../../../src/modules/checkout/return-workflow/repository.js';
 import { returnService } from '../../../src/modules/checkout/return-workflow/service.js';
@@ -722,6 +723,38 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
       { orderId: String(childOrderId), productId: '11', lineId: String(childOrderId + 100000) },
     ]);
     expect(calls.refund).toBe(0);
+  });
+
+  it("matches a store code with '_' or '%' literally in credit note and invoice sequences", async () => {
+    // helpers.py:2230-2231, 2284-2285: Django `startswith` escapes `\ % _`.
+    const { exchanges } = services(),
+      fy = financialYear(new Date().toISOString().slice(0, 10)),
+      line = await seedOrder(9013);
+    await connection.query("UPDATE stores SET location_code='F_1' WHERE id=1");
+    // Unescaped, 'F_1…' would match these other codes and continue their sequences.
+    await fixture.insert('return_orders', {
+      order_id: '1',
+      prod_id: '10',
+      has_product_id: '1',
+      store_id: 1,
+      qty: 1,
+      credit_note_no: `FX1${fy}CN00009`,
+      created_at: '2026-01-01 10:00:01',
+    });
+    await connection.query(
+      'INSERT INTO order_stores (order_id,store_id,counter_id,order_invoice) VALUES (1,1,3,?),(2,1,3,?)',
+      [`FX1${fy}INV00009`, `F%1/${fy}/INV/00004`],
+    );
+    const result = await exchanges.start(operator, '1', line.orderId, line.lineId, exchangeInput());
+    expect(result.phase).toBe('completed');
+    expect(
+      (await rows('SELECT credit_note_no FROM return_orders WHERE order_id=9013'))[0]
+        ?.credit_note_no,
+    ).toBe(`F_1${fy}CN00001`);
+    expect(
+      (await rows('SELECT order_invoice FROM order_stores WHERE order_id=?', [childOrderId]))[0]
+        ?.order_invoice,
+    ).toBe(`F_1${fy}INV00001`);
   });
 
   it('marks a failed replacement for manual fix, alerts Slack and retries with stored picks', async () => {

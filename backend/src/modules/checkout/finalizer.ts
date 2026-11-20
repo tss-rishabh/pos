@@ -25,6 +25,13 @@ export function financialYear(date: string): string {
   const start = value.month >= 4 ? value.year : value.year - 1;
   return String(start).slice(-2) + String(start + 1).slice(-2);
 }
+/**
+ * A LIKE pattern that matches `value` literally (MySQL's default escape character `\`), as
+ * Django's `startswith` lookup escapes its argument (`prep_for_like_query`).
+ */
+export function likeLiteral(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&');
+}
 /** Source Helpers.get_transaction_id preserves hyphen handling for Paytm. */
 export function transactionIdentifier(
   orderId: string,
@@ -135,7 +142,11 @@ export function orderFinalizer(
           record.date ||
             Temporal.Now.zonedDateTimeISO(config.BUSINESS_TIMEZONE).toPlainDate().toString(),
         );
-        const code = store?.code ?? '';
+        // `Helpers.generate_invoice_number` (helpers.py:2208-2245) formats the nullable
+        // `Store.location_code` in f-strings, so a NULL code is 'None'. Its Django
+        // `startswith` lookups escape `\ % _`, so the code is matched literally.
+        const code = store?.code ?? 'None',
+          literal = likeLiteral(code);
         const [last] = await tx
           .select({ invoice: sql<string | null>`max(${OrderStore.order_invoice})` })
           .from(OrderStore)
@@ -143,8 +154,8 @@ export function orderFinalizer(
             and(
               eq(OrderStore.store, record.storeId),
               or(
-                like(OrderStore.order_invoice, `${code}/${fy}/INV/%`),
-                like(OrderStore.order_invoice, `${code}${fy}INV%`),
+                like(OrderStore.order_invoice, `${literal}/${fy}/INV/%`),
+                like(OrderStore.order_invoice, `${literal}${fy}INV%`),
               ),
             ),
           )

@@ -1423,8 +1423,15 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
               and(
                 eq(ReturnOrder.store_id, Number(storeId)),
                 or(
-                  like(ReturnOrder.credit_note_no, `${storeCode}/${fy}/CN/%`),
-                  like(ReturnOrder.credit_note_no, `${storeCode}${fy}CN%`),
+                  // Django `startswith` escapes `\ % _`: the store code matches literally.
+                  like(
+                    ReturnOrder.credit_note_no,
+                    `${storeCode.replace(/[\\%_]/g, '\\$&')}/${fy}/CN/%`,
+                  ),
+                  like(
+                    ReturnOrder.credit_note_no,
+                    `${storeCode.replace(/[\\%_]/g, '\\$&')}${fy}CN%`,
+                  ),
                 ),
               ),
             )
@@ -1874,8 +1881,12 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
                   and(
                     eq(OrderStore.store, BigInt(storeId)),
                     or(
-                      like(OrderStore.order_invoice, `${code}/${fy}/INV/%`),
-                      like(OrderStore.order_invoice, `${code}${fy}INV%`),
+                      // Django `startswith` escapes `\ % _`: the store code matches literally.
+                      like(
+                        OrderStore.order_invoice,
+                        `${code.replace(/[\\%_]/g, '\\$&')}/${fy}/INV/%`,
+                      ),
+                      like(OrderStore.order_invoice, `${code.replace(/[\\%_]/g, '\\$&')}${fy}INV%`),
                     ),
                   ),
                 )

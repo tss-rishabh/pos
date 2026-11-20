@@ -13,6 +13,8 @@ import { AppError } from '../../domain/errors.js';
  */
 export interface PosStateStore {
   get(key: string): Promise<string | null>;
+  /** MGET: one value (or null) per key, in key order. */
+  getMany(keys: readonly string[]): Promise<(string | null)[]>;
   /** SET with EX. `onlyIfAbsent` is `SET NX`. Returns false when NX did not write. */
   set(key: string, value: string, ttlSeconds: number, onlyIfAbsent?: boolean): Promise<boolean>;
   /** Atomically replaces the value only when the current value equals `expected` (null = absent). */
@@ -104,6 +106,14 @@ export function redisStateStore(config: Config, connectionUrl: string): PosState
       const value = await command((c) => c.get(key));
       return typeof value === 'string' ? value : null;
     },
+    async getMany(keys) {
+      if (!keys.length) return [];
+      const values = await command((c) => c.mGet([...keys]));
+      return keys.map((_, index) => {
+        const value = values[index];
+        return typeof value === 'string' ? value : null;
+      });
+    },
     async set(key, value, ttlSeconds, onlyIfAbsent = false) {
       const result = await command((c) =>
         c.set(key, value, onlyIfAbsent ? { EX: ttlSeconds, NX: true } : { EX: ttlSeconds }),
@@ -159,6 +169,9 @@ export function memoryStateStore(now: () => number = Date.now): PosStateStore & 
     async get(key) {
       return live(key)?.value ?? null;
     },
+    async getMany(keys) {
+      return keys.map((key) => live(key)?.value ?? null);
+    },
     async set(key, value, ttlSeconds, onlyIfAbsent = false) {
       if (onlyIfAbsent && live(key)) return false;
       data.set(key, { value, expiresAt: now() + ttlSeconds * 1000 });
@@ -197,7 +210,19 @@ export async function readJson<T>(
   key: string,
   schema: z.ZodType<T>,
 ): Promise<T | null> {
-  const raw = await store.get(key);
+  return parseStoredJson(await store.get(key), schema);
+}
+
+/** `readJson` for several keys in one MGET round trip; results follow key order. */
+export async function readJsonMany<T>(
+  store: PosStateStore,
+  keys: readonly string[],
+  schema: z.ZodType<T>,
+): Promise<(T | null)[]> {
+  return (await store.getMany(keys)).map((raw) => parseStoredJson(raw, schema));
+}
+
+function parseStoredJson<T>(raw: string | null, schema: z.ZodType<T>): T | null {
   if (raw === null) return null;
   let parsed: unknown;
   try {

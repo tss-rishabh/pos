@@ -357,3 +357,65 @@ export const initialProgress = (): ImportProgress => ({
   productIds: [],
   inserts: [],
 });
+
+/**
+ * Per-record journal `pos:import_progress:{uploadId}:journal` (Redis list, newest first by
+ * LPUSH, EX 7 days). The snapshot under `importProgressKey` is only rewritten every
+ * `importCheckpointRecords` records; each committed record in between appends one small entry
+ * here (one LPUSH, O(1)), instead of rewriting the whole growing snapshot per row. The current
+ * cursor is the snapshot plus the journal entries after it (`replayImportJournal`).
+ */
+export const importProgressJournalKey = (uploadId: string) =>
+  `${importProgressKey(uploadId)}:journal`;
+export const importCheckpointRecords = 500;
+export const importJournalEntry = z
+  .object({
+    /** The record number this entry completes (1-based). */
+    record: z.number().int().min(1),
+    failed: failedData,
+    productId: z
+      .string()
+      .regex(/^-?\d+$/)
+      .nullable(),
+    inserts: z.array(z.tuple([identifier, identifier])),
+  })
+  .strict();
+export type ImportJournalEntry = z.infer<typeof importJournalEntry>;
+
+/** Appends one committed record's outcome to the cursor in place (no copy of the arrays). */
+export function applyImportJournalEntry(progress: ImportProgress, entry: ImportJournalEntry) {
+  progress.record = entry.record;
+  progress.failed.push(...entry.failed);
+  if (entry.productId) progress.productIds.push(entry.productId);
+  progress.inserts.push(...entry.inserts);
+}
+
+/**
+ * Snapshot plus journal (as `LRANGE 0 -1` returns it, newest first). Entries at or before the
+ * snapshot's record were already folded in by a checkpoint whose journal reset did not complete,
+ * and are skipped. Returns null when the journal is unreadable or has a gap, so the caller treats
+ * the cursor as lost rather than re-applying or skipping a committed record.
+ */
+export function replayImportJournal(
+  snapshot: ImportProgress,
+  journal: readonly string[],
+): ImportProgress | null {
+  const progress: ImportProgress = {
+    record: snapshot.record,
+    failed: [...snapshot.failed],
+    productIds: [...snapshot.productIds],
+    inserts: [...snapshot.inserts],
+  };
+  for (let index = journal.length - 1; index >= 0; index--) {
+    let entry: ImportJournalEntry;
+    try {
+      entry = importJournalEntry.parse(JSON.parse(journal[index]!) as unknown);
+    } catch {
+      return null;
+    }
+    if (entry.record <= progress.record) continue;
+    if (entry.record !== progress.record + 1) return null;
+    applyImportJournalEntry(progress, entry);
+  }
+  return progress;
+}
