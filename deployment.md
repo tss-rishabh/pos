@@ -222,7 +222,7 @@ checks on both OSes. An unsigned local package is not a signed production releas
 Installed desktop builds write a JSON-lines log, rotated at 5 MiB with three old copies kept, so four files at most. It
 holds event IDs, error codes and request/user IDs only. Support collects it from
 `~/Library/Logs/Retail POS/retail-pos.jsonl` on macOS and
-`%APPDATA%\\Retail POS\\logs\\retail-pos.jsonl` on Windows.
+`%APPDATA%\Retail POS\logs\retail-pos.jsonl` on Windows.
 
 For the optional confidential Slack incoming-webhook flow, configure its approved
 app credentials, exact same-origin HTTPS callback and workspace IDs in the
