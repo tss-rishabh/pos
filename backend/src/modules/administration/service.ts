@@ -94,6 +94,17 @@ const required = <T>(value: T | undefined, resource: string): T => {
   return value;
 };
 const escapedSearch = (value: string) => `%${value.replace(/[\\%_]/g, '\\$&')}%`;
+/**
+ * Multi-row INSERT batches, as legacy `bulk_create` (`users/views.py:589`), which sends the whole
+ * list in one statement on MySQL. Batches of 1000 bound the packet size; rows keep their order, so
+ * auto-increment ids still follow list order.
+ */
+export function insertBatches<T>(rows: readonly T[], size = 1000): T[][] {
+  const result: T[][] = [];
+  for (let start = 0; start < rows.length; start += size)
+    result.push(rows.slice(start, start + size));
+  return result;
+}
 const active = (value: AdminPage['active']) => (value === 'all' ? undefined : value === 'true');
 export function administrationService(
   config: Config,
@@ -651,11 +662,13 @@ export function administrationService(
             created_at: now(),
             updated_at: now(),
           });
-          for (const operatorId of defaultOperators)
-            await transaction.insert(UserStore).values({
-              django_user_id: operatorId,
-              store_id: BigInt(storeId),
-            });
+          for (const batch of insertBatches(defaultOperators))
+            await transaction.insert(UserStore).values(
+              batch.map((operatorId) => ({
+                django_user_id: operatorId,
+                store_id: BigInt(storeId),
+              })),
+            );
           return { id: storeId, message: 'Store has been created!' };
         }),
       );
@@ -1418,12 +1431,14 @@ export function administrationService(
                 inArray(StoreSalesPerson.store, diff.remove.map(BigInt)),
               ),
             );
-        for (const id of diff.add)
-          await transaction.insert(StoreSalesPerson).values({
-            salesperson: BigInt(salespersonId),
-            store: BigInt(id),
-            is_active: id === activeStoreId ? 1 : 0,
-          });
+        for (const batch of insertBatches(diff.add))
+          await transaction.insert(StoreSalesPerson).values(
+            batch.map((id) => ({
+              salesperson: BigInt(salespersonId),
+              store: BigInt(id),
+              is_active: id === activeStoreId ? 1 : 0,
+            })),
+          );
         if (available.length)
           await transaction
             .update(StoreSalesPerson)
@@ -1627,10 +1642,12 @@ export function administrationService(
                   inArray(UserStore.store_id, diff.remove.map(BigInt)),
                 ),
               );
-          for (const id of diff.add)
+          for (const batch of insertBatches(diff.add))
             await transaction
               .insert(UserStore)
-              .values({ django_user_id: BigInt(operatorId), store_id: BigInt(id) });
+              .values(
+                batch.map((id) => ({ django_user_id: BigInt(operatorId), store_id: BigInt(id) })),
+              );
           if (diff.add.length || diff.remove.length)
             await invalidateOperatorAuthentication(transaction, operatorId);
           return {

@@ -20,10 +20,15 @@ import type { JobLogger } from '../../jobs/runtime.js';
 import type { AdministrationTransaction } from './checkins.js';
 import {
   PythonError,
+  applyImportJournalEntry,
+  importCheckpointRecords,
   importMessages,
   importProgress,
+  importProgressJournalKey,
   importProgressKey,
   importProgressTtlSeconds,
+  replayImportJournal,
+  type ImportJournalEntry,
   pythonDictRows,
   pythonInt,
   pythonJsonDumps,
@@ -61,6 +66,8 @@ export interface InventoryImportJobDependencies {
   stockProcedure: StockProcedure;
   productSync: ProductSynchronizer;
   log: JobLogger;
+  /** Records between progress snapshots (default `importCheckpointRecords`); tests shorten it. */
+  checkpointRecords?: number;
 }
 
 const lockMs = 15 * 60 * 1000;
@@ -525,15 +532,19 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
       return;
     }
     const key = importProgressKey(uploadId),
-      saved = await ephemeral.get(key);
-    let progress: ImportProgress;
+      journalKey = importProgressJournalKey(uploadId),
+      saved = await ephemeral.get(key),
+      // Read outside the parse guard: a Redis failure fails the job, it never closes the upload.
+      journal = saved === null ? [] : await ephemeral.lRange(journalKey, 0, -1);
+    let progress: ImportProgress | null;
     try {
       if (saved === null) throw new Error('missing');
-      progress = importProgress.parse(JSON.parse(saved) as unknown);
+      progress = replayImportJournal(importProgress.parse(JSON.parse(saved) as unknown), journal);
     } catch {
-      // Ledger risk note: without the cursor, re-running could re-apply committed hold movements.
-      return closeInterrupted(uploadId, context);
+      progress = null;
     }
+    // Ledger risk note: without the cursor, re-running could re-apply committed hold movements.
+    if (!progress) return closeInterrupted(uploadId, context);
     if (!deps.storage || !upload.filename) throw new Error('CSV_STORAGE_UNAVAILABLE');
     const reader = db.get('writer');
     const [userStores, activeStores] = await Promise.all([
@@ -577,15 +588,22 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
             ? productStoreRecord(tx, scope, records[index]!, context)
             : productStockRecord(tx, scope, records[index]!, context),
         );
-      progress = {
+      const entry: ImportJournalEntry = {
         record: index + 1,
-        failed: [...progress.failed, ...outcome.failed],
-        productIds: outcome.productId
-          ? [...progress.productIds, outcome.productId]
-          : progress.productIds,
-        inserts: [...progress.inserts, ...outcome.inserts],
+        failed: outcome.failed,
+        productId: outcome.productId,
+        inserts: outcome.inserts,
       };
-      await ephemeral.set(key, JSON.stringify(progress), { EX: importProgressTtlSeconds });
+      applyImportJournalEntry(progress, entry);
+      // The record is committed: make it durable before anything else (one LPUSH of this
+      // record's outcome), then fold the journal into the snapshot every N records. A crash
+      // between the snapshot SET and the journal DEL leaves entries the replay skips.
+      await ephemeral.lPush(journalKey, JSON.stringify(entry));
+      await ephemeral.expire(journalKey, importProgressTtlSeconds);
+      if (entry.record % (deps.checkpointRecords ?? importCheckpointRecords) === 0) {
+        await ephemeral.set(key, JSON.stringify(progress), { EX: importProgressTtlSeconds });
+        await ephemeral.del(journalKey);
+      }
       await ephemeral.expire(lockKey, lockMs / 1000);
       if (outcome.syncNow.length)
         await deps.productSync(outcome.syncNow, { operatorId: args.user_id });
@@ -621,7 +639,7 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
         })
         .where(eq(CsvUpload.id, BigInt(uploadId)));
     });
-    await ephemeral.del(key);
+    await ephemeral.del(key, journalKey);
     log(
       'info',
       event(context, uploadId, 'completed', {
