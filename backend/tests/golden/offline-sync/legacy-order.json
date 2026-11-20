@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "v2-oracles/offline/order_oracle.py (outside the repository): executes the pinned source text of order/views.py AjaxOrderView (post, order, orders) with request.POST, Redis, get_user_cart, MUser, requests.post and the post-order ORM rows stubbed, recording the pos/order and payment-microservice requests; and evaluates the pinned Comments(...) calls at helpers/helpers.py:667 and order/views.py:725 on the pinned order/models.py Comments model (Django 4.2.5), reporting the column values Django inserts",
+  "runtime": "CPython 3.10.22 via uv --no-project with django==4.2.5",
+  "capturedAt": "2026-11-20T12:21:47Z",
+  "test": "tests/offline-sync/legacy-order.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e5b51e1f1f5c3f6956de87b31dd5933cad4ac5bef6fe6e199386573f9f70d164",
+      "args": [
+        "order_oracle.py",
+        "<backend-pos-web@78d5b63>"
+      ],
+      "status": 0,
+      "output": {
+        "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "sourceSha256": {
+          "order/views.py": "3a91805d0f0006a90c6cebb744dc3cc742a384f449f60344469d2941875f1eea",
+          "order/models.py": "e406410ae79dd2383a70f6a63a6fd29a4bac392e56e4cf1e66659d7dcc7bb05d",
+          "helpers/helpers.py": "7a5010baca25487e2020950ea0e129c2a72e0ab664dc6cf3207c7d6bb12f88c0"
+        },
+        "cases": [
+          {
+            "requests": [
+              {
+                "url": "https://api-v2.example.test/api/v2/pos/order",
+                "json": {
+                  "payment_method": "coc",
+                  "is_pos": true,
+                  "store_id": 1,
+                  "counter_id": 3,
+                  "salesperson_id": 5,
+                  "admin_user_id": 777,
+                  "custom_data": null,
+                  "custom_created_at": null,
+                  "gc_data": {},
+                  "tab_id": 424242
+                },
+                "headerKeys": [
+                  "Authorization",
+                  "Content-Type"
+                ]
+              },
+              {
+                "url": "https://payments.example.test/order",
+                "json": {
+                  "order": 7001,
+                  "method": "coc",
+                  "isValid": true,
+                  "name": "Fixture",
+                  "is_pos": true,
+                  "store_id": 1
+                },
+                "headerKeys": [
+                  "Authorization",
+                  "Content-Type"
+                ]
+              }
+            ],
+            "reply": {
+              "status": 200,
+              "message": "Order Created",
+              "order_id": 7001,
+              "transaction_id": "T7001",
+              "data": {}
+            },
+            "redisDeleted": [
+              "1_424242"
+            ]
+          }
+        ],
+        "comments": [
+          {
+            "source": "helpers/helpers.py:667",
+            "fields": {
+              "order_id": 7001,
+              "status_id": 3,
+              "comment": "<comment text>",
+              "notify": 0,
+              "user_id": 44,
+              "package_details": "",
+              "created_at": "auto_now_add",
+              "updated_at": "auto_now",
+              "has_product_id": 0,
+              "prod_id": 0
+            }
+          },
+          {
+            "source": "order/views.py:725",
+            "fields": {
+              "order_id": 7001,
+              "status_id": 1,
+              "comment": "<comment text>",
+              "notify": 0,
+              "user_id": 44,
+              "package_details": "",
+              "created_at": "auto_now_add",
+              "updated_at": "auto_now",
+              "has_product_id": 0,
+              "prod_id": 0
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
