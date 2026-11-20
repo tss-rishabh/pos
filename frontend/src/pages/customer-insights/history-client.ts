@@ -27,7 +27,7 @@ export const customerHistoryResponse = z
   .object({
     customerId: id,
     checkoutVersion: z.number().int().nonnegative(),
-    reader: z.literal('bigquery'),
+    reader: z.literal('primary'),
     fetchedAt: z.iso.datetime(),
     summary: z
       .object({

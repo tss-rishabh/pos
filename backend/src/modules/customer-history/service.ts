@@ -46,7 +46,7 @@ export function customerHistoryService(
   dependencies: { capture?: HistoryCaptureFn; gateway?: HistoryGateway; clock?: () => Date } = {},
 ) {
   const capture = dependencies.capture || historyCapture(config, db),
-    gateway = dependencies.gateway || customerHistoryGateway(config),
+    gateway = dependencies.gateway || customerHistoryGateway(db),
     clock = dependencies.clock || (() => new Date());
   function cursor(kind: string, context: HistoryCapture, anchor: string) {
     const payload = Buffer.from(
@@ -103,7 +103,7 @@ export function customerHistoryService(
       const input = historyQuery.parse(value),
         initial = await capture(user, scope),
         anchor = before(input.returnBefore, 'orders', initial),
-        raw = await gateway.read(initial.customerId, initial.sourceNow, anchor, input.limit),
+        raw = await gateway.read(initial.customerId, anchor, input.limit),
         current = await recheck(user, scope, initial),
         parsed = resultSchema.safeParse(raw);
       if (!parsed.success) throw invalid();
@@ -120,7 +120,7 @@ export function customerHistoryService(
       return customerHistoryResponse.parse({
         customerId: current.customerId,
         checkoutVersion: current.checkoutVersion,
-        reader: 'bigquery',
+        reader: 'primary',
         fetchedAt: clock().toISOString(),
         summary: parsed.data.summary,
         recentOrders: parsed.data.recentOrders,

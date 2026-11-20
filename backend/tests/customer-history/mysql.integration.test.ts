@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile, rename } from 'node:fs/promises';
+import { drizzle } from 'drizzle-orm/mysql2';
 import mysql from 'mysql2/promise';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -8,6 +9,8 @@ import {
   customerHistoryFixtures,
   type HistoryFixture,
 } from '../../tools/customer-history/fixtures.js';
+import type { Databases } from '../../src/db/pools.js';
+import { customerHistoryGateway } from '../../src/modules/customer-history/gateway.js';
 import { goldenSpawnResult } from '../golden/load.js';
 
 describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
@@ -16,7 +19,10 @@ describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
     let connection: mysql.Connection | undefined,
       schema = '',
       fixture: ReturnType<typeof verifiedMysqlFixture> | undefined;
-    const db = () => {
+    // One session, so the source statements and the gateway share the fixed `SET timestamp` NOW().
+    const readerOver = (value: mysql.Connection) =>
+        ({ get: () => drizzle(value), close: async () => {} }) as unknown as Databases,
+      db = () => {
         if (!connection || !fixture) throw new Error('Fixture unavailable.');
         return { connection, fixture };
       },
@@ -145,6 +151,29 @@ describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
             returnedRows.every((row) => row.itemCount === '23' && row.hasMoreItems === true),
           ).toBe(true);
         }
+        // The rewrite's MySQL gateway on the same snapshot and fixed session NOW() must equal the
+        // pinned source statements and ORM projections above, including the 64-bit IDs.
+        const gateway = customerHistoryGateway(readerOver(connection));
+        expect(await gateway.read('7', '', 100)).toEqual(expected);
+        for (const row of returnedRows) {
+          const [lines] = await connection.query<mysql.RowDataPacket[]>(
+            'SELECT CAST(hp.id AS CHAR) id,CAST(hp.prod_id AS CHAR) productId,p.product name FROM has_products hp INNER JOIN products p ON p.id=hp.prod_id WHERE hp.order_id=? ORDER BY hp.id DESC',
+            [row.id],
+          );
+          expect(await gateway.lines('7', String(row.id), '', 100)).toEqual({
+            orderFound: true,
+            items: lines.map((line) => ({ ...line })),
+          });
+          if (lines.length > 2)
+            expect(await gateway.lines('7', String(row.id), String(lines[1]!.id), 1)).toEqual({
+              orderFound: true,
+              items: lines.slice(2, 4).map((line) => ({ ...line })),
+            });
+        }
+        expect(await gateway.lines('99', vector.orders[0]?.id || '1', '', 10)).toEqual({
+          orderFound: false,
+          items: [],
+        });
         captured.push({ name: vector.name, dataset: vector, expected });
       });
     it('preserves the source Latin1 feedback constraint instead of changing fixture collation for unsupported characters', async () => {

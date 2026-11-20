@@ -28,7 +28,7 @@ fall into two groups:
 ## E1. BigQuery / warehouse
 | site | reason |
 |---|---|
-| `modules/warehouse.ts:32` | BigQuery client `query({ query, params, types })`. Warehouse SQL is not MySQL. Values are named BigQuery parameters only. The other warehouse builders (`*/warehouse*.ts`, `order-history/sql.ts`, `customer-history/sql.ts`, `finance/history.ts`, `special-permission-history/warehouse-sql.ts`, the BigQuery branches of `scheduled-data.ts`, `order-transactions.ts`, `hyperlocal-daily.ts` and `feedback-history-sql.ts`) are plain strings run through this single site. |
+| `modules/warehouse.ts:32` | BigQuery client `query({ query, params, types })`. Warehouse SQL is not MySQL. Values are named BigQuery parameters only. The other warehouse builders (`*/warehouse*.ts`, `order-history/sql.ts`, `finance/history.ts`, `special-permission-history/warehouse-sql.ts`, the BigQuery branches of `scheduled-data.ts`, `order-transactions.ts`, `hyperlocal-daily.ts` and `feedback-history-sql.ts`) are plain strings run through this single site. |
 
 ## E2. Stored procedure calls (bound values)
 | site | reason |
@@ -97,6 +97,10 @@ flash-sales still cannot drop its session variables.
 | `modules/application-links/schema.ts:10` | E7 column DEFAULT in a table definition (not a query) | .default(sqlˋCURRENT_TIMESTAMPˋ), |
 | `modules/application-links/schema.ts:13` | E7 column DEFAULT in a table definition (not a query) | .default(sqlˋCURRENT_TIMESTAMPˋ), |
 | `modules/application-links/schema.ts:16` | E7 column DEFAULT in a table definition (not a query) | .default(sqlˋCURRENT_TIMESTAMPˋ), |
+| `modules/customer-history/gateway.ts:58` | T CASE expression | sqlˋCASE WHEN ${HasProduct.sub_prod_id}>0 THEN ${HasProduct.sub_prod_id} ELSE ${HasProduct.product} ENDˋ (join key, legacy `users/views.py:883`) |
+| `modules/customer-history/gateway.ts:65` | T CASE expression | sqlˋCASE WHEN ${effective.parent_prod_id}>0 THEN ${effective.parent_prod_id} ELSE ${effective.id} ENDˋ (join key, legacy `users/views.py:884`) |
+| `modules/customer-history/gateway.ts:86` | T SQL function expression | gt(Order.created_at, sqlˋNOW() - INTERVAL 30 DAYˋ) (legacy `users/views.py:913`) |
+| `modules/customer-history/gateway.ts:115` | T SQL function expression | .orderBy(desc(sqlˋDATE(${Order.created_at})ˋ), desc(Order.id)) |
 | `modules/catalog-details/snapshot.ts:28` | T CAST expression | .select({ gtin: sqlˋcast(${ProductBarcode.gtin} as char)ˋ }) |
 | `modules/catalog-details/snapshot.ts:44` | T CASE expression | sqlˋcase when ${own} then ${Product.id} else ${Product.parent_prod_id} endˋ, |
 | `modules/catalog-details/queries.ts:72` | T CAST expression | like(sqlˋcast(${Product.id} as char)ˋ, pattern), |
@@ -215,7 +219,17 @@ flash-sales still cannot drop its session variables.
 | `modules/special-permission-history/service.ts:71` | T CAST expression | id: sql<string>ˋcast(${activity.id} as char)ˋ, |
 | `modules/special-permission-history/service.ts:72` | T IS NOT NULL value expression | actorExists: sql<boolean>ˋ${PosUser.id} is not nullˋ.mapWith( |
 | `modules/special-permission-history/service.ts:118` | T CAST expression | .select({ total: sql<string>ˋcast(count(*) as char)ˋ }) |
-| `modules/customer-history/capture.ts:22` | T scalar subquery built with the builder | .select({ id: MUser.id, sourceNow: sql<string>ˋDATE_FORMAT(NOW(),'%Y-%m-%d %H:%i:%s')ˋ }) |
+| `modules/customer-history/gateway.ts:48` | T aggregate / ANY_VALUE expression | amount: sql<number \| string>ˋIFNULL(ROUND(SUM((${parent.price}*${HasProduct.qty})-${HasProduct.price}),0),0)ˋ (legacy `users/views.py:879`) |
+| `modules/customer-history/gateway.ts:72` | T aggregate / ANY_VALUE expression | store: sql<string>ˋCOUNT(${OrderStore.id})ˋ, |
+| `modules/customer-history/gateway.ts:73` | T aggregate / ANY_VALUE expression | total: sql<string>ˋCOUNT(${Order.id})ˋ, |
+| `modules/customer-history/gateway.ts:80` | T aggregate / ANY_VALUE expression | .select({ count: sql<string>ˋCOUNT(${Order.id})ˋ }) |
+| `modules/customer-history/gateway.ts:92` | T CASE expression | cancelled: sql<string>ˋCOUNT(CASE WHEN ${Order.order_statuses}=4 THEN 1 END)ˋ, |
+| `modules/customer-history/gateway.ts:93` | T CASE expression | returned: sql<string>ˋCOUNT(CASE WHEN ${Order.order_statuses}=6 THEN 1 END)ˋ, |
+| `modules/customer-history/gateway.ts:99` | T aggregate / ANY_VALUE expression | .select({ score: sql<number \| string \| null>ˋAVG(${NpsFeedback.feedback})ˋ }) (legacy `users/views.py:970`) |
+| `modules/customer-history/gateway.ts:109` | T SQL function expression | createdDate: sql<string \| null>ˋDATE(${Order.created_at})ˋ, |
+| `modules/customer-history/gateway.ts:111`, `:122` | T scalar subquery built with the builder | isStoreOrder: sql<number \| string>ˋ${storeOrder}ˋ (`exists(...)` of a builder select) |
+| `modules/customer-history/gateway.ts:141` | T window function | sql<number>ˋROW_NUMBER() OVER(PARTITION BY ${HasProduct.order} ORDER BY ${HasProduct.id} DESC)ˋ.as('position') |
+| `modules/customer-history/gateway.ts:144` | T window function | total: sql<string>ˋCOUNT(*) OVER(PARTITION BY ${HasProduct.order})ˋ.as('total'), |
 | `modules/gift-card-batches/service.ts:209` | T SQL function expression | sql<boolean>ˋCAST(CONVERT(CONVERT(${input.message} USING latin1) USING utf8mb4) AS BINARY)=CAST(${input.messag |
 | `modules/gift-card-batches/service.ts:319` | T CAST expression | .select({ total: sql<string>ˋCAST(COUNT(*) AS CHAR)ˋ }) |
 | `modules/gift-card-batches/service.ts:329` | T CAST expression | id: sql<string>ˋCAST(${GiftCardCollection.id} AS CHAR)ˋ, |
