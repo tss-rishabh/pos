@@ -210,3 +210,19 @@ Every fix and every feature must land on, and be verified on, all three clients:
   `thesouledstore-tss/pos`, whose `upstream` remote was removed.
 - Links to it in evidence and in past PR documents are historical records. Leave them unchanged.
 - Push to `main` only after the Windows and macOS legs of `desktop-platforms.yml` pass, as before.
+
+## Audit remediation decisions: user, 20 November 2026
+
+The plan is in `docs/plans/audit-remediation.md`, workstreams A–H.
+
+- **Customer history** at checkout reads MySQL for all dates, as legacy does, not BigQuery.
+- **The Glassbox finance feed's new contract is approved**: `/api/v1/finance/reconciliation/orders`, the global
+  error body, and BigQuery for today's returns.
+  - Recorded as an approved divergence.
+  - Glassbox must be updated before cut-over.
+- **The PG-discount approver tier** truncates the percentage with `parseInt`, as legacy does.
+- **A gift card's start date** defaults to today. This is an approved divergence; legacy sent `""`.
+- **Three stricter checks stay**, recorded as S61–S63:
+  - no negative wallet repair
+  - 422 on an unknown return reason
+  - a 255-character cap on return comments
