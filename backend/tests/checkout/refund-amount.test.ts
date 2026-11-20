@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { refundAmount } from '../../src/modules/checkout/return-workflow/gateway.js';
-import { pythonFloat } from '../../src/modules/checkout/payments/legacy.js';
+import { pythonFloatRepr } from '../../src/domain/python-compat.js';
 import { goldenStdout } from '../golden/load.js';
 
 // API-v2's cash branch returns unrounded floats; legacy accepts them (order/views.py:947-966).
@@ -27,7 +27,7 @@ describe('refund amount from API-v2', () => {
     expect(values.map(refundAmount)).toEqual(oracle.rounded.map((value) => value.toFixed(2)));
   });
   it('keeps the legacy repr for the transaction log', () => {
-    expect(values.map(pythonFloat)).toEqual(oracle.repr);
+    expect(values.map(pythonFloatRepr)).toEqual(oracle.repr);
   });
   it('accepts numeric strings and rejects non-numbers and real negatives', () => {
     expect(refundAmount('0.010000000000005116')).toBe('0.01');

@@ -6,7 +6,7 @@ import type { Databases } from '../../db/pools.js';
 import type { Principal } from '../../domain/access.js';
 import { AppError, unavailable } from '../../domain/errors.js';
 import { identifier } from '../../domain/validation.js';
-import { pythonRound2 } from '../../domain/python-round.js';
+import { pythonRound2 } from '../../domain/python-compat.js';
 import { warehouseService } from '../warehouse.js';
 import { orderReportScope, timestampReportBounds, warehouseView } from './report-inputs.js';
 import { pythonRoundInteger } from './number-format.js';

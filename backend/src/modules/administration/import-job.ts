@@ -31,13 +31,13 @@ import {
   type ImportJournalEntry,
   pythonDictRows,
   pythonInt,
-  pythonJsonDumps,
   requiredColumns,
   type CsvRecord,
   type FailedRecord,
   type ImportProgress,
   type UploadType,
 } from './import-domain.js';
+import { pythonJsonDumps } from '../../domain/python-compat.js';
 import type { CsvUploadStorage } from './import-storage.js';
 import type { ProductSynchronizer } from './product-sync.js';
 import type { StockProcedure } from './stock-procedure.js';

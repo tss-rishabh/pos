@@ -14,7 +14,7 @@ import {
 } from '../../db/legacy-schema.js';
 import { AppError } from '../../domain/errors.js';
 import { requireStore, type Principal } from '../../domain/access.js';
-import { pythonRound2 } from '../../domain/python-round.js';
+import { pythonRound2 } from '../../domain/python-compat.js';
 import type { CheckoutGateway } from './gateway.js';
 
 /** Source AjaxGetPayAmtView; fractional behavior intentionally matches Python. */

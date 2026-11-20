@@ -18,16 +18,18 @@ import { hasProductStatuses } from '../../db/legacy-enums.js';
 import { storedEnumValue } from '../../db/legacy-columns.js';
 import { aggregateStock } from '../../db/stock-projection/schema.js';
 import { AppError } from '../../domain/errors.js';
-import { pythonRound2 } from '../../domain/python-round.js';
+import {
+  pythonFloatDict,
+  pythonJsonDumps,
+  pythonRepr,
+  pythonRound2,
+} from '../../domain/python-compat.js';
 import type { JobArgs, JobName, EnqueueOptions } from '../../jobs/contract.js';
 import type { GatewayResponse } from './gateway.js';
 import {
   asPythonValue,
   locationStoreIds,
   parseLocationIds,
-  pythonFloatDict,
-  pythonJsonDumps,
-  pythonRepr,
   type PythonValue,
 } from './python-text.js';
 import type { LifecycleRuntime } from './runtime.js';

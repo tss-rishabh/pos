@@ -5,7 +5,7 @@ import {
   type Rollup,
   type ReportAux,
 } from '../src/modules/daily-report.js';
-import { pythonRound2 } from '../src/domain/python-round.js';
+import { pythonRound2 } from '../src/domain/python-compat.js';
 import {
   addCartPayload,
   setCartPayload,

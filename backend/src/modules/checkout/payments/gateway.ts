@@ -4,6 +4,7 @@ import type { Config } from '../../../config.js';
 import { boundedJson } from '../../../domain/http-json.js';
 import { AppError } from '../../../domain/errors.js';
 import { minorUnits } from '../../../domain/money.js';
+import { pythonJsonDumps, pythonRepr } from '../../../domain/python-compat.js';
 import { stringifyNumericJson } from '../../upstream.js';
 import { pineUploadPayload, pineStatusPayload, pineCancelPayload } from '../payloads.js';
 import {
@@ -13,7 +14,6 @@ import {
   type PaytmTerminal,
   type PineReply,
 } from './contracts.js';
-import { pythonRepr } from './legacy.js';
 
 export interface PaymentEnvironment {
   pineBaseUrl?: string;
@@ -38,22 +38,6 @@ export function paymentEnvironment(env: NodeJS.ProcessEnv = process.env): Paymen
     autoCancelMinutes:
       value.TSS_TERMINAL_AUTO_CANCEL_MINUTES ?? value.AUTO_CANCEL_DURATION_IN_MINUTES ?? 5,
   };
-}
-/** Python `json.dumps` text (", " and ": " separators, ASCII escapes) used for the Paytm checksum. */
-export function pythonJson(value: unknown): string {
-  if (Array.isArray(value)) return '[' + value.map(pythonJson).join(', ') + ']';
-  if (typeof value === 'object' && value !== null)
-    return (
-      '{' +
-      Object.entries(value)
-        .map(([key, item]) => pythonJson(key) + ': ' + pythonJson(item))
-        .join(', ') +
-      '}'
-    );
-  return JSON.stringify(value).replace(
-    /[\u007f-￿]/g,
-    (character) => '\\u' + character.charCodeAt(0).toString(16).padStart(4, '0'),
-  );
 }
 /** Paytm request/status body (terminal_helpers.py:368-375, 455-459). */
 export function paytmBody(
@@ -189,7 +173,7 @@ export function terminalGateway(
       );
     // Legacy signs json.dumps(body) for a request and the dict (string values) for a status.
     const signature = start
-      ? await PaytmChecksum.generateSignature(pythonJson(body), terminal.merchantKey)
+      ? await PaytmChecksum.generateSignature(pythonJsonDumps(body), terminal.merchantKey)
       : await PaytmChecksum.generateSignature(
           Object.fromEntries(
             Object.entries(body).filter(

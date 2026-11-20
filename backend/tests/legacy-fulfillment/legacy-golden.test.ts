@@ -10,7 +10,7 @@ import {
   availableStockProjection,
   availableSystemStockProjection,
 } from '../../src/db/stock-projection/service.js';
-import { pythonRound2 } from '../../src/domain/python-round.js';
+import { pythonRepr, pythonRound2 } from '../../src/domain/python-compat.js';
 import type { Principal } from '../../src/domain/access.js';
 import { memoryOrderRedis } from '../../src/modules/fulfillment/order-redis.js';
 import {
@@ -24,7 +24,7 @@ import {
 } from '../../src/modules/legacy-fulfillment/gateway.js';
 import { hyperlocalLifecycle } from '../../src/modules/legacy-fulfillment/hyperlocal.js';
 import { readLegacyFulfillmentOptions } from '../../src/modules/legacy-fulfillment/options.js';
-import { pythonRepr, type PythonValue } from '../../src/modules/legacy-fulfillment/python-text.js';
+import type { PythonValue } from '../../src/modules/legacy-fulfillment/python-text.js';
 import type { EnqueueOptions, JobArgs, JobName } from '../../src/jobs/contract.js';
 import {
   lifecycleRuntime,

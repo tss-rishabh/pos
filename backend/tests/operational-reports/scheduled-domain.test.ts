@@ -292,4 +292,18 @@ describe('actual source scheduled-report method fixtures', () => {
       ),
     ).toThrowError('Report source groups require reconciliation before delivery.');
   });
+  it('formats acceptance rates as CPython f"{rate:.2f}" (half-even on the exact float)', () => {
+    // report/views.py:1830,1844. 1/32*100 is exactly 3.125: CPython prints 3.12, toFixed 3.13.
+    const rows = Array.from({ length: 32 }, (_, index) => ({
+      orderId: String(index + 1),
+      storeId: '2',
+      action: index ? 'DECLINED' : 'ACCEPTED',
+      isTransfer: false,
+      mainStoreId: null,
+      nextStoreIds: [],
+    }));
+    const text = summaryMessages(date, rows, stores, slots).messages[0]!.text;
+    expect(text).toContain('Acceptance Rate: *3.12%*');
+    expect(text).toContain('Overall Accepted Rate:* *3.12%*');
+  });
 });

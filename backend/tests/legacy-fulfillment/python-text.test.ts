@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { pythonFloatDict, pythonJsonDumps, pythonRepr } from '../../src/domain/python-compat.js';
 import {
   legacyLocationIdsText,
   locationStoreIds,
   parseLocationIds,
-  pythonFloatDict,
-  pythonJsonDumps,
-  pythonRepr,
 } from '../../src/modules/legacy-fulfillment/python-text.js';
 
 describe('legacy Python text renderings stored by hyperlocal views', () => {

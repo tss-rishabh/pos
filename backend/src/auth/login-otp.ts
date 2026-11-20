@@ -1,6 +1,7 @@
 import { createHash, createHmac } from 'node:crypto';
 import { z } from 'zod';
 import type { Config } from '../config.js';
+import { pythonIntLiteral } from '../domain/python-compat.js';
 import { defineScript, type RedisPort } from '../redis/port.js';
 import { authKeys } from './keys.js';
 
@@ -124,10 +125,9 @@ export type LoginOtpState = ReturnType<typeof loginOtpState>;
 
 /** Python `int(value)` for the ASCII forms legacy settings accept (sign, `_` separators). */
 function pythonInt(name: string, value: string): number {
-  const trimmed = value.trim();
-  if (!/^[+-]?\d+(?:_\d+)*$/.test(trimmed))
-    throw new Error(`${name} must be an integer, as legacy int() requires.`);
-  return Number(trimmed.replace(/_/g, ''));
+  const literal = pythonIntLiteral(value);
+  if (literal === null) throw new Error(`${name} must be an integer, as legacy int() requires.`);
+  return Number(literal);
 }
 /**
  * Fixed OTP settings parsed exactly as legacy POSAdmin/settings.py:494-496:

@@ -5,7 +5,8 @@ import { AppError } from '../../domain/errors.js';
 import { assertCurrentStoreAccess } from '../administration/authorization.js';
 import type { AdministrationTransaction } from '../administration/checkins.js';
 import { hyperlocalLifecycle, type ActionResult } from './hyperlocal.js';
-import { locationStoreIds, parseLocationIds, pythonRepr } from './python-text.js';
+import { pythonRepr } from '../../domain/python-compat.js';
+import { locationStoreIds, parseLocationIds } from './python-text.js';
 import type { LifecycleRuntime } from './runtime.js';
 import { lifecycleStock } from './stock.js';
 
