@@ -631,6 +631,8 @@ describe.skipIf(!connection)('native source-family order details', () => {
         await browser.close();
       }
     },
-    20000,
+    // Cold CI runners compile the whole app in Vite dev on the first page load (20 s was too tight
+    // on macos-latest); the assertions are unchanged.
+    60000,
   );
 });

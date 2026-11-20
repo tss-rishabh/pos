@@ -20,6 +20,16 @@ const mode = runtimeMode({
   env: process.env,
   packageMetadata: packageMetadata(),
 });
+// Packaged builds refuse Chromium debugging and mock-keychain switches: the fuses block Node
+// inspection only, and a remote-debugging port would let any local process drive the renderer
+// (and its offline billing bridge); a mock keychain would wrap the offline database key with a
+// fixed, publicly known secret instead of the OS keystore. This runs before anything below
+// can create files: app.setAppLogsPath creates its folder, and a refused launch must leave the
+// profile untouched (tools/smoke-desktop-package.mjs, stage refused-switches).
+const refusedSwitches = ['remote-debugging-port', 'remote-debugging-pipe', 'use-mock-keychain'];
+if (app.isPackaged && refusedSwitches.some((name) => app.commandLine.hasSwitch(name))) {
+  app.exit(1);
+}
 // One web application and persistent Chromium profile provide the same offline
 // shell/session on desktop. Production serves frontend + /api on one HTTPS origin.
 if (mode.profileDirectory) app.setPath('userData', mode.profileDirectory);
@@ -90,14 +100,6 @@ function appendFallbackLog(error) {
   } catch {
     /* Logging never breaks the app. */
   }
-}
-// Packaged builds refuse Chromium debugging and mock-keychain switches: the fuses block Node
-// inspection only, and a remote-debugging port would let any local process drive the renderer
-// (and its offline billing bridge); a mock keychain would wrap the offline database key with a
-// fixed, publicly known secret instead of the OS keystore.
-const refusedSwitches = ['remote-debugging-port', 'remote-debugging-pipe', 'use-mock-keychain'];
-if (app.isPackaged && refusedSwitches.some((name) => app.commandLine.hasSwitch(name))) {
-  app.exit(1);
 }
 // An unpackaged run is the stock Electron.app, so macOS would show its icon; use the app icon.
 // Packaged builds carry build/icon.png in the bundle (.icns / .ico) and need nothing here.
