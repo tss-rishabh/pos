@@ -25,7 +25,7 @@ describe.skipIf(!template)('offline sync candidate match on legacy tables', () =
     input: {
       store?: number;
       counter?: number;
-      paid?: boolean;
+      paymentStatus?: number;
       createdAt?: string;
       lines: [number, number][];
       comment?: string;
@@ -35,7 +35,7 @@ describe.skipIf(!template)('offline sync candidate match on legacy tables', () =
       'INSERT INTO orders (id, user_id, payment_status, order_status, created_at, updated_at) VALUES (?, 1, ?, 1, ?, ?)',
       [
         id,
-        input.paid ? 4 : 1,
+        input.paymentStatus ?? 0,
         input.createdAt ?? '2026-11-19 15:00:00',
         input.createdAt ?? '2026-11-19 15:00:00',
       ],
@@ -56,13 +56,14 @@ describe.skipIf(!template)('offline sync candidate match on legacy tables', () =
         [id, input.comment],
       );
   };
-  const match = (lines = [{ productId: '1001', quantity: 2 }]) =>
+  const match = (counterId: string, lines = [{ productId: '1001', quantity: 2 }]) =>
     repository.unconfirmedOrder({
       storeId: '12',
-      counterId: '3',
+      counterId,
       reference,
       lines,
-      from: billedAt - 24 * 3600_000,
+      // As the service passes it: the billing time less the clock-skew allowance.
+      from: billedAt - 10 * 60_000,
       to: billedAt + 2 * 3600_000,
     });
 
@@ -104,36 +105,57 @@ describe.skipIf(!template)('offline sync candidate match on legacy tables', () =
     }
   });
 
-  it('finds nothing when no order at the counter has the sale lines', async () => {
-    await order(100, { paid: true, lines: [[1001, 2]] });
-    await order(101, { counter: 4, lines: [[1001, 2]] });
-    await order(102, { lines: [[1001, 3]] });
-    await order(103, {
+  // billedAt is 2026-11-19 14:30 business time (Asia/Kolkata).
+  it('ignores ordinary online orders and other offline sales with the same products', async () => {
+    // Paid online sale after billing.
+    await order(100, { paymentStatus: 4, lines: [[1001, 2]] });
+    // A legacy counter order left unpaid (payment 1) hours before the sale was billed: the order
+    // the desktop e2e matched before the rule was narrowed.
+    await order(101, { paymentStatus: 1, createdAt: '2026-11-19 11:00:00', lines: [[1001, 2]] });
+    // Another offline sale's order, not yet paid.
+    await order(102, {
+      paymentStatus: 0,
       lines: [[1001, 2]],
       comment: offlineComment('OFF-12-3-ABCDEF01-9', billedAt),
     });
-    await order(104, { lines: [[1001, 2]], createdAt: '2026-11-17 10:00:00' });
-    await expect(match()).resolves.toBeNull();
-  });
-
-  it('finds an unpaid, uncommented order with the sale lines', async () => {
-    await order(110, {
+    // Same products plus another line, a different quantity, a cancelled order, another counter.
+    await order(103, {
+      paymentStatus: 1,
       lines: [
-        [1001, 1],
-        [1001, 1],
+        [1001, 2],
         [2002, 1],
       ],
     });
-    await expect(match()).resolves.toBe('110');
+    await order(104, { paymentStatus: 1, lines: [[1001, 3]] });
+    await order(105, { paymentStatus: 2, lines: [[1001, 2]] });
+    await order(106, { paymentStatus: 1, counter: 4, lines: [[1001, 2]] });
+    await expect(match('3')).resolves.toBeNull();
   });
 
-  it('prefers the newest candidate and finds an order carrying this sale comment', async () => {
+  it('finds the order an earlier attempt created when its reply and Redis record were lost', async () => {
+    // API-v2 creates the POS order at payment status 0; no comment yet.
+    await order(110, { counter: 5, createdAt: '2026-11-19 14:31:00', lines: [[1001, 2]] });
+    await expect(match('5')).resolves.toBe('110');
+    // Within the clock-skew allowance before billing.
+    await order(111, {
+      counter: 6,
+      createdAt: '2026-11-19 14:25:00',
+      lines: [
+        [1001, 1],
+        [1001, 1],
+      ],
+    });
+    await expect(match('6')).resolves.toBe('111');
+  });
+
+  it('finds an order already carrying this sale comment, paid or not', async () => {
     await order(120, {
-      paid: true,
+      counter: 7,
+      paymentStatus: 4,
       lines: [[1001, 2]],
       comment: offlineComment(reference, billedAt),
     });
-    await expect(match()).resolves.toBe('120');
-    await expect(match([{ productId: '3003', quantity: 1 }])).resolves.toBeNull();
+    await expect(match('7')).resolves.toBe('120');
+    await expect(match('7', [{ productId: '3003', quantity: 1 }])).resolves.toBeNull();
   });
 });

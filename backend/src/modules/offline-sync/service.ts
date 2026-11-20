@@ -109,6 +109,8 @@ const DAY_MS = 24 * 3600_000,
   FALLBACK_WINDOW_MS = 31 * DAY_MS;
 /** Device clock skew tolerated against the server clock (future billing time, episode cap). */
 export const DEVICE_CLOCK_SKEW_MS = 5 * 60_000;
+/** Earliest creation time, before the billing time, of an order an upload attempt could make. */
+const CANDIDATE_CLOCK_SKEW_MS = 2 * DEVICE_CLOCK_SKEW_MS;
 /** Device sales older than this no longer affect the episode cap and are pruned. */
 const DEVICE_SALE_RETENTION_MS = 2 * DAY_MS;
 
@@ -700,7 +702,9 @@ export function offlineSyncService(deps: OfflineSyncDeps) {
           productId: line.productId,
           quantity: line.quantity,
         })),
-        from,
+        // An attempt can only follow billing, and the future-billing check keeps the device
+        // clock within DEVICE_CLOCK_SKEW_MS of the server at upload; allow twice that.
+        from: sale.billedAt - CANDIDATE_CLOCK_SKEW_MS,
         to: at + 3600_000,
       });
       if (candidate)

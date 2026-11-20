@@ -116,7 +116,7 @@ function harness(
       for (const [orderId, order] of [...orders].reverse()) {
         if (order.storeId !== query.storeId || order.counterId !== query.counterId) continue;
         const match = unconfirmedMatch(query, {
-          paid: order.paid,
+          paymentStatus: order.paid ? 4 : 1,
           lines: orderLines.get(orderId) ?? [],
           offlineComments: comments
             .filter((item) => item.orderId === orderId && item.comment.startsWith('Offline bill '))
@@ -631,7 +631,7 @@ describe('offline sale sync', () => {
         counterId: '3',
         reference,
         lines: [{ productId: '1001', quantity: 2 }],
-        from: billedAt - 24 * 3600_000,
+        from: billedAt - 10 * 60_000,
       }),
     );
     expect(h.checkout.submit).toHaveBeenCalledTimes(1);
@@ -775,23 +775,18 @@ describe('offline billing limits from the backend environment', () => {
 
 describe('candidate match for an unconfirmed order', () => {
   const query = { reference, lines: [{ productId: '1001', quantity: 2 }] };
+  const lines = [{ productId: '1001', quantity: 2 }];
   const comment = (ref: string) => offlineComment(ref, billedAt);
-  it('matches an unpaid order with the sale lines and no offline comment', () => {
+  it('matches an initiated or pending order with exactly the sale lines and no comment', () => {
+    for (const paymentStatus of [0, 1])
+      expect(unconfirmedMatch(query, { paymentStatus, lines, offlineComments: [] })).toBe(true);
+    // The same quantity split over two rows is the same multiset.
     expect(
       unconfirmedMatch(query, {
-        paid: false,
-        lines: [{ productId: '1001', quantity: 2 }],
-        offlineComments: [],
-      }),
-    ).toBe(true);
-    // Extra order lines (for example added by API-v2) do not hide the order.
-    expect(
-      unconfirmedMatch(query, {
-        paid: false,
+        paymentStatus: 0,
         lines: [
           { productId: '1001', quantity: 1 },
           { productId: '1001', quantity: 1 },
-          { productId: '2002', quantity: 1 },
         ],
         offlineComments: [],
       }),
@@ -800,25 +795,40 @@ describe('candidate match for an unconfirmed order', () => {
   it('matches an order already carrying this sale’s comment, paid or not', () => {
     expect(
       unconfirmedMatch(query, {
-        paid: true,
-        lines: [{ productId: '1001', quantity: 2 }],
-        offlineComments: [comment(reference)],
+        paymentStatus: 4,
+        lines,
+        offlineComments: [
+          comment(reference),
+          reconciliationComment({
+            reference,
+            mode: 'card',
+            tenderReference: 'RRN12345',
+            match: 'missing',
+          }),
+        ],
       }),
     ).toBe(true);
   });
-  it('ignores paid ordinary sales, other offline sales and different quantities', () => {
-    const lines = [{ productId: '1001', quantity: 2 }];
-    expect(unconfirmedMatch(query, { paid: true, lines, offlineComments: [] })).toBe(false);
+  it('ignores paid or cancelled orders, other offline sales, extra lines and other quantities', () => {
+    for (const paymentStatus of [2, 3, 4, 5])
+      expect(unconfirmedMatch(query, { paymentStatus, lines, offlineComments: [] })).toBe(false);
     expect(
       unconfirmedMatch(query, {
-        paid: false,
+        paymentStatus: 1,
         lines,
         offlineComments: [comment('OFF-12-3-ABCDEF01-10')],
       }),
     ).toBe(false);
     expect(
       unconfirmedMatch(query, {
-        paid: false,
+        paymentStatus: 1,
+        lines: [...lines, { productId: '2002', quantity: 1 }],
+        offlineComments: [],
+      }),
+    ).toBe(false);
+    expect(
+      unconfirmedMatch(query, {
+        paymentStatus: 1,
         lines: [{ productId: '1001', quantity: 3 }],
         offlineComments: [],
       }),

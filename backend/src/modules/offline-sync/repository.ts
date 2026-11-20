@@ -62,14 +62,24 @@ export interface UnconfirmedOrderQuery {
   from: number;
   to: number;
 }
-/** Orders created by offline sync are paid only after their billing comment is written, so an
- * order created for this sale but never confirmed has either this sale's comment or no offline
- * comment and no payment. The match is on the counter and the sale's products and quantities
- * (extra order lines allowed); an order linked to another offline sale never matches. */
+/** `orders.payment_status` values an order created by an offline-sync attempt can still have
+ * before finish() writes its comment: API-v2 builds the POS order at 0 (initiated,
+ * libs/OrderHelper.py:391) and legacy's unconfirmed counter order is 1 (pending,
+ * order/views.py:714). 4 is paid (Helpers.complete_order, helpers/helpers.py:633), and 2 and 5
+ * come with order status 4 (cancelled, order/views.py:2931, 3607). */
+export const UNCONFIRMED_PAYMENT_STATUSES: readonly number[] = [0, 1];
+
+/** What a previous attempt for this sale could have left behind. The query already limits the
+ * order to the same store counter, created at or after the billing time (less the clock-skew
+ * allowance). The order must have exactly the sale's lines (same products and quantities, no
+ * extra lines; the sale's offline cart carries no benefits or freebies). An order carrying this
+ * sale's billing comment matches (finish() writes it first); otherwise the order must carry no
+ * offline comment at all and still be unpaid and uncancelled, because finish() pays only after
+ * writing the comment. An order linked to another offline sale never matches. */
 export function unconfirmedMatch(
   query: Pick<UnconfirmedOrderQuery, 'reference' | 'lines'>,
   candidate: {
-    paid: boolean;
+    paymentStatus: number;
     lines: { productId: string; quantity: number }[];
     offlineComments: string[];
   },
@@ -77,12 +87,21 @@ export function unconfirmedMatch(
   const quantities = new Map<string, number>();
   for (const line of candidate.lines)
     quantities.set(line.productId, (quantities.get(line.productId) ?? 0) + line.quantity);
-  if (query.lines.some((line) => quantities.get(line.productId) !== line.quantity)) return false;
   if (
-    candidate.offlineComments.some((text) => text.startsWith(offlineCommentPrefix(query.reference)))
+    quantities.size !== query.lines.length ||
+    query.lines.some((line) => quantities.get(line.productId) !== line.quantity)
   )
-    return true;
-  return !candidate.paid && candidate.offlineComments.length === 0;
+    return false;
+  const ours = offlineCommentPrefix(query.reference);
+  if (
+    candidate.offlineComments.some((text) => !text.startsWith(`Offline bill ${query.reference} `))
+  )
+    return false;
+  if (candidate.offlineComments.some((text) => text.startsWith(ours))) return true;
+  return (
+    candidate.offlineComments.length === 0 &&
+    UNCONFIRMED_PAYMENT_STATUSES.includes(candidate.paymentStatus)
+  );
 }
 export interface OfflineReferenceComment {
   orderId: string;
@@ -266,7 +285,7 @@ export function offlineSyncRepository(db: Databases, timezone: string): OfflineS
         .where(and(inArray(Comments.order_id, ids), like(Comments.comment, 'Offline bill %')));
       for (const candidate of candidates) {
         const match = unconfirmedMatch(query, {
-          paid: candidate.payment === 4n,
+          paymentStatus: Number(candidate.payment),
           lines: lines
             .filter((line) => line.orderId === candidate.orderId)
             .map((line) => ({
