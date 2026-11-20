@@ -29,6 +29,14 @@ Inputs use source reason/platform choices, positive two-decimal amounts up to th
 
 A lost response retains the same command, UUID and body. Reload/background recovery performs GET only. An explicit retry first checks status, then resends the exact saved command; a404 does not create a new identity or prove failure. A confirmed receipt is retained after starting a new command, and old callbacks cannot clear or replace a newer active pointer. Logout/operator changes stop publication and preserve financial evidence. This global wallet workflow requires connectivity; it does not enable offline wallet spending or adjustment.
 
+## Stricter than legacy: no negative wallet repair (S61, user, 20 November 2026)
+
+The user decided on 20 November 2026 that this tightening stays (AGENTS.md, "Audit remediation decisions"; `security-decisions.md` S61).
+
+- Legacy `AjaxTssMoneyView` (`core/views.py:1285-1388`) and `AjaxAjaxTssPointsView` (`:1390-`) compute `amt_after_update = balance + amount` (`:1311`, `:1415`) and write it with no lower bound (`:1340`, `:1434`). An operator can debit below zero, and can add to or debit from a balance that is already negative. Adding to a negative balance is how a negative wallet gets "repaired" in legacy.
+- The rewrite refuses any adjustment while the customer's money, points or cashback balance is negative or not finite: 409 `WALLET_BALANCE_REPAIR_REQUIRED`, "The wallet balance requires review." (`src/modules/checkout/benefit-adjustments/policy.ts:64-73`; the writer applies the same check to the balances it reads, `repository.ts:54-62`). A debit that would take the balance below zero is 409 `INSUFFICIENT_WALLET_BALANCE`, "This adjustment exceeds the available wallet balance." (`policy.ts:80-85`). Legacy returns `{"status":"success"}` in both cases.
+- A negative balance therefore needs an audited repair outside this workflow (see below); the POS does not repair it.
+
 ## Activation and remaining dependencies
 
 - `GLOBAL_BENEFIT_ADJUSTMENT_CONTRACT=pos-global-wallet-adjustment-v1` selects the approved replacement behavior.

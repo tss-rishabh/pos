@@ -31,7 +31,7 @@ Status values: **captured** (test rewired to the golden, assertions unchanged);
 (exercises code removed by the 18–19 Nov decisions, left for W2); **not-oracle**
 (the spawn is not a legacy oracle runtime).
 
-## Captured (94 test files, 103 golden files, 208 invocations)
+## Captured (94 test files, 104 golden files, 209 invocations)
 
 | Test file                                                                      | Oracle                                                                                                                                         | Cases | Golden                                                                    | Runtime                                                                                        | Source  | Notes                                                                                                                                                             |
 | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -66,6 +66,7 @@ Status values: **captured** (test rewired to the golden, assertions unchanged);
 | `backend/tests/checkout/cancellation-benefits.mysql.test.ts`                   | `tools/checkout/cancellation_membership_oracle.py`                                                                                             | 1     | `checkout/cancellation-benefits-mysql.json`                               | CPython 3.10.22                                                                                | 78d5b63 |                                                                                                                                                                   |
 | `backend/tests/checkout/customers.test.ts`                                     | `tools/checkout/legacy_oracle.py`                                                                                                              | 3     | `checkout/customers.json`                                                 | CPython 3.10.22                                                                                | 78d5b63 |                                                                                                                                                                   |
 | `backend/tests/checkout/discounts.test.ts`                                     | `tools/checkout/legacy_oracle.py`                                                                                                              | 1     | `checkout/discounts.json`                                                 | CPython 3.10.22                                                                                | 78d5b63 |                                                                                                                                                                   |
+| `backend/tests/checkout/discounts.test.ts`                                     | `pos-oracles/discount-approver-tier/run.sh` (outside the repo; see "Workstream H")                                                             | 1     | `checkout/discount-approver-tier.json`                                    | Node v22.23.2 + CPython 3.10.22 via uv --no-project                                            | 78d5b63 | PG-discount approver tier at the 10% boundary (decision 3, 20 Nov 2026).                                                                                          |
 | `backend/tests/checkout/fast-cash-source.test.ts`                              | `tools/checkout/fast_cash_oracle.py`                                                                                                           | 1     | `checkout/fast-cash-source.json`                                          | CPython 3.10.22                                                                                | 78d5b63 |                                                                                                                                                                   |
 | `backend/tests/checkout/global-benefit-policy.test.ts`                         | `tools/checkout/benefit_oracle.py`                                                                                                             | 4     | `checkout/global-benefit-policy.json`                                     | CPython 3.10.22                                                                                | 78d5b63 | Golden-backed benefitOracle in the test; tools/checkout/benefit-oracle.ts only exports its result schema.                                                         |
 | `backend/tests/checkout/global-benefit-source.mysql.integration.test.ts`       | `tools/checkout/benefit_oracle.py`                                                                                                             | 9     | `checkout/global-benefit-source-mysql-integration.json`                   | CPython 3.10.22                                                                                | 78d5b63 | Same golden-backed benefitOracle pattern.                                                                                                                         |
@@ -304,3 +305,46 @@ twice and compared. No production system was contacted. Recapture steps are in
 | Administration forms workflow (`users/urls.py:17-18`, `stores/urls.py:11,14`; 24 cases)                                       | Row-by-row persistence after each source POST: the oracle prints no rows, the ~750-line case/fixture harness needs re-authoring on the production snapshot and mapping onto the JSON operator/store APIs, and its fixture depended on deleted migrations and `pos_rewrite_*` tables. It never passed even with the oracle present (1 of 24, README r1-r4). |
 | Browser halves of every native workflow (lookup, feedback, profile, shortcuts, archival, reminders, notification, catalog UI) | Chromium/UI evidence (navigation, lost-reply reload, rendered controls). Out of W15 scope (Playwright/e2e); the server-side halves are listed above.                                                                                                                                                                                                       |
 | `frontend/tests/finance/source-widget.mjs` browser half                                                                       | Executes the pinned legacy jQuery/daterangepicker template in Chromium from the external checkout (`POS_PARITY_SOURCE_ROOT`); not a Python/Go/PHP oracle. The Python half stays captured (`tests/finance/source-defaults.json`).                                                                                                                           |
+
+## Workstream H (20 November 2026)
+
+### `checkout/discount-approver-tier.json`
+
+The PG-discount approver tier is split across the legacy client and server, so the
+oracle has two stages, both run on the pinned source (`backend-pos-web` 78d5b63)
+outside the repository, with `order/views.py` (SHA-256 `3a91805d…`) and
+`order/templates/order/create_order.html` (SHA-256 `3ddf48d6…`) exported with
+`git show 78d5b63d:<path>`:
+
+1. **Stage A, Node v22.23.2.** Reads `create_order.html`, asserts that line 5137 is
+   `let totalPgDiscount = parseInt(pgDiscount) + parseInt(pgDiscountNew);` (the same
+   text is at 5328 and 7301) and evaluates exactly that line with `new Function`, with
+   each case's `#pg_discount` / `#store_discount_pg` input values (`null` stands for an
+   absent element, which the template reads as `0`). The posted value is
+   `String(totalPgDiscount)`, as `jQuery.param` sends it. `total_amount` is the
+   `#sub-total` span body (`create_order.html:453-456`) with `{{ cl.products_total }}`
+   substituted and the comment tag removed.
+2. **Stage B, CPython 3.10.22** (`uv run --no-project --python 3.10.22 python -I`).
+   Compiles only `AjaxPGDiscOTPSend.post` from `order/views.py` (4583-4628) with `ast`,
+   stubs `Store`, `redis_instance`, `tasks.send_pg_disc_otp` and `JsonResponse` as the
+   former `tools/checkout/legacy_oracle.py` did, sets `PG_DISC_STORE_MANAGER_PERCENTAGE`
+   and `SEND_OTP_TO_ALL_MANAGERS` per case, and posts stage A's values. Output per case:
+   the posted discount, the selected approver list, `fallback` and `exempt` (status 202).
+
+stdin is the exact `JSON.stringify({operation:'approver_tier',cases})` of the test
+(SHA-256 `2c65bc9b…`). Run as `node stage-a | python stage-b`; captured twice, outputs
+byte-identical. No database, network or live service is involved. The cases cover
+10.4%, exactly 10%, 9.99%, 11.50 on 100.00 (10.31% exact, 9.91% after truncation:
+legacy picks the 0% tier), a PG/store split whose separate truncation drops below 10%,
+an absent element, 22.4 on 88, a sub-rupee discount and a store with no thresholds
+(fallback and exempt).
+
+The earlier `checkout/discounts.json` capture posted the amount untruncated; every
+one of its cases selects the same tier after truncation, so it is unchanged.
+
+### Customer history
+
+`customer-history/mysql-integration.json` is unchanged. Its consumer now also runs the
+rewrite's MySQL gateway on the same fixture session and requires the same output as
+the pinned source statements (`parity/customer-history.md`).
+

@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import { Decimal } from 'decimal.js';
 import mysql from 'mysql2/promise';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { readConfig, type Config } from '../../src/config.js';
 import { createDatabases, type Databases } from '../../src/db/pools.js';
 import type { Principal } from '../../src/domain/access.js';
@@ -18,6 +20,7 @@ import {
   discountMetadataSchema,
   discountPolicy,
   discountTerms,
+  legacyTruncatedDiscount,
 } from '../../src/modules/checkout/discounts/policy.js';
 import {
   approvalCode,
@@ -108,7 +111,8 @@ describe('manager discount approval source contract and security bindings', () =
             sendToAllManagers: item.sendAll,
           },
           item.storeId,
-          item,
+          // This capture posted the amount untruncated; truncation leaves every tier unchanged.
+          { pgAmount: item.amount, storeAmount: '0', productsTotal: item.productsTotal },
         ),
       ),
     ).toEqual(expected);
@@ -117,6 +121,92 @@ describe('manager discount approval source contract and security bindings', () =
       exemptRoles: [1, 2, 3],
       expirySeconds: 600,
     });
+  });
+  it('truncates each PG discount with parseInt before choosing the approver tier, as legacy does at 10%', () => {
+    // Oracle (INVENTORY.md): the pinned create_order.html:5137 parseInt line under Node, then
+    // order/views.py AjaxPGDiscOTPSend.post under CPython 3.10.22. pg/store are the input values.
+    const thresholds = {
+      '1': {
+        '0': ['base@example.test'],
+        '10': ['ten@example.test'],
+        '20': ['twenty@example.test'],
+      },
+    };
+    const cases: {
+      storeId: string;
+      pg: string | null;
+      store: string | null;
+      productsTotal: string;
+      thresholds: typeof thresholds;
+      sendAll: boolean;
+    }[] = (
+      [
+        ['10.4', '0', '89.6'],
+        ['10', '0', '90'],
+        ['9.99', '0', '90.01'],
+        ['11.5', '0', '100'],
+        ['5.9', '4.9', '89.2'],
+        ['10.4', null, '89.6'],
+        [null, '10.99', '89.01'],
+        ['10.99', '0', '100'],
+        ['22.4', '0', '88'],
+        ['0.5', '0', '99.5'],
+      ] as const
+    ).map(([pg, store, productsTotal]) => ({
+      storeId: '1',
+      pg,
+      store,
+      productsTotal,
+      thresholds,
+      sendAll: true,
+    }));
+    cases.push(
+      { storeId: '2', pg: '10.4', store: '0', productsTotal: '89.6', thresholds, sendAll: true },
+      { storeId: '2', pg: '10.4', store: '0', productsTotal: '89.6', thresholds, sendAll: false },
+    );
+    const expected = z
+      .array(
+        z
+          .object({
+            postedPgDiscount: z.string(),
+            emails: z.array(z.string()),
+            fallback: z.boolean(),
+            exempt: z.boolean(),
+          })
+          .strict(),
+      )
+      .parse(
+        JSON.parse(
+          goldenStdout(
+            'checkout',
+            'discount-approver-tier',
+            JSON.stringify({ operation: 'approver_tier', cases }),
+          ),
+        ),
+      );
+    const terms = cases.map((item) => ({
+      pgAmount: new Decimal(item.pg ?? 0).toFixed(2),
+      storeAmount: new Decimal(item.store ?? 0).toFixed(2),
+      productsTotal: new Decimal(item.productsTotal).toFixed(2),
+    }));
+    expect(terms.map((item) => legacyTruncatedDiscount(item).toFixed(0))).toEqual(
+      expected.map((item) => item.postedPgDiscount),
+    );
+    expect(
+      cases.map((item, index) =>
+        approverSelection(
+          {
+            ...discountPolicy({}),
+            storeThresholds: item.thresholds,
+            sendToAllManagers: item.sendAll,
+          },
+          item.storeId,
+          terms[index]!,
+        ),
+      ),
+    ).toEqual(expected.map(({ postedPgDiscount: _posted, ...selection }) => selection));
+    // 11.50 on 100.00 is 10.31% exactly, but legacy posts 11 (9.91%) and picks the 0% tier.
+    expect(expected[3]!.emails).toEqual(['base@example.test']);
   });
   it('binds the exact server financial terms, customer, quantities, metadata and checkout identity', () => {
     const original = state(),

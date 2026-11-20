@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto';
-import { and, eq, isNull, or, sql } from 'drizzle-orm';
+import { and, eq, isNull, or } from 'drizzle-orm';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import { MUser } from '../../db/legacy-schema.js';
@@ -19,7 +19,7 @@ export function historyCapture(config: Config, db: Databases): HistoryCaptureFn 
   return (user, scope) =>
     withCheckout(user, scope, 'share', async (tx, state) => {
       const [customer] = await tx
-        .select({ id: MUser.id, sourceNow: sql<string>`DATE_FORMAT(NOW(),'%Y-%m-%d %H:%i:%s')` })
+        .select({ id: MUser.id })
         .from(MUser)
         .where(
           and(
@@ -47,7 +47,6 @@ export function historyCapture(config: Config, db: Databases): HistoryCaptureFn 
       return {
         customerId: String(customer.id),
         checkoutVersion: state.version,
-        sourceNow: customer.sourceNow,
         binding,
       };
     });

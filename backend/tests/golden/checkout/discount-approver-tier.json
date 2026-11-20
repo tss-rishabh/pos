@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "pos-oracles/discount-approver-tier/run.sh (outside the repository): Node evaluates the pinned order/templates/order/create_order.html:5137 parseInt line and #sub-total markup (453-456); CPython runs the pinned order/views.py AjaxPGDiscOTPSend.post (4583-4628) on the posted values",
+  "runtime": "Node v22.23.2 (stage A) + CPython 3.10.22 via uv --no-project, python -I (stage B)",
+  "capturedAt": "2026-11-20T11:17:52Z",
+  "test": "tests/checkout/discounts.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "2c65bc9b673f44f26b9433ef8acb0001f9387e811239f98d4fa239af1e137855",
+      "args": [
+        "pos-oracles/discount-approver-tier/run.sh"
+      ],
+      "status": 0,
+      "output": [
+        {
+          "postedPgDiscount": "10",
+          "emails": [
+            "ten@example.test"
+          ],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "postedPgDiscount": "10",
+          "emails": [
+            "ten@example.test"
+          ],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "postedPgDiscount": "9",
+          "emails": [
+            "base@example.test"
+          ],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "postedPgDiscount": "11",
+          "emails": [
+            "base@example.test"
+          ],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "postedPgDiscount": "9",
+          "emails": [
+            "base@example.test"
+          ],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "postedPgDiscount": "10",
+          "emails": [
+            "ten@example.test"
+          ],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "postedPgDiscount": "10",
+          "emails": [
+            "ten@example.test"
+          ],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "postedPgDiscount": "10",
+          "emails": [
+            "base@example.test"
+          ],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "postedPgDiscount": "22",
+          "emails": [
+            "twenty@example.test"
+          ],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "postedPgDiscount": "0",
+          "emails": [
+            "base@example.test"
+          ],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "postedPgDiscount": "10",
+          "emails": [],
+          "fallback": true,
+          "exempt": false
+        },
+        {
+          "postedPgDiscount": "10",
+          "emails": [],
+          "fallback": false,
+          "exempt": true
+        }
+      ]
+    }
+  ]
+}

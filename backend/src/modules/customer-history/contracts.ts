@@ -50,7 +50,7 @@ export const customerHistoryResponse = z
   .object({
     customerId: identifier,
     checkoutVersion: z.number().int().safe().nonnegative(),
-    reader: z.literal('bigquery'),
+    reader: z.literal('primary'),
     fetchedAt: z.iso.datetime(),
     summary: historySummary,
     recentOrders: z.array(historyRecentOrder).max(5),
@@ -82,6 +82,5 @@ export type HistoryLineQuery = z.infer<typeof historyLineQuery>;
 export interface HistoryCapture {
   customerId: string;
   checkoutVersion: number;
-  sourceNow: string;
   binding: string;
 }

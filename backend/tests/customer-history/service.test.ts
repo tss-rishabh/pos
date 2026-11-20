@@ -4,11 +4,7 @@ import type { Databases } from '../../src/db/pools.js';
 import type { Principal } from '../../src/domain/access.js';
 import { AppError } from '../../src/domain/errors.js';
 import { customerHistoryService } from '../../src/modules/customer-history/service.js';
-import {
-  customerHistoryGateway,
-  type HistoryStatement,
-} from '../../src/modules/customer-history/gateway.js';
-import { observedHistoryTables } from '../../src/modules/customer-history/sql.js';
+import { customerHistoryGateway } from '../../src/modules/customer-history/gateway.js';
 import type { HistoryCapture } from '../../src/modules/customer-history/contracts.js';
 
 const config = readConfig({
@@ -34,7 +30,6 @@ const config = readConfig({
   captured: HistoryCapture = {
     customerId: '7',
     checkoutVersion: 4,
-    sourceNow: '2026-11-16 10:00:00',
     binding: 'a'.repeat(64),
   },
   summary = {
@@ -68,8 +63,8 @@ const config = readConfig({
     ],
     returnedRows: ids.map(row),
   });
-describe('customer-history scope, pagination and cost boundaries', () => {
-  it('captures source NOW and active checkout around BQ, preserving duplicate item names and 64bit IDs', async () => {
+describe('customer-history scope, pagination and reader boundaries', () => {
+  it('captures the active checkout around the MySQL read, preserving duplicate item names and 64bit IDs', async () => {
     const capture = vi.fn(async () => captured),
       read = vi.fn(async () => result()),
       service = customerHistoryService(config, db, {
@@ -79,11 +74,11 @@ describe('customer-history scope, pagination and cost boundaries', () => {
       });
     const response = await service.read(user, scope, { limit: 2 });
     expect(capture).toHaveBeenCalledTimes(2);
-    expect(read).toHaveBeenCalledWith('7', captured.sourceNow, '', 2);
+    expect(read).toHaveBeenCalledWith('7', '', 2);
     expect(response.recentOrders[0]!.id).toBe('9007199254740993');
     expect(response.returnedOrders.items[0]!.itemNames).toEqual(['Fixture child', 'Fixture child']);
     expect(response.returnedOrders.nextCursor).toMatch(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/);
-    expect(response.reader).toBe('bigquery');
+    expect(response.reader).toBe('primary');
   });
   it('aborts stale/revoked contexts after HTTP without returning a fetched customer history', async () => {
     let calls = 0;
@@ -108,8 +103,8 @@ describe('customer-history scope, pagination and cost boundaries', () => {
       code: 'STORE_ACCESS_DENIED',
     });
   });
-  it('uses a signed descending anchor and rejects tampering, another checkout binding and another cursor purpose before BQ', async () => {
-    const read = vi.fn(async (_customer: string, _now: string, before: string) =>
+  it('uses a signed descending anchor and rejects tampering, another checkout binding and another cursor purpose before MySQL', async () => {
+    const read = vi.fn(async (_customer: string, before: string) =>
         before ? result(['17', '16']) : result(),
       ),
       lines = vi.fn(),
@@ -120,7 +115,7 @@ describe('customer-history scope, pagination and cost boundaries', () => {
       first = await service.read(user, scope, { limit: 2 }),
       token = first.returnedOrders.nextCursor!;
     const second = await service.read(user, scope, { returnBefore: token, limit: 2 });
-    expect(read.mock.calls[1]![2]).toBe('19');
+    expect(read.mock.calls[1]![1]).toBe('19');
     expect(second.returnedOrders.items.map((value) => value.id)).toEqual(['17', '16']);
     expect(second.returnedOrders.nextCursor).toBeNull();
     const prior = read.mock.calls.length;
@@ -142,7 +137,7 @@ describe('customer-history scope, pagination and cost boundaries', () => {
     });
     expect(lines).not.toHaveBeenCalled();
   });
-  it('rejects contradictory ordering and unsafe warehouse identities instead of silently changing source rows', async () => {
+  it('rejects contradictory ordering and unsafe source identities instead of silently changing source rows', async () => {
     const service = customerHistoryService(config, db, {
       capture: async () => captured,
       gateway: { read: async () => result(['18', '19']), lines: vi.fn() },
@@ -201,55 +196,31 @@ describe('customer-history scope, pagination and cost boundaries', () => {
     expect(capture).not.toHaveBeenCalled();
     expect(read).not.toHaveBeenCalled();
   });
-  it('dry-runs within the configured budget before execution and never raises the cap or falls back to MySQL', async () => {
-    const query = vi.fn(async () => [result()]),
-      estimate = vi.fn(async () => BigInt(config.BIGQUERY_MAX_BYTES_BILLED) + 1n),
-      gateway = customerHistoryGateway(config, undefined, estimate, query);
-    await expect(gateway.read('7', captured.sourceNow, '', 25)).rejects.toMatchObject({
-      code: 'CUSTOMER_HISTORY_PROJECTION_REQUIRED',
-    });
-    expect(query).not.toHaveBeenCalled();
-    const under = customerHistoryGateway(config, undefined, async () => 1n, query);
-    await under.read('7', captured.sourceNow, '', 25);
-    expect(query).toHaveBeenCalledTimes(1);
-    const call = query.mock.calls[0];
-    expect(call).toBeDefined();
-  });
-  it('requires configured partitioned fact tables and binds the customer bucket on every historical fact scan', async () => {
-    const estimate = vi.fn(async (_value: HistoryStatement) => 1n),
-      query = vi.fn(async () => [result()]);
-    expect(() =>
-      customerHistoryGateway(config, observedHistoryTables, estimate, query, 'customer-bucket-v1'),
-    ).toThrowError(AppError);
-    const tables = {
-        ...observedHistoryTables,
-        orders: 'tssgcp2025.fixture_history.orders_v1',
-        orderStores: 'tssgcp2025.fixture_history.order_stores_v1',
-        lines: 'tssgcp2025.fixture_history.lines_v1',
-        feedback: 'tssgcp2025.fixture_history.feedback_v1',
+  it('reads customer history from the primary MySQL reader in a read-only snapshot, never BigQuery', async () => {
+    const readers: string[] = [],
+      configs: unknown[] = [],
+      sentinel = new Error('Fixture reader.'),
+      reader = {
+        transaction: async (_work: unknown, value: unknown) => {
+          configs.push(value);
+          throw sentinel;
+        },
       },
-      gateway = customerHistoryGateway(config, tables, estimate, query, 'customer-bucket-v1');
-    await gateway.read('7', captured.sourceNow, '', 25);
-    await gateway.lines('7', '9007199254740993', '', 50);
-    const history = estimate.mock.calls[0]![0],
-      lines = estimate.mock.calls[1]![0];
-    for (const alias of ['o', 'os', 'hp', 'nf'])
-      expect(history.statement).toContain(
-        alias + '.customer_bucket=MOD(CAST(@customer AS INT64),1024)',
-      );
-    expect(lines.statement).toContain('o.customer_bucket=MOD(CAST(@customer AS INT64),1024)');
-    expect(lines.statement).toContain('hp.customer_bucket=MOD(CAST(@customer AS INT64),1024)');
-    expect(history.params).toEqual({
-      customer: '7',
-      sourceNow: captured.sourceNow,
-      returnBefore: '',
-      pageSize: 26,
-    });
-    expect(lines.params).toEqual({
-      customer: '7',
-      order: '9007199254740993',
-      before: '',
-      pageSize: 51,
-    });
+      primary = {
+        get: (name: string) => {
+          readers.push(name);
+          return reader;
+        },
+        close: async () => {},
+      } as unknown as Databases,
+      gateway = customerHistoryGateway(primary);
+    await expect(gateway.read('7', '', 25)).rejects.toBe(sentinel);
+    await expect(gateway.lines('7', '9007199254740993', '', 50)).rejects.toBe(sentinel);
+    expect(readers).toEqual(['primary', 'primary']);
+    for (const value of configs)
+      expect(value).toEqual({
+        isolationLevel: 'repeatable read',
+        accessMode: 'read only',
+      });
   });
 });
