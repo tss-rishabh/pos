@@ -154,6 +154,20 @@ jobs:
       - name: Redis command compatibility (SET NX EX, Lua, BLMOVE, pub/sub)
         run: node --import tsx tools/e2e/redis-compat.ts
         working-directory: backend
+      - name: Backend unit, golden and MySQL/Redis integration suite
+        if: ${{ !cancelled() }}
+        # Every integration variable comes from backend/tools/test-env/mysql-test-env.ts (loopback
+        # root, no password); each test creates and drops its own schema on the server above.
+        # Redis-backed tests start private servers from redis-server (macOS) or E2E_REDIS_SERVER
+        # (Memurai, Windows) and fail instead of skipping when none runs. The order-detail browser
+        # case serves the web build from the frontend step above in Chromium. The runner is called
+        # directly (what `npm run test:integration` runs): pwsh's npm shim can drop a `--` separator.
+        run: node --import tsx tools/test-env/run-integration-tests.ts --maxWorkers=2
+        working-directory: backend
+        env:
+          POS_TEST_MYSQL_ADDRESS: '127.0.0.1:33710'
+          POS_REDIS_TESTS_REQUIRED: '1'
+          ORDER_DETAIL_BROWSER_TEST: 'true'
       - name: Print-to-file printer on the Windows spooler
         if: runner.os == 'Windows'
         shell: pwsh
@@ -196,7 +210,7 @@ jobs:
       - name: Browser sign-in, customer and order recovery
         if: ${{ !cancelled() }}
         # Each file owns Chromium/Vite; bound resource use on the native runners.
-        run: npx vitest run tests/customer-profile/browser.test.ts tests/customer-otp/otp.browser.test.ts tests/product-feedback/browser.test.ts tests/order-payments/order-payments.browser.test.ts tests/global-vouchers/vouchers.browser.test.ts tests/dashboard/browser.test.ts tests/administration/barcodes/browser.test.ts tests/administration/model-accounts/browser.test.ts tests/offline-worksheet/browser.test.ts --maxWorkers=1
+        run: npx vitest run tests/customer-profile/browser.test.ts tests/customer-otp/otp.browser.test.ts tests/product-feedback/browser.test.ts tests/order-payments/order-payments.browser.test.ts tests/global-vouchers/vouchers.browser.test.ts tests/dashboard/browser.test.ts tests/administration/barcodes/browser.test.ts tests/administration/model-accounts/browser.test.ts tests/offline-worksheet/browser.test.ts tests/offline-billing-ui/page.browser.test.ts --maxWorkers=1
         working-directory: frontend
         env:
           DESKTOP_SSO_BROWSER_TESTS: 'true'
@@ -204,6 +218,7 @@ jobs:
           ADMINISTRATION_BROWSER_TESTS: 'true'
           PRODUCT_FEEDBACK_BROWSER_TESTS: 'true'
           OFFLINE_WORKSHEET_BROWSER_TESTS: 'true'
+          OFFLINE_BILLING_BROWSER_TESTS: 'true'
       - name: Scoped invoice browser checks
         if: ${{ !cancelled() }}
         run: node tools/run-browser-fixture.mjs invoice-documents
@@ -331,3 +346,35 @@ jobs:
             frontend/playwright-report/
             backend/evidence/desktop-package-*.json
             backend/evidence/desktop-runtime-*.json
+
+  # The web client's nginx image: builds the pinned runtime stage of frontend/Dockerfile with
+  # frontend/nginx/* and a fixture bundle, and checks the security headers on every location.
+  web-nginx-headers:
+    name: Web nginx security headers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.22.3'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Verify frontend mitigation archive
+        run: node tools/dependency-security/verify.mjs --archive-only
+        working-directory: frontend
+      # As in frontend/Dockerfile: this job loads no Electron or native module, so install
+      # scripts are skipped (no Electron download, no native build).
+      - run: npm ci --ignore-scripts
+        working-directory: frontend
+      - run: npm run verify:dependency-security
+        working-directory: frontend
+      - name: nginx security headers on the pinned runtime image (Linux Docker)
+        run: npx vitest run tests/nginx
+        working-directory: frontend
+        env:
+          POS_NGINX_HEADERS_REQUIRED: '1'
