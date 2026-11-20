@@ -766,7 +766,7 @@ agent and W5 own that routing decision.
 | # | File | Proposes | Reader that depended on it |
 |---|---|---|---|
 | 30 | `parity/feedback-history-projection-review.sql` | `tss_mysql_raw_layer.pos_reporting_customer_feedback_facts_v1` | Customer feedback history report (`tools/operational-reports/build-bigquery-deployment-plan.ts`) |
-| 31 | `parity/customer-history-projection-review.sql` | `pos_reporting.customer_history_{orders,order_stores,nps,lines}_v1` | Customer history (`tools/customer-history/bigquery-fixtures.ts`) |
+| 31 | `parity/customer-history-projection-review.sql` | `pos_reporting.customer_history_{orders,order_stores,nps,lines}_v1` | None. Customer history reads MySQL as legacy does (user decision, 20 Nov 2026); its BigQuery reader and fixtures were deleted. |
 | 32 | `tools/order-search/publication.review.sql` | `pos_order_search_{publications,index,facts}_v1` | Order search warehouse path |
 | 33 | `tools/legacy-order-imports/history-publication.review.sql` | `pos_order_import_{results,publications,jobs}_v1` | Historical order-import results |
 | 34 | `tools/order-history/publication.review.sql` | `pos_public_order_{stores,publications,lines,headers}_v1` | Order history warehouse path |
