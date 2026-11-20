@@ -78,3 +78,40 @@ it('permits release only with valid evidence for every surface and requirement',
     ).productionReady,
   ).toBe(false);
 });
+it('reports user-removed surfaces separately and only with a recorded AGENTS.md decision', () => {
+  const one = coverage();
+  one.surfaces = one.surfaces.map((entry) =>
+    entry.kind === 'template'
+      ? releaseCoverageSchema.shape.surfaces.element.parse({
+          kind: 'template',
+          id: 'template',
+          status: 'removed',
+          decision: 'AGENTS.md: UI cleanup, 20 November 2026 (user)',
+        })
+      : entry,
+  );
+  const result = evaluateRelease(
+    inventory,
+    one,
+    () => true,
+    () => true,
+  );
+  expect(result.surfaces['template']).toEqual({ total: 1, verified: 0, removed: 1, pending: 0 });
+  expect(result.pendingSurfaces).toBe(0);
+  expect(result.productionReady).toBe(true);
+  expect(() =>
+    releaseCoverageSchema.shape.surfaces.element.parse({
+      kind: 'template',
+      id: 'template',
+      status: 'removed',
+    }),
+  ).toThrow();
+  expect(() =>
+    releaseCoverageSchema.shape.surfaces.element.parse({
+      kind: 'template',
+      id: 'template',
+      status: 'removed',
+      decision: 'because',
+    }),
+  ).toThrow();
+});

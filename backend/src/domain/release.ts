@@ -21,10 +21,25 @@ export const releaseCoverageSchema = z
     version: z.literal(1),
     sourceCommit: z.string().regex(/^[a-f0-9]{40}$/),
     surfaces: z.array(
-      verification.extend({
-        kind: z.enum(['route', 'websocket', 'job', 'template', 'administration']),
-        id: z.string().min(1),
-      }),
+      z.union([
+        verification.extend({
+          kind: z.enum(['route', 'websocket', 'job', 'template', 'administration']),
+          id: z.string().min(1),
+        }),
+        /**
+         * A legacy surface the user decided to remove. It needs a recorded decision in AGENTS.md
+         * and is reported separately; it never counts as verified behaviour.
+         */
+        z
+          .object({
+            kind: z.enum(['route', 'websocket', 'job', 'template', 'administration']),
+            id: z.string().min(1),
+            status: z.literal('removed'),
+            decision: z.string().regex(/^AGENTS\.md: \S.{4,}$/),
+            notes: z.string().optional(),
+          })
+          .strict(),
+      ]),
     ),
     requirements: z.array(verification.extend({ id: z.string().min(1) })),
   })
@@ -55,6 +70,8 @@ export function evaluateRelease(
   if (coverage.sourceCommit !== inventory.source_commit)
     failures.push('Coverage does not match the inventoried source commit.');
   const entries = new Map<string, Coverage['surfaces'][number]>();
+  const isRemoved = (entry: Coverage['surfaces'][number] | undefined) =>
+    entry?.status === 'removed';
   for (const entry of coverage.surfaces) {
     const key = `${entry.kind}:${entry.id}`;
     if (entries.has(key)) failures.push(`Duplicate surface certificate: ${key}`);
@@ -67,9 +84,10 @@ export function evaluateRelease(
     template: inventory.templates,
     administration: inventory.administration,
   };
-  const valid = (entry: z.infer<typeof verification> | undefined) =>
+  const valid = (entry: Coverage['surfaces'][number] | z.infer<typeof verification> | undefined) =>
     Boolean(
-      entry?.status === 'verified' &&
+      entry &&
+      entry.status === 'verified' &&
       entry.implementation.length &&
       entry.tests.length &&
       entry.evidence.length &&
@@ -82,9 +100,13 @@ export function evaluateRelease(
   const surfaces = Object.fromEntries(
     Object.entries(categories).map(([kind, items]) => {
       const verified = items.filter((surface) =>
-        valid(entries.get(`${kind}:${surface.id}`)),
-      ).length;
-      return [kind, { total: items.length, verified, pending: items.length - verified }];
+          valid(entries.get(`${kind}:${surface.id}`)),
+        ).length,
+        removed = items.filter((surface) => isRemoved(entries.get(`${kind}:${surface.id}`))).length;
+      return [
+        kind,
+        { total: items.length, verified, removed, pending: items.length - verified - removed },
+      ];
     }),
   );
   const validKeys = new Set(
