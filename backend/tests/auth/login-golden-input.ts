@@ -18,9 +18,7 @@ export interface GoldenLoginUser {
   stores: number[];
 }
 export type GoldenCode =
-  | string
-  | { use: 'last-sent' | 'previous-sent' | 'wrong' }
-  | { use: 'totp'; offset: number };
+  string | { use: 'last-sent' | 'previous-sent' | 'wrong' } | { use: 'totp'; offset: number };
 export type GoldenLoginStep =
   | { op: 'password' }
   | { op: 'resend' }

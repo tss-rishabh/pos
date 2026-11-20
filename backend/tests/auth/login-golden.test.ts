@@ -37,7 +37,11 @@ const step = z
       .optional(),
     httpStatus: z.number().optional(),
     body: z
-      .object({ status: z.number(), message: z.string(), otp_method_message: z.string().optional() })
+      .object({
+        status: z.number(),
+        message: z.string(),
+        otp_method_message: z.string().optional(),
+      })
       .passthrough()
       .optional(),
     error: z.string().optional(),
@@ -210,7 +214,9 @@ async function runRewrite(scenario: GoldenLoginScenario) {
         async allowed(userId, role, storeId) {
           const store = Number(storeId);
           if (store === 0) return true;
-          return stores.includes(store) && (role === 1 || users.get(userId)!.stores.includes(store));
+          return (
+            stores.includes(store) && (role === 1 || users.get(userId)!.stores.includes(store))
+          );
         },
       },
     },
@@ -219,9 +225,11 @@ async function runRewrite(scenario: GoldenLoginScenario) {
   let credential: PendingLogin | null = null;
   const resolveCode = (code: GoldenCode): string => {
     if (typeof code === 'string') return code;
-    if (code.use === 'last-sent') return issued.at(-1)!;
-    if (code.use === 'previous-sent') return issued.at(-2)!;
-    if (code.use === 'wrong') return issued.at(-1) !== '000000' ? '000000' : '999999';
+    if (code.use !== 'totp') {
+      if (code.use === 'last-sent') return issued.at(-1)!;
+      if (code.use === 'previous-sent') return issued.at(-2)!;
+      return issued.at(-1) !== '000000' ? '000000' : '999999';
+    }
     return new TOTP({
       secret: Secret.fromBase32(users.get(userId)!.mfa_hash!),
       algorithm: 'SHA1',
@@ -245,7 +253,11 @@ async function runRewrite(scenario: GoldenLoginScenario) {
       try {
         if (action.op === 'resend') {
           const reply = await challenges.resend(credential!);
-          outcome = { kind: 'ok', message: reply.message, otpMethodMessage: reply.otpMethodMessage };
+          outcome = {
+            kind: 'ok',
+            message: reply.message,
+            otpMethodMessage: reply.otpMethodMessage,
+          };
         } else {
           const reply = await challenges.verify(credential!, {
             code: resolveCode(action.code),
@@ -329,9 +341,7 @@ describe('staff login against the pinned legacy OTP/TOTP flow', () => {
           expected.deliveries.map((entry) => ({
             channel: entry.channel,
             to: entry.to,
-            ...(entry.channel === 'sms'
-              ? { text: legacyCode!.replace(/^\d{6}/, '{otp}') }
-              : {}),
+            ...(entry.channel === 'sms' ? { text: legacyCode!.replace(/^\d{6}/, '{otp}') } : {}),
           })),
         );
         expect(actual.alerts, where).toEqual(expected.alerts);
