@@ -59,6 +59,9 @@ export interface UnconfirmedOrderQuery {
   counterId: string;
   reference: string;
   lines: { productId: string; quantity: number }[];
+  /** The sale's master salesperson: pos/order carries it and API-v2 stores it in
+   * order_stores.salesperson_id (OrderController.py:10901, OrderHelper.py:1959). */
+  salespersonId: string;
   from: number;
   to: number;
 }
@@ -70,8 +73,8 @@ export interface UnconfirmedOrderQuery {
 export const UNCONFIRMED_PAYMENT_STATUSES: readonly number[] = [0, 1];
 
 /** What a previous attempt for this sale could have left behind. The query already limits the
- * order to the same store counter, created at or after the billing time (less the clock-skew
- * allowance). The order must have exactly the sale's lines (same products and quantities, no
+ * order to the same store counter and master salesperson, created at or after the billing time
+ * (less the clock-skew allowance). The order must have exactly the sale's lines (same products and quantities, no
  * extra lines; the sale's offline cart carries no benefits or freebies). An order carrying this
  * sale's billing comment matches (finish() writes it first); otherwise the order must carry no
  * offline comment at all and still be unpaid and uncancelled, because finish() pays only after
@@ -262,6 +265,7 @@ export function offlineSyncRepository(db: Databases, timezone: string): OfflineS
           and(
             eq(OrderStore.store, BigInt(query.storeId)),
             eq(OrderStore.counter, BigInt(query.counterId)),
+            eq(OrderStore.salesperson, BigInt(query.salespersonId)),
             eq(HasProduct.product, BigInt(first.productId)),
             gte(Order.created_at, local(query.from)),
             lte(Order.created_at, local(query.to)),

@@ -25,6 +25,7 @@ describe.skipIf(!template)('offline sync candidate match on legacy tables', () =
     input: {
       store?: number;
       counter?: number;
+      salesperson?: number;
       paymentStatus?: number;
       createdAt?: string;
       lines: [number, number][];
@@ -41,8 +42,8 @@ describe.skipIf(!template)('offline sync candidate match on legacy tables', () =
       ],
     );
     await connection.query(
-      'INSERT INTO order_stores (order_id, store_id, counter_id, order_invoice) VALUES (?, ?, ?, ?)',
-      [id, input.store ?? 12, input.counter ?? 3, `INV${id}`],
+      'INSERT INTO order_stores (order_id, store_id, counter_id, salesperson_id, order_invoice) VALUES (?, ?, ?, ?, ?)',
+      [id, input.store ?? 12, input.counter ?? 3, input.salesperson ?? 4401, `INV${id}`],
     );
     for (const [product, qty] of input.lines)
       await connection.query('INSERT INTO has_products (order_id, prod_id, qty) VALUES (?, ?, ?)', [
@@ -62,6 +63,7 @@ describe.skipIf(!template)('offline sync candidate match on legacy tables', () =
       counterId,
       reference,
       lines,
+      salespersonId: '4401',
       // As the service passes it: the billing time less the clock-skew allowance.
       from: billedAt - 10 * 60_000,
       to: billedAt + 2 * 3600_000,
@@ -129,6 +131,9 @@ describe.skipIf(!template)('offline sync candidate match on legacy tables', () =
     await order(104, { paymentStatus: 1, lines: [[1001, 3]] });
     await order(105, { paymentStatus: 2, lines: [[1001, 2]] });
     await order(106, { paymentStatus: 1, counter: 4, lines: [[1001, 2]] });
+    // An otherwise matching pending order taken by another salesperson, or by none (0).
+    await order(107, { paymentStatus: 0, salesperson: 4402, lines: [[1001, 2]] });
+    await order(108, { paymentStatus: 1, salesperson: 0, lines: [[1001, 2]] });
     await expect(match('3')).resolves.toBeNull();
   });
 

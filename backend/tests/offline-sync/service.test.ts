@@ -631,6 +631,7 @@ describe('offline sale sync', () => {
         counterId: '3',
         reference,
         lines: [{ productId: '1001', quantity: 2 }],
+        salespersonId: '4401',
         from: billedAt - 10 * 60_000,
       }),
     );

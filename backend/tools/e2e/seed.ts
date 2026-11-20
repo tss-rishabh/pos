@@ -368,6 +368,7 @@ export async function seedE2e(
       order: id,
       store: 1n,
       counter: 1n,
+      salesperson: 0n,
       is_manually_paid: false,
       transaction_id: '',
       message: '',

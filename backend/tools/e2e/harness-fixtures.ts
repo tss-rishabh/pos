@@ -105,6 +105,7 @@ async function insertOrder(db: ReturnType<typeof database>, order: FixtureOrder)
       order: order.id,
       store: store.store,
       counter: store.counter,
+      salesperson: 0n,
       is_manually_paid: false,
       transaction_id: '',
       message: '',

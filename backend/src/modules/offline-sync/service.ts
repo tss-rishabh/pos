@@ -702,6 +702,8 @@ export function offlineSyncService(deps: OfflineSyncDeps) {
           productId: line.productId,
           quantity: line.quantity,
         })),
+        // prepare() sets this salesperson before submit, so pos/order carries it.
+        salespersonId: sale.salespersonId,
         // An attempt can only follow billing, and the future-billing check keeps the device
         // clock within DEVICE_CLOCK_SKEW_MS of the server at upload; allow twice that.
         from: sale.billedAt - CANDIDATE_CLOCK_SKEW_MS,

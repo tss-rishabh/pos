@@ -742,6 +742,8 @@ export const OrderStore = mysqlTable('order_stores', {
   order: bigint('order_id', { mode: 'bigint' }).notNull(),
   store: bigint('store_id', { mode: 'bigint' }).notNull(),
   counter: intBigint('counter_id').notNull(),
+  /** Master salesperson API-v2 writes from the pos/order payload (0 when none). */
+  salesperson: intBigint('salesperson_id').notNull(),
   is_manually_paid: tinyintBoolean('is_manually_paid').notNull(),
   transaction_id: varchar('transaction_id', { length: 255 }).notNull(),
   message: varchar('message', { length: 255 }).notNull(),
