@@ -1,6 +1,13 @@
 import { expect, it } from 'vitest';
 import { z } from 'zod';
 import { goldenStdout } from '../golden/load.js';
+/**
+ * Source evidence only (V2, 20 Nov 2026; see tests/golden/INVENTORY.md): this file asserts
+ * facts of the pinned legacy capture and runs no rewrite code.
+ * Reason: the golden holds only the source hash and the count of vectors the removed oracle
+ * checked, so there is nothing to compare the rewrite with; a recapture is needed for real
+ * coverage.
+ */
 it('executes the pinned original fast cash helper and verifies portable vectors without writing', () => {
   const result = z
     .object({
