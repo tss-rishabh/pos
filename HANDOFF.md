@@ -10,9 +10,9 @@ is in git history at `e392040f`.
 
 | Item | Value |
 |---|---|
-| Repository | https://github.com/thesouledstore-tss/pos (PR #2) |
-| Branch | `refactor/single-stack-schema-freeze` |
-| Worktree | `/Users/rishabhbhatia/code/pos-rewrite-single-stack` |
+| Repository | https://github.com/tss-rishabh/pos (`origin`, work lands on `main`); upstream https://github.com/thesouledstore-tss/pos (PR #2) |
+| Branch | `main`. The rewrite was developed on `refactor/single-stack-schema-freeze` |
+| Checkout | `/Users/rishabhbhatia/code/pos-rewrite`, the only checkout (the other worktrees were removed on 20 November 2026). Local-only, gitignored: `backend/.env.uat` (UAT settings) and `.tmp/w26` (UAT run logs) |
 | Integration merge | `b481fa91` (W21), on top of W19 `ecc966a9`, W20 `feb995c7`/`719a66a6` and W18 `a2382b4e` |
 | Verified head | `b481fa91`. The W22 commits after it change only the source-surface map hashes, evidence and documentation |
 | Legacy source | `backend-pos-web@78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`. `/Users/rishabhbhatia/code/backend-pos-web` is checked out at a different commit, but contains the pin; tools that need a checkout at the pin use a clone |
