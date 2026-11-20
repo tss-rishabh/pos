@@ -9,10 +9,20 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "allowJs": true,
+    "checkJs": true,
     "types": ["node"],
     "paths": {
       "better-sqlite3-multiple-ciphers": ["../node_modules/better-sqlite3-multiple-ciphers/index.d.ts"]
     }
   },
-  "include": ["offline/**/*.ts", "vite.config.ts", "../src/offline/billing/**/*.ts"]
+  "include": [
+    "offline/**/*.ts",
+    "vite.config.ts",
+    "../src/offline/billing/**/*.ts",
+    "main.cjs",
+    "preload.cjs",
+    "workspace-config.cjs",
+    "runtime-mode.cjs"
+  ]
 }

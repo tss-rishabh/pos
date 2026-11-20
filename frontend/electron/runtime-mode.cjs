@@ -1,3 +1,4 @@
+// @ts-check
 const path = require('node:path');
 
 /** Environment variable that, together with the baked smoke flavour, enables the native smoke. */
@@ -20,6 +21,12 @@ const NATIVE_SMOKE_FLAVOUR = 'posDesktopNativeSmoke';
  *   POS_DESKTOP_NATIVE_SMOKE=1 at launch allow a loopback http origin and an isolated profile, so
  *   the packaged smokes never touch a real profile. It never enables DevTools. Release packages
  *   are verified to carry no flavour key (tools/verify-desktop-package.mjs).
+ *
+ * @param {{
+ *   isPackaged: boolean,
+ *   env?: Record<string, string | undefined>,
+ *   packageMetadata?: unknown,
+ * }} input
  */
 function runtimeMode({ isPackaged, env = {}, packageMetadata = null }) {
   const development = isPackaged === false && env.NODE_ENV === 'development';
@@ -27,7 +34,7 @@ function runtimeMode({ isPackaged, env = {}, packageMetadata = null }) {
     isPackaged === true &&
     packageMetadata !== null &&
     typeof packageMetadata === 'object' &&
-    packageMetadata[NATIVE_SMOKE_FLAVOUR] === true;
+    /** @type {Record<string, unknown>} */ (packageMetadata)[NATIVE_SMOKE_FLAVOUR] === true;
   const nativeSmoke = smokeFlavour && env[NATIVE_SMOKE_ENV] === '1';
   const isolated = development || nativeSmoke;
   const profile = env.POS_DESKTOP_PROFILE_DIR;

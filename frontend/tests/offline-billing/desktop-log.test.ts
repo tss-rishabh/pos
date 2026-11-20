@@ -180,7 +180,6 @@ describe('UI error IPC channel', () => {
       'offline:sale:create': fail,
       'offline:sale:list': fail,
       'offline:sale:reprint': fail,
-      'offline:sync:status': fail,
       'offline:sync:retry': fail,
       'offline:conflict:resolve': fail,
       'diagnostics:ui-error': report,

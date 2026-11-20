@@ -69,6 +69,21 @@ export const mainEvents = {
     level: 'info',
     msg: 'Offline catalogue refresh finished',
   },
+  'offline.catalog.truncated': {
+    module: 'desktop-offline-billing',
+    level: 'warn',
+    msg: 'Offline catalogue stopped at the page cap; later products are not on this device',
+  },
+  'offline.sales.pruned': {
+    module: 'desktop-offline-billing',
+    level: 'info',
+    msg: 'Old synced offline sales were removed from this device',
+  },
+  'offline.sales.prune-failed': {
+    module: 'desktop-offline-billing',
+    level: 'warn',
+    msg: 'Old synced offline sales could not be removed from this device',
+  },
   'offline.sale.created': {
     module: 'desktop-offline-billing',
     level: 'info',

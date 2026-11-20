@@ -27,6 +27,7 @@ import { useWorkspace } from './state/workspace';
 import { request, setRequestOperator } from './api/client';
 import { clearLocalIdentity } from './offline/clear-identity';
 import { useOfflineBillingAutoSwitch } from './offline/billing/auto-switch';
+import { desktopOfflineBridge } from './offline/billing/bridge';
 import { Login } from './pages/login';
 import { Empty, ErrorState, Loading } from './components/common';
 import { RealtimeClock } from './components/realtime-clock';
@@ -189,7 +190,8 @@ const links = [
   { to: '/dashboard', name: 'Dashboard', icon: ChartNoAxesCombined, internalOnly: true },
   { to: '/orders', name: 'Orders', icon: ReceiptText },
   { to: '/offline-worksheet', name: 'Invoice worksheet', icon: ReceiptText },
-  { to: '/offline-billing', name: 'Offline billing', icon: CloudOff },
+  // Desktop only: web browsers need internet to bill, so the web app has no offline billing link.
+  { to: '/offline-billing', name: 'Offline billing', icon: CloudOff, desktopOnly: true },
   { to: '/returns', name: 'Returns', icon: Undo2 },
   { to: '/inventory', name: 'Inventory', icon: Package },
   { to: '/catalog', name: 'Product catalog', icon: Package },
@@ -331,7 +333,8 @@ function Workspace({ user }: { user: Principal }) {
             .filter(
               (link) =>
                 (!link.roles || link.roles.includes(user.role)) &&
-                (!link.internalOnly || user.userType === 1),
+                (!link.internalOnly || user.userType === 1) &&
+                (!link.desktopOnly || desktopOfflineBridge() !== null),
             )
             .map((link) => (
               <NavLink

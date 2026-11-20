@@ -50,7 +50,14 @@ export interface OfflineServiceDeps {
 }
 
 const MANAGER_ROLES = new Set([1, 2, 3, 4]);
-const MAX_CATALOG_PAGES = 300;
+/** The backend serves at most 100 products per page (catalogProductsQuery in backend/src/app.ts),
+ * so this caps a device catalogue at 200,000 in-stock products. Reaching the cap with more pages
+ * left is logged (offline.catalog.truncated) and shown on the offline billing page. */
+const MAX_CATALOG_PAGES = 2000;
+/** Synced sales stay on the device this long for reprints, then are deleted with their tender
+ * (card/UPI references included). Queued, syncing, needs-manager and voided sales are kept. */
+export const SYNCED_SALE_RETENTION_MS = 30 * 24 * 3600_000;
+const yieldToEventLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
 /** Server refusals before dispatch (busy, check-in, operator change) retried this many times
  * go to the manager instead of retrying forever. */
 export const MAX_SYNC_ATTEMPTS = 8;
@@ -94,9 +101,14 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
     clock = next.session;
     store.setWindow(next.state);
   }
+  /** Read-only: projects the window to now without persisting it. Only tick() writes (every
+   * minute, and before a sale decision), so polling the status never writes to the database. */
   function limitStatus() {
-    tick();
-    return evaluateLimits(store.limits() ?? DEFAULT_LIMITS, store.window(), store.unsyncedCount());
+    const window = store.window();
+    const projected = window
+      ? advanceWindow(window, { wallMs: deps.now(), monoMs: deps.mono() }, clock).state
+      : null;
+    return evaluateLimits(store.limits() ?? DEFAULT_LIMITS, projected, store.unsyncedCount());
   }
   /** A successful server contact restarts the window only once nothing is queued. */
   function recordContact() {
@@ -163,6 +175,7 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
         storeId: catalog?.storeId ?? null,
         products: catalog?.products ?? 0,
         refreshedAt: catalog?.refreshedAt ?? null,
+        truncated: catalog?.truncated ?? false,
       },
       queue: store.counts(),
       syncing,
@@ -196,16 +209,25 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
     if (refreshing) return store.catalogInfo()?.products ?? 0;
     refreshing = true;
     const started = deps.mono();
+    // Each page is staged in a connection-private table as it arrives (small transactions, the
+    // event loop runs between pages), then one short set-based transaction swaps the catalogue:
+    // readers see the old catalogue or the new one, never a mix.
     try {
-      const storeId = operator.checkIn.storeId,
-        products: CatalogProduct[] = [];
-      let after = '0';
-      for (let page = 0; page < MAX_CATALOG_PAGES; page++) {
+      store.beginCatalogStage();
+      const storeId = operator.checkIn.storeId;
+      let after = '0',
+        truncated = false;
+      for (let page = 0; ; page++) {
+        if (page === MAX_CATALOG_PAGES) {
+          truncated = true;
+          break;
+        }
         const result = await server.catalogPage(
           callRequestId(traceId, `catalog:${page}`),
           storeId,
           after,
         );
+        const products: CatalogProduct[] = [];
         for (const item of result.data) {
           const price = parseMoney(item.price);
           if (price === null || price === 0) continue;
@@ -217,28 +239,40 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
             stock: item.stock,
           });
         }
+        store.stageCatalog(products);
         if (!result.nextCursor) break;
         after = result.nextCursor;
+        await yieldToEventLoop();
       }
+      if (truncated)
+        deps.log({
+          eventId: 'offline.catalog.truncated',
+          traceId,
+          outcome: 'failed',
+          errorCode: 'CATALOG_PAGE_CAP',
+          count: MAX_CATALOG_PAGES,
+        });
       const salespeople = await server.salespeople(
         callRequestId(traceId, 'salespeople'),
         operator.id,
         storeId,
       );
-      store.transaction(() => {
-        store.replaceCatalog(storeId, products, deps.now());
+      const count = store.transaction(() => {
+        const swapped = store.swapCatalog(storeId, deps.now(), truncated);
         store.replaceSalespeople(storeId, salespeople, deps.now());
+        return swapped;
       });
       deps.log({
         eventId: 'offline.catalog.refreshed',
         traceId,
         outcome: 'succeeded',
-        count: products.length,
+        count,
         durationMs: Math.round(deps.mono() - started),
       });
       deps.changed();
-      return products.length;
+      return count;
     } finally {
+      store.endCatalogStage();
       refreshing = false;
     }
   }
@@ -498,8 +532,21 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
     heartbeat,
     status,
     refreshCatalog,
-    setReachable(value: boolean) {
-      reachable = value;
+    /** Delete synced sales older than the retention, with their lines and tender. */
+    pruneSynced() {
+      const pruned = store.transaction(() =>
+        store.pruneSynced(deps.now() - SYNCED_SALE_RETENTION_MS),
+      );
+      if (pruned > 0) {
+        deps.log({
+          eventId: 'offline.sales.pruned',
+          traceId: randomUUID(),
+          outcome: 'succeeded',
+          count: pruned,
+        });
+        deps.changed();
+      }
+      return pruned;
     },
     online,
     async searchCatalog(input: IpcParsedRequest<'offline:catalog:search'>) {

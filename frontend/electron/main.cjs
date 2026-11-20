@@ -1,3 +1,4 @@
+// @ts-check
 const { app, BrowserWindow, Menu, session, dialog, shell } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
@@ -26,21 +27,28 @@ if (mode.profileDirectory) app.setPath('userData', mode.profileDirectory);
 // override (development and CI only) keeps its logs inside that profile.
 if (mode.profileDirectory) app.setAppLogsPath(path.join(mode.profileDirectory, 'logs'));
 
-/** Main-process bundle (offline billing + the desktop log); null when it cannot load. */
+/** Main-process bundle (offline billing + the desktop log); null when it cannot load.
+ * @type {typeof import('./offline/index') | null | undefined} */
 let offlineBundle;
 function loadOfflineBundle() {
   if (offlineBundle !== undefined) return offlineBundle;
   try {
-    offlineBundle = require('./dist/offline-billing.cjs');
+    // Built by electron/vite.config.ts and typed from its source entry (offline/index.ts); the
+    // computed path keeps the generated bundle out of the shell's type-check.
+    offlineBundle = require(path.join(__dirname, 'dist', 'offline-billing.cjs'));
   } catch (error) {
     offlineBundle = null;
     appendFallbackLog(error);
   }
   return offlineBundle;
 }
-const errorNameOf = (error) =>
+const errorNameOf = (/** @type {unknown} */ error) =>
   error instanceof Error && /^[A-Za-z0-9_:.-]{1,64}$/.test(error.name) ? error.name : 'Error';
-/** Registered shell events only (offline/events.ts); identifiers and codes, never messages. */
+/**
+ * Registered shell events only (offline/events.ts); identifiers and codes, never messages.
+ * @param {Parameters<typeof import('./offline/index').desktopLog>[0]['eventId']} eventId
+ * @param {{ errorCode: string, errorName?: string, reason?: string }} fields
+ */
 function shellLog(eventId, fields) {
   try {
     loadOfflineBundle()?.desktopLog({
@@ -54,6 +62,7 @@ function shellLog(eventId, fields) {
   }
 }
 /** The bundle (and with it the log sink) failed to load: record that one fixed line directly. */
+/** @param {unknown} error */
 function appendFallbackLog(error) {
   try {
     const directory = app.getPath('logs'),
@@ -103,7 +112,10 @@ else
   app
     .whenReady()
     .then(() => {
-      let url, workspace;
+      /** @type {URL} */
+      let url;
+      /** @type {ReturnType<typeof readWorkspaceConfiguration>} */
+      let workspace;
       try {
         workspace = readWorkspaceConfiguration(process.env, undefined, mode.allowLoopbackHttp);
         url = new URL(workspace.url);
@@ -112,7 +124,12 @@ else
           errorCode: 'WORKSPACE_CONFIGURATION_INVALID',
           errorName: errorNameOf(error),
         });
-        dialog.showErrorBox('Workspace configuration', error.message);
+        dialog.showErrorBox(
+          'Workspace configuration',
+          error instanceof Error
+            ? error.message
+            : 'The desktop workspace configuration is invalid.',
+        );
         app.quit();
         return;
       }
@@ -145,6 +162,7 @@ else
           devTools: mode.devTools,
         },
       });
+      /** @param {string} destination */
       function openApplicationLink(destination) {
         try {
           const source = new URL(window.webContents.getURL());
@@ -180,6 +198,7 @@ else
           // Never pass arbitrary schemes, credential URLs or raw failures to the OS or logs.
         }
       }
+      /** @param {string} destination */
       function openCustomerWebsite(destination) {
         try {
           const source = new URL(window.webContents.getURL());
@@ -213,6 +232,10 @@ else
         if (!openCustomerWebsite(destination)) openApplicationLink(destination);
         return { action: 'deny' };
       });
+      /**
+       * @param {{ preventDefault(): void }} event
+       * @param {string} destination
+       */
       const restrictNavigation = (event, destination, external = false) => {
         try {
           const target = new URL(destination);

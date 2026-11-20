@@ -270,6 +270,12 @@ test.describe.serial('desktop offline billing on the real stack', () => {
     await expect(header.getByRole('button', { name: /^Notifications/ })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /sound/i })).toHaveCount(0);
     await expect(header.getByRole('link', { name: /^Offline\./ })).toHaveCount(0);
+    // The desktop app (and only the desktop app) lists offline billing in the navigation.
+    await expect(
+      page
+        .getByRole('navigation', { name: 'Main navigation' })
+        .getByRole('link', { name: 'Offline billing', exact: true }),
+    ).toBeVisible();
     // No check-in prompt: login already checked in to the store.
     await expect(page.getByRole('dialog', { name: 'Check in to your store' })).toHaveCount(0);
     await page.goto(WORKSPACE + '/offline-billing');
@@ -515,6 +521,8 @@ test.describe.serial('desktop offline billing on the real stack', () => {
     await dialog.getByLabel('Order ID from Orders').fill(created.id);
     await dialog.getByLabel('Reason').fill('Found the order in Orders');
     await dialog.getByRole('button', { name: 'Save decision' }).click();
+    // A saved decision closes the dialog; a refusal would stay inside it as an alert.
+    await expect(dialog).toHaveCount(0);
     await waitForStatus((value) => value.queue.needsManager === 0 && !value.syncing, 60000);
     sale = (await sales()).find((item) => item.saleId === saleId)!;
     expect(sale.status).toBe('synced');

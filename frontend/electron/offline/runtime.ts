@@ -11,10 +11,11 @@ import {
   type Session,
 } from 'electron';
 import { z } from 'zod';
-import type {
-  IpcParsedRequest,
-  IpcReply,
-  OfflineStatus,
+import {
+  offlineStatusEvent,
+  type IpcParsedRequest,
+  type IpcReply,
+  type OfflineStatus,
 } from '../../src/offline/billing/contracts';
 import { DEFAULT_LIMITS, evaluateLimits } from '../../src/offline/billing/limits';
 import {
@@ -31,6 +32,7 @@ import {
   loadOrCreateDatabaseKey,
   type SecretWrapper,
 } from './key-store';
+import { coalescedNotifier } from './notify';
 import {
   NetworkUnavailableError,
   RequestNotSentError,
@@ -44,7 +46,11 @@ import { desktopLog, setDesktopLogUser } from './desktop-log';
 
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 const SESSION_COOKIE = 'pos_session';
-export const STATUS_EVENT = 'offline:status:changed';
+export const STATUS_EVENT = offlineStatusEvent;
+/** Status pushes within this window are coalesced into one (see notify.ts). */
+const STATUS_PUSH_DELAY_MS = 150;
+/** Synced sales are pruned from the device once they are older than the retention (service.ts). */
+const PRUNE_INTERVAL_MS = 60 * 60000;
 
 /** PII-free structured log line (identifiers, outcome codes and timings only), written to the
  * rotating desktop log file (desktop-log.ts) with the backend's record shape. */
@@ -146,7 +152,7 @@ function unavailableStatus(reason: string): OfflineStatus {
     operator: null,
     counters: [],
     limits: evaluateLimits(DEFAULT_LIMITS, null, 0),
-    catalog: { storeId: null, products: 0, refreshedAt: null },
+    catalog: { storeId: null, products: 0, refreshedAt: null, truncated: false },
     queue: { queued: 0, syncing: 0, needsManager: 0, synced: 0, voided: 0 },
     syncing: false,
     lastSyncAt: null,
@@ -232,9 +238,9 @@ export async function startOfflineBilling(
       return false;
     }
   };
-  const notify = () => {
+  const pushStatus = coalescedNotifier(() => {
     if (!window.isDestroyed()) window.webContents.send(STATUS_EVENT);
-  };
+  }, STATUS_PUSH_DELAY_MS);
   let database: SqliteDatabase | null = null;
   try {
     const directory = app.getPath('userData'),
@@ -265,7 +271,6 @@ export async function startOfflineBilling(
     };
     const handlers: IpcHandlers = {
       'offline:status': () => status,
-      'offline:sync:status': () => status,
       'offline:sync:retry': () => status,
       'offline:catalog:search': refuse,
       'offline:catalog:barcode': refuse,
@@ -300,11 +305,10 @@ export async function startOfflineBilling(
       return cookies.length > 0;
     },
     log,
-    changed: notify,
+    changed: pushStatus.notify,
   });
   const handlers: IpcHandlers = {
     'offline:status': () => service.status(),
-    'offline:sync:status': () => service.status(),
     'offline:sync:retry': (_payload, traceId) => service.retry(traceId),
     'offline:catalog:search': async (payload) => ({
       products: await service.searchCatalog(payload),
@@ -344,8 +348,22 @@ export async function startOfflineBilling(
       });
   };
   service.tick();
+  const prune = () => {
+    try {
+      service.pruneSynced();
+    } catch (error) {
+      log({
+        eventId: 'offline.sales.prune-failed',
+        traceId: randomUUID(),
+        outcome: 'failed',
+        errorName: error instanceof Error ? error.name : 'NonErrorValue',
+      });
+    }
+  };
+  prune();
   beat(true);
   const heartbeat = setInterval(() => beat(), 15000);
+  const housekeeping = setInterval(prune, PRUNE_INTERVAL_MS);
   const minute = setInterval(() => {
     try {
       service.tick();
@@ -362,7 +380,7 @@ export async function startOfflineBilling(
     } catch {
       log({ eventId: 'offline.clock.persist-failed', traceId: randomUUID(), outcome: 'failed' });
     }
-    notify();
+    pushStatus.notify();
     beat();
   };
   powerMonitor.on('resume', resumed);
@@ -370,6 +388,8 @@ export async function startOfflineBilling(
     clearInterval(heartbeat);
     clearInterval(minute);
     powerMonitor.removeListener('resume', resumed);
+    clearInterval(housekeeping);
+    pushStatus.cancel();
     unregister();
     if (!window.isDestroyed()) window.webContents.removeListener('did-finish-load', navigated);
     try {

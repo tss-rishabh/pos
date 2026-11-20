@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { desktopOfflineBridge, offlineBillingClient } from './bridge';
+import { desktopOfflineBridge } from './bridge';
+import { useOfflineStatus } from './status-store';
 
 /** Desktop only: when the workspace loses the store service while the cashier
  * is on the counter, switch to offline billing; return to the counter once the
@@ -13,29 +14,9 @@ export function useOfflineBillingAutoSwitch(online: boolean) {
   const navigate = useNavigate(),
     location = useLocation(),
     switched = useRef(false),
-    [reachable, setReachable] = useState<boolean | null>(null);
-  useEffect(() => {
-    const bridge = desktopOfflineBridge();
-    if (!bridge) return;
-    const client = offlineBillingClient(bridge);
-    let active = true;
-    const read = () =>
-      void client
-        .call('offline:status', {})
-        .then((status) => {
-          if (active)
-            setReachable(status.available && status.reachabilityKnown ? status.online : null);
-        })
-        .catch(() => undefined);
-    read();
-    const unsubscribe = client.onStatusChanged(read);
-    const timer = setInterval(read, 15000);
-    return () => {
-      active = false;
-      unsubscribe();
-      clearInterval(timer);
-    };
-  }, []);
+    { status } = useOfflineStatus();
+  // A failed read keeps the last known status (the snapshot keeps it).
+  const reachable = status && status.available && status.reachabilityKnown ? status.online : null;
   const connected = online && reachable !== false;
   useEffect(() => {
     if (!desktopOfflineBridge()) return;
