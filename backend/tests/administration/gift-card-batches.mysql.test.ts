@@ -17,6 +17,61 @@ import { goldenStdout } from '../golden/load.js';
 import { fixturePlaceholders } from '../golden/fixture-placeholders.js';
 
 const template = process.env.GIFT_CARD_BATCH_MYSQL_TEST_URL;
+/**
+ * The pinned AjaxPrintGiftCardView / AjaxBlockGiftCardView / AjaxGenerateGiftCardView responses
+ * (core/views.py), replayed from tests/golden/administration/gift-card-view.json with the exact
+ * cases gift-card-view.test.ts sends. The rewrite answers are compared with them below.
+ */
+const legacyViewCase = z
+  .object({
+    response: z.object({ status: z.string(), message: z.string().optional() }).passthrough(),
+    rows: z.array(z.record(z.string(), z.unknown())),
+  })
+  .passthrough();
+function legacyGiftCardView(cases: unknown[]) {
+  return z
+    .object({ cases: z.array(legacyViewCase) })
+    .parse(
+      JSON.parse(
+        goldenStdout('administration', 'gift-card-view', JSON.stringify({ cases })),
+      ) as unknown,
+    ).cases;
+}
+const legacyRows = [
+  {
+    id: 7,
+    is_completed: 1,
+    is_printed: 0,
+    is_block: 0,
+    size: 2,
+    message: 'Fixture',
+    filename: 'fixture.zip',
+  },
+];
+const legacyFlags = legacyGiftCardView([
+  { operation: 'print', rows: legacyRows, input: { collection: '7' } },
+  { operation: 'block', rows: legacyRows, input: { collection: '7', opr: 'block' } },
+  {
+    operation: 'block',
+    rows: [{ ...legacyRows[0]!, is_block: 1 }],
+    input: { collection: '7', opr: 'active' },
+  },
+  { operation: 'print', rows: legacyRows, input: { collection: '999' } },
+]);
+const legacyGenerate = legacyGiftCardView([
+  {
+    operation: 'generate',
+    input: { size: '2', message: 'Fixture' },
+    email: 'pos.fixture@example.test',
+  },
+  { operation: 'generate', input: { size: '2', message: 'Fixture' }, email: '' },
+  { operation: 'generate', input: { size: '-1', message: 'Fixture' } },
+]);
+/** Flag columns a legacy view case left on its collection row. */
+const flags = (row: Record<string, unknown> | undefined) => ({
+  is_printed: Number(row?.is_printed),
+  is_block: Number(row?.is_block),
+});
 describe.skipIf(!template)('gift card batches against an isolated MySQL fixture', () => {
   let connection: mysql.Connection, db: Databases, schema: string, databaseUrl: string;
   let fixture: ReturnType<typeof verifiedMysqlFixture>;
@@ -246,10 +301,15 @@ describe.skipIf(!template)('gift card batches against an isolated MySQL fixture'
     expect(await collection(second.batchId)).toMatchObject({ is_completed: 0, filename: '' });
   });
   it('creates the row then refuses requesters without email; franchise users are denied', async () => {
+    // Legacy creates the collection, then answers `failed` with this message (gift-card-view
+    // golden, case 2); the rewrite keeps the row and the text, with HTTP 422.
+    expect(legacyGenerate[1]!.response).toMatchObject({ status: 'failed' });
     await expect(service.create({ ...actor, id: '3', role: 2 }, command())).rejects.toMatchObject({
       status: 422,
       code: 'GIFT_CARD_BATCH_NOT_ELIGIBLE',
+      message: legacyGenerate[1]!.response.message,
     });
+    expect(legacyGenerate[1]!.rows).toHaveLength(1);
     const [rows] = await connection.query<mysql.RowDataPacket[]>(
       'SELECT created_by,is_completed FROM gift_card_collection',
     );
@@ -262,17 +322,27 @@ describe.skipIf(!template)('gift card batches against an isolated MySQL fixture'
   it('marks printed and block/active exactly as legacy, and lists like the legacy datatable', async () => {
     const a = await service.create(actor, command(3)),
       b = await service.create(actor, command(5));
+    // Messages and flag changes from the pinned views (gift-card-view golden).
+    const [printed, blocked, activated, unknown] = legacyFlags;
+    for (const legacy of [printed, blocked, activated])
+      expect(legacy!.response.status).toBe('success');
     expect(await service.markPrinted(actor, a.batchId)).toMatchObject({
-      message: 'Marked as printed',
+      message: printed!.response.message,
     });
+    expect(flags(await collection(a.batchId))).toEqual(flags(printed!.rows[0]));
+    expect(await collection(a.batchId)).toMatchObject({ is_completed: 0 });
     expect(await service.setBlocked(actor, b.batchId, { opr: 'block' })).toMatchObject({
-      message: 'Marked as block',
+      message: blocked!.response.message,
     });
-    expect(await collection(a.batchId)).toMatchObject({ is_printed: 1, is_completed: 0 });
-    expect(await collection(b.batchId)).toMatchObject({ is_block: 1 });
+    expect(flags(await collection(b.batchId))).toEqual(flags(blocked!.rows[0]));
     expect(await service.setBlocked(actor, b.batchId, { opr: 'active' })).toMatchObject({
-      message: 'Marked as active',
+      message: activated!.response.message,
     });
+    expect(flags(await collection(b.batchId))).toEqual(flags(activated!.rows[0]));
+    // Legacy: `failed` / "Please provide valid data" with the rows untouched; the rewrite answers
+    // 404 GIFT_CARD_BATCH_NOT_FOUND (parity/administration-gift-card-batches.md:43).
+    expect(unknown!.response).toMatchObject({ status: 'failed' });
+    expect(unknown!.rows).toEqual(legacyRows);
     await expect(service.markPrinted(actor, '999')).rejects.toMatchObject({ status: 404 });
     const page = await service.list(actor, { draw: 1, start: 0, length: 10 });
     expect(page).toMatchObject({ draw: 1, recordsTotal: '2', recordsFiltered: '2', start: 0 });
