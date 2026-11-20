@@ -26,6 +26,7 @@ import {
 } from './exchange-cell.js';
 import type { ReturnRepository } from './repository.js';
 import type { ReturnGatewayLog } from './gateway.js';
+import type { RegisteredEvent } from '../../../observability/event-registry.js';
 
 export interface ReturnServiceContext {
   repository: ReturnRepository;
@@ -121,7 +122,7 @@ async function warehouseFailure(
           eventId: 'checkout.return-operation.vinculum-push-unqueued',
           requestId: trace?.requestId ?? null,
           userId: trace?.userId ?? null,
-        },
+        } satisfies RegisteredEvent,
         'No job producer is configured for push_vinc_order_for_all',
       );
     }

@@ -44,6 +44,8 @@ import {
   enqueueAutoReject,
   registerJobHandlers as registerFulfillmentJobHandlers,
 } from './jobs.js';
+import type { EventId } from '../../observability/event-registry.js';
+import type { RegisteredEvent } from '../../observability/event-registry.js';
 
 export { createOrderNotification } from './notifications.js';
 export { fulfillmentEffects } from './effects.js';
@@ -108,7 +110,7 @@ export function registerJobHandlers(
     redis: OrderRedis;
     log: (
       level: 'info' | 'warn' | 'error',
-      event: Record<string, unknown>,
+      event: Record<string, unknown> & { eventId: EventId },
       message: string,
     ) => void;
     credentials?: FulfillmentOptions;
@@ -172,7 +174,7 @@ export async function registerFulfillment(
           requestId: null,
           userId: null,
           errorCode: 'REDIS_UNAVAILABLE',
-        },
+        } satisfies RegisteredEvent,
         'Notification connection unavailable',
       ),
     );

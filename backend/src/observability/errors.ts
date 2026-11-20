@@ -17,6 +17,34 @@ export interface MappedError {
   logCode: string;
   /** Unexpected server-side failures are logged at error level. */
   unexpected: boolean;
+  /** Safe classification of the failure an AppError replaced (see `withCause`), if any. */
+  causeCode?: string;
+}
+
+/**
+ * Attach the failure an AppError replaces, so the request's log line keeps its classification
+ * (`causeCode`) while the response keeps the domain code. The cause is non-enumerable: it is
+ * never serialized, and only `errorClassification` reads it.
+ */
+export function withCause<E extends Error>(error: E, cause: unknown): E {
+  Object.defineProperty(error, 'cause', {
+    value: cause,
+    enumerable: false,
+    configurable: true,
+    writable: true,
+  });
+  return error;
+}
+
+/** A log-safe code for any thrown value: the AppError code, a driver code or the error class
+ * name (never its message). */
+export function errorClassification(error: unknown): string {
+  if (error instanceof AppError) return error.code;
+  if (error instanceof ZodError) return 'INVALID_REQUEST';
+  const code = driverCode(error);
+  if (code) return code;
+  if (error instanceof Error && /^[A-Z][A-Za-z]{0,63}$/.test(error.name)) return error.name;
+  return 'UNKNOWN_ERROR';
 }
 
 /** Framework (4xx) rejections, by status: a stable code and a clear, value-free message. */
@@ -116,6 +144,7 @@ export function mapError(error: unknown, requestId: string): MappedError {
       body: envelope(error.code, error.message),
       logCode: error.code,
       unexpected: error.status >= 500,
+      ...(error.cause === undefined ? {} : { causeCode: errorClassification(error.cause) }),
     };
   const code = driverCode(error);
   const database = code ? databaseErrors[code] : undefined;

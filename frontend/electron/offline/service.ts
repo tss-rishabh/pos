@@ -20,6 +20,8 @@ import {
 import type { OfflineSaleUpload } from '../../src/offline/billing/sync-contract';
 import type { CachedOperator, OfflineStore, QueueEntry } from './database';
 import { UNKNOWN_OUTCOME_MESSAGE, type ServerApi } from './server';
+import type { DesktopLogEvent } from './events';
+import { callRequestId } from './request-id';
 
 /** Errors returned to the renderer: fixed code and a non-sensitive message. */
 export class OfflineBillingError extends Error {
@@ -31,14 +33,10 @@ export class OfflineBillingError extends Error {
   }
 }
 
-export interface OfflineLogEvent {
-  eventId: string;
-  traceId: string;
-  outcome: 'succeeded' | 'failed' | 'skipped';
-  code?: string;
-  count?: number;
-  durationMs?: number;
-}
+/** Registered desktop event (events.ts): identifiers, codes, counts and timings only. */
+export type OfflineLogEvent = DesktopLogEvent;
+/** The error class name of a thrown value, for logs (never its message). */
+const errorName = (error: unknown) => (error instanceof Error ? error.name : 'NonErrorValue');
 export interface OfflineServiceDeps {
   store: OfflineStore;
   server: ServerApi;
@@ -84,7 +82,7 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
       eventId: 'offline.sync.interrupted',
       traceId: randomUUID(),
       outcome: 'failed',
-      code: 'OUTCOME_UNKNOWN',
+      errorCode: 'OUTCOME_UNKNOWN',
       count: interrupted,
     });
 
@@ -203,7 +201,11 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
         products: CatalogProduct[] = [];
       let after = '0';
       for (let page = 0; page < MAX_CATALOG_PAGES; page++) {
-        const result = await server.catalogPage(traceId, storeId, after);
+        const result = await server.catalogPage(
+          callRequestId(traceId, `catalog:${page}`),
+          storeId,
+          after,
+        );
         for (const item of result.data) {
           const price = parseMoney(item.price);
           if (price === null || price === 0) continue;
@@ -218,7 +220,11 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
         if (!result.nextCursor) break;
         after = result.nextCursor;
       }
-      const salespeople = await server.salespeople(traceId, operator.id, storeId);
+      const salespeople = await server.salespeople(
+        callRequestId(traceId, 'salespeople'),
+        operator.id,
+        storeId,
+      );
       store.transaction(() => {
         store.replaceCatalog(storeId, products, deps.now());
         store.replaceSalespeople(storeId, salespeople, deps.now());
@@ -252,13 +258,27 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
       return;
     }
     const wasReachable = reachable;
-    reachable = await server.reachable(traceId);
+    reachable = await server.reachable(callRequestId(traceId, 'reachable'));
     if (reachable !== wasReachable || !probed) {
       probed = true;
       deps.changed();
     }
     if (!reachable) return;
-    const session = await server.session(traceId).catch(() => undefined);
+    const failed =
+      (eventId: OfflineLogEvent['eventId'], step: string) =>
+      (error: unknown): undefined => {
+        deps.log({
+          eventId,
+          traceId,
+          requestId: callRequestId(traceId, step),
+          outcome: 'failed',
+          errorName: errorName(error),
+        });
+        return undefined;
+      };
+    const session = await server
+      .session(callRequestId(traceId, 'session'))
+      .catch(failed('offline.session.check-failed', 'session'));
     if (session === undefined) return;
     if (session === null) {
       store.forgetDeviceOperator();
@@ -267,10 +287,23 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
       return;
     }
     const previous = store.deviceOperator();
-    const checkIn = await server.checkIn(traceId, session.user.id).catch(() => null);
-    const limits = await server.settings(traceId, session.user.id).catch(() => null);
-    const stores = await server.stores(traceId).catch(() => []);
-    const counters = checkIn ? await server.counters(traceId, checkIn.storeId).catch(() => []) : [];
+    const checkIn =
+      (await server
+        .checkIn(callRequestId(traceId, 'check-in'), session.user.id)
+        .catch(failed('offline.check-in.read-failed', 'check-in'))) ?? null;
+    const limits =
+      (await server
+        .settings(callRequestId(traceId, 'settings'), session.user.id)
+        .catch(failed('offline.settings.read-failed', 'settings'))) ?? null;
+    const stores =
+      (await server
+        .stores(callRequestId(traceId, 'stores'))
+        .catch(failed('offline.stores.read-failed', 'stores'))) ?? [];
+    const counters = checkIn
+      ? ((await server
+          .counters(callRequestId(traceId, 'counters'), checkIn.storeId)
+          .catch(failed('offline.counters.read-failed', 'counters'))) ?? [])
+      : [];
     store.transaction(() => {
       store.saveOperator({
         id: session.user.id,
@@ -295,12 +328,13 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
         catalog?.storeId !== checkIn.storeId ||
         deps.now() - (catalog?.refreshedAt ?? 0) > 30 * 60000)
     )
-      await refreshCatalog(traceId).catch(() => {
+      await refreshCatalog(traceId).catch((error: unknown) => {
         deps.log({
           eventId: 'offline.catalog.refreshed',
           traceId,
           outcome: 'failed',
-          code: 'CATALOG_UNAVAILABLE',
+          errorCode: error instanceof OfflineBillingError ? error.code : 'CATALOG_UNAVAILABLE',
+          errorName: errorName(error),
         });
       });
     deps.changed();
@@ -365,12 +399,19 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
               deps.now(),
             ),
           );
+          deps.log({
+            eventId: 'offline.sale.conflict',
+            traceId,
+            outcome: 'skipped',
+            errorCode: 'SALESPERSON_MISSING',
+          });
           deps.changed();
           continue;
         }
         store.transaction(() => store.markSyncing(sale.saleId, deps.now()));
+        const requestId = callRequestId(traceId, `upload:${sale.saleId}`);
         const outcome = await server.upload(
-          traceId,
+          requestId,
           operator.id,
           sale.storeId,
           sale.counterId,
@@ -381,10 +422,18 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
           store.transaction(() =>
             store.markSynced(sale.saleId, outcome.orderId, outcome.invoiceNumber, now),
           );
+          deps.log({ eventId: 'offline.sale.synced', traceId, requestId, outcome: 'succeeded' });
           uploaded++;
         } else if (outcome.kind === 'conflict') {
           const code = conflictCodeSchema.catch('OUTCOME_UNKNOWN').parse(outcome.code);
           store.transaction(() => store.markConflict(sale.saleId, code, outcome.message, now));
+          deps.log({
+            eventId: 'offline.sale.conflict',
+            traceId,
+            requestId,
+            outcome: 'failed',
+            errorCode: outcome.code,
+          });
         } else {
           // Only a request that never left the device, or one the server refused before
           // dispatch, comes back here. Pre-dispatch refusals count toward the escalation.
@@ -393,6 +442,14 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
             store.transaction(() =>
               store.markConflict(sale.saleId, 'OUTCOME_UNKNOWN', ESCALATED_MESSAGE, now),
             );
+            deps.log({
+              eventId: 'offline.sale.conflict',
+              traceId,
+              requestId,
+              outcome: 'failed',
+              errorCode: 'OUTCOME_UNKNOWN',
+              count: sale.attempts + 1,
+            });
             deps.changed();
             continue;
           }
@@ -406,6 +463,13 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
               counted,
             ),
           );
+          deps.log({
+            eventId: 'offline.sale.retry-scheduled',
+            traceId,
+            requestId,
+            outcome: 'failed',
+            errorCode: outcome.kind === 'unauthorized' ? 'AUTH_REQUIRED' : outcome.code,
+          });
           lastSyncError =
             outcome.kind === 'unauthorized'
               ? 'Sign in again to sync offline sales.'
@@ -617,10 +681,20 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
         eventId: 'offline.conflict.resolved',
         traceId,
         outcome: 'succeeded',
-        code: input.action,
+        action: input.action,
       });
       deps.changed();
-      if (input.action !== 'void') void sync(randomUUID()).catch(() => undefined);
+      if (input.action !== 'void') {
+        const syncTrace = randomUUID();
+        void sync(syncTrace).catch((error: unknown) =>
+          deps.log({
+            eventId: 'offline.sync.failed',
+            traceId: syncTrace,
+            outcome: 'failed',
+            errorName: errorName(error),
+          }),
+        );
+      }
       const updated = store.sale(sale.saleId);
       if (!updated)
         throw new OfflineBillingError('SALE_NOT_FOUND', 'This offline sale was not found.');

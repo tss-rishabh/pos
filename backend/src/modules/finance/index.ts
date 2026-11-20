@@ -26,6 +26,7 @@ import {
   paymentCorrectionFinanceOptions,
   type PaymentCorrectionFinanceOptions,
 } from './payment-corrections.js';
+import type { RegisteredEvent } from '../../observability/event-registry.js';
 
 const date = z
   .string()
@@ -156,7 +157,7 @@ export async function registerFinance(
           requestId: request.id,
           userId: 'service-reports',
           pending: result.pending,
-        },
+        } satisfies RegisteredEvent,
         'Pending day-close alerts posted',
       );
       return result;

@@ -1,4 +1,5 @@
-// Sandboxed preload: exposes only the allowlisted offline billing channels.
+// Sandboxed preload: exposes only the allowlisted offline billing channels and the ID-only
+// UI error report channel (the same set as `ipcChannels` in src/offline/billing/contracts.ts).
 // No Node API, key material or raw ipcRenderer reaches the renderer; the main
 // process validates every payload and the sender origin.
 const { contextBridge, ipcRenderer } = require('electron');
@@ -15,6 +16,7 @@ const channels = new Set([
   'offline:sync:status',
   'offline:sync:retry',
   'offline:conflict:resolve',
+  'diagnostics:ui-error',
 ]);
 const STATUS_EVENT = 'offline:status:changed';
 

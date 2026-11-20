@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyServerOptions } from 'fastify';
 import { currentRequestTrace } from './context.js';
+import type { LogProcess } from './event-registry.js';
 
 type LoggerOptions = Exclude<FastifyServerOptions['logger'], boolean | undefined>;
 
@@ -76,17 +77,23 @@ export const redactPaths = sensitiveLogKeys.flatMap((key) =>
       ),
 );
 
-/**
- * Every log line carries the trace of the request or job it belongs to (`traceId`, `requestId`,
- * `module`, `resource`, `userId`) and a unique `eventInstanceId`. Registered resource events
- * (observability/events.ts and module event helpers) pass their own `eventId`, which wins over the
- * default; lines without one get `<module>.<resource>.log`.
- */
-export function traceMixin(fallback: {
+/** Trace defaults for lines logged outside a request or job context. */
+export interface LogFallback {
   requestId: string | null;
   module: string;
   resource: string;
-}) {
+  /** The writing process: `server` (HTTP API) or `worker` (job worker). */
+  process?: LogProcess;
+}
+
+/**
+ * Every log line carries the writing `process`, the trace of the request or job it belongs to
+ * (`traceId`, `requestId`, `module`, `resource`, `userId`) and a unique `eventInstanceId`.
+ * Registered resource events (observability/event-registry.ts, typed loggers) pass their own
+ * `eventId`, which wins over the default; lines without one get `<module>.<resource>.log`. pino
+ * adds `level`, epoch-ms `time` and `msg`, a fixed sentence per call site that carries no values.
+ */
+export function traceMixin(fallback: LogFallback) {
   return (event: object) => {
     const trace = currentRequestTrace(),
       module = trace?.module ?? fallback.module,
@@ -96,6 +103,7 @@ export function traceMixin(fallback: {
       explicit =
         'requestId' in event && typeof event.requestId === 'string' ? event.requestId : null;
     return {
+      process: fallback.process ?? 'server',
       traceId: explicit ?? requestId,
       requestId,
       module,
@@ -110,10 +118,11 @@ export function traceMixin(fallback: {
 /** Shared pino options: trace mixin, redaction, and serializers that drop request/error detail. */
 export function applicationLogger(
   options: LoggerOptions,
-  fallback: { requestId: string | null; module: string; resource: string } = {
+  fallback: LogFallback = {
     requestId: null,
     module: 'runtime',
     resource: 'server',
+    process: 'server',
   },
 ): LoggerOptions {
   return {

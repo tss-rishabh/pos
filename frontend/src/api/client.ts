@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { desktopStoreServiceUnreachable } from '../offline/billing/bridge';
+import {
+  desktopStoreServiceUnreachable,
+  OfflineBillingClientError,
+} from '../offline/billing/bridge';
 let operatorId: string | null = null;
 let operatorScope = new AbortController();
 export function setRequestOperator(id: string | null) {
@@ -49,7 +52,9 @@ export class NetworkError extends Error {
 }
 /** The server request ID support can quote for a failed request, if the server answered. */
 export function errorRequestId(error: unknown): string | undefined {
-  return error instanceof ApiError ? error.requestId : undefined;
+  if (error instanceof ApiError) return error.requestId;
+  // Desktop offline billing: the IPC request ID the main process logged the failure under.
+  return error instanceof OfflineBillingClientError ? (error.requestId ?? undefined) : undefined;
 }
 async function openResponse(
   path: string,

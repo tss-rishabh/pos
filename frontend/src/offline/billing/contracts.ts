@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { PROVISIONAL_REFERENCE_PATTERN } from './reference';
+import { uiErrorReportSchema } from '../../observability/ui-events';
 
 /** IPC contracts shared by the Electron main process (which validates every
  * message) and the renderer (which validates every reply). */
@@ -61,6 +62,8 @@ export const ipcChannels = [
   'offline:sync:status',
   'offline:sync:retry',
   'offline:conflict:resolve',
+  // ID-only renderer error report for the desktop log (frontend/src/observability).
+  'diagnostics:ui-error',
 ] as const;
 export type IpcChannel = (typeof ipcChannels)[number];
 
@@ -130,6 +133,7 @@ export const ipcRequestSchemas = {
       message: 'Enter the order ID only when linking the order found in Orders.',
       path: ['orderId'],
     }),
+  'diagnostics:ui-error': uiErrorReportSchema,
 } satisfies Record<IpcChannel, z.ZodType>;
 export type IpcRequest<C extends IpcChannel> = z.input<(typeof ipcRequestSchemas)[C]>;
 export type IpcParsedRequest<C extends IpcChannel> = z.output<(typeof ipcRequestSchemas)[C]>;
@@ -260,6 +264,7 @@ export const ipcResponseSchemas = {
   'offline:sync:status': statusSchema,
   'offline:sync:retry': statusSchema,
   'offline:conflict:resolve': z.object({ sale: saleSchema }),
+  'diagnostics:ui-error': z.object({}).strict(),
 } satisfies Record<IpcChannel, z.ZodType>;
 export type IpcResponse<C extends IpcChannel> = z.infer<(typeof ipcResponseSchemas)[C]>;
 

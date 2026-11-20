@@ -6,6 +6,7 @@ import type { JobContext } from './contract.js';
 import type { JobRecord, JobQueueStore } from './queue.js';
 import type { JobHandlerTable } from './registry.js';
 import type { JobLogger } from './runtime.js';
+import type { EventId } from '../observability/event-registry.js';
 
 export interface JobWorkerDependencies {
   store: JobQueueStore;
@@ -22,12 +23,12 @@ export interface JobWorkerDependencies {
 
 const event = (
   job: Pick<JobRecord, 'id' | 'name' | 'queue' | 'requestId' | 'userId'>,
-  outcome: string,
+  eventId: EventId,
   extra: Record<string, string | number | null> = {},
 ) => ({
   module: 'jobs',
   resource: 'job',
-  eventId: `jobs.job.${outcome}`,
+  eventId,
   eventInstanceId: randomUUID(),
   requestId: job.requestId ?? job.id,
   userId: job.userId,
@@ -56,10 +57,10 @@ export function jobWorker(dependencies: JobWorkerDependencies) {
   let active = false,
     loops: Promise<void> | undefined,
     wake: (() => void) | undefined;
-  const lifecycle = (eventId: string, extra: Record<string, string | number | null> = {}) => ({
+  const lifecycle = (eventId: EventId, extra: Record<string, string | number | null> = {}) => ({
     module: 'jobs',
     resource: 'worker',
-    eventId: `jobs.worker.${eventId}`,
+    eventId,
     eventInstanceId: randomUUID(),
     requestId: workerId,
     userId: null,
@@ -73,7 +74,7 @@ export function jobWorker(dependencies: JobWorkerDependencies) {
       await dependencies.store.dropInflight(id, workerId).catch(() => undefined);
       dependencies.log(
         'warn',
-        lifecycle('job-skipped', { jobId: id }),
+        lifecycle('jobs.worker.job-skipped', { jobId: id }),
         'Claimed job record is missing or not queued',
       );
       return;
@@ -83,10 +84,14 @@ export function jobWorker(dependencies: JobWorkerDependencies) {
       await dependencies.store.write(started);
     } catch {
       // The id stays in this worker's inflight list; an operator can requeue it as an orphan.
-      dependencies.log('error', event(job, 'start-unrecorded'), 'Job start could not be recorded');
+      dependencies.log(
+        'error',
+        event(job, 'jobs.job.start-unrecorded'),
+        'Job start could not be recorded',
+      );
       return;
     }
-    dependencies.log('info', event(job, 'started', { workerId }), 'Job started');
+    dependencies.log('info', event(job, 'jobs.job.started', { workerId }), 'Job started');
     const handler = dependencies.handlers.handler(job.name);
     let outcome: JobRecord;
     if (!handler)
@@ -124,20 +129,20 @@ export function jobWorker(dependencies: JobWorkerDependencies) {
     } catch {
       dependencies.log(
         'error',
-        event(job, 'finish-unrecorded'),
+        event(job, 'jobs.job.finish-unrecorded'),
         'Job outcome could not be recorded',
       );
     }
     if (outcome.state === 'succeeded')
       dependencies.log(
         'info',
-        event(job, 'succeeded', { durationMs: outcome.finishedAt! - started.startedAt! }),
+        event(job, 'jobs.job.succeeded', { durationMs: outcome.finishedAt! - started.startedAt! }),
         'Job succeeded',
       );
     else
       dependencies.log(
         'warn',
-        event(job, 'failed', { errorCode: outcome.errorCode }),
+        event(job, 'jobs.job.failed', { errorCode: outcome.errorCode }),
         'Job failed',
       );
   }
@@ -147,7 +152,11 @@ export function jobWorker(dependencies: JobWorkerDependencies) {
       await dependencies.store
         .heartbeat(workerId)
         .catch(() =>
-          dependencies.log('warn', lifecycle('heartbeat-failed'), 'Worker heartbeat failed'),
+          dependencies.log(
+            'warn',
+            lifecycle('jobs.worker.heartbeat-failed'),
+            'Worker heartbeat failed',
+          ),
         );
       await sleep(dependencies.heartbeatIntervalMs, undefined, { signal: stopSignal() }).catch(
         () => undefined,
@@ -159,7 +168,11 @@ export function jobWorker(dependencies: JobWorkerDependencies) {
       try {
         while (active && (await dependencies.store.promote()) >= 100);
       } catch {
-        dependencies.log('warn', lifecycle('promote-failed'), 'Delayed job promotion failed');
+        dependencies.log(
+          'warn',
+          lifecycle('jobs.worker.promote-failed'),
+          'Delayed job promotion failed',
+        );
       }
       await sleep(dependencies.promoteIntervalMs, undefined, { signal: stopSignal() }).catch(
         () => undefined,
@@ -176,7 +189,11 @@ export function jobWorker(dependencies: JobWorkerDependencies) {
       try {
         id = await dependencies.claim(workerId);
       } catch {
-        dependencies.log('warn', lifecycle('claim-failed'), 'Job claim failed; retrying');
+        dependencies.log(
+          'warn',
+          lifecycle('jobs.worker.claim-failed'),
+          'Job claim failed; retrying',
+        );
         await sleep(1000, undefined, { signal: stopSignal() }).catch(() => undefined);
         continue;
       }
@@ -200,7 +217,7 @@ export function jobWorker(dependencies: JobWorkerDependencies) {
       stopController = new AbortController();
       dependencies.log(
         'info',
-        lifecycle('started', { concurrency: dependencies.concurrency }),
+        lifecycle('jobs.worker.started', { concurrency: dependencies.concurrency }),
         'Job worker started',
       );
       loops = Promise.all([heartbeatLoop(), promoteLoop(), claimLoop()]).then(() => undefined);
@@ -215,7 +232,11 @@ export function jobWorker(dependencies: JobWorkerDependencies) {
       await loops;
       await Promise.allSettled([...running]);
       const remaining = await dependencies.store.retire(workerId).catch(() => -1);
-      dependencies.log('info', lifecycle('stopped', { remaining }), 'Job worker stopped');
+      dependencies.log(
+        'info',
+        lifecycle('jobs.worker.stopped', { remaining }),
+        'Job worker stopped',
+      );
     },
     /** Signal in-flight handlers to abort (second shutdown signal). */
     abort() {

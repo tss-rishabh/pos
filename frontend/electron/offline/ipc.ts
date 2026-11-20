@@ -23,7 +23,8 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 
 /** Validate and dispatch one IPC call. The renderer-supplied requestId becomes
  * the traceId when it is a valid UUID; otherwise a new one is generated. Logs
- * carry only the channel, outcome, code and timing — never payload values. */
+ * carry only the channel, outcome, error code/class name and timing — never
+ * payload values or error messages. */
 export async function dispatchIpc(
   channel: IpcChannel,
   raw: unknown,
@@ -35,13 +36,14 @@ export async function dispatchIpc(
   const envelope = ipcEnvelopeSchema.safeParse(raw);
   const requestId =
     envelope.success && uuid.test(envelope.data.requestId) ? envelope.data.requestId : randomUUID();
-  const finish = (reply: IpcReply, code?: string): IpcReply => {
+  const finish = (reply: IpcReply, errorCode?: string, errorName?: string): IpcReply => {
     log({
       eventId: 'offline.ipc.completed',
       channel,
       traceId: requestId,
       outcome: reply.ok ? 'succeeded' : 'failed',
-      code,
+      ...(errorCode ? { errorCode } : {}),
+      ...(errorName ? { errorName } : {}),
       durationMs: Math.round(now() - started),
     });
     return reply;
@@ -85,6 +87,7 @@ export async function dispatchIpc(
         },
       },
       'OFFLINE_BILLING_FAILED',
+      error instanceof Error ? error.name : 'NonErrorValue',
     );
   }
 }
@@ -104,7 +107,7 @@ export function registerOfflineIpc(
           channel,
           traceId: requestId,
           outcome: 'failed',
-          code: 'UNTRUSTED_SENDER',
+          errorCode: 'UNTRUSTED_SENDER',
         });
         return {
           ok: false,

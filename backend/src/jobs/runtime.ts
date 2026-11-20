@@ -2,13 +2,11 @@ import type { Config } from '../config.js';
 import type { Databases } from '../db/pools.js';
 import type { JobHandlerRegistry, JobProducer } from './contract.js';
 import type { EphemeralStore } from './ephemeral.js';
+import type { EventLogger } from '../observability/event-registry.js';
 
-/** Structured log sink for jobs. Events carry ids only: never args, results or PII. */
-export type JobLogger = (
-  level: 'info' | 'warn' | 'error',
-  event: Readonly<Record<string, string | number | boolean | null>>,
-  message: string,
-) => void;
+/** Structured log sink for jobs, typed to the event registry. Events carry ids only: never
+ * args, results or PII. */
+export type JobLogger = EventLogger;
 
 /** Dependencies a module's job handlers receive in the worker process. */
 export interface JobRuntime {

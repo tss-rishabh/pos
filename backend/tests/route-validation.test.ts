@@ -244,8 +244,9 @@ describe('S50: authentication runs before validation on session routes', () => {
     'POST /api/v1/auth/challenges/current/verifications',
     'POST /api/v1/auth/demo-sessions',
     'POST /api/v1/auth/sessions',
+    'POST /api/v1/diagnostics/ui-errors',
   ];
-  it('marks only the login and health routes public; everything else needs a session or a service proof', () => {
+  it('marks only the login, health and UI error beacon routes public; everything else needs a session or a service proof', () => {
     const marked = registeredRoutes(app)
       .filter((route) => route.method !== 'HEAD' && route.authentication === 'public')
       .map((route) => `${route.method} ${route.url}`)

@@ -27,6 +27,7 @@ import {
   registrationDigest,
   sealRegistration,
 } from './crypto.js';
+import type { RegisteredEvent } from '../../../observability/event-registry.js';
 
 export interface RegistrationEnvironment {
   secret?: string;
@@ -177,7 +178,7 @@ const limited = () =>
 
 /** Structured audit sink (Fastify `app.log`); events carry identifiers only, never contacts. */
 export interface RegistrationAuditLog {
-  info(value: Record<string, unknown>, message: string): void;
+  info(value: RegisteredEvent, message: string): void;
 }
 const stdoutAudit: RegistrationAuditLog = {
   info(value, message) {
@@ -227,7 +228,7 @@ export function customerRegistrationService(
       {
         module: 'checkout',
         resource: 'customer-registration',
-        eventId: `checkout.customer-registration.self-verify-${outcome}`,
+        eventId: `checkout.customer-registration.self-verify-${outcome}` as const,
         requestId: trace?.requestId ?? null,
         userId: trace?.userId ?? record.operatorId,
         operatorId: record.operatorId,

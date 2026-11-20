@@ -25,6 +25,7 @@ function handlers(overrides: Partial<IpcHandlers> = {}): IpcHandlers {
     'offline:sync:status': fail,
     'offline:sync:retry': fail,
     'offline:conflict:resolve': fail,
+    'diagnostics:ui-error': fail,
     ...overrides,
   };
 }
@@ -159,7 +160,7 @@ describe('IPC validation', () => {
       (event) => event === 'trusted',
       vi.fn(),
     );
-    expect(registered.size).toBe(11);
+    expect(registered.size).toBe(12);
     const rejected = await registered.get('offline:status')!('evil', { requestId, payload: {} });
     expect(rejected).toMatchObject({ ok: false, error: { code: 'UNTRUSTED_SENDER' } });
     expect(status).not.toHaveBeenCalled();

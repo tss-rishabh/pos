@@ -9,13 +9,14 @@ import { secretMatches } from '../fulfillment/options.js';
 import { scheduleInput, type ScheduleInput, type ScheduledArtifact } from './scheduled-domain.js';
 import type { ScheduledReportOptions } from './scheduled-options.js';
 import { postSlackText, type SlackPoster } from './slack.js';
+import type { RegisteredEvent } from '../../observability/event-registry.js';
 
 export type ScheduledBuilder = (
   input: ScheduleInput & { date: string },
 ) => Promise<ScheduledArtifact>;
 export type ScheduledLogger = (
   level: 'info' | 'warn',
-  event: Readonly<Record<string, string | number | boolean | null>>,
+  event: RegisteredEvent,
   message: string,
 ) => void;
 /**
@@ -71,7 +72,9 @@ export function scheduledReportRunner(
         {
           module: 'operational-reports',
           resource: 'scheduled-report-delivery',
-          eventId: `operational-reports.scheduled-report-delivery.${delivered ? 'sent' : 'not-sent'}`,
+          eventId: delivered
+            ? 'operational-reports.scheduled-report-delivery.sent'
+            : 'operational-reports.scheduled-report-delivery.not-sent',
           eventInstanceId: randomUUID(),
           requestId,
           userId: 'service-reports',

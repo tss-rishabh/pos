@@ -14,6 +14,7 @@ import {
 } from './contracts.js';
 import { acceptInbound, customerToken, type ReturnServiceContext } from './service.js';
 import { exchangeRefusal, returnExchangeMerged } from './exchange-cell.js';
+import type { RegisteredEvent } from '../../../observability/event-registry.js';
 
 /**
  * `AjaxProductExchangeView` (order/views.py:978-1313): return leg, stock, API-v2 `pos/exchange`,
@@ -33,7 +34,7 @@ export function exchangeService(context: ReturnServiceContext, orders: CheckoutG
           eventId: 'checkout.exchange-operation.invoice-failed',
           requestId: trace?.requestId ?? null,
           userId: trace?.userId ?? null,
-        },
+        } satisfies RegisteredEvent,
         'Invoice generation for the exchange child order failed',
       );
     });

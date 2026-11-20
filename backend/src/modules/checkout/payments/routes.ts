@@ -19,6 +19,7 @@ import { orderPushEnvironment, orderPushes, type OrderPushes } from './order-pus
 import { paymentRepository, type PaymentRepositoryOptions } from './repository.js';
 import { paymentService } from './service.js';
 import { tracedFetch } from '../../../observability/context.js';
+import type { RegisteredEvent } from '../../../observability/event-registry.js';
 
 export interface PaymentRegistrationOptions extends PaymentRepositoryOptions {
   gateway?: PaymentGateway;
@@ -46,10 +47,10 @@ export function registerPayments(
         options.pushes ??
         orderPushes(config, orderPushEnvironment(), tracedFetch, (event) =>
           app.log.info({
-            eventId: `checkout.${event.kind}.${event.outcome}`,
+            eventId: `checkout.${event.kind}.${event.outcome}` as const,
             module: 'checkout',
             resource: event.kind,
-          }),
+          } satisfies RegisteredEvent),
         ),
     },
   );

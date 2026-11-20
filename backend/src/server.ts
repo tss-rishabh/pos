@@ -4,9 +4,12 @@ import { AppError } from './domain/errors.js';
 
 type Application = Awaited<ReturnType<typeof buildApp>>;
 let app: Application | undefined;
-function lifecycle(action: string, errorCode?: string) {
+function lifecycle(
+  eventId: 'runtime.server.startup.failed' | 'runtime.server.shutdown.failed',
+  errorCode?: string,
+) {
   return {
-    eventId: 'runtime.server.' + action,
+    eventId,
     eventInstanceId: crypto.randomUUID(),
     module: 'runtime',
     resource: 'server',
@@ -40,14 +43,17 @@ try {
       void app
         ?.close()
         .catch(() => {
-          app?.log.error(lifecycle('shutdown.failed', 'SHUTDOWN_FAILED'), 'Server shutdown failed');
+          app?.log.error(
+            lifecycle('runtime.server.shutdown.failed', 'SHUTDOWN_FAILED'),
+            'Server shutdown failed',
+          );
           process.exitCode = 1;
         })
         .finally(() => clearTimeout(deadline));
     });
   await app.listen({ host: config.HOST, port: config.PORT });
 } catch (error) {
-  const event = lifecycle('startup.failed', safeCode(error));
+  const event = lifecycle('runtime.server.startup.failed', safeCode(error));
   if (app) app.log.error(event, 'Server startup failed');
   else process.stderr.write(JSON.stringify({ ...event, message: 'Server startup failed' }) + '\n');
   await app?.close().catch(() => undefined);

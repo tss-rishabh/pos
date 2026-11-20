@@ -24,6 +24,7 @@ import {
 } from './legacy.js';
 import type { ActiveTransaction, PaymentRepository } from './repository.js';
 import type { OrderPushes } from './order-pushes.js';
+import { withCause } from '../../../observability/errors.js';
 
 /** Redis keys (table-disposition.md, checkout/payments). */
 export const paymentKeys = {
@@ -293,13 +294,17 @@ export function paymentService(
             terminal,
             transactionDateTime: sentAt,
           });
-        } catch {
-          // The terminal accepted the request but it could not be recorded.
+        } catch (error) {
+          // The terminal accepted the request but it could not be recorded. The request log
+          // keeps the recording failure's code as `causeCode`.
           return fail(
-            new AppError(
-              502,
-              'PAYMENT_RECORD_UNCONFIRMED',
-              'Approved on the terminal, but the payment could not be saved. Cancel it on the terminal before sending again.',
+            withCause(
+              new AppError(
+                502,
+                'PAYMENT_RECORD_UNCONFIRMED',
+                'Approved on the terminal, but the payment could not be saved. Cancel it on the terminal before sending again.',
+              ),
+              error,
             ),
             'uncertain',
             'Approved',

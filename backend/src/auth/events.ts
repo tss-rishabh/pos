@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyBaseLogger } from 'fastify';
 import { currentRequestTrace } from '../observability/context.js';
+import type { BackendEventId } from '../observability/event-registry.js';
 
 /** Registered identity events. Never carry OTPs, passwords, secrets, phones or emails. */
 export const authEventIds = [
@@ -17,7 +18,7 @@ export const authEventIds = [
   'identity.login-otp.totp-unavailable',
   'identity.login-otp.alert-failed',
   'identity.session.logout-check-in-cleanup-failed',
-] as const;
+] as const satisfies readonly BackendEventId[];
 export type AuthEventId = (typeof authEventIds)[number];
 export interface AuthEvent {
   eventId: AuthEventId;

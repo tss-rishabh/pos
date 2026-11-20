@@ -11,7 +11,11 @@ import {
   type Session,
 } from 'electron';
 import { z } from 'zod';
-import type { IpcReply, OfflineStatus } from '../../src/offline/billing/contracts';
+import type {
+  IpcParsedRequest,
+  IpcReply,
+  OfflineStatus,
+} from '../../src/offline/billing/contracts';
 import { DEFAULT_LIMITS, evaluateLimits } from '../../src/offline/billing/limits';
 import {
   OfflineDatabaseLockedError,
@@ -36,26 +40,16 @@ import {
   type HttpRequest,
 } from './server';
 import { OfflineBillingError, offlineBillingService, type OfflineLogEvent } from './service';
+import { desktopLog, setDesktopLogUser } from './desktop-log';
 
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 const SESSION_COOKIE = 'pos_session';
 export const STATUS_EVENT = 'offline:status:changed';
 
-/** PII-free structured log line: identifiers, outcome codes and timings only. */
-function log(event: OfflineLogEvent & { channel?: string }) {
-  process.stdout.write(
-    JSON.stringify({
-      module: 'desktop-offline-billing',
-      resource: event.channel ?? 'runtime',
-      time: new Date().toISOString(),
-      // Same trace fields as the backend: requestId equals traceId and reaches the server as
-      // X-Request-Id on sync/heartbeat calls.
-      requestId: event.traceId,
-      eventInstanceId: randomUUID(),
-      userId: null,
-      ...event,
-    }) + '\n',
-  );
+/** PII-free structured log line (identifiers, outcome codes and timings only), written to the
+ * rotating desktop log file (desktop-log.ts) with the backend's record shape. */
+function log(event: OfflineLogEvent) {
+  desktopLog(event);
 }
 
 function electronHttp(origin: string, profile: Session): HttpClient {
@@ -197,6 +191,18 @@ function loadSqlite(): SqliteConstructor {
   return loaded as SqliteConstructor;
 }
 
+/** Renderer error report (already validated against the ID-only schema by dispatchIpc). */
+function reportUiError(report: IpcParsedRequest<'diagnostics:ui-error'>, traceId: string) {
+  log({
+    eventId: report.eventId,
+    traceId,
+    outcome: 'failed',
+    errorName: report.errorName,
+    route: report.route,
+  });
+  return {};
+}
+
 export interface OfflineBillingRuntimeOptions {
   window: BrowserWindow;
   workspaceOrigin: string;
@@ -250,7 +256,8 @@ export async function startOfflineBilling(
       eventId: 'offline.storage.unavailable',
       traceId: randomUUID(),
       outcome: 'failed',
-      code,
+      errorCode: code,
+      errorName: error instanceof Error ? error.name : 'NonErrorValue',
     });
     const status = unavailableStatus(reason);
     const refuse = async () => {
@@ -268,10 +275,13 @@ export async function startOfflineBilling(
       'offline:sale:list': () => ({ sales: [] }),
       'offline:sale:reprint': refuse,
       'offline:conflict:resolve': refuse,
+      'diagnostics:ui-error': (payload, traceId) => reportUiError(payload, traceId),
     };
     return registerOfflineIpc(ipcMain, handlers, trustedSender, log);
   }
   const store = offlineStore(database);
+  // The signed-in operator on this device (one indexed meta read; no operator row parsing).
+  setDesktopLogUser(() => store.getMeta('device_operator'));
   let deviceId = store.getMeta('device_id');
   if (!deviceId || !/^[a-f0-9]{32}$/.test(deviceId)) {
     deviceId = randomBytes(16).toString('hex');
@@ -312,6 +322,7 @@ export async function startOfflineBilling(
     'offline:conflict:resolve': async (payload, traceId) => ({
       sale: await service.resolve(payload, traceId),
     }),
+    'diagnostics:ui-error': (payload, traceId) => reportUiError(payload, traceId),
   };
   const unregister = registerOfflineIpc(ipcMain, handlers, trustedSender, log);
   let beating = false;
@@ -320,8 +331,13 @@ export async function startOfflineBilling(
     beating = true;
     void service
       .heartbeat(randomUUID(), { catalog })
-      .catch(() =>
-        log({ eventId: 'offline.heartbeat.failed', traceId: randomUUID(), outcome: 'failed' }),
+      .catch((error: unknown) =>
+        log({
+          eventId: 'offline.heartbeat.failed',
+          traceId: randomUUID(),
+          outcome: 'failed',
+          errorName: error instanceof Error ? error.name : 'NonErrorValue',
+        }),
       )
       .finally(() => {
         beating = false;
@@ -334,7 +350,7 @@ export async function startOfflineBilling(
     try {
       service.tick();
     } catch {
-      log({ eventId: 'offline.clock.persist', traceId: randomUUID(), outcome: 'failed' });
+      log({ eventId: 'offline.clock.persist-failed', traceId: randomUUID(), outcome: 'failed' });
     }
   }, 60000);
   const navigated = () => beat(true);
@@ -344,7 +360,7 @@ export async function startOfflineBilling(
     try {
       service.tick();
     } catch {
-      log({ eventId: 'offline.clock.persist', traceId: randomUUID(), outcome: 'failed' });
+      log({ eventId: 'offline.clock.persist-failed', traceId: randomUUID(), outcome: 'failed' });
     }
     notify();
     beat();

@@ -15,10 +15,11 @@ import { registerJobHandlers as registerLegacyOrderStatusJobs } from '../modules
 import { createProductSyncAdapter } from '../modules/administration/product-sync.js';
 import { readAdministrationWorkerOptions } from '../modules/administration/worker-options.js';
 import { tracedFetch } from '../observability/context.js';
+import type { EventId } from '../observability/event-registry.js';
 
 type LogEvent = Parameters<JobLogger>[1];
 /** Keeps only scalar event fields: job logs carry ids and codes, never objects. */
-function scalarEvent(event: object): LogEvent {
+function scalarEvent(event: { readonly eventId: EventId }): LogEvent {
   const fields: Record<string, string | number | boolean | null> = {};
   for (const [key, value] of Object.entries(event))
     if (
@@ -28,7 +29,7 @@ function scalarEvent(event: object): LogEvent {
       typeof value === 'boolean'
     )
       fields[key] = value;
-  return fields;
+  return { ...fields, eventId: event.eventId };
 }
 
 /** W4 checkout: `core.tasks.send_sms` (order SMS through API-v2 `omnichannel-sms`). */
@@ -68,9 +69,14 @@ const fulfillment: JobModuleRegistration = (registry, runtime) => {
 const legacyFulfillment: JobModuleRegistration = (registry, runtime) => {
   const { config, db } = runtime,
     redis = nodeOrderRedis(config),
-    syncProducts = createProductSyncAdapter(config, readAdministrationWorkerOptions(), tracedFetch, {
-      requireReplaySafe: false,
-    });
+    syncProducts = createProductSyncAdapter(
+      config,
+      readAdministrationWorkerOptions(),
+      tracedFetch,
+      {
+        requireReplaySafe: false,
+      },
+    );
   const deps = legacyFulfillmentDependencies(config, db, {
     jobs: runtime.jobs,
     redis,

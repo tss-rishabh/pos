@@ -15,6 +15,7 @@ import {
   type OrderCopyInput,
   type OrderCopyResult,
 } from './contracts.js';
+import type { RegisteredEvent } from '../../../observability/event-registry.js';
 
 export interface OrderCopyLogger {
   warn(fields: Record<string, string | null>, message: string): void;
@@ -159,7 +160,7 @@ export function orderCopyService(
             requestId: currentRequestTrace()?.requestId ?? null,
             userId: user.id,
             errorCode: error instanceof AppError ? error.code : 'ORDER_COPY_STEP_FAILED',
-          },
+          } satisfies RegisteredEvent,
           'Order copy stopped before every product was added',
         );
       }

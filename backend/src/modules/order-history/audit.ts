@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyRequest } from 'fastify';
+import type { RegisteredEvent } from '../../observability/event-registry.js';
 
 /**
  * S24: a lookup of any store's order or invoice by order number (legacy `?cr=1` from an
@@ -25,7 +26,7 @@ export function auditCrossStoreLookup(
       storeId: scope.storeId,
       ...(scope.orderId ? { orderId: scope.orderId } : {}),
       ...(scope.orderCount !== undefined ? { orderCount: scope.orderCount } : {}),
-    },
+    } satisfies RegisteredEvent,
     'Cross-store order lookup',
   );
 }

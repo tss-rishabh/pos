@@ -7,6 +7,7 @@ import {
   type OutboundAllowlist,
 } from '../config.js';
 import { currentRequestTrace } from '../observability/context.js';
+import type { RegisteredEvent } from '../observability/event-registry.js';
 
 /**
  * Outbound-recipient allowlist guard (backend/parity/w25-allowlist.md).
@@ -102,7 +103,7 @@ export function installOutboundAllowlist(input: {
         phones: next.phones.size,
         emails: next.emails.size,
         slackWebhooks: next.slackWebhookDigests.size,
-      },
+      } satisfies RegisteredEvent,
       'Outbound allowlist is active: messages go only to allowlisted recipients',
     );
   }
@@ -184,7 +185,7 @@ export async function outboundPermitted(attempt: OutboundAttempt): Promise<boole
       traceId: trace?.traceId ?? null,
       requestId: trace?.requestId ?? null,
       userId: trace?.userId ?? null,
-    },
+    } satisfies RegisteredEvent,
     'Outbound message suppressed by the allowlist',
   );
   return false;

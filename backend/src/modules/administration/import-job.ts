@@ -41,6 +41,7 @@ import {
 import type { CsvUploadStorage } from './import-storage.js';
 import type { ProductSynchronizer } from './product-sync.js';
 import type { StockProcedure } from './stock-procedure.js';
+import type { EventId } from '../../observability/event-registry.js';
 
 /** Celery args of `parse_csv_product_store` / `parse_csv_product_stock` (`core/tasks.py:28-48`). */
 const importArgs = z
@@ -104,12 +105,12 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
   const event = (
     context: JobContext,
     uploadId: string,
-    action: string,
+    eventId: EventId,
     extra: Record<string, string | number | boolean | null> = {},
   ) => ({
     module: 'administration',
     resource: 'inventory-import',
-    eventId: `administration.inventory-import.${action}`,
+    eventId,
     jobId: context.jobId,
     requestId: context.requestId,
     userId: context.userId,
@@ -147,7 +148,9 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
     } catch {
       log(
         'warn',
-        event(context, scope.uploadId, 'stock-procedure-failed', { storeId: String(storeId) }),
+        event(context, scope.uploadId, 'administration.inventory-import.stock-procedure-failed', {
+          storeId: String(storeId),
+        }),
         'Stock not synced',
       );
     }
@@ -507,7 +510,11 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
       .update(CsvUpload)
       .set({ is_imported: true, message: importMessages.interrupted, updated_at: localNow() })
       .where(and(eq(CsvUpload.id, BigInt(uploadId)), eq(CsvUpload.is_imported, false)));
-    log('warn', event(context, uploadId, 'interrupted'), 'Inventory import was not resumed');
+    log(
+      'warn',
+      event(context, uploadId, 'administration.inventory-import.interrupted'),
+      'Inventory import was not resumed',
+    );
   }
 
   async function run(type: UploadType, rawArgs: JobArgs, context: JobContext) {
@@ -520,13 +527,17 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
       .where(eq(CsvUpload.id, BigInt(uploadId)))
       .limit(1);
     if (!upload || upload.upload_type !== type) {
-      log('warn', event(context, uploadId, 'missing'), 'Inventory import upload was not found');
+      log(
+        'warn',
+        event(context, uploadId, 'administration.inventory-import.missing'),
+        'Inventory import upload was not found',
+      );
       return;
     }
     if (upload.is_imported) {
       log(
         'info',
-        event(context, uploadId, 'already-imported'),
+        event(context, uploadId, 'administration.inventory-import.already-imported'),
         'Inventory import already finished',
       );
       return;
@@ -575,7 +586,7 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
       if (context.signal.aborted) {
         log(
           'info',
-          event(context, uploadId, 'paused', { record: index }),
+          event(context, uploadId, 'administration.inventory-import.paused', { record: index }),
           'Inventory import paused',
         );
         return;
@@ -642,7 +653,7 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
     await ephemeral.del(key, journalKey);
     log(
       'info',
-      event(context, uploadId, 'completed', {
+      event(context, uploadId, 'administration.inventory-import.completed', {
         records: records.length,
         failedRecords: progress.failed.length,
       }),
@@ -663,7 +674,11 @@ export function inventoryImportJobs(deps: InventoryImportJobDependencies) {
       if (!result)
         log(
           'warn',
-          event(context, uploadId.success ? uploadId.data : 'invalid', 'already-running'),
+          event(
+            context,
+            uploadId.success ? uploadId.data : 'invalid',
+            'administration.inventory-import.already-running',
+          ),
           'Inventory import is already running',
         );
     };

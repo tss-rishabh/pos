@@ -13,6 +13,7 @@ import {
 import { wireId } from '../payloads.js';
 import { CheckoutGatewayError } from '../gateway.js';
 import type { InboundReturn, LineEligibility, ReturnGateway } from './contracts.js';
+import type { RegisteredEvent } from '../../../observability/event-registry.js';
 
 export interface ReturnEnvironment {
   /** Legacy ORDER_RETURN_STATUS_CHECK_URL. */
@@ -260,7 +261,7 @@ export function returnGateway(
   }
   /** Fire-and-log notification (legacy logs a non-200 and continues). */
   async function notify(
-    resource: string,
+    resource: 'return-mail' | 'exchange-mail' | 'exchange-alert',
     url: URL,
     payload: unknown,
     timeoutMs: number,
@@ -293,11 +294,11 @@ export function returnGateway(
           {
             module: 'checkout',
             resource,
-            eventId: `checkout.${resource}.rejected`,
+            eventId: `checkout.${resource}.rejected` as const,
             requestId: trace?.requestId ?? null,
             userId: trace?.userId ?? null,
             statusCode: response.status,
-          },
+          } satisfies RegisteredEvent,
           'Notification was not accepted',
         );
     } catch {
@@ -305,10 +306,10 @@ export function returnGateway(
         {
           module: 'checkout',
           resource,
-          eventId: `checkout.${resource}.failed`,
+          eventId: `checkout.${resource}.failed` as const,
           requestId: trace?.requestId ?? null,
           userId: trace?.userId ?? null,
-        },
+        } satisfies RegisteredEvent,
         'Notification request failed',
       );
     }
@@ -323,7 +324,7 @@ export function returnGateway(
           eventId: 'checkout.return-mail.skipped',
           requestId: trace?.requestId ?? null,
           userId: trace?.userId ?? null,
-        },
+        } satisfies RegisteredEvent,
         'MJML_HOST not configured, skipping mail',
       );
       return null;

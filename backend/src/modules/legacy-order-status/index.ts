@@ -9,6 +9,7 @@ import { routeSchema, transportHeaders } from '../../domain/route-validation.js'
 import { statusRequestInput } from './domain.js';
 import { wholeOrderStatusService, type WholeOrderStatusService } from './service.js';
 import { readWholeOrderStatusOptions, type WholeOrderStatusOptions } from './options.js';
+import type { RegisteredEvent } from '../../observability/event-registry.js';
 export { wholeOrderStatusService, readWholeOrderStatusOptions };
 export { registerJobHandlers, enqueuePushVincOrderForAll } from './jobs.js';
 
@@ -69,7 +70,7 @@ export async function registerWholeOrderStatus(
             requestId: request.id,
             userId: authenticated(request).id,
             outcome: result.outcome,
-          },
+          } satisfies RegisteredEvent,
           'Sync-repo status request was not delivered.',
         );
       return { message: result.message };

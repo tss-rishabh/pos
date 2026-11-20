@@ -1,5 +1,7 @@
 const { app, BrowserWindow, Menu, session, dialog, shell } = require('electron');
 const path = require('node:path');
+const fs = require('node:fs');
+const { randomUUID } = require('node:crypto');
 const { readWorkspaceConfiguration } = require('./workspace-config.cjs');
 const { runtimeMode } = require('./runtime-mode.cjs');
 
@@ -20,6 +22,66 @@ const mode = runtimeMode({
 // One web application and persistent Chromium profile provide the same offline
 // shell/session on desktop. Production serves frontend + /api on one HTTPS origin.
 if (mode.profileDirectory) app.setPath('userData', mode.profileDirectory);
+// The desktop log (rotating JSONL, offline/desktop-log.ts) lives in the OS log folder; a profile
+// override (development and CI only) keeps its logs inside that profile.
+if (mode.profileDirectory) app.setAppLogsPath(path.join(mode.profileDirectory, 'logs'));
+
+/** Main-process bundle (offline billing + the desktop log); null when it cannot load. */
+let offlineBundle;
+function loadOfflineBundle() {
+  if (offlineBundle !== undefined) return offlineBundle;
+  try {
+    offlineBundle = require('./dist/offline-billing.cjs');
+  } catch (error) {
+    offlineBundle = null;
+    appendFallbackLog(error);
+  }
+  return offlineBundle;
+}
+const errorNameOf = (error) =>
+  error instanceof Error && /^[A-Za-z0-9_:.-]{1,64}$/.test(error.name) ? error.name : 'Error';
+/** Registered shell events only (offline/events.ts); identifiers and codes, never messages. */
+function shellLog(eventId, fields) {
+  try {
+    loadOfflineBundle()?.desktopLog({
+      eventId,
+      traceId: randomUUID(),
+      outcome: 'failed',
+      ...fields,
+    });
+  } catch {
+    /* Logging never breaks the app. */
+  }
+}
+/** The bundle (and with it the log sink) failed to load: record that one fixed line directly. */
+function appendFallbackLog(error) {
+  try {
+    const directory = app.getPath('logs'),
+      traceId = randomUUID();
+    fs.mkdirSync(directory, { recursive: true });
+    fs.appendFileSync(
+      path.join(directory, 'retail-pos.jsonl'),
+      JSON.stringify({
+        level: 50,
+        time: Date.now(),
+        msg: 'Offline billing could not start; the online workspace continues',
+        process: 'main',
+        module: 'desktop-shell',
+        resource: 'offline-billing',
+        eventId: 'desktop.offline-billing.start-failed',
+        eventInstanceId: randomUUID(),
+        traceId,
+        requestId: traceId,
+        userId: null,
+        outcome: 'failed',
+        errorCode: 'BUNDLE_UNAVAILABLE',
+        errorName: errorNameOf(error),
+      }) + '\n',
+    );
+  } catch {
+    /* Logging never breaks the app. */
+  }
+}
 // Packaged builds refuse Chromium debugging and mock-keychain switches: the fuses block Node
 // inspection only, and a remote-debugging port would let any local process drive the renderer
 // (and its offline billing bridge); a mock keychain would wrap the offline database key with a
@@ -46,6 +108,10 @@ else
         workspace = readWorkspaceConfiguration(process.env, undefined, mode.allowLoopbackHttp);
         url = new URL(workspace.url);
       } catch (error) {
+        shellLog('desktop.app.start-failed', {
+          errorCode: 'WORKSPACE_CONFIGURATION_INVALID',
+          errorName: errorNameOf(error),
+        });
         dialog.showErrorBox('Workspace configuration', error.message);
         app.quit();
         return;
@@ -172,16 +238,34 @@ else
       window.webContents.on('will-attach-webview', (event) => event.preventDefault());
       if (process.platform !== 'darwin') window.setMenuBarVisibility(false);
       window.once('ready-to-show', () => window.show());
+      window.webContents.on('render-process-gone', (_event, details) =>
+        shellLog('desktop.renderer.gone', { errorCode: 'RENDERER_GONE', reason: details.reason }),
+      );
       // Desktop offline billing (encrypted SQLite, main process only). A
       // failure here never blocks the online workspace.
       try {
-        void require('./dist/offline-billing.cjs')
-          .startOfflineBilling({ window, workspaceOrigin: url.origin, profile })
-          .catch(() => undefined);
-      } catch {
-        /* Offline billing bundle unavailable; the online workspace continues. */
+        const bundle = loadOfflineBundle();
+        if (bundle)
+          void bundle
+            .startOfflineBilling({ window, workspaceOrigin: url.origin, profile })
+            .catch((error) =>
+              shellLog('desktop.offline-billing.start-failed', {
+                errorCode: 'OFFLINE_BILLING_START_FAILED',
+                errorName: errorNameOf(error),
+              }),
+            );
+      } catch (error) {
+        // The online workspace continues without offline billing.
+        shellLog('desktop.offline-billing.start-failed', {
+          errorCode: 'OFFLINE_BILLING_START_FAILED',
+          errorName: errorNameOf(error),
+        });
       }
-      window.loadURL(url.href).catch(() => {
+      window.loadURL(url.href).catch((error) => {
+        shellLog('desktop.workspace.load-failed', {
+          errorCode: 'WORKSPACE_LOAD_FAILED',
+          errorName: errorNameOf(error),
+        });
         dialog.showErrorBox(
           'Workspace unavailable',
           'Connect once to prepare this device for offline use. Your saved carts remain on this device.',
@@ -193,7 +277,11 @@ else
         window.focus();
       });
     })
-    .catch(() => {
+    .catch((error) => {
+      shellLog('desktop.app.start-failed', {
+        errorCode: 'APP_START_FAILED',
+        errorName: errorNameOf(error),
+      });
       dialog.showErrorBox('Workspace unavailable', 'Check the desktop workspace configuration.');
       app.quit();
     });

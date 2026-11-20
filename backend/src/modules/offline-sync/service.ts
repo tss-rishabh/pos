@@ -15,6 +15,7 @@ import {
 import type { OfflineSyncCoordinator, SaleRecord } from './locks.js';
 import type { OfflineBillingLimits } from './options.js';
 import type { OfflineOrder, OfflineSyncRepository } from './repository.js';
+import { withCause } from '../../observability/errors.js';
 
 /** The ordinary checkout service (modules/checkout/service.ts) as used here. */
 export type CheckoutReply =
@@ -164,10 +165,15 @@ export function offlinePayable(lines: OfflineSaleUpload['lines']): bigint {
   return gross - (gross % 100n);
 }
 
-const unknownOutcome = () =>
-  conflict(
-    'OUTCOME_UNKNOWN',
-    'The store service may already have created this order. A manager must check Orders for this provisional reference before resolving.',
+/** `cause`: the failure that left the outcome unknown; its code is kept as the request log's
+ * `causeCode` (never sent to the device). */
+const unknownOutcome = (cause?: unknown) =>
+  withCause(
+    conflict(
+      'OUTCOME_UNKNOWN',
+      'The store service may already have created this order. A manager must check Orders for this provisional reference before resolving.',
+    ),
+    cause,
   );
 
 export function offlineSyncService(deps: OfflineSyncDeps) {
@@ -523,9 +529,16 @@ export function offlineSyncService(deps: OfflineSyncDeps) {
         throw conflict('REJECTED', error.message);
       }
       // Anything else may have created the order: never resubmit automatically.
-      throw unknownOutcome();
+      throw unknownOutcome(error);
     }
-    if (reply.status !== 'succeeded') throw unknownOutcome();
+    if (reply.status !== 'succeeded')
+      throw unknownOutcome(
+        new AppError(
+          502,
+          reply.errorCode ?? `CHECKOUT_${reply.status.toUpperCase()}`,
+          reply.status,
+        ),
+      );
     const result = reply.result;
     const orderId = z.union([z.string(), z.number()]).transform(String).parse(result.orderId);
     const invoice = z
@@ -690,7 +703,10 @@ export function offlineSyncService(deps: OfflineSyncDeps) {
         from,
         to: at + 3600_000,
       });
-      if (candidate) throw unknownOutcome();
+      if (candidate)
+        throw unknownOutcome(
+          new AppError(409, 'CANDIDATE_ORDER_FOUND', 'A matching order may already exist.'),
+        );
     }
     await admit(sale, sequence);
     const inFlight = {
