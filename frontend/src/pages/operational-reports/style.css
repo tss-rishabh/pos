@@ -46,7 +46,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #187144 !important;
+  color: var(--success-ink) !important;
 }
 .export-request-form {
   padding: var(--space-5) var(--space-6);

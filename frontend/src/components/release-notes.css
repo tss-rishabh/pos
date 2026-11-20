@@ -5,7 +5,7 @@
   border: 0;
   border-radius: 6px;
   padding: 6px 8px;
-  color: #42583d;
+  color: var(--gray-800);
   background: transparent;
   font: inherit;
   font-size: 11px;
@@ -14,13 +14,13 @@
   cursor: pointer;
 }
 .release-notes-trigger:hover {
-  background: #f1f3ec;
+  background: var(--gray-100);
 }
 .release-notes-trigger span {
   border-radius: 4px;
   padding: 2px 5px;
-  background: #f6e5dc;
-  color: #8b3e27;
+  background: var(--warning-soft);
+  color: var(--error-ink);
   font-size: 10px;
   font-weight: 700;
 }
@@ -31,11 +31,11 @@
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 24px;
-  color: #32382f;
-  background: #fff;
+  color: var(--gray-900);
+  background: var(--white);
 }
 .release-notes::backdrop {
-  background: rgb(20 28 18 / 45%);
+  background: var(--overlay);
 }
 .release-notes header,
 .release-notes footer {
@@ -65,5 +65,5 @@
 }
 .release-notes footer {
   font-size: 12px;
-  color: #656c60;
+  color: var(--gray-600);
 }

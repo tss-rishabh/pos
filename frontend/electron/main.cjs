@@ -57,7 +57,7 @@ else
         height: 960,
         minWidth: 1024,
         minHeight: 720,
-        backgroundColor: '#f6f5f1',
+        backgroundColor: '#f8f8f9' /* --athens-gray: native window paint before CSS loads */,
         title: 'Souled POS',
         show: false,
         // Windows/Linux: no menu bar, and Alt does not reveal it (see installMenu).

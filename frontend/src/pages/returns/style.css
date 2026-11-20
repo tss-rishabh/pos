@@ -25,7 +25,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 10px;
-  background: var(--surface, #fff);
+  background: var(--surface);
   color: inherit;
   font: inherit;
   min-width: 240px;
@@ -52,7 +52,7 @@
   text-align: left;
 }
 .return-lines .selected {
-  border-color: var(--green, #244d3e);
+  border-color: var(--green);
 }
 .return-lines small {
   display: block;
@@ -100,7 +100,7 @@
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--surface, #fff);
+  background: var(--surface);
   color: inherit;
 }
 /* Legacy return/exchange cell texts (exchange-cell.ts styles). */
@@ -109,7 +109,7 @@
 }
 .return-cell-danger,
 .return-cell-strong-danger {
-  color: #af5b41;
+  color: var(--red-ink);
 }
 .return-cell-strong-danger {
   font-weight: 700;
@@ -118,7 +118,7 @@
   display: inline-block;
   padding: 1px 8px;
   border-radius: 999px;
-  background: var(--warning-soft, #fff4d6);
+  background: var(--warning-soft);
   font-size: 0.85em;
 }
 .return-cell-warning::before {

@@ -60,10 +60,10 @@
   position: absolute;
   right: 0;
   top: 3rem;
-  background: #fff;
+  background: var(--white);
   border: 1px solid var(--control-border);
   border-radius: 9px;
-  box-shadow: 0 12px 36px #1a26121f;
+  box-shadow: 0 12px 36px color-mix(in srgb, var(--gray-900) 12%, transparent);
   padding: var(--space-3);
   z-index: 3;
   display: grid;
@@ -93,7 +93,7 @@
 .catalog-scroll th {
   position: sticky;
   top: 0;
-  background: #fff;
+  background: var(--white);
   z-index: 1;
   white-space: nowrap;
   color: var(--ink);
@@ -123,7 +123,7 @@
   background: color-mix(in srgb, var(--green) 20%, transparent);
 }
 .catalog-reduced {
-  background: #a7672738;
+  background: color-mix(in srgb, var(--red-ink) 22%, transparent);
 }
 .catalog-product-top {
   display: grid;
@@ -144,7 +144,7 @@
 }
 .catalog-thumbs button {
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--white);
   border-radius: 0.4rem;
   cursor: pointer;
 }
@@ -216,14 +216,14 @@
 .catalog-stock-frozen {
   position: sticky;
   left: 0;
-  background: #fff;
+  background: var(--white);
   min-width: 8rem;
   z-index: 1;
 }
 .catalog-stock-frozen-second {
   position: sticky;
   left: 8rem;
-  background: #fff;
+  background: var(--white);
   min-width: 12rem;
   z-index: 1;
 }

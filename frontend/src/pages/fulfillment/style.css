@@ -10,19 +10,19 @@
   gap: 12px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: white;
+  background: var(--white);
   padding: 12px 17px;
   font-size: 12px;
-  color: #839077;
+  color: var(--gray-500);
 }
 .fulfillment-tabs > button.selected {
-  background: #e7eddd;
-  color: #4d6940;
-  border-color: #c7d3b8;
+  background: var(--gray-200);
+  color: var(--teal);
+  border-color: var(--gray-300);
 }
 .fulfillment-tabs span {
   font-size: 10px;
-  background: #f5f7ef;
+  background: var(--gray-100);
   padding: 3px 7px;
   border-radius: 4px;
 }
@@ -31,7 +31,7 @@
   align-items: center;
   gap: 8px;
   font-size: 11px;
-  color: #71825e;
+  color: var(--gray-600);
 }
 .fulfillment-grid {
   display: grid;
@@ -53,7 +53,7 @@
 .fulfillment-card > header small {
   font-size: 8px;
   letter-spacing: 1.4px;
-  color: #9ca58f;
+  color: var(--gray-500);
 }
 .fulfillment-card h2 {
   font-size: 17px;
@@ -64,7 +64,7 @@
   align-items: center;
   gap: 5px;
   font-size: 9px;
-  color: #ae8b5f;
+  color: var(--gold);
   padding: 9px 0;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
@@ -80,7 +80,7 @@
 .fulfillment-customer > span {
   display: block;
   font-size: 10px;
-  color: #9ca48f;
+  color: var(--gray-500);
   margin-top: 5px;
 }
 .fulfillment-line {
@@ -88,18 +88,18 @@
   align-items: flex-start;
   gap: 10px;
   padding: 12px 0;
-  border-top: 1px solid #edf0e5;
-  color: #8e9d7a;
+  border-top: 1px solid var(--gray-150);
+  color: var(--gray-500);
 }
 .fulfillment-line strong {
   font-size: 11px;
-  color: #59664d;
+  color: var(--gray-700);
   font-weight: 550;
 }
 .fulfillment-line small {
   font-size: 9px;
   margin-top: 5px;
-  color: #9aa78a;
+  color: var(--gray-500);
 }
 .fulfillment-amount {
   display: flex;
@@ -208,7 +208,7 @@
 }
 .fulfillment-pagination > span {
   font-size: 10px;
-  color: #9aa58b;
+  color: var(--gray-500);
 }
 .fulfillment-card label,
 .fulfillment-grid label {
@@ -233,15 +233,15 @@
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 7px 9px;
-  color: #526b48;
-  background: white;
+  color: var(--teal);
+  background: var(--white);
   font-size: 10px;
   white-space: nowrap;
 }
 .notification-queue-indicator {
-  background: #fff3d8;
-  border-color: #e8d1a6;
-  color: #765321;
+  background: var(--gold-soft);
+  border-color: var(--gold-line);
+  color: var(--gold-ink);
 }
 .notification-access-note {
   padding: 12px 20px;
@@ -265,10 +265,10 @@
   overflow-y: auto;
 }
 .notification-toast {
-  border: 1px solid #c5d5b9;
+  border: 1px solid var(--gray-300);
   border-radius: 8px;
-  background: white;
-  box-shadow: 0 8px 30px #1e301b24;
+  background: var(--white);
+  box-shadow: 0 8px 30px color-mix(in srgb, var(--gray-900) 14%, transparent);
   padding: 14px;
   overflow-wrap: anywhere;
 }
@@ -298,7 +298,7 @@
 .notification-toast a {
   font-size: 11px;
   font-weight: 600;
-  color: #526b48;
+  color: var(--teal);
 }
 @media (max-width: 900px) {
   .notification-queue-indicator > span {
@@ -312,8 +312,8 @@
   position: absolute;
   top: 0;
   right: 0;
-  background: #d86a4b;
-  color: white;
+  background: var(--tss-red);
+  color: var(--white);
   border-radius: 10px;
   padding: 2px 5px;
   font-size: 8px;
@@ -326,7 +326,7 @@
   max-height: 480px;
   overflow-y: auto;
   z-index: 30;
-  box-shadow: 0 10px 40px #1e301b18;
+  box-shadow: 0 10px 40px color-mix(in srgb, var(--gray-900) 9%, transparent);
 }
 .notification-panel > header {
   display: flex;
@@ -347,10 +347,10 @@
 .notification-panel > article {
   padding: 18px 20px;
   border-bottom: 1px solid var(--line);
-  background: #f6f9f0;
+  background: var(--gray-100);
 }
 .notification-panel > article.viewed {
-  background: white;
+  background: var(--white);
 }
 .notification-panel > article strong {
   font-size: 11px;
@@ -360,13 +360,13 @@
 .notification-panel > article small {
   font-size: 8px;
   margin: 6px 0 9px;
-  color: #98a48a;
+  color: var(--gray-500);
 }
 .notification-panel > article > div {
   display: flex;
   justify-content: space-between;
   font-size: 9px;
-  color: #6f8457;
+  color: var(--gray-600);
 }
 .notification-panel .text-button {
   font-size: 9px;

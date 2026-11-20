@@ -73,8 +73,8 @@
 }
 .finance-pending {
   justify-content: space-between;
-  background: #fff8e6;
-  color: #6e5200;
+  background: var(--gold-soft);
+  color: var(--gold-ink);
 }
 .finance-grid {
   display: grid;
@@ -94,14 +94,14 @@
 .finance-difference {
   display: flex;
   justify-content: space-between;
-  background: #fff4e6;
-  color: #9d5500;
+  background: var(--gold-soft);
+  color: var(--gold-ink);
   padding: 14px;
   border-radius: 8px;
 }
 .finance-difference.balanced {
-  background: #eaf8ef;
-  color: #187144;
+  background: var(--success-soft);
+  color: var(--success-ink);
 }
 .finance-section textarea {
   min-height: 80px;
@@ -171,7 +171,7 @@
   font: inherit;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: var(--paper, #fff);
+  background: var(--paper);
   color: var(--ink);
 }
 .ledger-pagination {
@@ -231,18 +231,18 @@
   font: inherit;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: var(--paper, #fff);
+  background: var(--paper);
   color: var(--ink);
 }
 .ledger-export-request > p[role='status'] {
   margin-top: 12px;
-  color: #187144;
+  color: var(--success-ink);
 }
 .ledger-negative {
-  color: #b53632;
+  color: var(--red-ink);
 }
 .ledger-positive {
-  color: #9a6b17;
+  color: var(--gold-ink);
 }
 .ledger-status {
   display: inline-block;
@@ -250,16 +250,16 @@
   border-radius: 4px;
   font-size: 11px;
   font-weight: 600;
-  background: #f8e7e5;
-  color: #923832;
+  background: var(--red-soft);
+  color: var(--red-ink);
 }
 .ledger-status.closed {
-  background: #e8f1e9;
-  color: #315b3b;
+  background: var(--gray-150);
+  color: var(--success-ink);
 }
 .ledger-status.stale {
-  background: #fff2d8;
-  color: #8f671f;
+  background: var(--gold-soft);
+  color: var(--gold-ink);
 }
 @media (max-width: 800px) {
   .ledger-export-request form {

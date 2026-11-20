@@ -59,10 +59,10 @@
   padding: 0 var(--space-3);
   border: 1px solid var(--control-border);
   border-radius: var(--radius);
-  background: #fff;
+  background: var(--white);
   font-size: 11px;
   font-weight: 550;
-  color: #5f6a58;
+  color: var(--gray-700);
   list-style: none;
 }
 .administration-columns > summary::-webkit-details-marker {
@@ -74,7 +74,7 @@
   gap: var(--space-2) var(--space-4);
   margin-top: var(--space-2);
   padding: var(--space-3);
-  background: #fafbf7;
+  background: var(--gray-50);
   border: 1px solid var(--line);
   border-radius: var(--radius);
 }
@@ -152,7 +152,7 @@
 }
 .administration-status {
   font-size: 12px;
-  color: #4f6d47;
+  color: var(--success);
   margin-bottom: var(--space-4);
 }
 .administration-table-actions {
@@ -234,7 +234,7 @@
 .administration-guide-text {
   font-size: 12px;
   line-height: 1.8;
-  color: #758663;
+  color: var(--gray-600);
 }
 .administration-guide-text {
   white-space: pre-wrap;
@@ -294,7 +294,7 @@
 }
 .administration-pending-upload > small {
   width: 100%;
-  color: #a74b38;
+  color: var(--red-ink);
 }
 .administration-guide-frame {
   display: block;
@@ -302,12 +302,12 @@
   height: 340px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: #fff;
+  background: var(--white);
 }
 .administration-guide-summary {
   font-size: 13px;
   line-height: 1.8;
-  color: #758663;
+  color: var(--gray-600);
 }
 .administration-guide-assets {
   display: grid;
@@ -337,13 +337,13 @@
 }
 .administration-guide-footer small {
   font-size: 10px;
-  color: #869a75;
+  color: var(--gray-500);
 }
 .administration-mfa-qr {
   display: block;
   width: min(100%, 280px);
   margin: 20px auto;
-  background: white;
+  background: var(--white);
 }
 .administration-mfa-controls {
   border-top: 1px solid var(--line);
@@ -387,7 +387,7 @@
 .application-link-qr img {
   width: min(100%, 300px);
   height: auto;
-  background: white;
+  background: var(--white);
   padding: 12px;
   border-radius: 12px;
 }
@@ -406,21 +406,21 @@
   padding: 6px 12px;
 }
 .application-qr-expiry[data-urgency='green'] {
-  background: #dcfae6;
-  color: #05603a;
+  background: var(--success-soft);
+  color: var(--success-ink);
 }
 .application-qr-expiry[data-urgency='orange'] {
-  background: #fef0c7;
-  color: #7a2e0e;
+  background: var(--gold-soft);
+  color: var(--error-ink);
 }
 .application-qr-expiry[data-urgency='red'] {
-  background: #fee4e2;
-  color: #912018;
+  background: var(--red-soft);
+  color: var(--error-ink);
 }
 .modal .errorlist {
   margin: 0.25rem 0 0;
   padding-left: 1rem;
-  color: var(--danger, #bd2130);
+  color: var(--danger);
   font-size: 0.85rem;
 }
 .administration-store-image {
@@ -436,5 +436,5 @@
   margin-top: 1rem;
 }
 .administration-success {
-  color: var(--success, #1e7e34);
+  color: var(--success);
 }

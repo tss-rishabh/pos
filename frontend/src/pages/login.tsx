@@ -9,6 +9,7 @@ import { markFreshSignIn } from '../components/check-in';
 import { Loader } from '../components/loader';
 import { loginChallengePendingKey } from '../hooks/use-pos';
 import { useWorkspace } from '../state/workspace';
+import { BrandMark } from '../components/brand-mark';
 
 type Challenge = z.infer<typeof loginChallengeSchema>;
 export function Login() {
@@ -123,7 +124,10 @@ export function Login() {
   return (
     <div className="login">
       <header className="login-header">
-        <span className="wordmark">the souled store</span>
+        <span className="wordmark">
+          <BrandMark />
+          The Souled Store
+        </span>
         {/* The header's account toggle: "Log in" when signed out, the user and "Log out" when
             signed in (workspace header). */}
         <button

@@ -5,10 +5,10 @@
   gap: 0.6rem 1.1rem;
   margin: 0.75rem 1.5rem 0;
   padding: 0.8rem 1rem;
-  border: 1px solid #e4c15f;
+  border: 1px solid var(--gold);
   border-radius: 0.75rem;
-  background: #fff7da;
-  color: #513c0b;
+  background: var(--gold-soft);
+  color: var(--gold-ink);
 }
 .fulfillment-global-banner a {
   color: inherit;
@@ -19,15 +19,15 @@
   width: min(32rem, calc(100vw - 2rem));
   max-height: calc(100vh - 3rem);
   overflow: auto;
-  border: 1px solid #d9dce3;
+  border: 1px solid var(--gray-200);
   border-radius: 1rem;
   padding: 1.5rem;
-  color: #252b35;
-  background: white;
-  box-shadow: 0 1rem 4rem #14223540;
+  color: var(--gray-900);
+  background: var(--white);
+  box-shadow: 0 1rem 4rem color-mix(in srgb, var(--gray-900) 25%, transparent);
 }
 .fulfillment-expiry-dialog::backdrop {
-  background: #10182780;
+  background: color-mix(in srgb, var(--gray-900) 50%, transparent);
 }
 .fulfillment-expiry-dialog h2 {
   margin-top: 0;

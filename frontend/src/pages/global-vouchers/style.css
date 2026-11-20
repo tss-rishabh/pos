@@ -9,7 +9,7 @@
   padding: var(--space-5);
   border: 1px solid var(--line);
   border-radius: 9px;
-  background: #fff;
+  background: var(--white);
 }
 .global-voucher-card h2,
 .global-voucher-conversion h3 {
@@ -53,5 +53,5 @@
 }
 .global-voucher-conversion .global-voucher-receipt {
   padding: var(--space-4);
-  background: #fafbf7;
+  background: var(--gray-50);
 }

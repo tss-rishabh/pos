@@ -33,7 +33,7 @@
   vertical-align: top;
 }
 .gift-card-batch-blocked {
-  background: color-mix(in srgb, #c34a4a 10%, transparent);
+  background: color-mix(in srgb, var(--tss-red) 10%, transparent);
 }
 .gift-card-batch-panel .administration-actions {
   flex-wrap: wrap;

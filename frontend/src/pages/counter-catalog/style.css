@@ -4,8 +4,8 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  background: #fff;
-  border: 1px solid #e2e4d8;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
   border-radius: 8px;
   overflow: hidden;
   transition:
@@ -13,8 +13,8 @@
     box-shadow 0.16s;
 }
 .counter-product-card:hover:has(> .product-tile:not(:disabled)) {
-  border-color: #9eaf96;
-  box-shadow: 0 3px 10px #28351d14;
+  border-color: var(--gray-500);
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--gray-900) 8%, transparent);
 }
 .counter-product-card > .product-tile {
   width: 100%;
@@ -38,14 +38,14 @@
   gap: var(--space-1) var(--space-3);
   margin-top: auto;
   padding: var(--space-2) var(--space-3);
-  border-top: 1px solid #eef0e8;
+  border-top: 1px solid var(--gray-150);
   font-size: 11px;
   font-weight: 550;
 }
 .counter-product-actions a {
-  color: #4f6447;
+  color: var(--teal);
   text-decoration: underline;
-  text-decoration-color: #c9d2bf;
+  text-decoration-color: var(--gray-300);
   text-underline-offset: 3px;
 }
 .counter-product-actions a:hover {
@@ -69,7 +69,7 @@
   gap: var(--space-1) var(--space-3);
   margin: 0;
   padding: var(--space-2) var(--space-3) var(--space-3);
-  border-top: 1px dashed #e4e7dc;
+  border-top: 1px dashed var(--gray-200);
   font-size: 10px;
   line-height: 1.4;
 }
@@ -87,30 +87,30 @@
 }
 .counter-product-inventory dt {
   font-weight: 600;
-  color: #6c7564;
+  color: var(--gray-600);
 }
 .counter-product-inventory dd {
   margin: 0;
-  color: #2f3a2b;
+  color: var(--gray-900);
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
-/* Legacy highlight colours (#e59696 missing barcode, #81e68c held stock) kept as the accent. */
+/* Legacy highlight colours (var(--red-line) missing barcode, var(--success-line) held stock) kept as the accent. */
 .counter-product-inventory .barcode-missing {
   grid-column: 1 / -1;
-  background-color: #fbe9e9;
-  border-left-color: #e59696;
+  background-color: var(--red-soft);
+  border-left-color: var(--red-line);
 }
 .counter-product-inventory .barcode-missing dd {
-  color: #8f2f2f;
+  color: var(--red-ink);
 }
 .counter-product-inventory .barcode-missing small {
   white-space: pre-line;
   font-size: 10px;
 }
 .counter-product-inventory .held-stock {
-  background-color: #e3f8e5;
-  border-left-color: #81e68c;
+  background-color: var(--success-soft);
+  border-left-color: var(--success-line);
 }
 .counter-product-inventory .storage-stock {
   grid-column: 1 / -1;

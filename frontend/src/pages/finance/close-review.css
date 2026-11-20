@@ -4,10 +4,10 @@
   border-radius: 16px;
   padding: 24px;
   color: var(--ink);
-  background: #fff;
+  background: var(--white);
 }
 .finance-close-review::backdrop {
-  background: rgb(0 0 0 / 45%);
+  background: var(--overlay);
 }
 .finance-close-review table {
   width: 100%;

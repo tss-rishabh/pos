@@ -1,5 +1,5 @@
 .wallet-adjustment-card {
-  background: #fff;
+  background: var(--white);
   border: 1px solid var(--line);
   border-radius: 9px;
   padding: var(--space-5);

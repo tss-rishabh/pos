@@ -23,7 +23,7 @@
   padding: 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: white;
+  background: var(--white);
 }
 .dashboard-monthly-chart {
   width: 100%;

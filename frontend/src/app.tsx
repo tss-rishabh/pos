@@ -38,6 +38,7 @@ import { NotificationsPanel } from './pages/fulfillment/notifications';
 import { GlobalFulfillmentExpiryAlerts } from './pages/fulfillment/global-expiry-alerts';
 import { DayCloseReminder } from './pages/finance/day-close-reminder';
 import { pendingSlackConnection } from './pages/administration/slack-return';
+import { BrandMark } from './components/brand-mark';
 
 const CounterPage = lazy(() => import('./pages/counter').then((m) => ({ default: m.CounterPage })));
 const OfflineWorksheetPage = lazy(() => import('./pages/offline-worksheet'));
@@ -322,10 +323,8 @@ function Workspace({ user }: { user: Principal }) {
       </a>
       <aside className="sidebar">
         <NavLink to="/" className="brand" aria-label="The Souled Store: the counter">
-          <span className="brand-symbol" aria-hidden="true">
-            s<span>.</span>
-          </span>
-          <span>the souled store</span>
+          <BrandMark />
+          <span>The Souled Store</span>
         </NavLink>
         <nav aria-label="Main navigation">
           {links

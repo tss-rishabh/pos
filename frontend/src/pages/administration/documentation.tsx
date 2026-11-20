@@ -9,6 +9,7 @@ import { SkeletonTable } from '../../components/loader';
 import { Modal } from '../../components/modal';
 import { mutateAdministration, useAdministrationCollection } from './api';
 import { DocumentationEditor } from './documentation-editor';
+import { themeColour } from '../../lib/theme';
 import {
   downloadGuideAttachment,
   guideCursorSchema,
@@ -39,7 +40,7 @@ function GuideReader({
       setDownloading(null);
     }
   }
-  const html = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><meta name="referrer" content="no-referrer"><style>body{font:14px/1.8 system-ui,sans-serif;margin:12px;color:#36442d;white-space:pre-wrap}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:8px}p{margin:0 0 12px}h2,h3{line-height:1.3}</style></head><body>${guide.descriptionHtml}</body></html>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><meta name="referrer" content="no-referrer"><style>body{font:14px/1.8 system-ui,sans-serif;margin:12px;color:${themeColour('--ink')};white-space:pre-wrap}table{border-collapse:collapse;width:100%}td,th{border:1px solid ${themeColour('--line')};padding:8px}p{margin:0 0 12px}h2,h3{line-height:1.3}</style></head><body>${guide.descriptionHtml}</body></html>`;
   return (
     <Modal
       title={guide.title}

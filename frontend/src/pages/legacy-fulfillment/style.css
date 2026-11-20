@@ -7,7 +7,7 @@
   max-width: 42rem;
   margin-block: 1rem;
   font-size: 12px;
-  color: #687b55;
+  color: var(--gray-700);
 }
 .local-delivery-note textarea {
   box-sizing: border-box;
@@ -15,10 +15,10 @@
   min-height: 80px;
   padding: 10px;
   resize: vertical;
-  background: #fff;
-  border: 1px solid #dce3d2;
+  background: var(--white);
+  border: 1px solid var(--gray-300);
   border-radius: 6px;
-  color: #3c4b32;
+  color: var(--gray-800);
   font: inherit;
 }
 .local-delivery-confirmation {
@@ -31,7 +31,7 @@
 .local-delivery-confirmation input {
   flex-shrink: 0;
   margin-top: 3px;
-  accent-color: #71885e;
+  accent-color: var(--teal);
 }
 .local-delivery-receipt {
   margin-top: 1.25rem;
@@ -54,7 +54,7 @@
 }
 .local-delivery-command-form {
   padding: 1rem;
-  background: #f5f7f1;
+  background: var(--gray-100);
   border: 1px solid var(--line);
   border-radius: 8px;
   margin-block: 1rem;
@@ -74,7 +74,7 @@
   margin-block: 1rem;
 }
 .local-delivery-workspace fieldset {
-  border: 1px solid #dce3d2;
+  border: 1px solid var(--gray-300);
   border-radius: 6px;
   padding: 0.75rem;
 }

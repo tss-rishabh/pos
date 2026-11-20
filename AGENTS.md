@@ -182,3 +182,15 @@ Every fix and every feature must land on, and be verified on, all three clients:
   Check-in now happens in a modal right after sign-in when needed, and check-in/check-out sit in the header store
   selector. The notification bell appears only when there is data. Every view uses the shared `Modal`, `Loader`,
   `Skeleton` and `MultiSelect`.
+- **TSS brand theme, 20 November 2026 (user):** the UI uses the brand tokens, fonts and ghost logo on all three
+  clients. Colours live only as tokens on `:root` in `frontend/src/styles.css`: the brand primary and secondary
+  palettes verbatim, plus derived greys, soft tints and AA-contrast inks. Every stylesheet and component uses
+  `var(--token)`, and `frontend/tests/theme-tokens.test.ts` fails on any hardcoded colour or undefined token.
+  - Fonts are self-hosted woff2 (Latin and Latin Extended) in `frontend/src/assets/fonts`, under the OFL:
+    - Source Sans Pro for body text
+    - Montserrat for headings and the wordmark
+    - Open Sans for form and table values
+  - The campaign display fonts (Gilroy, Phonk and the rest) are not used in the POS.
+  - The ghost logo (`components/brand-mark.tsx`, `public/icon.svg`, `build/icon.png`) is a vector trace of the
+    supplied 152 px icon.
+  - Printed documents (invoices, shipping labels) keep their legacy styling.

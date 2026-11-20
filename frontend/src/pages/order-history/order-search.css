@@ -18,20 +18,20 @@
   padding: 0 var(--space-3);
   border: 1px solid var(--control-border);
   border-radius: 999px;
-  background: #fff;
+  background: var(--white);
   font-size: 11px;
   font-weight: 550;
-  color: #4f6447;
+  color: var(--teal);
   white-space: nowrap;
 }
 .count-chip:hover {
-  background: #f4f6ee;
+  background: var(--gray-100);
 }
 .count-chip strong {
   min-width: 20px;
   padding: 1px 6px;
   border-radius: 999px;
-  background: #eef1e7;
+  background: var(--gray-150);
   text-align: center;
   font-variant-numeric: tabular-nums;
 }

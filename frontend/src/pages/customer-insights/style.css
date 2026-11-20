@@ -1,9 +1,9 @@
 .customer-profile-panel {
   margin-top: 12px;
   padding: 14px;
-  border: 1px solid var(--line, #e5e7eb);
+  border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--surface, #fff);
+  background: var(--surface);
 }
 .customer-profile-panel dl {
   display: grid;
@@ -63,7 +63,7 @@
 .customer-insight-sizes span {
   padding: 4px 8px;
   border-radius: 6px;
-  background: var(--line, #f0f1f3);
+  background: var(--line);
   font-size: 12px;
 }
 .customer-insight-card .customer-insight-meta {
@@ -77,7 +77,7 @@
   gap: 10px;
 }
 .customer-insight-actions > li {
-  border-top: 1px solid var(--line, #e5e7eb);
+  border-top: 1px solid var(--line);
   padding-top: 10px;
   overflow-wrap: anywhere;
 }
@@ -92,8 +92,8 @@
 }
 .customer-insight-note {
   padding: 8px;
-  background: #fff4d4;
-  color: #674c10;
+  background: var(--gold-soft);
+  color: var(--gold-ink);
   border-radius: 6px;
   font-size: 12px;
 }
@@ -115,8 +115,8 @@
   display: grid;
   place-items: center;
   text-align: center;
-  background: var(--line, #f0f1f3);
-  color: var(--muted, #6b7280);
+  background: var(--line);
+  color: var(--muted);
 }
 .customer-insight-stock {
   overflow-x: auto;

@@ -6,7 +6,7 @@
   font-size: 12px;
 }
 .checkout-quote-summary dt {
-  color: #5f6a58;
+  color: var(--gray-700);
 }
 .checkout-quote-summary dd {
   margin: 0;

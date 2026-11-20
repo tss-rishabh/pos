@@ -71,8 +71,8 @@ function MonthlyChart({ history }: { history: History }) {
         aria-label={`Monthly order counts from ${history.year}, including future-year source data`}
       >
         <title>Monthly order counts</title>
-        <line x1="45" x2="780" y1="215" y2="215" stroke="#d8ddd5" />
-        <line x1="45" x2="45" y1="30" y2="215" stroke="#d8ddd5" />
+        <line x1="45" x2="780" y1="215" y2="215" style={{ stroke: 'var(--gray-300)' }} />
+        <line x1="45" x2="45" y1="30" y2="215" style={{ stroke: 'var(--gray-300)' }} />
         {history.months.map((month, index) => (
           <text
             key={month}
@@ -80,19 +80,19 @@ function MonthlyChart({ history }: { history: History }) {
             y="242"
             fontSize="12"
             textAnchor="middle"
-            fill="#667163"
+            style={{ fill: 'var(--gray-600)' }}
           >
             {month}
           </text>
         ))}
-        <text x="40" y="24" textAnchor="start" fontSize="11" fill="#667163">
+        <text x="40" y="24" textAnchor="start" fontSize="11" style={{ fill: 'var(--gray-600)' }}>
           {formatted(maximum.toString())}
         </text>
         {visible.map((item, index) => (
           <polyline
             key={item.id}
             fill="none"
-            stroke={['#4e715a', '#d9523f', '#86724e', '#526c83'][index % 4]}
+            style={{ stroke: seriesColours[index % seriesColours.length] }}
             strokeWidth="2"
             points={item.counts.map((value, month) => `${55 + month * 65},${y(value)}`).join(' ')}
           >
@@ -126,6 +126,9 @@ function MonthlyChart({ history }: { history: History }) {
     </>
   );
 }
+/** Chart series in brand order: primary red, then teal, purple and gold from the secondary theme. */
+const seriesColours = ['var(--tss-red)', 'var(--teal)', 'var(--purple)', 'var(--gold-ink)'];
+
 export function DashboardPage({ user }: { user: Principal }) {
   const online = useOnline(),
     scope = useMemo(

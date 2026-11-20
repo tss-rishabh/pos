@@ -5,9 +5,9 @@
 .product-feedback-pending {
   margin-block: 1rem;
   padding: 1.25rem;
-  border: 1px solid var(--line, #dededb);
+  border: 1px solid var(--line);
   border-radius: 12px;
-  background: var(--panel, #fff);
+  background: var(--panel);
 }
 .product-feedback-item fieldset {
   border: 0;
@@ -41,7 +41,7 @@
 .product-feedback-item th,
 .product-feedback-item td {
   padding: 0.6rem;
-  border-bottom: 1px solid var(--line, #dededb);
+  border-bottom: 1px solid var(--line);
   overflow-wrap: anywhere;
 }
 @media (max-width: 760px) {
